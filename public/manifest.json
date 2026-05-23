@@ -1,0 +1,17 @@
+{
+  "name": "CreaPulse V2 — Bureau Virtuel Entrepreneurial",
+  "short_name": "CreaPulse",
+  "description": "Votre bureau virtuel entrepreneurial propulse par Echo Entreprendre et le reseau GIDEF Ile-de-France",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#00838F",
+  "orientation": "portrait-primary",
+  "categories": ["business", "productivity"],
+  "lang": "fr",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

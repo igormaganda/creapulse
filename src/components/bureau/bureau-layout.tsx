@@ -2,29 +2,46 @@
 
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import dynamic from 'next/dynamic'
 import { useBureauStore } from './bureau-store'
 import { Sidebar, MobileSidebar } from './sidebar'
 import { TopBar } from './topbar'
 import { Dashboard } from './dashboard'
 import { Welcome } from './welcome'
-import { RiasecModule } from './modules/riasec'
-import { MonProjet } from './modules/mon-projet'
 import { cn } from '@/lib/utils'
-import { CreaSim } from './modules/creasim'
-import { BusinessPlanModule } from './modules/business-plan'
-import { AnnuaireModule } from './modules/annuaire'
-import { ForumModule } from './modules/forum'
-import { ProfilCreateur } from './modules/profil-createur'
-import { KiviatModule } from './modules/kiviat'
-import { VisionModule } from './modules/vision'
-import { MarcheModule } from './modules/marche'
-import { JuridiqueModule } from './modules/juridique'
-import { FinancierModule } from './modules/financier'
-import { PitchDeckModule } from './modules/pitch-deck'
-import { Tremplin } from './modules/tremplin'
-import { Passeport } from './modules/passeport'
-import { Mentorat } from './modules/mentorat'
-import { Certifications } from './modules/certifications'
+
+/* ─── Dynamic imports for heavy modules (code splitting) ─── */
+function ModuleLoadingSkeleton() {
+  return (
+    <div className="flex items-center justify-center min-h-[60vh] p-8">
+      <div className="space-y-4 w-full max-w-md">
+        <div className="h-8 bg-muted animate-pulse rounded w-1/3" />
+        <div className="h-4 bg-muted animate-pulse rounded w-2/3" />
+        <div className="h-4 bg-muted animate-pulse rounded w-1/2" />
+        <div className="h-32 bg-muted animate-pulse rounded mt-6" />
+      </div>
+    </div>
+  )
+}
+
+const RiasecModule = dynamic(() => import('./modules/riasec').then(m => ({ default: m.RiasecModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const MonProjet = dynamic(() => import('./modules/mon-projet').then(m => ({ default: m.MonProjet })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const CreaSim = dynamic(() => import('./modules/creasim').then(m => ({ default: m.CreaSim })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const BusinessPlanModule = dynamic(() => import('./modules/business-plan').then(m => ({ default: m.BusinessPlanModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const AnnuaireModule = dynamic(() => import('./modules/annuaire').then(m => ({ default: m.AnnuaireModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const ForumModule = dynamic(() => import('./modules/forum').then(m => ({ default: m.ForumModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const MarcheModule = dynamic(() => import('./modules/marche').then(m => ({ default: m.MarcheModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const JuridiqueModule = dynamic(() => import('./modules/juridique').then(m => ({ default: m.JuridiqueModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const FinancierModule = dynamic(() => import('./modules/financier').then(m => ({ default: m.FinancierModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const PitchDeckModule = dynamic(() => import('./modules/pitch-deck').then(m => ({ default: m.PitchDeckModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const ProfilCreateur = dynamic(() => import('./modules/profil-createur').then(m => ({ default: m.ProfilCreateur })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const KiviatModule = dynamic(() => import('./modules/kiviat').then(m => ({ default: m.KiviatModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const VisionModule = dynamic(() => import('./modules/vision').then(m => ({ default: m.VisionModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const Tremplin = dynamic(() => import('./modules/tremplin').then(m => ({ default: m.Tremplin })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const Passeport = dynamic(() => import('./modules/passeport').then(m => ({ default: m.Passeport })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const Mentorat = dynamic(() => import('./modules/mentorat').then(m => ({ default: m.Mentorat })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const Certifications = dynamic(() => import('./modules/certifications').then(m => ({ default: m.Certifications })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const MessagesModule = dynamic(() => import('./modules/messages').then(m => ({ default: m.MessagesModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -42,6 +59,7 @@ import {
   Presentation,
   Globe,
   MessageSquare,
+  MessageCircle,
   GraduationCap,
   Rocket,
   Stamp,
@@ -70,6 +88,7 @@ const moduleContent: Record<string, { title: string; description: string; icon: 
   'tremplin': { title: 'Tremplin', description: 'Accédez aux dispositifs d\'aide pour lancer votre activité.', icon: Rocket, color: 'text-primary bg-primary/10' },
   'passeport': { title: 'Passeport Entrepreneurial', description: 'Certifiez votre parcours et valorisez vos compétences.', icon: Stamp, color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' },
   'certifications': { title: 'Certifications', description: 'Consultez et gérez vos certifications obtenues.', icon: BadgeCheck, color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' },
+  'messages': { title: 'Messages', description: 'Communiquez avec votre conseiller et les autres créateurs.', icon: MessageCircle, color: 'text-teal-500 bg-teal-50 dark:bg-teal-900/20' },
 }
 
 /* ─── Section placeholder content ─── */
@@ -117,7 +136,7 @@ function SectionOverview({ sectionId }: { sectionId: string }) {
     const sectionMap: Record<string, string[]> = {
       parcours: ['profil-createur', 'mon-projet', 'vision', 'riasec', 'kiviat'],
       strategie: ['marche', 'juridique', 'financier', 'creasim', 'business-plan', 'pitch-deck'],
-      ecosysteme: ['annuaire', 'forum', 'mentorat'],
+      ecosysteme: ['annuaire', 'forum', 'messages', 'mentorat'],
       pilotage: ['tremplin', 'passeport', 'certifications'],
     }
     return sectionMap[sectionId]?.includes(Object.keys(moduleContent).find(k => moduleContent[k] === v) || '')
@@ -198,7 +217,8 @@ function BureauContent() {
         {currentModule === 'passeport' && <Passeport />}
         {currentModule === 'mentorat' && <Mentorat />}
         {currentModule === 'certifications' && <Certifications />}
-        {currentSection !== 'dashboard' && currentModule && currentModule !== 'riasec' && currentModule !== 'mon-projet' && currentModule !== 'creasim' && currentModule !== 'business-plan' && currentModule !== 'annuaire' && currentModule !== 'forum' && currentModule !== 'marche' && currentModule !== 'juridique' && currentModule !== 'financier' && currentModule !== 'pitch-deck' && currentModule !== 'profil-createur' && currentModule !== 'kiviat' && currentModule !== 'vision' && currentModule !== 'tremplin' && currentModule !== 'passeport' && currentModule !== 'mentorat' && currentModule !== 'certifications' && <ModulePlaceholder moduleId={currentModule} />}
+        {currentModule === 'messages' && <MessagesModule />}
+        {currentSection !== 'dashboard' && currentModule && currentModule !== 'riasec' && currentModule !== 'mon-projet' && currentModule !== 'creasim' && currentModule !== 'business-plan' && currentModule !== 'annuaire' && currentModule !== 'forum' && currentModule !== 'marche' && currentModule !== 'juridique' && currentModule !== 'financier' && currentModule !== 'pitch-deck' && currentModule !== 'profil-createur' && currentModule !== 'kiviat' && currentModule !== 'vision' && currentModule !== 'tremplin' && currentModule !== 'passeport' && currentModule !== 'mentorat' && currentModule !== 'certifications' && currentModule !== 'messages' && <ModulePlaceholder moduleId={currentModule} />}
         {currentSection !== 'dashboard' && !currentModule && <SectionOverview sectionId={currentSection} />}
       </motion.div>
     </AnimatePresence>

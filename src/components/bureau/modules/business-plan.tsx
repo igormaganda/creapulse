@@ -55,6 +55,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { BusinessPlanPdf } from '@/components/bureau/export/business-plan-pdf'
 
 // ─── Section Definitions ─────────────────────
 
@@ -247,6 +248,7 @@ export function BusinessPlanModule() {
   const [isSaving, setIsSaving] = useState(false)
   const [aiLoading, setAiLoading] = useState<string | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [exportPdfOpen, setExportPdfOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [projectContext, setProjectContext] = useState<Record<string, string | null> | null>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -370,9 +372,9 @@ export function BusinessPlanModule() {
     }
   }, [sections, projectContext, updateSection])
 
-  // ─── Export PDF placeholder ──────────────
+  // ─── Export PDF ──────────────────────────
   const handleExportPdf = useCallback(() => {
-    toast.info('Export PDF — fonctionnalité bientôt disponible')
+    setExportPdfOpen(true)
   }, [])
 
   // ─── Section finder ─────────────────────
@@ -914,6 +916,13 @@ export function BusinessPlanModule() {
                 ))}
               </div>
             </ScrollArea>
+          </DialogContent>
+        </Dialog>
+
+        {/* ═══ Export PDF Dialog ═══ */}
+        <Dialog open={exportPdfOpen} onOpenChange={setExportPdfOpen}>
+          <DialogContent className="max-w-5xl max-h-[95vh] overflow-hidden flex flex-col p-0">
+            <BusinessPlanPdf onClose={() => setExportPdfOpen(false)} />
           </DialogContent>
         </Dialog>
       </motion.div>

@@ -1,113 +1,246 @@
+// ============================================
+// CreaPulse V2 — Conseiller Rapports
+// GET /api/conseiller/rapports — Statistics & reports
+// ============================================
+
 import { NextRequest } from 'next/server'
-import { success } from '@/lib/api-response'
-
-// Mock report data
-const monthlyData = {
-  period: 'mois',
-  kpis: {
-    entretiensRealises: 16,
-    beneficiairesActifs: 24,
-    livrablesValides: 8,
-    progressionMoyenne: 62,
-  },
-  entretiensParMois: [
-    { month: 'Sep', count: 12 },
-    { month: 'Oct', count: 18 },
-    { month: 'Nov', count: 15 },
-    { month: 'Dec', count: 10 },
-    { month: 'Jan', count: 22 },
-    { month: 'Fev', count: 16 },
-  ],
-  repartitionStatut: [
-    { name: 'Ideation', value: 6, color: '#F59E0B' },
-    { name: 'Structuration', value: 8, color: '#00838F' },
-    { name: 'Financement', value: 5, color: '#FF6B35' },
-    { name: 'Lancement', value: 3, color: '#059669' },
-    { name: 'Developpement', value: 2, color: '#7C3AED' },
-  ],
-  progressionMoyenne: [
-    { month: 'Sep', moyenne: 42 },
-    { month: 'Oct', moyenne: 48 },
-    { month: 'Nov', moyenne: 52 },
-    { month: 'Dec', moyenne: 55 },
-    { month: 'Jan', moyenne: 58 },
-    { month: 'Fev', moyenne: 62 },
-  ],
-  topBeneficiaires: [
-    { id: 'b1', name: 'Amadou Diallo', initials: 'AD', progress: 85, lastActivity: 'Il y a 2 jours', status: 'Lancement' },
-    { id: 'b2', name: 'Lea Fontaine', initials: 'LF', progress: 78, lastActivity: 'Hier', status: 'Structuration' },
-    { id: 'b4', name: 'Clara Dubois', initials: 'CD', progress: 72, lastActivity: 'Il y a 3 jours', status: 'Financement' },
-    { id: 'b8', name: 'Fatima Hassani', initials: 'FH', progress: 68, lastActivity: "Aujourd'hui", status: 'Structuration' },
-    { id: 'b5', name: 'Karim Benali', initials: 'KB', progress: 65, lastActivity: 'Il y a 5 jours', status: 'Lancement' },
-    { id: 'b10', name: 'Nadia Bouzid', initials: 'NB', progress: 60, lastActivity: 'Il y a 1 jour', status: 'Structuration' },
-    { id: 'b3', name: 'Marc Renaud', initials: 'MR', progress: 55, lastActivity: 'Il y a 4 jours', status: 'Ideation' },
-    { id: 'b7', name: 'Thomas Leroy', initials: 'TL', progress: 48, lastActivity: 'Il y a 1 semaine', status: 'Ideation' },
-  ],
-}
-
-const quarterlyData = {
-  period: 'trimestre',
-  kpis: {
-    entretiensRealises: 50,
-    beneficiairesActifs: 24,
-    livrablesValides: 18,
-    progressionMoyenne: 58,
-  },
-  entretiensParMois: [
-    { month: 'T2 2024', count: 42 },
-    { month: 'T3 2024', count: 45 },
-    { month: 'T4 2024', count: 38 },
-    { month: 'T1 2025', count: 50 },
-  ],
-  repartitionStatut: monthlyData.repartitionStatut,
-  progressionMoyenne: [
-    { month: 'T2 2024', moyenne: 35 },
-    { month: 'T3 2024', moyenne: 42 },
-    { month: 'T4 2024', moyenne: 50 },
-    { month: 'T1 2025', moyenne: 58 },
-  ],
-  topBeneficiaires: monthlyData.topBeneficiaires,
-}
-
-const yearlyData = {
-  period: 'annee',
-  kpis: {
-    entretiensRealises: 50,
-    beneficiairesActifs: 24,
-    livrablesValides: 34,
-    progressionMoyenne: 58,
-  },
-  entretiensParMois: [
-    { month: '2020', count: 120 },
-    { month: '2021', count: 156 },
-    { month: '2022', count: 180 },
-    { month: '2023', count: 195 },
-    { month: '2024', count: 210 },
-    { month: '2025', count: 50 },
-  ],
-  repartitionStatut: monthlyData.repartitionStatut,
-  progressionMoyenne: [
-    { month: '2020', moyenne: 28 },
-    { month: '2021', moyenne: 32 },
-    { month: '2022', moyenne: 38 },
-    { month: '2023', moyenne: 45 },
-    { month: '2024', moyenne: 52 },
-    { month: '2025', moyenne: 58 },
-  ],
-  topBeneficiaires: monthlyData.topBeneficiaires,
-}
-
-const periodMap: Record<string, typeof monthlyData> = {
-  mois: monthlyData,
-  trimestre: quarterlyData,
-  annee: yearlyData,
-}
+import { db } from '@/lib/db'
+import { success, Errors, handleApiError } from '@/lib/api-response'
+import { getCounselor, AuthRequiredError, AuthForbiddenError, AuthNotFoundError } from '../_lib/auth'
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const period = searchParams.get('period') || 'mois'
+  try {
+    const { counselor } = await getCounselor(request)
 
-  const data = periodMap[period] || monthlyData
+    // Parse query params
+    const { searchParams } = new URL(request.url)
+    const period = searchParams.get('period') || 'mois' // mois | trimestre | annee
 
-  return success(data, `Rapport ${period}`)
+    // Calculate date range based on period
+    const now = new Date()
+    let startDate: Date
+
+    switch (period) {
+      case 'trimestre':
+        startDate = new Date(now.getFullYear(), now.getMonth() - 3, 1)
+        break
+      case 'annee':
+        startDate = new Date(now.getFullYear() - 1, now.getMonth(), 1)
+        break
+      default: // mois
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+    }
+
+    // Get assigned beneficiary IDs
+    const assignments = await db.counselorAssignment.findMany({
+      where: {
+        counselorId: counselor.id,
+        status: 'ACTIVE',
+      },
+      select: { beneficiaryId: true },
+    })
+
+    const beneficiaryIds = assignments.map((a) => a.beneficiaryId)
+
+    // ─── KPIs ───────────────────────────────
+
+    const [entretiensRealises, livrablesValides] = await Promise.all([
+      // Completed appointments in period
+      db.appointment.count({
+        where: {
+          counselorId: counselor.id,
+          status: 'COMPLETED',
+          completedAt: { gte: startDate, lte: now },
+        },
+      }),
+      // Validated livrables in period
+      db.livrable.count({
+        where: {
+          counselorId: counselor.id,
+          status: 'VALIDATED',
+          createdAt: { gte: startDate, lte: now },
+        },
+      }),
+    ])
+
+    let progressionMoyenne = 0
+    if (beneficiaryIds.length > 0) {
+      const avgResult = await db.beneficiary.aggregate({
+        where: { id: { in: beneficiaryIds } },
+        _avg: { progressScore: true },
+      })
+      progressionMoyenne = Math.round(avgResult._avg.progressScore ?? 0)
+    }
+
+    // ─── Beneficiaires par phase ─────────────
+
+    const phaseLabels: Record<string, string> = {
+      DISCOVERY: 'Découverte',
+      PROFILING: 'Profilage',
+      MODELING: 'Modélisation',
+      STRATEGY: 'Stratégie',
+      ECOSYSTEM: 'Écosystème',
+      LAUNCH: 'Lancement',
+      POST_CREATION: 'Post-création',
+    }
+
+    const phaseColors: Record<string, string> = {
+      DISCOVERY: '#F59E0B',
+      PROFILING: '#00838F',
+      MODELING: '#00838F',
+      STRATEGY: '#FF6B35',
+      ECOSYSTEM: '#059669',
+      LAUNCH: '#059669',
+      POST_CREATION: '#7C3AED',
+    }
+
+    let repartitionStatut: { name: string; value: number; color: string }[] = []
+    if (beneficiaryIds.length > 0) {
+      const journeysByPhase = await db.creatorJourney.groupBy({
+        by: ['currentPhase'],
+        where: { userId: { in: beneficiaryIds } },
+        _count: { currentPhase: true },
+      })
+
+      repartitionStatut = journeysByPhase.map((p) => ({
+        name: phaseLabels[p.currentPhase] || p.currentPhase,
+        value: p._count.currentPhase,
+        color: phaseColors[p.currentPhase] || '#94A3B8',
+      }))
+    }
+
+    // ─── Entretiens par type (this period) ───
+
+    const entretiensParType = await db.appointment.groupBy({
+      by: ['type'],
+      where: {
+        counselorId: counselor.id,
+        createdAt: { gte: startDate, lte: now },
+      },
+      _count: { type: true },
+    })
+
+    const typeLabels: Record<string, string> = {
+      BILAN: 'Bilan',
+      FOLLOW_UP: 'Suivi',
+      WORKSHOP: 'Atelier',
+      OTHER: 'Autre',
+    }
+
+    const entretiensParTypeFormatted = entretiensParType.map((t) => ({
+      type: typeLabels[t.type] || t.type,
+      count: t._count.type,
+    }))
+
+    // ─── Livrables par statut ────────────────
+
+    const livrablesParStatut = await db.livrable.groupBy({
+      by: ['status'],
+      where: {
+        counselorId: counselor.id,
+      },
+      _count: { status: true },
+    })
+
+    const livrableStatusLabels: Record<string, string> = {
+      DRAFT: 'Brouillon',
+      GENERATING: 'En génération',
+      READY: 'Prêt',
+      VALIDATED: 'Validé',
+      EXPORTED: 'Exporté',
+    }
+
+    const livrablesParStatutFormatted = livrablesParStatut.map((l) => ({
+      statut: livrableStatusLabels[l.status] || l.status,
+      count: l._count.status,
+    }))
+
+    // ─── Monthly activity trend (last 6 months) ──
+
+    const trendMonths: { month: string; entretiens: number; inscriptions: number }[] = []
+    const moisLabels = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc']
+
+    for (let i = 5; i >= 0; i--) {
+      const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59)
+
+      const [monthEntretiens, monthInscriptions] = await Promise.all([
+        db.appointment.count({
+          where: {
+            counselorId: counselor.id,
+            status: 'COMPLETED',
+            completedAt: { gte: monthStart, lte: monthEnd },
+          },
+        }),
+        db.counselorAssignment.count({
+          where: {
+            counselorId: counselor.id,
+            assignedAt: { gte: monthStart, lte: monthEnd },
+          },
+        }),
+      ])
+
+      trendMonths.push({
+        month: `${moisLabels[monthStart.getMonth()]} ${monthStart.getFullYear().toString().slice(2)}`,
+        entretiens: monthEntretiens,
+        inscriptions: monthInscriptions,
+      })
+    }
+
+    // ─── Top beneficiaires ──────────────────
+
+    let topBeneficiaires: { id: string; name: string; initials: string; progress: number; lastActivity: string; phase: string }[] = []
+    if (beneficiaryIds.length > 0) {
+      const topBeneficiariesData = await db.beneficiary.findMany({
+        where: { id: { in: beneficiaryIds } },
+        orderBy: { progressScore: 'desc' },
+        take: 8,
+        include: {
+          user: {
+            select: {
+              firstName: true,
+              lastName: true,
+              creatorJourney: {
+                select: { currentPhase: true },
+              },
+            },
+          },
+        },
+      })
+
+      topBeneficiaires = topBeneficiariesData.map((b) => {
+        const journey = b.user.creatorJourney
+        return {
+          id: b.id,
+          name: `${b.user.firstName || ''} ${b.user.lastName || ''}`.trim(),
+          initials: `${(b.user.firstName || '')[0] || ''}${(b.user.lastName || '')[0] || ''}`.toUpperCase(),
+          progress: b.progressScore,
+          lastActivity: b.updatedAt.toISOString(),
+          phase: journey ? (phaseLabels[journey.currentPhase] || journey.currentPhase) : '',
+        }
+      })
+    }
+
+    const data = {
+      period,
+      kpis: {
+        entretiensRealises,
+        beneficiairesActifs: beneficiaryIds.length,
+        livrablesValides,
+        progressionMoyenne,
+      },
+      repartitionStatut,
+      entretiensParType: entretiensParTypeFormatted,
+      livrablesParStatut: livrablesParStatutFormatted,
+      trendMois: trendMonths,
+      topBeneficiaires,
+    }
+
+    return success(data, `Rapport ${period}`)
+  } catch (err) {
+    if (err instanceof AuthRequiredError) return Errors.unauthorized(err.message)
+    if (err instanceof AuthForbiddenError) return Errors.forbidden(err.message)
+    if (err instanceof AuthNotFoundError) return Errors.notFound('Profil conseiller')
+    return handleApiError(err)
+  }
 }

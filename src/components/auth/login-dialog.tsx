@@ -75,7 +75,7 @@ export function LoginDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-card sm:max-w-md">
+      <DialogContent className="glass-card sm:max-w-md" aria-label="Connexion">
         <DialogHeader className="pb-2">
           {/* Logo header */}
           <div className="mx-auto mb-2 flex items-center gap-2 sm:mx-0">
@@ -107,6 +107,7 @@ export function LoginDialog({
                 className="pl-10"
                 disabled={loading}
                 autoComplete="email"
+                autoFocus
               />
             </div>
           </div>
@@ -119,6 +120,7 @@ export function LoginDialog({
                 type="button"
                 className="text-xs font-medium text-primary hover:underline"
                 onClick={() => toast.info('Contactez votre agence GIDEF pour reinitialiser votre mot de passe.')}
+                aria-label="Mot de passe oublie"
               >
                 Mot de passe oublie ?
               </button>
@@ -139,6 +141,7 @@ export function LoginDialog({
                 type="button"
                 className="absolute top-1/2 right-3 -translate-y-1/2 text-xs font-medium text-muted-foreground hover:text-foreground"
                 onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
               >
                 {showPassword ? 'Masquer' : 'Afficher'}
               </button>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import {
@@ -45,6 +45,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { DemoBadge } from '@/lib/hooks/use-api-data'
 
 // ─── Types ──────────────────────────────────
 
@@ -413,14 +414,21 @@ const MOCK_ACTORS: Actor[] = [
   },
 ]
 
+// ─── Reduced Fallback (3-4 items) ──────────
+
+const FALLBACK_ACTORS: Actor[] = [
+  MOCK_ACTORS[0],
+  MOCK_ACTORS[1],
+  MOCK_ACTORS[2],
+  MOCK_ACTORS[4],
+]
+
 // ─── Component ──────────────────────────────
 
 export function AnnuaireModule() {
   // State
-  const [actors, setActors] = useState<Actor[]>(MOCK_ACTORS)
-  const [featuredActors, setFeaturedActors] = useState<Actor[]>(
-    MOCK_ACTORS.filter((a) => a.featured)
-  )
+  const [actors, setActors] = useState<Actor[]>([])
+  const [featuredActors, setFeaturedActors] = useState<Actor[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTypes, setSelectedTypes] = useState<ActorType[]>([])
   const [selectedCity, setSelectedCity] = useState<string>('')
@@ -439,9 +447,89 @@ export function AnnuaireModule() {
     }
     return new Set()
   })
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [isFallback, setIsFallback] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [visibleCount, setVisibleCount] = useState(12)
+  const [isFetching, setIsFetching] = useState(false)
+
+  // Fetch actors from API on mount or when filters change
+  const fetchActors = useCallback(async (query: string, types: ActorType[], city: string, append: boolean = false) => {
+    setIsFetching(true)
+    try {
+      const params = new URLSearchParams()
+      if (query.trim()) params.set('search', query.trim())
+      if (types.length === 1) params.set('type', types[0])
+      if (city) params.set('city', city)
+      params.set('limit', '50')
+
+      const res = await fetch(`/api/annuaire?${params.toString()}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const json = await res.json()
+      if (json.success && json.data?.actors?.length > 0) {
+        const apiActors: Actor[] = json.data.actors.map((a: Record<string, unknown>) => ({
+          id: a.id as string,
+          name: a.name as string,
+          type: a.type as ActorType,
+          category: (a.category as string) ?? null,
+          city: (a.city as string) ?? '',
+          region: (a.region as string) ?? null,
+          address: (a.address as string) ?? null,
+          phone: (a.phone as string) ?? null,
+          email: (a.email as string) ?? null,
+          website: (a.website as string) ?? null,
+          description: (a.description as string) ?? null,
+          services: (a.services as string[]) ?? null,
+          featured: (a.featured as boolean) ?? false,
+          successRate: (a.successRate as number) ?? null,
+        }))
+        if (append) {
+          setActors((prev) => {
+            const existingIds = new Set(prev.map(a => a.id))
+            const newActors = apiActors.filter(a => !existingIds.has(a.id))
+            return [...prev, ...newActors]
+          })
+        } else {
+          setActors(apiActors)
+          setFeaturedActors(apiActors.filter((a: Actor) => a.featured))
+        }
+        setIsFallback(false)
+      } else {
+        if (!append) {
+          setActors(FALLBACK_ACTORS)
+          setFeaturedActors(FALLBACK_ACTORS.filter((a: Actor) => a.featured))
+          setIsFallback(true)
+        }
+      }
+    } catch {
+      if (!append) {
+        setActors(FALLBACK_ACTORS)
+        setFeaturedActors(FALLBACK_ACTORS.filter((a: Actor) => a.featured))
+        setIsFallback(true)
+      }
+    } finally {
+      setLoading(false)
+      setIsFetching(false)
+    }
+  }, [])
+
+  // Initial load
+  useEffect(() => {
+    fetchActors('', [], '')
+  }, [fetchActors])
+
+  // Re-fetch when filters change
+  const filterTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    if (filterTimeoutRef.current) clearTimeout(filterTimeoutRef.current)
+    filterTimeoutRef.current = setTimeout(() => {
+      fetchActors(searchQuery, selectedTypes, selectedCity)
+      setVisibleCount(12)
+    }, 300)
+    return () => {
+      if (filterTimeoutRef.current) clearTimeout(filterTimeoutRef.current)
+    }
+  }, [searchQuery, selectedTypes, selectedCity, fetchActors])
 
   // Filter actors
   const filteredActors = useMemo(() => {
@@ -484,9 +572,11 @@ export function AnnuaireModule() {
     return result
   }, [featuredActors, selectedTypes, selectedCity])
 
-  // Toggle favorite
+  // Toggle favorite (local + API)
   const toggleFavorite = useCallback(
-    (actorId: string) => {
+    async (actorId: string) => {
+      const isCurrentlyFavorite = favoriteIds.has(actorId)
+      // Optimistic update
       setFavoriteIds((prev) => {
         const next = new Set(prev)
         if (next.has(actorId)) {
@@ -499,8 +589,34 @@ export function AnnuaireModule() {
         localStorage.setItem('annuaire-favorites', JSON.stringify([...next]))
         return next
       })
+      // Try API call
+      try {
+        const token = localStorage.getItem('creapulse-token')
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+        if (token) headers['Authorization'] = `Bearer ${token}`
+        const res = await fetch('/api/annuaire/favorites', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ actorId }),
+        })
+        if (res.ok) {
+          const json = await res.json()
+          // Server confirmed, our optimistic update is correct
+        } else {
+          // Revert on error
+          setFavoriteIds((prev) => {
+            const next = new Set(prev)
+            if (isCurrentlyFavorite) next.add(actorId)
+            else next.delete(actorId)
+            localStorage.setItem('annuaire-favorites', JSON.stringify([...next]))
+            return next
+          })
+        }
+      } catch {
+        // Keep optimistic update even if API fails (localStorage is the source of truth)
+      }
     },
-    []
+    [favoriteIds]
   )
 
   // Toggle type filter
@@ -530,10 +646,13 @@ export function AnnuaireModule() {
     >
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Building2 className="h-6 w-6 text-primary" />
-          Annuaire de l&apos;Écosystème
-        </h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <Building2 className="h-6 w-6 text-primary" />
+            Annuaire de l&apos;Écosystème
+          </h2>
+          {isFallback && <DemoBadge />}
+        </div>
         <p className="mt-1 text-muted-foreground">
           Explorez les acteurs de l&apos;écosystème entrepreneurial en Île-de-France
         </p>
@@ -551,6 +670,7 @@ export function AnnuaireModule() {
               setVisibleCount(12)
             }}
             className="pl-9 h-10"
+            disabled={isFetching}
           />
           {searchQuery && (
             <button
@@ -741,6 +861,7 @@ export function AnnuaireModule() {
         <p className="text-sm text-muted-foreground">
           {filteredActors.length} acteur{filteredActors.length !== 1 ? 's' : ''} trouvé
           {filteredActors.length !== 1 ? 's' : ''}
+          {isFetching && <span className="ml-2 inline-block h-3 w-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />}
         </p>
         {filteredActors.length > 0 && (
           <div className="flex items-center gap-1 text-xs text-muted-foreground">

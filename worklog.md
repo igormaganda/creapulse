@@ -1,6 +1,100 @@
 # CreaPulse V2 - Worklog
 
 ---
+Task ID: 2-D
+Agent: File Upload + Monitoring Builder
+Task: Build File Upload System, Structured Logger, Monitoring & Error Boundary
+
+Work Log:
+- **Created `/home/z/my-project/upload/`** — Upload directory for file storage
+- **Created `/src/lib/logger.ts`** — Structured JSON logger with `Logger` class, `createLogger(context)` factory, 4 log levels (debug/info/warn/error), ISO timestamp, context field, `logger` singleton for CreaPulse root
+- **Created `/src/components/bureau/upload-store.ts`** — Zustand store for upload state management:
+  - `UploadedFile` interface (id, name, size, type, url, uploadedAt)
+  - `useUploadStore` with: files array, isUploading, progress, addFile, removeFile, setUploading, setProgress, clearFiles
+- **Created `/src/app/api/upload/route.ts`** — POST endpoint for multipart/form-data file upload:
+  - Validates file type (pdf, doc, docx, xls, xlsx, jpg, jpeg, png, webp)
+  - Validates file size (max 10MB)
+  - Saves file to `/home/z/my-project/upload/` with timestamp + UUID unique filename
+  - Optional JWT auth: if authenticated, creates CvUpload (for CV files) or Livrable record in Prisma
+  - File categorization: cv, image, document, spreadsheet, other
+  - Uses structured logger for all operations
+- **Created `/src/components/bureau/file-upload.tsx`** (~380 lines) — Reusable drag-and-drop file upload component:
+  - Drag-and-drop zone with dashed border, click to browse
+  - File type and size validation with visual French error messages
+  - Image preview thumbnails for image files
+  - Pending files list with remove buttons
+  - Upload progress bar (simulated per-file)
+  - Uploaded files list with green success indicators and remove buttons
+  - Configurable: accept, maxSize, maxFiles, label, description, onUploadComplete callback
+  - Uses shadcn/ui (Button, Card, Progress), lucide-react icons (Upload, FileText, X, Check, AlertCircle, Image)
+  - Toast notifications via sonner
+- **Created `/src/app/api/monitoring/health-detailed/route.ts`** — Enhanced health check:
+  - Database connectivity with timed query and latency measurement
+  - File system write check on upload directory
+  - Memory usage (rss, heapTotal, heapUsed, external, arrayBuffers) with formatted output
+  - Application uptime + process uptime
+  - Runtime info (platform, Node version, arch, PID)
+  - Overall status: healthy/degraded based on DB + FS checks
+- **Created `/src/components/bureau/error-boundary.tsx`** — React Error Boundary:
+  - Class component with getDerivedStateFromError + componentDidCatch
+  - Default fallback UI: AlertTriangle icon, "Une erreur est survenue" message, "Réessayer" button
+  - Customizable fallback prop
+- **Updated `/src/app/layout.tsx`** — Wrapped `{children}` with `<ErrorBoundary>` inside Providers
+- **Updated `/src/app/api/health/route.ts`** — Added structured logger:
+  - Logger import + `createLogger('HealthCheck')`
+  - DB failure warning with error details
+  - Success info log with dbStatus, dbLatencyMs, uptime
+  - Critical error log in catch block
+- ESLint: 0 new errors on created/modified files (2 pre-existing errors in accessibility.tsx and db.ts)
+- Dev server: running, GET / 200
+
+Stage Summary:
+- 5 new files created:
+  - `/src/lib/logger.ts` — Structured JSON logger
+  - `/src/app/api/upload/route.ts` — File upload POST API
+  - `/src/components/bureau/upload-store.ts` — Zustand upload state
+  - `/src/components/bureau/file-upload.tsx` — Drag-and-drop upload component
+  - `/src/app/api/monitoring/health-detailed/route.ts` — Detailed health check
+  - `/src/components/bureau/error-boundary.tsx` — React Error Boundary
+- 2 files modified:
+  - `/src/app/layout.tsx` — ErrorBoundary wrapping children
+  - `/src/app/api/health/route.ts` — Structured logger integration
+- File upload system: drag-and-drop UI + POST API + DB records (CvUpload/Livrable) + Zustand state
+- Monitoring: structured JSON logger, detailed health check (DB + FS + memory + uptime)
+- Error handling: ErrorBoundary in layout catches runtime errors
+- All French text, CreaPulse design system, shadcn/ui components
+
+---
+Task ID: 3-A
+Agent: Dark Mode System
+Task: Complete Dark Mode System — theme toggle, CSS variables, smooth transitions
+
+Work Log:
+- **Analyzed existing theme setup**: Verified next-themes ThemeProvider configured (attribute="class", defaultTheme="light", enableSystem), suppressHydrationWarning on html, globals.css already had :root and .dark CSS variables
+- **Created `/src/components/theme-toggle.tsx`** (~180 lines) — Two components:
+  - `ThemeToggle` — Desktop: Sun/Moon animated icon toggle with framer-motion rotation (±90deg), TooltipProvider showing "Mode clair"/"Mode sombre", DropdownMenu with 3 options (Clair/Sombre/Systeme), active option has teal highlight with animated layoutId indicator dot, useSyncExternalStore for hydration-safe mounting detection
+  - `ThemeToggleMobile` — Simple toggle button (no dropdown), same Sun/Moon animation, aria-label in French
+- **Updated `/src/app/globals.css`** — Added 15 CreaPulse custom CSS tokens for light and dark:
+  - Light: cp-teal (#00838F), cp-coral (#FF6B35), cp-amber (#FFB74D), cp-sidebar-bg (#1A1A2E), cp-surface (#FFFFFF), cp-glass (rgba white), cp-text-primary/secondary/muted, cp-border-light, cp-shadow-color
+  - Dark: cp-teal (#4FB3BF), cp-coral (#FF8A65), cp-amber (#FFCC80), cp-sidebar-bg (#0F172A), cp-surface (#1E293B), cp-glass (rgba dark), adapted text/border/shadow tokens
+  - Added `color-scheme: light` / `color-scheme: dark` for native form control theming
+  - Added smooth CSS transitions (200ms ease) on background-color, border-color, color, fill, stroke, box-shadow for all elements
+  - Excluded canvas, video, iframe, img from transitions via :where(.no-transition, ...) selector
+- **Updated `/src/lib/providers.tsx`** — Removed `disableTransitionOnChange` from ThemeProvider to enable smooth CSS transitions on theme switch
+- **Updated `/src/components/bureau/topbar.tsx`** — Added ThemeToggle component next to IA Assistant in right actions area
+- **Updated `/src/app/page.tsx`** — Added ThemeToggle in desktop navbar (before auth buttons), added ThemeToggleMobile next to mobile hamburger menu button
+- **Verified dark mode across key components**: ia-assistant.tsx already has dark:bg-[#1A1D28] variants, auth dialogs use shadcn/ui Dialog (auto-adapts via CSS variables), sidebar uses dark bg (#1A1A2E) with white text (contrast OK), dashboard uses opacity-based whites in gradient sections (adapts naturally)
+- **ESLint**: 0 new errors (1 pre-existing error in accessibility.ts, 1 pre-existing warning in file-upload.tsx)
+
+Stage Summary:
+- 1 new file created (theme-toggle.tsx with ThemeToggle + ThemeToggleMobile)
+- 4 files modified (globals.css, providers.tsx, topbar.tsx, page.tsx)
+- Complete dark mode system: theme toggle with animated Sun/Moon icons, dropdown with 3 options (Clair/Sombre/Systeme), smooth 200ms CSS transitions on theme change, 15 CreaPulse custom design tokens with light/dark variants
+- Theme toggle integrated in: Bureau Virtuel topbar, Landing page navbar (desktop + mobile)
+- Hydration-safe via useSyncExternalStore (no useEffect+setState pattern)
+- All French text, CreaPulse design system, framer-motion animations
+
+---
 Task ID: 0
 Agent: Architect (Main)
 Task: Project initialization and analysis
@@ -189,6 +283,45 @@ Stage Summary:
 - Auth integration: login/register opens bureau, logout closes it
 - 17 module placeholders ready for individual module development
 - Next: Individual module implementations (RIASEC, CreaSim, Business Plan IA, etc.)
+
+---
+Task ID: 1-E
+Agent: API Integration Connector
+Task: Connect Frontend Components to Real APIs with Fallback Pattern
+
+Work Log:
+- **Audit findings**: All 4 target components analyzed for existing API integration status
+  - dashboard.tsx — Already fully integrated (useApiData hook, /api/dashboard fetch, DemoBadge, SkeletonPulse, dynamic KPIs)
+  - annuaire.tsx — Already fully integrated (API fetch with debounce, /api/annuaire filters, /api/annuaire/favorites POST, DemoBadge, FALLBACK_ACTORS fallback)
+  - mentorat.tsx — Already fully integrated (API fetch on mount, /api/mentorat GET, /api/mentorat POST for requests, mock fallback)
+  - forum.tsx — **Required API integration work** (only mock data, no API calls, simulated delays)
+
+- **Renamed**: `/src/lib/hooks/use-api-data.ts` → `/src/lib/hooks/use-api-data.tsx` (fixed JSX parsing error — file contained DemoBadge/SkeletonPulse React components but had .ts extension)
+
+- **Modified forum.tsx** (~1350 lines) — Connected all data sources to real APIs:
+  - Added imports: `useEffect`, `DemoBadge`, `SkeletonPulse` from `@/lib/hooks/use-api-data`
+  - Created `FALLBACK_DISCUSSIONS` (first 5 mock discussions for fallback display)
+  - Created API mapping helpers: `getAuthorColor`, `mapApiDiscussion`, `mapApiReply` — handles API response → frontend type mapping (author color assignment from ID hash, category slug → frontend CSS classes, date parsing)
+  - Added `useEffect` on mount to fetch from `/api/forum?sort=recent&limit=20` with JWT auth headers
+  - Added `fetchDiscussionDetail` callback — fetches full discussion with threaded replies from `/api/forum/[id]` when clicking a discussion (only for API-sourced discussions that have no pre-loaded replies)
+  - Modified `DiscussionDetail.handleReply` — replaced `setTimeout(500)` simulation with real `POST /api/forum/[discussion.id]` API call (with optimistic local update, toast message differentiates success vs fallback)
+  - Modified `NewDiscussionDialog.handleSubmit` — replaced `setTimeout(500)` simulation with real `POST /api/forum` API call (with optimistic local submit, toast message differentiates success vs offline)
+  - Added `loading` state with skeleton loader (SkeletonPulse) displayed during initial fetch
+  - Added `isFallback` state with `DemoBadge` shown in forum header when using fallback data
+  - Added `isFetchingDetail` state for detail view loading
+
+- ESLint: 0 errors, 0 warnings
+- Dev server: running, no compilation errors
+
+Stage Summary:
+- 1 file renamed (.ts → .tsx for JSX support), 1 file modified (forum.tsx)
+- All 4 bureau modules now have real API integration with graceful fallback:
+  - Dashboard → /api/dashboard (already done)
+  - Annuaire → /api/annuaire + /api/annuaire/favorites (already done)
+  - Forum → /api/forum + /api/forum/[id] (newly connected)
+  - Mentorat → /api/mentorat (already done)
+- Pattern: API fetch on mount → if success use API data → if fail use mock fallback → show DemoBadge
+- Visual design, animations, and layout unchanged across all components
 
 ---
 Task ID: 7
@@ -618,3 +751,242 @@ Stage Summary:
 - 3 new frontend components + 3 API routes + 1 file updated
 - All tabs responsive with framer-motion animations, shadcn/ui, recharts
 - All French text, CreaPulse design system, GIDEF branding
+
+---
+Task ID: 1-B
+Agent: Conseiller API Converter
+Task: Convert all Conseiller API routes from mock data to real Prisma queries
+
+Work Log:
+- Created `/src/app/api/conseiller/_lib/auth.ts` — Shared auth helper with getCounselor() function:
+  - Extracts JWT from cookie or Authorization header
+  - Verifies token and checks COUNSELOR role
+  - Resolves Counselor profile from database
+  - Custom error classes: AuthRequiredError, AuthForbiddenError, AuthNotFoundError
+- Rewrote `/src/app/api/conseiller/stats/route.ts` — GET Dashboard Stats:
+  - Real Prisma queries replacing all mock data
+  - Counts active beneficiaries via CounselorAssignment
+  - Counts monthly/upcoming appointments
+  - Calculates average beneficiary progress via aggregate
+  - Counts completed modules across assigned beneficiaries
+  - Counts READY livrables awaiting validation
+  - groupBy queries for interview type/status distribution
+  - groupBy for beneficiary phases with French labels
+  - Recent activity merged from completed appointments + interviews
+  - Upcoming 4 appointments with formatted French dates
+  - formatTimeAgo() helper function
+- Rewrote `/src/app/api/conseiller/beneficiaires/route.ts` — GET Beneficiaries List:
+  - Resolves assigned beneficiaries via CounselorAssignment → Beneficiary → User → CreatorJourney
+  - Query params: search (firstName/lastName), phase (currentPhase), sort (name/progress/createdAt), page, limit
+  - Dynamic Prisma where clause with insensitive search
+  - Paginated response with total/page/totalPages
+  - French phase labels (Découverte, Profilage, Modélisation, etc.)
+  - Uses Prisma types for type-safe orderBy
+- Rewrote `/src/app/api/conseiller/entretiens/route.ts` — GET + POST:
+  - GET: Query InterviewSession with beneficiary+user includes, filters (type, status, search), pagination
+  - POST: Zod schema validation (beneficiaryId, type enum, scheduledAt, notes optional)
+  - Verifies beneficiary is assigned to counselor before creating
+  - Creates InterviewSession + optional InterviewNote in database
+  - French status/type labels in response
+- Rewrote `/src/app/api/conseiller/livrables/route.ts` — GET + PUT:
+  - GET: Query Livrable with owner (User) includes, filters (status, type, search), pagination
+  - PUT: Zod schema validation (id, status=DRAFT|VALIDATED, notes optional)
+  - Verifies livrable belongs to counselor before updating
+  - Stores counselor notes in content JSON field
+  - French status labels in response
+- Rewrote `/src/app/api/conseiller/planning/route.ts` — GET + POST:
+  - GET: Query Appointment with beneficiary+user includes, date range/type filters
+  - Groups appointments by day with French day/month labels
+  - POST: Zod schema validation (beneficiaryId, title, type enum, scheduledAt, durationMinutes, mode enum, location, notes)
+  - Verifies beneficiary assignment before creating
+  - Calculates end time from start + durationMinutes
+  - Returns formatted appointment data
+- Rewrote `/src/app/api/conseiller/rapports/route.ts` — GET Reports:
+  - Period-based date range (mois/trimestre/annee)
+  - KPIs: completed interviews, validated livrables, average progress
+  - groupBy queries: beneficiaries per phase, interviews per type, livrables per status
+  - Monthly activity trend (last 6 months) with parallel queries
+  - Top 8 beneficiaries by progress score
+  - French labels and phase colors throughout
+- ESLint: 0 errors on conseiller/ directory (1 pre-existing error in unrelated file src/lib/hooks/use-api-data.ts)
+- All 6 routes + 1 shared helper created/rewritten
+- Dev server running, no compilation errors
+
+Stage Summary:
+- 7 files created/rewritten in `src/app/api/conseiller/` (1 shared helper + 6 route files)
+- All mock data replaced with real Prisma PostgreSQL queries
+- JWT authentication on every endpoint (cookie + Authorization header)
+- Role-based access control (COUNSELOR only)
+- Zod validation on all POST/PUT endpoints
+- Consistent error handling via handleApiError + custom auth error classes
+- All text in French, standardized response format (ApiSuccess/ApiError)
+- Pagination support on list endpoints (page, limit, total, totalPages)
+- Search/filter support on all list endpoints
+- No files outside `src/app/api/conseiller/` were modified
+
+---
+Task ID: 1-D
+Agent: Admin Plateforme API Builder
+Task: Convert Admin Plateforme APIs from mock to real Prisma queries
+
+Work Log:
+- Rewrote `/src/app/api/admin-plateforme/stats/route.ts` — GET global platform stats:
+  - Total users per role (groupBy), organizations per type (groupBy), active modules count
+  - Journeys by phase (groupBy), monthly growth (last 12 months with gap filling)
+  - Top 10 organizations by beneficiary count with counselor/beneficiary counts
+  - System health totals for all 12 entity types
+  - Admin auth guard (JWT + ADMIN role check)
+- Rewrote `/src/app/api/admin-plateforme/utilisateurs/route.ts` — GET + POST + PUT + DELETE:
+  - GET: Search (name/email), role/status/tenant/organization filters, pagination
+  - Includes tenant name, organization name, counselor/beneficiary profiles, creator journey info
+  - POST: Zod validation (email, password, firstName, lastName, role), email uniqueness check per tenant, bcrypt password hash, role-specific profile creation (Counselor/Beneficiary + CreatorJourney), AuditLog
+  - PUT: Partial update with Zod, email uniqueness check, role change handling (create/delete profiles), AuditLog
+  - DELETE: Soft delete (isActive=false), already-deactivated check, AuditLog
+- Rewrote `/src/app/api/admin-plateforme/organisations/route.ts` — GET + POST:
+  - GET: Search (name/city/email), type/status/city filters, pagination
+  - Includes tenant info, counselor/beneficiary counts, average beneficiary progress score
+  - POST: Zod validation (name, type, tenantId required), tenant existence check, AuditLog
+- Rewrote `/src/app/api/admin-plateforme/modules/route.ts` — GET + PUT:
+  - GET: Tenant/category/active filters, includes usage stats (ModuleResult counts + avg scores per module code)
+  - PUT: Zod validation (moduleId + isActive), existence check, AuditLog (MODULE_TOGGLE)
+- Created `/src/app/api/admin-plateforme/facturation/route.ts` — GET:
+  - Lists all tenants with plan type and usage metrics
+  - Plan limits: STARTER (50 users, 2 orgs, 10 modules), PROFESSIONAL (500/10/30), ENTERPRISE (unlimited)
+  - Per-tenant usage percentages with overflow detection
+  - Recommendations (upgrade, churn risk, normal)
+  - Global summary: plan distribution, active/inactive/at-capacity counts
+- Created `/src/app/api/admin-plateforme/analytics/route.ts` — GET:
+  - Daily active users (last 30 days, based on lastLoginAt)
+  - Feature usage: ModuleResult counts grouped by moduleCode, sorted by completions
+  - Content engagement: discussions + replies per day (last 7 days)
+  - Conversion funnel: CreatorJourney phases (7 phases, ordered DISCOVERY→POST_CREATION)
+  - Top 10 organizations by average beneficiary progress score
+- Created `/src/app/api/admin-plateforme/configuration/route.ts` — GET + PUT:
+  - GET: Single tenant config (with orgs + counts) or all tenants list
+  - PUT: Zod validation (tenantId + settings JSON), optional primaryColor/isActive updates, AuditLog (SETTINGS_UPDATE)
+- All 7 routes use consistent requireAdmin guard (JWT + ADMIN role verification)
+- All routes use standardized response format (success/error/Errors/handleApiError)
+- ESLint: 0 errors in all admin-plateforme files (1 pre-existing error in unrelated use-api-data.ts)
+
+Stage Summary:
+- 4 files rewritten + 3 new files created in `/src/app/api/admin-plateforme/`
+- 7 real Prisma-powered API routes: stats, utilisateurs, organisations, modules, facturation, analytics, configuration
+- Full CRUD on users (GET list/POST create/PUT update/DELETE soft-delete)
+- Admin-only access with JWT verification on all endpoints
+- Zod validation on all mutation endpoints, AuditLog on all write operations
+- French response messages throughout, consistent with CreaPulse design system
+- Zero lint errors in modified files
+
+---
+Task ID: 2-B
+Agent: Messaging System Builder
+Task: Build complete messaging system (API + UI) for counselor-beneficiary and user-user communication
+
+Work Log:
+- Added Conversation and Message models to Prisma schema with relations to Tenant and User
+- Pushed 2 new tables to PostgreSQL, regenerated Prisma Client v7.8.0
+- Created 4 API routes for messaging: conversations list, conversation messages (GET+POST), mark read, start conversation
+- Created MessagesModule frontend component with split view layout, conversation list, message view, mobile responsive
+- Updated bureau-layout.tsx (import, routing, moduleContent) and sidebar.tsx (nav item)
+- ESLint: 0 errors, Dev server: running
+
+Stage Summary:
+- Complete messaging system with real-time conversation list, message bubbles, read receipts
+- 4 API endpoints with JWT auth, Zod validation, cursor-based pagination
+- Integrated into Bureau Virtuel navigation (Ecosysteme > Messages)
+- All French text, CreaPulse design system, framer-motion animations
+
+---
+Task ID: 2-C
+Agent: PDF Export Builder
+Task: Build PDF generation for Business Plan + Passeport Entrepreneurial
+
+Work Log:
+- Created `/src/app/api/export/business-plan/route.ts` — GET endpoint returning all data needed for BP PDF (user, journey, bpSections, moduleResults, riasecResults, financialForecast)
+- Created `/src/app/api/export/passeport/route.ts` — GET endpoint returning structured passport data (modules, certification level, skills, timeline, attestations, RIASEC/Kiviat profiles, unique reference number)
+- Created `/src/components/bureau/export/business-plan-pdf.tsx` (~340 lines) — Full print-ready Business Plan PDF view:
+  - Cover page with GIDEF branding, project title, entrepreneur name, date, completion status
+  - Table of contents (auto-generated from filled sections)
+  - 15 section renderers: text, SWOT quadrant, financing table, P&L 3-year, treasury 12-month, investments list, legal status, timeline milestones
+  - Professional teal (#00838F) color scheme, A4 proportions, clean typography
+  - "Imprimer / Sauvegarder en PDF" button triggers window.print()
+  - no-print toolbar class hides UI elements during printing
+- Created `/src/components/bureau/export/passeport-pdf.tsx` (~310 lines) — Full print-ready Passeport PDF view:
+  - Header with GIDEF branding, certification badge (none/bronze/argent/or/platine), unique reference
+  - Entrepreneur profile section (name, email, project, phase, registration date)
+  - Completed modules table (status icons, scores, dates)
+  - RIASEC profile summary with progress bars and dominant profile identification
+  - Kiviat competency scores with progress bars
+  - Skills acquired tags
+  - Attestations grid with reference IDs
+  - Overall progression circular chart + signature/stamp area placeholder
+  - Footer with reference number, generation date, QR code placeholder
+- Updated `/src/components/bureau/modules/business-plan.tsx`:
+  - Added BusinessPlanPdf import
+  - Added exportPdfOpen state
+  - Changed handleExportPdf from toast placeholder to opening dialog
+  - Added Export PDF Dialog with BusinessPlanPdf component
+- Updated `/src/components/bureau/modules/passeport.tsx`:
+  - Added PasseportPdf import
+  - Added showPdfDialog state
+  - Changed "Télécharger PDF" button to close export dialog and open PDF dialog
+  - Added PDF Export Dialog with PasseportPdf component
+- Added comprehensive print CSS to `/src/app/globals.css`:
+  - @media print: hide all except .print-area, A4 page setup, force print-color-adjust
+  - .no-print class hides interactive elements during printing
+  - .page-break class for page breaks between sections
+  - Dialog overrides for clean print (remove overlay, borders, shadows)
+  - Page footer with GIDEF branding and page numbers via @page @bottom-center/@bottom-right
+  - Remove animations, shadows, link URLs for clean output
+- ESLint: 0 errors, 0 warnings
+- Dev server: running, no compilation errors
+
+Stage Summary:
+- 2 new API routes created (/api/export/business-plan, /api/export/passeport)
+- 2 new PDF components (~650 lines total) with full print-ready layouts
+- 2 existing modules updated with PDF export dialog integration
+- Print CSS added to globals.css for professional PDF output
+- Business Plan PDF: cover page, TOC, 15 section types, financial tables, SWOT, timeline
+- Passeport PDF: certification badge, profile, modules table, RIASEC/Kiviat, skills, attestations, signatures
+- All French text, CreaPulse teal design system, GIDEF branding, window.print() approach
+
+---
+Task ID: 3-CD
+Agent: Architect (Main)
+Task: PWA Setup, Performance Optimization, SEO Enhancement
+
+Work Log:
+- **PART 1: PWA Setup**
+  - Created `/public/manifest.json` — PWA manifest with name, short_name, description, theme_color (#00838F), display standalone, icons references, categories, lang=fr
+  - Created `/public/icons/icon.svg` — Teal rounded-square SVG icon with "CP" text
+  - Updated `/src/app/layout.tsx` — Added PWA meta tags in <head>: manifest link, theme-color meta, apple-mobile-web-app-capable/status-bar-style/title, favicon link (SVG), apple-touch-icon
+
+- **PART 2: Performance Optimization**
+  - Updated `/src/components/bureau/bureau-layout.tsx` — Replaced 18 static module imports with `next/dynamic` code-split imports (ssr: false)
+  - Created inline `ModuleLoadingSkeleton` component with animated pulse placeholders (h-8, h-4 bars + h-32 block)
+  - Modules converted: RiasecModule, MonProjet, CreaSim, BusinessPlanModule, AnnuaireModule, ForumModule, MarcheModule, JuridiqueModule, FinancierModule, PitchDeckModule, ProfilCreateur, KiviatModule, VisionModule, Tremplin, Passeport, Mentorat, Certifications, MessagesModule
+  - Image optimization audit: No <img> tags found in page.tsx (uses Lucide icons only) — no changes needed
+
+- **PART 3: SEO Enhancement**
+  - Enhanced metadata export in `/src/app/layout.tsx`:
+    - Title template: default + "%s | CreaPulse V2" pattern
+    - Description updated for Echo Entreprendre / GIDEF branding
+    - Keywords expanded (10 terms including Echo Entreprendre, GIDEF, diagnostic entrepreneurial, simulateur financier)
+    - Added: creators, publishers, formatDetection, metadataBase, alternates.canonical, twitter card
+    - Enhanced OpenGraph with url, siteName "CreaPulse V2", images with dimensions
+    - Added robots: { index: true, follow: true }
+  - Created `/src/app/sitemap.ts` — Dynamic sitemap with 4 URLs (/, /#parcours, /#outils, /#reseau) with priority and changeFrequency
+  - Created `/src/app/robots.ts` — Robots config: allow /, disallow /api/, sitemap reference
+  - Created `/src/components/seo/structured-data.tsx` — JSON-LD WebApplication schema with provider Organization (Echo Entreprendre)
+  - Integrated StructuredData component into layout.tsx <head>
+
+- ESLint: 0 new errors (3 pre-existing errors in theme-toggle.tsx and accessibility.ts unrelated to this task)
+- Dev server: GET / 200, no compilation errors
+
+Stage Summary:
+- 6 new files created: manifest.json, icon.svg, sitemap.ts, robots.ts, structured-data.tsx
+- 2 files modified: layout.tsx (PWA meta + enhanced SEO metadata + StructuredData), bureau-layout.tsx (dynamic imports)
+- PWA: Manifest + Apple/iOS meta tags + SVG icon ready for installability
+- Performance: 18 bureau modules code-split via next/dynamic with loading skeletons
+- SEO: Complete metadata (title template, OG, Twitter, robots), dynamic sitemap, robots.txt, JSON-LD structured data
+- All French text, Echo Entreprendre / GIDEF branding

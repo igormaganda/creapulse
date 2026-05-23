@@ -124,7 +124,7 @@ export function RegisterDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-card sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="glass-card sm:max-w-md max-h-[90vh] overflow-y-auto" aria-label="Creer un compte">
         <DialogHeader className="pb-2">
           {/* Logo header */}
           <div className="mx-auto mb-2 flex items-center gap-2 sm:mx-0">
@@ -157,6 +157,7 @@ export function RegisterDialog({
                   className="pl-10"
                   disabled={loading}
                   autoComplete="given-name"
+                  autoFocus
                 />
               </div>
             </div>
@@ -215,14 +216,15 @@ export function RegisterDialog({
                 type="button"
                 className="absolute top-1/2 right-3 -translate-y-1/2 text-xs font-medium text-muted-foreground hover:text-foreground"
                 onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
               >
                 {showPassword ? 'Masquer' : 'Afficher'}
               </button>
             </div>
             {/* Password strength bar */}
             {password.length > 0 && (
-              <div className="space-y-1">
-                <div className="flex gap-1">
+              <div className="space-y-1" role="status" aria-label={`Force du mot de passe : ${pwStrength.label}`}>
+                <div className="flex gap-1" role="progressbar" aria-valuenow={pwStrength.score} aria-valuemin={0} aria-valuemax={5}>
                   {[1, 2, 3, 4, 5].map((level) => (
                     <div
                       key={level}

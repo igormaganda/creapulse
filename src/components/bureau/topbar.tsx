@@ -1,15 +1,14 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { motion } from 'framer-motion'
 import { useBureauStore } from './bureau-store'
 import { cn } from '@/lib/utils'
 import { IAAssistant } from './ia-assistant'
+import { NotificationsPanel } from './notifications-panel'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,13 +27,10 @@ import {
 } from '@/components/ui/breadcrumb'
 import {
   Search,
-  Bell,
   Menu,
   User,
   Settings,
   LogOut,
-  Home,
-  ChevronRight,
 } from 'lucide-react'
 
 /* ─── Section & module label maps ─── */
@@ -159,47 +155,14 @@ export function TopBar({ onMenuClick }: TopBarProps) {
 
       {/* Right actions */}
       <div className="flex items-center gap-1">
+        {/* Theme toggle */}
+        <ThemeToggle />
+
         {/* IA Assistant */}
         <IAAssistant />
 
-        {/* Notification bell */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative h-9 w-9"
-              aria-label="Notifications"
-            >
-              <Bell className="h-4 w-4" />
-              <Badge className="absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[10px] flex items-center justify-center bg-coral-500 border-0 text-white">
-                3
-              </Badge>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel className="flex items-center justify-between">
-              Notifications
-              <Badge variant="secondary" className="text-[10px]">3 nouvelles</Badge>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 cursor-pointer">
-              <p className="text-sm font-medium">Rappel de rendez-vous</p>
-              <p className="text-xs text-muted-foreground">RDV Conseil demain à 14h — GIDEF Paris</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Il y a 2h</p>
-            </DropdownMenuItem>
-            <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 cursor-pointer">
-              <p className="text-sm font-medium">Module RIASEC terminé</p>
-              <p className="text-xs text-muted-foreground">Votre profil entrepreneurial est disponible</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Il y a 1 jour</p>
-            </DropdownMenuItem>
-            <DropdownMenuItem className="flex flex-col items-start gap-1 p-3 cursor-pointer">
-              <p className="text-sm font-medium">Nouveau mentor disponible</p>
-              <p className="text-xs text-muted-foreground">Un mentor en marketing digital est disponible</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Il y a 3 jours</p>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Notification bell — real panel */}
+        <NotificationsPanel />
 
         {/* User menu */}
         <DropdownMenu>

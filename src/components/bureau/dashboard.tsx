@@ -34,6 +34,7 @@ import {
   BarChart3,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { useApiData, DemoBadge, SkeletonPulse } from '@/lib/hooks/use-api-data'
 
 /* ─── Animation variants ─── */
 const containerVariants = {
@@ -234,9 +235,71 @@ const appointments = [
   },
 ]
 
+/* ─── Dashboard API types ─── */
+
+interface DashboardKpiData {
+  progression: number
+  modulesCompleted: number
+  modulesTotal: number
+  prochainRDV: string | null
+  scoreBP: number | null
+}
+
+interface DashboardActivity {
+  id: string
+  action: string
+  detail: string
+  time: string
+  icon?: string // 'check' | 'file' | 'calendar' | 'trending'
+  color?: string
+}
+
+interface DashboardAppointment {
+  id: string
+  title: string
+  description: string
+  date: string
+  type: string
+}
+
+interface DashboardApiResponse {
+  kpis: DashboardKpiData
+  activities: DashboardActivity[]
+  appointments: DashboardAppointment[]
+}
+
+const FALLBACK_DASHBOARD: DashboardApiResponse = {
+  kpis: { progression: 35, modulesCompleted: 7, modulesTotal: 20, prochainRDV: 'Demain', scoreBP: null },
+  activities: [
+    { id: '1', action: 'Module RIASEC complété', detail: 'Votre profil est disponible dans Parcours > RIASEC', time: 'Il y a 2 heures', icon: 'check', color: 'text-green-500' },
+    { id: '2', action: 'Premier brouillon enregistré', detail: 'Mon projet — Boulangerie artisanale', time: 'Hier', icon: 'file', color: 'text-primary' },
+    { id: '3', action: 'Rendez-vous planifié', detail: 'GIDEF Paris — Mercredi 14h', time: 'Il y a 2 jours', icon: 'calendar', color: 'text-coral-500' },
+  ],
+  appointments: [
+    { id: '1', title: 'RDV Conseiller', description: 'Suivi de projet — GIDEF Paris', date: 'Mercredi 14:00', type: 'Physique' },
+    { id: '2', title: 'Atelier Marketing', description: 'Webinaire — Stratégie réseaux sociaux', date: 'Vendredi 10:00', type: 'En ligne' },
+  ],
+}
+
+const ACTIVITY_ICON_MAP: Record<string, typeof CheckCircle2> = {
+  check: CheckCircle2,
+  file: FileText,
+  calendar: Calendar,
+  trending: TrendingUp,
+}
+
+function useDashboardData() {
+  const { data, loading, isFallback, setData } = useApiData<DashboardApiResponse>({
+    url: '/api/dashboard',
+    fallback: FALLBACK_DASHBOARD,
+  })
+  return { data, loading, isFallback, setData }
+}
+
 /* ─── Dashboard Component ─── */
 export function Dashboard() {
   const { userName, setSection, setModule } = useBureauStore()
+  const { data: dashboardData, loading, isFallback } = useDashboardData()
 
   const handleQuickAction = (section: 'parcours' | 'strategie', module: string) => {
     setSection(section)
@@ -250,6 +313,40 @@ export function Dashboard() {
     return 'Bonsoir'
   }, [])
 
+  // Build dynamic KPIs from API data or fallback
+  const dynamicKpis = useMemo(() => {
+    const k = dashboardData.kpis
+    return [
+      { label: 'Progression parcours', value: String(k.progression), suffix: '%', icon: TrendingUp, color: 'text-teal-600 dark:text-teal-400', bg: 'bg-teal-50 dark:bg-teal-900/30', progress: k.progression },
+      { label: 'Modules complétés', value: String(k.modulesCompleted), suffix: `/${k.modulesTotal}`, icon: CheckCircle2, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/30', progress: Math.round((k.modulesCompleted / k.modulesTotal) * 100) },
+      { label: 'Prochain RDV', value: k.prochainRDV || '--', suffix: '', icon: Calendar, color: 'text-coral-500', bg: 'bg-coral-50 dark:bg-coral-900/20', progress: null },
+      { label: 'Score Business Plan', value: k.scoreBP != null ? String(k.scoreBP) : '--', suffix: k.scoreBP != null ? '%' : '', icon: BarChart3, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/20', progress: k.scoreBP },
+    ]
+  }, [dashboardData.kpis])
+
+  if (loading) {
+    return (
+      <div className="space-y-6 p-4 md:p-6 lg:p-8">
+        {/* Skeleton banner */}
+        <SkeletonPulse className="h-40 rounded-2xl" />
+        {/* Skeleton KPIs */}
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SkeletonPulse key={i} className="h-28 rounded-xl" />
+          ))}
+        </div>
+        {/* Skeleton pipeline */}
+        <SkeletonPulse className="h-64 rounded-xl" />
+        {/* Skeleton actions */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonPulse key={i} className="h-20 rounded-xl" />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <motion.div
       variants={containerVariants}
@@ -260,6 +357,11 @@ export function Dashboard() {
       {/* Welcome banner */}
       <motion.div variants={itemVariants}>
         <div className="relative overflow-hidden rounded-2xl gradient-teal p-6 md:p-8 text-white">
+          {isFallback && (
+            <div className="absolute top-3 right-3 z-10">
+              <DemoBadge />
+            </div>
+          )}
           {/* Background decoration */}
           <div className="absolute -top-12 -right-12 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
           <div className="absolute -bottom-8 -left-8 h-32 w-32 rounded-full bg-white/5 blur-xl" />
@@ -270,7 +372,7 @@ export function Dashboard() {
                 {greeting}, {userName} 👋
               </h1>
               <p className="mt-1 text-sm text-white/80 md:text-base">
-                Continuez votre parcours entrepreneurial. Vous avez accompli 35% de votre objectif.
+                Continuez votre parcours entrepreneurial. Vous avez accompli {dashboardData.kpis.progression}% de votre objectif.
               </p>
             </div>
             <div className="flex gap-2 shrink-0">
@@ -289,7 +391,7 @@ export function Dashboard() {
 
       {/* KPI Cards */}
       <motion.div variants={itemVariants} className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {kpis.map((kpi) => (
+        {dynamicKpis.map((kpi) => (
           <Card key={kpi.label} className="transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
             <CardContent className="p-4">
               <div className="flex items-start justify-between">
@@ -424,15 +526,20 @@ export function Dashboard() {
         {/* Recent activity */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-bold">Activité récente</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base font-bold">Activité récente</CardTitle>
+              {isFallback && <DemoBadge />}
+            </div>
             <CardDescription>Vos dernières actions</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {activities.map((activity, i) => (
+              {dashboardData.activities.map((activity) => {
+                const ActivityIcon = activity.icon ? (ACTIVITY_ICON_MAP[activity.icon] ?? CheckCircle2) : CheckCircle2
+                return (
                 <div key={activity.id} className="flex items-start gap-3">
                   <div className="mt-0.5">
-                    <activity.icon className={cn('h-4 w-4', activity.color)} />
+                    <ActivityIcon className={cn('h-4 w-4', activity.color ?? 'text-muted-foreground')} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground">{activity.action}</p>
@@ -440,7 +547,8 @@ export function Dashboard() {
                   </div>
                   <span className="text-[10px] text-muted-foreground whitespace-nowrap">{activity.time}</span>
                 </div>
-              ))}
+                )
+              })}
             </div>
           </CardContent>
         </Card>
@@ -448,12 +556,15 @@ export function Dashboard() {
         {/* Upcoming appointments */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-bold">Prochains rendez-vous</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base font-bold">Prochains rendez-vous</CardTitle>
+              {isFallback && <DemoBadge />}
+            </div>
             <CardDescription>Calendrier à venir</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {appointments.map((appt) => (
+              {dashboardData.appointments.map((appt) => (
                 <div
                   key={appt.id}
                   className="flex items-center gap-4 rounded-xl border border-border p-3 transition-colors hover:bg-muted/50"

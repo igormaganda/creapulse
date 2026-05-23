@@ -85,6 +85,9 @@ import {
 import { LoginDialog } from '@/components/auth/login-dialog'
 import { RegisterDialog } from '@/components/auth/register-dialog'
 
+/* ─── Theme Toggle ─── */
+import { ThemeToggle, ThemeToggleMobile } from '@/components/theme-toggle'
+
 /* ─── Bureau Virtuel ─── */
 import { BureauLayout } from '@/components/bureau/bureau-layout'
 import { useBureauStore } from '@/components/bureau/bureau-store'
@@ -259,6 +262,7 @@ function Navbar() {
 
           {/* Right side — desktop */}
           <div className="hidden items-center gap-2 md:flex">
+            <ThemeToggle />
             <Button
               variant="ghost"
               size="sm"
@@ -326,9 +330,11 @@ function Navbar() {
           </div>
 
           {/* Mobile hamburger */}
-          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden">
+          <div className="flex items-center gap-1 md:hidden">
+            <ThemeToggleMobile />
+            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon">
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Menu</span>
               </Button>
@@ -408,7 +414,8 @@ function Navbar() {
                 )}
               </nav>
             </SheetContent>
-          </Sheet>
+            </Sheet>
+          </div>
         </div>
       </header>
 

@@ -6,7 +6,10 @@
 
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
-import { success, error, handleApiError, ErrorCode } from '@/lib/api-response'
+import { success, handleApiError } from '@/lib/api-response'
+import { createLogger } from '@/lib/logger'
+
+const logger = createLogger('HealthCheck')
 
 const startTime = Date.now()
 
@@ -20,13 +23,16 @@ export async function GET(_request: NextRequest) {
     try {
       await db.$queryRaw`SELECT 1 as ok`
       dbLatencyMs = Date.now() - dbStart
-    } catch {
+    } catch (dbErr) {
       dbStatus = 'error'
       dbLatencyMs = null
+      logger.warn('Connexion à la base de données échouée', { error: String(dbErr) })
     }
 
     const uptime = Date.now() - startTime
     const uptimeFormatted = formatUptime(uptime)
+
+    logger.info('Health check exécuté', { dbStatus, dbLatencyMs, uptimeMs: uptime })
 
     return success(
       {
@@ -44,6 +50,7 @@ export async function GET(_request: NextRequest) {
       'CreaPulse V2 is running',
     )
   } catch (err) {
+    logger.error('Erreur critique lors du health check', { error: String(err) })
     return handleApiError(err)
   }
 }

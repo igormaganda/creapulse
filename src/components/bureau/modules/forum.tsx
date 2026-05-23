@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -37,6 +37,7 @@ import {
   Users,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { DemoBadge, SkeletonPulse } from '@/lib/hooks/use-api-data'
 
 // ─── Types ───────────────────────────────────
 
@@ -317,6 +318,64 @@ const MOCK_DISCUSSIONS: Discussion[] = [
   },
 ]
 
+// ─── Reduced Fallback (5 items max) ─────────
+
+const FALLBACK_DISCUSSIONS: Discussion[] = MOCK_DISCUSSIONS.slice(0, 5)
+
+// ─── API data mapping helpers ───────────────
+
+const AVATAR_COLORS_LIST = ['bg-teal-600', 'bg-amber-600', 'bg-rose-600', 'bg-purple-600', 'bg-sky-600', 'bg-emerald-600', 'bg-orange-600', 'bg-indigo-600']
+
+function getAuthorColor(id: string): string {
+  return AVATAR_COLORS_LIST[Math.abs(id.charCodeAt(0)) % AVATAR_COLORS_LIST.length]
+}
+
+function mapApiDiscussion(apiDisc: Record<string, unknown>): Discussion {
+  const author = apiDisc.author as Record<string, unknown> | undefined
+  const category = apiDisc.category as Record<string, unknown> | undefined
+  const categorySlug = (category?.slug as string) || 'creation'
+  const frontendCategory = CATEGORY_MAP[categorySlug] || CATEGORY_MAP['creation']
+  return {
+    id: apiDisc.id as string,
+    title: (apiDisc.title as string) || '',
+    content: (apiDisc.content as string) || '',
+    author: {
+      id: (author?.id as string) || '',
+      name: (author?.name as string) || 'Anonyme',
+      initials: (author?.initials as string) || '?',
+      color: getAuthorColor((author?.id as string) || ''),
+    },
+    category: frontendCategory,
+    preview: (apiDisc.preview as string) || ((apiDisc.content as string) || '').substring(0, 150),
+    replyCount: (apiDisc.replyCount as number) || 0,
+    likesCount: (apiDisc.likesCount as number) || 0,
+    isLiked: (apiDisc.isLiked as boolean) || false,
+    isPinned: (apiDisc.isPinned as boolean) || false,
+    tags: (apiDisc.tags as string[]) || [],
+    createdAt: apiDisc.createdAt ? new Date(apiDisc.createdAt as string) : new Date(),
+    replies: [],
+  }
+}
+
+function mapApiReply(apiReply: Record<string, unknown>): ReplyData {
+  const author = apiReply.author as Record<string, unknown> | undefined
+  return {
+    id: apiReply.id as string,
+    author: {
+      id: (author?.id as string) || '',
+      name: (author?.name as string) || 'Anonyme',
+      initials: (author?.initials as string) || '?',
+      color: getAuthorColor((author?.id as string) || ''),
+    },
+    content: (apiReply.content as string) || '',
+    likesCount: (apiReply.likesCount as number) || 0,
+    isLiked: (apiReply.isLiked as boolean) || false,
+    createdAt: apiReply.createdAt ? new Date(apiReply.createdAt as string) : new Date(),
+    parentId: (apiReply.parentId as string) || null,
+    children: ((apiReply.children as Record<string, unknown>[]) || []).map(mapApiReply),
+  }
+}
+
 // ─── Helper functions ────────────────────────
 
 function timeSince(date: Date): string {
@@ -552,14 +611,26 @@ function DiscussionDetail({
   const handleReply = useCallback(async () => {
     if (!replyText.trim()) return
     setIsSubmitting(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500))
+    let apiSuccess = false
+    try {
+      const token = localStorage.getItem('creapulse-token')
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      const res = await fetch(`/api/forum/${discussion.id}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ content: replyText, parentId: replyingTo?.id || null }),
+      })
+      if (res.ok) apiSuccess = true
+    } catch {
+      // Fallback to local-only
+    }
     onAddReply(replyText, replyingTo?.id || null)
     setReplyText('')
     setReplyingTo(null)
     setIsSubmitting(false)
-    toast.success('Réponse publiée avec succès')
-  }, [replyText, replyingTo, onAddReply])
+    toast.success(apiSuccess ? 'Réponse publiée avec succès' : 'Réponse ajoutée localement')
+  }, [replyText, replyingTo, onAddReply, discussion.id])
 
   const handleReplyTo = useCallback((replyId: string, authorName: string) => {
     setReplyingTo({ id: replyId, name: authorName })
@@ -753,11 +824,24 @@ function NewDiscussionDialog({
   const handleSubmit = async () => {
     if (!validate()) return
     setIsSubmitting(true)
-    await new Promise(resolve => setTimeout(resolve, 500))
     const tags = tagsInput
       .split(',')
       .map(t => t.trim().toLowerCase())
       .filter(t => t.length > 0)
+    let apiSuccess = false
+    try {
+      const token = localStorage.getItem('creapulse-token')
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      const res = await fetch('/api/forum', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ title: title.trim(), categoryId, content: content.trim(), tags }),
+      })
+      if (res.ok) apiSuccess = true
+    } catch {
+      // Fallback to local-only
+    }
     onSubmit({ title: title.trim(), categoryId, content: content.trim(), tags })
     setTitle('')
     setCategoryId('')
@@ -766,7 +850,7 @@ function NewDiscussionDialog({
     setErrors({})
     setIsSubmitting(false)
     onOpenChange(false)
-    toast.success('Discussion créée avec succès !')
+    toast.success(apiSuccess ? 'Discussion créée avec succès !' : 'Discussion créée en mode hors ligne')
   }
 
   return (
@@ -872,12 +956,75 @@ function ForumStats({ discussions }: { discussions: Discussion[] }) {
 // ─── Main Forum Module ──────────────────────
 
 export function ForumModule() {
-  const [discussions, setDiscussions] = useState<Discussion[]>(MOCK_DISCUSSIONS)
+  const [discussions, setDiscussions] = useState<Discussion[]>(FALLBACK_DISCUSSIONS)
   const [selectedDiscussion, setSelectedDiscussion] = useState<Discussion | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [activeCategory, setActiveCategory] = useState<string>('all')
   const [newDiscussionOpen, setNewDiscussionOpen] = useState(false)
   const [sortBy, setSortBy] = useState<'recent' | 'popular' | 'comments'>('recent')
+  const [loading, setLoading] = useState(true)
+  const [isFallback, setIsFallback] = useState(false)
+  const [isFetchingDetail, setIsFetchingDetail] = useState(false)
+
+  // Fetch discussions from API on mount
+  useEffect(() => {
+    const fetchDiscussions = async () => {
+      try {
+        const token = localStorage.getItem('creapulse-token')
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+        if (token) headers['Authorization'] = `Bearer ${token}`
+        const params = new URLSearchParams({ sort: 'recent', limit: '20' })
+        const res = await fetch(`/api/forum?${params.toString()}`, { headers })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const json = await res.json()
+        if (json.success && json.data?.discussions?.length > 0) {
+          const apiDiscussions = (json.data.discussions as Record<string, unknown>[]).map(mapApiDiscussion)
+          setDiscussions(apiDiscussions)
+          setIsFallback(false)
+        } else {
+          setDiscussions(FALLBACK_DISCUSSIONS)
+          setIsFallback(true)
+        }
+      } catch {
+        setDiscussions(FALLBACK_DISCUSSIONS)
+        setIsFallback(true)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchDiscussions()
+  }, [])
+
+  // Fetch discussion detail with replies when selecting
+  const fetchDiscussionDetail = useCallback(async (discussion: Discussion) => {
+    setSelectedDiscussion(discussion)
+    // For mock data, replies are already included
+    if (discussion.replies.length > 0) return
+    // For API data, fetch full detail
+    setIsFetchingDetail(true)
+    try {
+      const token = localStorage.getItem('creapulse-token')
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      const res = await fetch(`/api/forum/${discussion.id}`, { headers })
+      if (res.ok) {
+        const json = await res.json()
+        if (json.success && json.data) {
+          const apiDisc = json.data as Record<string, unknown>
+          const detail = mapApiDiscussion(apiDisc)
+          detail.replies = ((apiDisc.replies as Record<string, unknown>[]) || []).map(mapApiReply)
+          detail.replyCount = detail.replies.length
+          setSelectedDiscussion(detail)
+          // Also update the discussion in the list
+          setDiscussions(prev => prev.map(d => d.id === detail.id ? { ...d, replies: detail.replies, replyCount: detail.replyCount } : d))
+        }
+      }
+    } catch {
+      // Keep list version without replies
+    } finally {
+      setIsFetchingDetail(false)
+    }
+  }, [])
 
   // Filtered and sorted discussions
   const filteredDiscussions = useMemo(() => {
@@ -1028,6 +1175,22 @@ export function ForumModule() {
     setDiscussions(prev => [newDiscussion, ...prev])
   }, [])
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="p-4 md:p-6 lg:p-8 space-y-4">
+        <SkeletonPulse className="h-10 w-64 rounded-lg" />
+        <SkeletonPulse className="h-24 rounded-xl" />
+        <SkeletonPulse className="h-10 w-full rounded-lg" />
+        <div className="space-y-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <SkeletonPulse key={i} className="h-32 rounded-xl" />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-4">
       <AnimatePresence mode="wait">
@@ -1043,11 +1206,14 @@ export function ForumModule() {
           >
             {/* Header */}
             <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-xl md:text-2xl font-bold text-foreground">Forum</h2>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Échangez avec la communauté des entrepreneurs
-                </p>
+              <div className="flex items-center gap-3">
+                <div>
+                  <h2 className="text-xl md:text-2xl font-bold text-foreground">Forum</h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Échangez avec la communauté des entrepreneurs
+                  </p>
+                </div>
+                {isFallback && <DemoBadge />}
               </div>
               <Dialog open={newDiscussionOpen} onOpenChange={setNewDiscussionOpen}>
                 <DialogTrigger asChild>
@@ -1157,7 +1323,7 @@ export function ForumModule() {
                       discussion={discussion}
                       onClick={() => {
                         handleLikeDiscussion(discussion.id)
-                        setSelectedDiscussion(discussion)
+                        fetchDiscussionDetail(discussion)
                       }}
                     />
                   </motion.div>

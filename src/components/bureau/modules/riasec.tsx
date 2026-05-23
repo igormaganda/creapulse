@@ -485,16 +485,17 @@ function QuizScreen({
   return (
     <div className="flex flex-col min-h-[70vh] px-4 py-6 md:px-8 md:py-8 max-w-2xl mx-auto w-full">
       {/* Progress header */}
-      <div className="space-y-3 mb-6">
+      <div className="space-y-3 mb-6" role="status" aria-live="polite">
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium text-muted-foreground">
-            Question {currentQuestion + 1} / {QUESTIONS.length}
+            Question {currentQuestion + 1} sur {QUESTIONS.length}
           </span>
           <Badge variant="outline" className={cn('gap-1.5 text-xs border-current/20', colors.text, 'bg-transparent')}>
             {RIASEC_LABELS[question.type]}
           </Badge>
         </div>
-        <Progress value={progress} className="h-2" />
+        <Progress value={progress} className="h-2" aria-hidden="true" />
+        <span className="sr-only">Progression : {Math.round(progress)}%</span>
       </div>
 
       {/* Question content */}
@@ -516,12 +517,12 @@ function QuizScreen({
               <div className={cn('h-1 w-16 rounded-full mb-6', colors.bg)} />
 
               {/* Question text */}
-              <p className="text-lg md:text-xl font-medium text-foreground leading-relaxed flex-1">
+              <p className="text-lg md:text-xl font-medium text-foreground leading-relaxed flex-1" id={`riasec-question-${question.id}`}>
                 {question.text}
               </p>
 
               {/* Likert scale */}
-              <div className="mt-8 space-y-3">
+              <div className="mt-8 space-y-3" role="radiogroup" aria-labelledby={`riasec-question-${question.id}`} aria-label="Niveau d'accord">
                 {LIKERT_LABELS.map((label, idx) => {
                   const value = idx + 1
                   const isSelected = selectedValue === value
@@ -531,6 +532,9 @@ function QuizScreen({
                       whileHover={{ scale: 1.01 }}
                       whileTap={{ scale: 0.99 }}
                       onClick={() => onAnswer(question.id, value)}
+                      role="radio"
+                      aria-checked={isSelected}
+                      aria-label={`${label}, note ${value} sur 5`}
                       className={cn(
                         'w-full flex items-center gap-4 rounded-xl p-3.5 text-left transition-all duration-200 border-2 cursor-pointer',
                         isSelected
@@ -583,7 +587,7 @@ function QuizScreen({
           Précédent
         </Button>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5" aria-hidden="true">
           {QUESTIONS.map((_, idx) => (
             <div
               key={idx}

@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { PasseportPdf } from '@/components/bureau/export/passeport-pdf'
 import {
   Stamp,
   CheckCircle2,
@@ -144,6 +145,7 @@ export function Passeport() {
   const [data, setData] = useState<PasseportData>(MOCK_DATA)
   const [loading, setLoading] = useState(true)
   const [showExportDialog, setShowExportDialog] = useState(false)
+  const [showPdfDialog, setShowPdfDialog] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -460,8 +462,8 @@ export function Passeport() {
 
             <div className="flex gap-3">
               <Button className="flex-1 gap-2" onClick={() => {
-                toast.success('Passeport exporté avec succès ! (bientôt disponible en PDF)')
                 setShowExportDialog(false)
+                setShowPdfDialog(true)
               }}>
                 <Download className="h-4 w-4" />
                 Télécharger PDF
@@ -475,6 +477,13 @@ export function Passeport() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* PDF Export Dialog */}
+      <Dialog open={showPdfDialog} onOpenChange={setShowPdfDialog}>
+        <DialogContent className="max-w-5xl max-h-[95vh] overflow-hidden flex flex-col p-0">
+          <PasseportPdf onClose={() => setShowPdfDialog(false)} />
         </DialogContent>
       </Dialog>
     </motion.div>

@@ -1,125 +1,182 @@
-import { NextRequest } from 'next/server'
-import { success, error } from '@/lib/api-response'
+// ============================================
+// CreaPulse V2 — Conseiller Livrables
+// GET /api/conseiller/livrables — List livrables
+// PUT /api/conseiller/livrables — Update livrable status
+// ============================================
 
-// Mock livrables data
-const livrables = [
-  {
-    id: 'l1', beneficiaryId: 'b1', beneficiaryName: 'Amadou Diallo', beneficiaryInitials: 'AD',
-    type: 'business_plan', title: 'Business Plan - Restaurant Afrika Fusion', status: 'READY',
-    createdAt: '2025-01-28', notes: '', content: 'Business plan complet avec etude de marche, projections financieres sur 3 ans et plan operationnel.',
-  },
-  {
-    id: 'l2', beneficiaryId: 'b2', beneficiaryName: 'Lea Fontaine', beneficiaryInitials: 'LF',
-    type: 'pitch_deck', title: 'Pitch Deck - EcoTech Solutions', status: 'READY',
-    createdAt: '2025-01-30', notes: '', content: 'Presentation investisseur de 15 slides.',
-  },
-  {
-    id: 'l3', beneficiaryId: 'b3', beneficiaryName: 'Marc Renaud', beneficiaryInitials: 'MR',
-    type: 'executive_summary', title: 'Resume Executif - Atelier Numerique', status: 'VALIDATED',
-    createdAt: '2025-01-15', notes: 'Tres bon resume.', content: 'Resume de 2 pages.',
-  },
-  {
-    id: 'l4', beneficiaryId: 'b4', beneficiaryName: 'Clara Dubois', beneficiaryInitials: 'CD',
-    type: 'financial_forecast', title: 'Previsions Financieres - BoxFit Paris', status: 'READY',
-    createdAt: '2025-02-01', notes: '', content: 'Tableau financier detaille.',
-  },
-  {
-    id: 'l5', beneficiaryId: 'b5', beneficiaryName: 'Karim Benali', beneficiaryInitials: 'KB',
-    type: 'passport', title: 'Passport Creation - SnapClean', status: 'VALIDATED',
-    createdAt: '2025-01-20', notes: 'Document complet.', content: 'Fiche passport.',
-  },
-  {
-    id: 'l6', beneficiaryId: 'b6', beneficiaryName: 'Julie Moreau', beneficiaryInitials: 'JM',
-    type: 'business_plan', title: 'Business Plan - Papillon Events', status: 'DRAFT',
-    createdAt: '2025-02-02', notes: '', content: 'En cours de redaction.',
-  },
-  {
-    id: 'l7', beneficiaryId: 'b7', beneficiaryName: 'Thomas Leroy', beneficiaryInitials: 'TL',
-    type: 'market_study', title: 'Etude de Marche - UrbanFarm IDf', status: 'DRAFT',
-    createdAt: '2025-02-03', notes: '', content: 'Enquete clients en cours.',
-  },
-  {
-    id: 'l8', beneficiaryId: 'b8', beneficiaryName: 'Fatima Hassani', beneficiaryInitials: 'FH',
-    type: 'canvas', title: 'Business Model Canvas - CraftID', status: 'VALIDATED',
-    createdAt: '2025-01-25', notes: 'Canvas bien rempli.', content: 'Canvas complet.',
-  },
-  {
-    id: 'l9', beneficiaryId: 'b1', beneficiaryName: 'Amadou Diallo', beneficiaryInitials: 'AD',
-    type: 'financial_forecast', title: 'Previsions Financieres - Afrika Fusion', status: 'EXPORTED',
-    createdAt: '2025-01-10', notes: 'Exporte pour pret bancaire.', content: 'Previsions exportees.',
-  },
-  {
-    id: 'l10', beneficiaryId: 'b9', beneficiaryName: 'Hugo Petit', beneficiaryInitials: 'HP',
-    type: 'executive_summary', title: 'Resume Executif - TechLab93', status: 'DRAFT',
-    createdAt: '2025-02-04', notes: '', content: 'Premier jet.',
-  },
-  {
-    id: 'l11', beneficiaryId: 'b10', beneficiaryName: 'Nadia Bouzid', beneficiaryInitials: 'NB',
-    type: 'pitch_deck', title: 'Pitch Deck - MedConnect', status: 'VALIDATED',
-    createdAt: '2025-01-22', notes: 'Design professionnel.', content: 'Pitch deck 12 slides.',
-  },
-  {
-    id: 'l12', beneficiaryId: 'b4', beneficiaryName: 'Clara Dubois', beneficiaryInitials: 'CD',
-    type: 'passport', title: 'Passport Creation - BoxFit Paris', status: 'READY',
-    createdAt: '2025-02-05', notes: '', content: 'Passport mis a jour.',
-  },
-]
+import { NextRequest } from 'next/server'
+import { db } from '@/lib/db'
+import { success, Errors, handleApiError } from '@/lib/api-response'
+import { getCounselor, AuthRequiredError, AuthForbiddenError, AuthNotFoundError } from '../_lib/auth'
+import { z } from 'zod'
+
+// ─── Zod schemas ─────────────────────────────
+
+const updateLivrableSchema = z.object({
+  id: z.string().min(1, 'L\'identifiant du livrable est requis'),
+  status: z.enum(['DRAFT', 'VALIDATED'], {
+    errorMap: () => ({ message: 'Statut invalide (DRAFT ou VALIDATED)' }),
+  }),
+  notes: z.string().optional(),
+})
+
+// ─── GET ─────────────────────────────────────
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const status = searchParams.get('status')
-  const type = searchParams.get('type')
-  const search = searchParams.get('search')
+  try {
+    const { counselor } = await getCounselor(request)
 
-  let filtered = [...livrables]
+    // Parse query params
+    const { searchParams } = new URL(request.url)
+    const status = searchParams.get('status') || ''
+    const type = searchParams.get('type') || ''
+    const search = searchParams.get('search') || ''
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
+    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20', 10)))
 
-  if (status) {
-    filtered = filtered.filter((l) => l.status === status)
+    // Build where clause
+    const where: Record<string, unknown> = {
+      counselorId: counselor.id,
+    }
+
+    if (status) {
+      where.status = status
+    }
+
+    if (type) {
+      where.type = type
+    }
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { owner: { firstName: { contains: search, mode: 'insensitive' } } },
+        { owner: { lastName: { contains: search, mode: 'insensitive' } } },
+      ]
+    }
+
+    const [total, livrables] = await Promise.all([
+      db.livrable.count({ where }),
+      db.livrable.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          owner: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              avatarUrl: true,
+            },
+          },
+        },
+      }),
+    ])
+
+    const statusLabels: Record<string, string> = {
+      DRAFT: 'Brouillon',
+      GENERATING: 'En cours de génération',
+      READY: 'Prêt',
+      VALIDATED: 'Validé',
+      EXPORTED: 'Exporté',
+    }
+
+    const formattedLivrables = livrables.map((l) => {
+      const ownerName = l.owner
+        ? `${l.owner.firstName || ''} ${l.owner.lastName || ''}`.trim()
+        : 'Utilisateur inconnu'
+      const initials = l.owner
+        ? `${(l.owner.firstName || '')[0] || ''}${(l.owner.lastName || '')[0] || ''}`.toUpperCase()
+        : '??'
+
+      return {
+        id: l.id,
+        userId: l.userId,
+        beneficiaryId: l.userId,
+        beneficiaryName: ownerName,
+        beneficiaryInitials: initials,
+        type: l.type,
+        title: l.title,
+        status: l.status,
+        statusLabel: statusLabels[l.status] || l.status,
+        createdAt: l.createdAt.toISOString(),
+        generatedAt: l.generatedAt?.toISOString() || null,
+        content: l.content,
+        fileUrl: l.fileUrl,
+        fileName: l.fileName,
+      }
+    })
+
+    return success({
+      livrables: formattedLivrables,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    }, 'Liste des livrables')
+  } catch (err) {
+    if (err instanceof AuthRequiredError) return Errors.unauthorized(err.message)
+    if (err instanceof AuthForbiddenError) return Errors.forbidden(err.message)
+    if (err instanceof AuthNotFoundError) return Errors.notFound('Profil conseiller')
+    return handleApiError(err)
   }
-
-  if (type) {
-    filtered = filtered.filter((l) => l.type === type)
-  }
-
-  if (search) {
-    const q = search.toLowerCase()
-    filtered = filtered.filter(
-      (l) =>
-        l.beneficiaryName.toLowerCase().includes(q) ||
-        l.title.toLowerCase().includes(q)
-    )
-  }
-
-  return success(filtered, 'Liste des livrables')
 }
+
+// ─── PUT ─────────────────────────────────────
 
 export async function PUT(request: NextRequest) {
   try {
+    const { counselor } = await getCounselor(request)
+
     const body = await request.json()
-    const { id, status, notes } = body
+    const parsed = updateLivrableSchema.safeParse(body)
 
-    if (!id || !status) {
-      return error('MISSING_FIELDS', 'Les champs id et status sont requis', 422)
+    if (!parsed.success) {
+      return Errors.validation(
+        parsed.error.issues.map((i) => ({
+          field: i.path.join('.'),
+          message: i.message,
+        })),
+      )
     }
 
-    const validStatuses = ['DRAFT', 'READY', 'VALIDATED', 'EXPORTED']
-    if (!validStatuses.includes(status)) {
-      return error('INVALID_INPUT', `Statut invalide. Valeurs acceptees : ${validStatuses.join(', ')}`, 422)
+    const { id, status, notes } = parsed.data
+
+    // Verify livrable belongs to this counselor
+    const livrable = await db.livrable.findUnique({
+      where: { id },
+    })
+
+    if (!livrable) {
+      return Errors.notFound('Livrable')
     }
 
-    const index = livrables.findIndex((l) => l.id === id)
-    if (index === -1) {
-      return error('NOT_FOUND', 'Livrable non trouve', 404)
+    if (livrable.counselorId !== counselor.id) {
+      return Errors.forbidden('Ce livrable ne vous est pas assigné')
     }
 
-    livrables[index] = {
-      ...livrables[index],
-      status,
-      ...(notes !== undefined && { notes }),
-    }
+    // Update livrable
+    const updated = await db.livrable.update({
+      where: { id },
+      data: {
+        status,
+        ...(notes !== undefined && {
+          content: { ...(typeof livrable.content === 'object' ? livrable.content : {}), counselorNotes: notes },
+        }),
+      },
+    })
 
-    return success(livrables[index], 'Livrable mis a jour avec succes')
-  } catch {
-    return error('INTERNAL_ERROR', 'Erreur lors de la mise a jour du livrable', 500)
+    return success(
+      {
+        id: updated.id,
+        status: updated.status,
+        updatedAt: updated.updatedAt.toISOString(),
+      },
+      status === 'VALIDATED' ? 'Livrable validé avec succès' : 'Livrable renvoyé en brouillon',
+    )
+  } catch (err) {
+    if (err instanceof AuthRequiredError) return Errors.unauthorized(err.message)
+    if (err instanceof AuthForbiddenError) return Errors.forbidden(err.message)
+    if (err instanceof AuthNotFoundError) return Errors.notFound('Profil conseiller')
+    return handleApiError(err)
   }
 }

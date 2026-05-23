@@ -34,6 +34,7 @@ import {
   Presentation,
   Globe,
   MessageSquare,
+  MessageCircle,
   GraduationCap,
   Rocket,
   Stamp,
@@ -98,6 +99,7 @@ const navigationGroups: NavGroup[] = [
     items: [
       { id: 'annuaire', label: 'Annuaire', icon: Globe },
       { id: 'forum', label: 'Forum', icon: MessageSquare },
+      { id: 'messages', label: 'Messages', icon: MessageCircle, badge: 'Nouveau' },
       { id: 'mentorat', label: 'Mentorat', icon: GraduationCap, badge: 'Bientôt' },
     ],
   },
@@ -164,6 +166,7 @@ function NavItemButton({
   const button = (
     <Button
       variant="ghost"
+      aria-current={isActive ? 'page' : undefined}
       className={cn(
         'w-full justify-start gap-3 h-9 px-3 text-sm font-normal',
         isActive
@@ -232,7 +235,7 @@ function SidebarContent({ collapsed, onNavigate, onCloseMobile }: {
   }
 
   return (
-    <div className="flex h-full flex-col bg-[#1A1A2E] text-white">
+    <nav className="flex h-full flex-col bg-[#1A1A2E] text-white" aria-label="Navigation Bureau Virtuel">
       {/* Logo area */}
       <div className={cn(
         'flex h-16 items-center border-b border-white/10',
@@ -331,7 +334,7 @@ function SidebarContent({ collapsed, onNavigate, onCloseMobile }: {
       </ScrollArea>
 
       {/* Bottom section */}
-      <div className="border-t border-white/10 p-3">
+      <div className="border-t border-white/10 p-3" aria-label="Progression globale">
         <div className={cn(
           'flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2',
           collapsed && 'justify-center px-2'
@@ -345,7 +348,7 @@ function SidebarContent({ collapsed, onNavigate, onCloseMobile }: {
           <MiniProgress value={18} size={collapsed ? 28 : 32} className="text-teal-400" />
         </div>
       </div>
-    </div>
+    </nav>
   )
 }
 

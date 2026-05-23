@@ -1,37 +1,135 @@
-import { NextRequest } from 'next/server'
-import { success } from '@/lib/api-response'
+// ============================================
+// CreaPulse V2 — Admin Centre: Conseillers API
+// GET /api/admin-centre/conseillers
+// ============================================
 
-/* ─── Mock conseillers data ─── */
-const mockConseillers = [
-  { id: 'c1', name: 'Sophie Martin', email: 'sophie.martin@gidef.fr', specialities: ['Creation', 'Financement', 'Business Plan'], beneficiairesCount: 28, maxCapacity: 30, status: 'active', avgProgress: 72, city: 'Creteil' },
-  { id: 'c2', name: 'Pierre Dubois', email: 'pierre.dubois@gidef.fr', specialities: ['Juridique', 'Social', 'Marche'], beneficiairesCount: 25, maxCapacity: 30, status: 'active', avgProgress: 68, city: 'Creteil' },
-  { id: 'c3', name: 'Claire Lefevre', email: 'claire.lefevre@gidef.fr', specialities: ['Marketing', 'Digital', 'Reseau'], beneficiairesCount: 22, maxCapacity: 30, status: 'active', avgProgress: 65, city: 'Creteil' },
-  { id: 'c4', name: 'Marc Petit', email: 'marc.petit@gidef.fr', specialities: ['Comptabilite', 'Fiscalite', 'CreaSim'], beneficiairesCount: 20, maxCapacity: 30, status: 'active', avgProgress: 61, city: 'Creteil' },
-  { id: 'c5', name: 'Julie Moreau', email: 'julie.moreau@gidef.fr', specialities: ['Creation', 'Formation', 'Passeport'], beneficiairesCount: 18, maxCapacity: 30, status: 'active', avgProgress: 58, city: 'Villeneuve-Saint-Georges' },
-  { id: 'c6', name: 'Antoine Roux', email: 'antoine.roux@gidef.fr', specialities: ['Immigration', 'International', 'Marche'], beneficiairesCount: 14, maxCapacity: 30, status: 'active', avgProgress: 55, city: 'Creteil' },
-  { id: 'c7', name: 'Isabelle Fontaine', email: 'isabelle.fontaine@gidef.fr', specialities: ['Social', 'Insertion', 'Coaching'], beneficiairesCount: 3, maxCapacity: 30, status: 'inactive', avgProgress: 0, city: 'Creteil' },
-]
+import { NextRequest } from 'next/server'
+import { db } from '@/lib/db'
+import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
+import { verifyToken } from '@/lib/auth'
+import { Prisma } from '@prisma/client'
+
+// ─── Admin Auth Helper ──────────────────────
+
+async function getAdminOrg(request: NextRequest) {
+  const cookieToken = request.cookies.get('session')?.value
+  const headerToken = getTokenFromHeader(request)
+  const token = cookieToken || headerToken
+  if (!token) throw new Error('Unauthorized')
+  const payload = await verifyToken(token)
+  if (payload.role !== 'ADMIN') throw new Error('Forbidden')
+  return { userId: payload.userId, tenantId: payload.tenantId }
+}
+
+// ─── GET: List counselors with filters ──────
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const search = searchParams.get('search') || ''
-  const status = searchParams.get('status') || ''
+  try {
+    const { userId, tenantId } = await getAdminOrg(request)
 
-  let result = [...mockConseillers]
+    const { searchParams } = new URL(request.url)
+    const search = searchParams.get('search') || ''
+    const statusFilter = searchParams.get('status') || ''
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20', 10)))
+    const skip = (page - 1) * limit
 
-  if (search) {
-    const s = search.toLowerCase()
-    result = result.filter(
-      (c) =>
-        c.name.toLowerCase().includes(s) ||
-        c.email.toLowerCase().includes(s) ||
-        c.specialities.some((spec) => spec.toLowerCase().includes(s))
+    // Build where clause
+    const where: Prisma.CounselorWhereInput = {
+      organization: { tenantId },
+    }
+
+    // Search by name, email, specialities
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { user: { email: { contains: search, mode: 'insensitive' } } },
+        { user: { firstName: { contains: search, mode: 'insensitive' } } },
+        { user: { lastName: { contains: search, mode: 'insensitive' } } },
+        { specialities: { hasSome: [search] } },
+      ]
+    }
+
+    // Status filter (isAvailable)
+    if (statusFilter === 'active') {
+      where.isAvailable = true
+    } else if (statusFilter === 'inactive') {
+      where.isAvailable = false
+    }
+
+    // Query with includes and count
+    const [counselors, total] = await Promise.all([
+      db.counselor.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              isActive: true,
+              lastLoginAt: true,
+              createdAt: true,
+            },
+          },
+          organization: {
+            select: {
+              id: true,
+              name: true,
+              city: true,
+              type: true,
+            },
+          },
+          _count: {
+            select: {
+              assignments: {
+                where: { status: 'ACTIVE' },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      db.counselor.count({ where }),
+    ])
+
+    // Format response
+    const formattedCounselors = counselors.map((c) => ({
+      id: c.id,
+      name: c.name,
+      email: c.user.email,
+      firstName: c.user.firstName,
+      lastName: c.user.lastName,
+      specialities: c.specialities,
+      certifications: c.certifications,
+      beneficiairesCount: c._count.assignments,
+      maxCapacity: c.maxBeneficiaries,
+      isAvailable: c.isAvailable,
+      status: c.isAvailable ? 'active' : 'inactive',
+      organization: c.organization,
+      lastLoginAt: c.user.lastLoginAt,
+      createdAt: c.user.createdAt,
+    }))
+
+    return success(
+      {
+        conseillers: formattedCounselors,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
+      `${total} conseiller(s) trouve(s)`,
     )
+  } catch (err) {
+    if (err instanceof Error && (err.message === 'Unauthorized' || err.message === 'Forbidden')) {
+      return Errors.unauthorized('Authentification requise')
+    }
+    return handleApiError(err)
   }
-
-  if (status) {
-    result = result.filter((c) => c.status === status)
-  }
-
-  return success(result, `${result.length} conseillers trouves`)
 }

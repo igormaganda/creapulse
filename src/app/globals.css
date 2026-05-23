@@ -124,10 +124,26 @@
   --success: #2E7D32;
   --warning: #F57F17;
   --danger: #C62828;
+  /* CreaPulse custom tokens - Light */
   --cp-primary: #00838F;
   --cp-primary-light: #E0F7FA;
   --cp-accent: #FF6B35;
   --cp-accent-warm: #FFB74D;
+  --cp-teal: #00838F;
+  --cp-teal-light: #4FB3BF;
+  --cp-coral: #FF6B35;
+  --cp-amber: #FFB74D;
+  --cp-sidebar-bg: #1A1A2E;
+  --cp-sidebar-text: #E2E8F0;
+  --cp-surface: #FFFFFF;
+  --cp-surface-hover: #F8FAFC;
+  --cp-glass: rgba(255, 255, 255, 0.7);
+  --cp-glass-border: rgba(255, 255, 255, 0.2);
+  --cp-text-primary: #1A1A2E;
+  --cp-text-secondary: #616161;
+  --cp-text-muted: #9E9E9E;
+  --cp-border-light: #E0E0E0;
+  --cp-shadow-color: rgba(0, 0, 0, 0.08);
 }
 
 .dark {
@@ -165,18 +181,53 @@
   --success: #66BB6A;
   --warning: #FFA726;
   --danger: #EF5350;
+  /* CreaPulse custom tokens - Dark */
   --cp-primary: #4DD0E1;
   --cp-primary-light: #1A2D30;
   --cp-accent: #FF8A65;
   --cp-accent-warm: #FFB74D;
+  --cp-teal: #4FB3BF;
+  --cp-teal-light: #80DEEA;
+  --cp-coral: #FF8A65;
+  --cp-amber: #FFCC80;
+  --cp-sidebar-bg: #0F172A;
+  --cp-sidebar-text: #E2E8F0;
+  --cp-surface: #1E293B;
+  --cp-surface-hover: #334155;
+  --cp-glass: rgba(15, 23, 42, 0.8);
+  --cp-glass-border: rgba(255, 255, 255, 0.1);
+  --cp-text-primary: #E8E8EC;
+  --cp-text-secondary: #9E9E9E;
+  --cp-text-muted: #6B7280;
+  --cp-border-light: #2D3040;
+  --cp-shadow-color: rgba(0, 0, 0, 0.3);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
   body {
     @apply bg-background text-foreground;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  /* Smooth transitions for theme-aware elements */
+  *,
+  *::before,
+  *::after {
+    transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+    transition-duration: 200ms;
+    transition-timing-function: ease;
+  }
+  /* Exclude elements that shouldn't animate */
+  :where(.no-transition, canvas, video, iframe, img) {
+    transition: none !important;
   }
 }
 
@@ -308,4 +359,218 @@
 }
 .animate-slide-in-right {
   animation: slide-in-right 0.6s ease-out forwards;
+}
+
+/* ═══════════════════════════════════════════════
+   Print Styles — PDF Export (Business Plan & Passeport)
+   ═══════════════════════════════════════════════ */
+@media print {
+  /* Hide everything except the print content */
+  body * {
+    visibility: hidden !important;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible !important;
+  }
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* A4 page setup */
+  @page {
+    size: A4;
+    margin: 2cm;
+  }
+
+  /* Force colors to print */
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Page breaks */
+  .page-break {
+    page-break-before: always;
+    break-before: page;
+  }
+
+  /* Hide no-print elements */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Remove link URLs */
+  a[href]:after {
+    content: none;
+  }
+
+  /* Clean table borders */
+  table {
+    border-collapse: collapse;
+  }
+
+  /* Prevent overflow */
+  .overflow-x-auto {
+    overflow: visible;
+  }
+
+  /* Dialog overrides for print */
+  [role="dialog"] {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: visible !important;
+    background: white !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-height: none !important;
+  }
+
+  /* Remove overlay backdrop */
+  [data-radix-portal] {
+    position: static !important;
+  }
+
+  /* Remove radix overlay */
+  [data-state="open"] {
+    position: static !important;
+  }
+
+  /* Ensure prose renders correctly */
+  .prose {
+    max-width: none !important;
+  }
+
+  /* Remove shadows */
+  * {
+    box-shadow: none !important;
+  }
+
+  /* Remove animations */
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* Header/footer styling */
+  @page {
+    @bottom-center {
+      content: "GIDEF — CreaPulse V2 — Document confidentiel";
+      font-size: 8pt;
+      color: #999;
+    }
+    @bottom-right {
+      content: counter(page);
+      font-size: 8pt;
+      color: #999;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   Accessibility Styles
+   ═══════════════════════════════════════════════ */
+
+/* Screen reader only */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Focus styles */
+*:focus-visible {
+  outline: 2px solid var(--cp-teal, #00838F);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Reduced motion (OS preference) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* High contrast mode (OS preference) */
+@media (prefers-contrast: high) {
+  :root {
+    --cp-teal: #006064;
+    --cp-coral: #E65100;
+    --cp-amber: #FF8F00;
+  }
+}
+
+/* High contrast mode (manual toggle) */
+.high-contrast {
+  --primary: #006064 !important;
+  --primary-foreground: #FFFFFF !important;
+  --foreground: #000000 !important;
+  --background: #FFFFFF !important;
+  --muted-foreground: #1A1A2E !important;
+  --border: #000000 !important;
+  --ring: #006064 !important;
+  --cp-teal: #006064 !important;
+}
+
+.high-contrast.dark {
+  --primary: #4DD0E1 !important;
+  --primary-foreground: #000000 !important;
+  --foreground: #FFFFFF !important;
+  --background: #000000 !important;
+  --muted-foreground: #E8E8EC !important;
+  --border: #FFFFFF !important;
+  --ring: #4DD0E1 !important;
+  --cp-teal: #4FB3BF !important;
+}
+
+.high-contrast * {
+  border-color: var(--border) !important;
+}
+
+/* Ensure minimum touch target size on touch devices */
+@media (pointer: coarse) {
+  button, a, input, select, textarea {
+    min-height: 44px;
+  }
+}
+
+/* Dyslexic font support */
+.dyslexic-font * {
+  letter-spacing: var(--dyslexic-letter-spacing, 0.05em) !important;
+  word-spacing: var(--dyslexic-word-spacing, 0.1em) !important;
+  line-height: var(--dyslexic-line-height, 1.8) !important;
+}
+
+/* Pause animations (manual toggle) */
+.pause-animations *,
+.pause-animations *::before,
+.pause-animations *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }
