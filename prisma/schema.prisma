@@ -528,6 +528,19 @@ model FinancialForecast {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
+  // CreaSim Simulator inputs
+  monthlyRevenue       Float?
+  fixedCharges         Json?    // [{name: string, amount: number}]
+  variableChargesRate  Float?   // percentage 0-100
+  averageSellingPrice  Float?
+  unitCost             Float?
+  targetMarginRate     Float?   // percentage 0-100
+
+  // CreaSim calculated outputs
+  grossMarginRate      Float?
+  netMarginRate        Float?
+  monthlyBreakeven     Float?
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 

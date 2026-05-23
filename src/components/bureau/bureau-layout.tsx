@@ -7,7 +7,13 @@ import { Sidebar, MobileSidebar } from './sidebar'
 import { TopBar } from './topbar'
 import { Dashboard } from './dashboard'
 import { Welcome } from './welcome'
+import { RiasecModule } from './modules/riasec'
+import { MonProjet } from './modules/mon-projet'
 import { cn } from '@/lib/utils'
+import { CreaSim } from './modules/creasim'
+import { BusinessPlanModule } from './modules/business-plan'
+import { AnnuaireModule } from './modules/annuaire'
+import { ForumModule } from './modules/forum'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -164,7 +170,13 @@ function BureauContent() {
         transition={{ duration: 0.2 }}
       >
         {currentSection === 'dashboard' && <Dashboard />}
-        {currentSection !== 'dashboard' && currentModule && <ModulePlaceholder moduleId={currentModule} />}
+        {currentModule === 'riasec' && <RiasecModule />}
+        {currentModule === 'mon-projet' && <MonProjet />}
+        {currentModule === 'creasim' && <CreaSim />}
+        {currentModule === 'business-plan' && <BusinessPlanModule />}
+        {currentModule === 'annuaire' && <AnnuaireModule />}
+        {currentModule === 'forum' && <ForumModule />}
+        {currentSection !== 'dashboard' && currentModule && currentModule !== 'riasec' && currentModule !== 'mon-projet' && currentModule !== 'creasim' && currentModule !== 'business-plan' && currentModule !== 'annuaire' && currentModule !== 'forum' && <ModulePlaceholder moduleId={currentModule} />}
         {currentSection !== 'dashboard' && !currentModule && <SectionOverview sectionId={currentSection} />}
       </motion.div>
     </AnimatePresence>

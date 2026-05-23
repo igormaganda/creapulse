@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useBureauStore } from './bureau-store'
 import { cn } from '@/lib/utils'
+import { IAAssistant } from './ia-assistant'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -28,7 +29,6 @@ import {
 import {
   Search,
   Bell,
-  Sparkles,
   Menu,
   User,
   Settings,
@@ -159,19 +159,8 @@ export function TopBar({ onMenuClick }: TopBarProps) {
 
       {/* Right actions */}
       <div className="flex items-center gap-1">
-        {/* IA Assistant FAB */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative h-9 w-9 text-primary hover:bg-primary/10"
-          aria-label="Assistant IA"
-        >
-          <Sparkles className="h-4 w-4" />
-          <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
-          </span>
-        </Button>
+        {/* IA Assistant */}
+        <IAAssistant />
 
         {/* Notification bell */}
         <DropdownMenu>
