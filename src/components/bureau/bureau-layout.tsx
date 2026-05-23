@@ -14,6 +14,17 @@ import { CreaSim } from './modules/creasim'
 import { BusinessPlanModule } from './modules/business-plan'
 import { AnnuaireModule } from './modules/annuaire'
 import { ForumModule } from './modules/forum'
+import { ProfilCreateur } from './modules/profil-createur'
+import { KiviatModule } from './modules/kiviat'
+import { VisionModule } from './modules/vision'
+import { MarcheModule } from './modules/marche'
+import { JuridiqueModule } from './modules/juridique'
+import { FinancierModule } from './modules/financier'
+import { PitchDeckModule } from './modules/pitch-deck'
+import { Tremplin } from './modules/tremplin'
+import { Passeport } from './modules/passeport'
+import { Mentorat } from './modules/mentorat'
+import { Certifications } from './modules/certifications'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -176,7 +187,18 @@ function BureauContent() {
         {currentModule === 'business-plan' && <BusinessPlanModule />}
         {currentModule === 'annuaire' && <AnnuaireModule />}
         {currentModule === 'forum' && <ForumModule />}
-        {currentSection !== 'dashboard' && currentModule && currentModule !== 'riasec' && currentModule !== 'mon-projet' && currentModule !== 'creasim' && currentModule !== 'business-plan' && currentModule !== 'annuaire' && currentModule !== 'forum' && <ModulePlaceholder moduleId={currentModule} />}
+        {currentModule === 'marche' && <MarcheModule />}
+        {currentModule === 'juridique' && <JuridiqueModule />}
+        {currentModule === 'financier' && <FinancierModule />}
+        {currentModule === 'pitch-deck' && <PitchDeckModule />}
+        {currentModule === 'profil-createur' && <ProfilCreateur />}
+        {currentModule === 'kiviat' && <KiviatModule />}
+        {currentModule === 'vision' && <VisionModule />}
+        {currentModule === 'tremplin' && <Tremplin />}
+        {currentModule === 'passeport' && <Passeport />}
+        {currentModule === 'mentorat' && <Mentorat />}
+        {currentModule === 'certifications' && <Certifications />}
+        {currentSection !== 'dashboard' && currentModule && currentModule !== 'riasec' && currentModule !== 'mon-projet' && currentModule !== 'creasim' && currentModule !== 'business-plan' && currentModule !== 'annuaire' && currentModule !== 'forum' && currentModule !== 'marche' && currentModule !== 'juridique' && currentModule !== 'financier' && currentModule !== 'pitch-deck' && currentModule !== 'profil-createur' && currentModule !== 'kiviat' && currentModule !== 'vision' && currentModule !== 'tremplin' && currentModule !== 'passeport' && currentModule !== 'mentorat' && currentModule !== 'certifications' && <ModulePlaceholder moduleId={currentModule} />}
         {currentSection !== 'dashboard' && !currentModule && <SectionOverview sectionId={currentSection} />}
       </motion.div>
     </AnimatePresence>

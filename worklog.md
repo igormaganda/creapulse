@@ -599,3 +599,22 @@ Stage Summary:
 - Conseiller espace accessible from navbar "Conseiller" button
 - ConseillerLayout already had EntretiensView properly imported and routed
 - All French text, CreaPulse design system, framer-motion animations, shadcn/ui components
+
+---
+Task ID: 4
+Agent: Conseiller Modules Builder
+Task: Create Livrables, Planning, Rapports tabs for Conseiller universe
+
+Work Log:
+- Created `/src/components/conseiller/livrables.tsx` — Deliverable review interface with header, type filter, tab filters, stats bar, card grid, detail dialog, validate/reject actions, 12 mock livrables
+- Created `/src/components/conseiller/planning.tsx` — Calendar view with week/month toggle, time grid, today indicator, upcoming sidebar, new appointment dialog, 15 mock appointments
+- Created `/src/components/conseiller/rapports.tsx` — Activity reports with period selector, 4 KPI cards, BarChart/PieChart/LineChart (recharts), top beneficiaires table, export buttons
+- Created 3 API routes: livrables (GET/PUT), planning (GET/POST), rapports (GET)
+- Updated conseiller-layout.tsx: added imports, replaced 3 PlaceholderTab with real components
+- ESLint: 0 errors
+
+Stage Summary:
+- Conseiller universe 100% complete (6/6 tabs: dashboard, beneficiaires, entretiens, livrables, planning, rapports)
+- 3 new frontend components + 3 API routes + 1 file updated
+- All tabs responsive with framer-motion animations, shadcn/ui, recharts
+- All French text, CreaPulse design system, GIDEF branding

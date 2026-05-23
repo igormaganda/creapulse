@@ -7,6 +7,9 @@ import { ConseillerDashboard } from './dashboard'
 import { BeneficiairesList } from './beneficiaires-list'
 import { BeneficiaireDetail } from './beneficiaire-detail'
 import { EntretiensView } from './entretiens'
+import { LivrablesView } from './livrables'
+import { PlanningView } from './planning'
+import { RapportsView } from './rapports'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -356,26 +359,11 @@ function ConseillerContent() {
 
         {currentTab === 'entretiens' && <EntretiensView />}
 
-        {currentTab === 'livrables' && (
-          <PlaceholderTab
-            title="Livrables"
-            description="Consultez et validez les livrables de vos beneficiaires : business plans, etudes de marche, previsions financieres."
-          />
-        )}
+        {currentTab === 'livrables' && <LivrablesView />}
 
-        {currentTab === 'planning' && (
-          <PlaceholderTab
-            title="Planning"
-            description="Visualisez votre emploi du temps et planifiez vos entretiens sur une vue calendrier."
-          />
-        )}
+        {currentTab === 'planning' && <PlanningView />}
 
-        {currentTab === 'rapports' && (
-          <PlaceholderTab
-            title="Rapports"
-            description="Generez des rapports d'activite et suivez les indicateurs de performance de votre portefeuille."
-          />
-        )}
+        {currentTab === 'rapports' && <RapportsView />}
       </motion.div>
     </AnimatePresence>
   )

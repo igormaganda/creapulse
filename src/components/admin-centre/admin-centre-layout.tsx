@@ -9,6 +9,7 @@ import { ConseillersManagement } from './conseillers'
 import { BeneficiairesManagement } from './beneficiaires'
 import { PlanningView } from './planning'
 import { StatistiquesView } from './statistiques'
+import { ParametresView } from './parametres'
 import {
   Sheet,
   SheetContent,
@@ -17,7 +18,6 @@ import {
 } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import {
   DropdownMenu,
@@ -261,29 +261,13 @@ function AdminContent() {
         {currentTab === 'beneficiaires' && <BeneficiairesManagement />}
         {currentTab === 'planning' && <PlanningView />}
         {currentTab === 'statistiques' && <StatistiquesView />}
-        {currentTab === 'parametres' && <ParametresPlaceholder />}
+        {currentTab === 'parametres' && <ParametresView />}
       </motion.div>
     </AnimatePresence>
   )
 }
 
-/* ─── Parametres placeholder ─── */
-function ParametresPlaceholder() {
-  return (
-    <div className="flex flex-col items-center justify-center h-full p-8">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#FF6B35]/10 text-[#FF6B35]">
-        <Settings className="h-8 w-8" />
-      </div>
-      <h2 className="mt-4 text-xl font-bold text-foreground">Parametres</h2>
-      <p className="mt-1 text-sm text-muted-foreground text-center max-w-md">
-        Configuration du centre, gestion des equipes, preferences et acces.
-      </p>
-      <Badge variant="secondary" className="mt-4">
-        Bientot disponible
-      </Badge>
-    </div>
-  )
-}
+
 
 /* ─── Main Admin Centre Layout ─── */
 export function AdminCentreLayout() {
