@@ -499,3 +499,103 @@ Stage Summary:
 - Integrated into Bureau Virtuel TopBar, z-[200] above bureau overlay
 - All French text, CreaPulse design system, framer-motion animations, shadcn/ui components
 
+---
+Task ID: 12
+Agent: Admin Centre Universe Builder
+Task: Build Admin Centre (Center Administrator) interface for CreaPulse V2
+
+Work Log:
+- Created `/src/components/admin-centre/admin-centre-store.ts` — Zustand store with persist middleware for admin centre navigation (currentTab: dashboard/conseillers/beneficiaires/planning/statistiques/parametres), visibility (isAdminCentreOpen), sidebar state, detail view (selectedUserId)
+- Created `/src/components/admin-centre/admin-centre-layout.tsx` — Full-screen overlay (z-[100]) matching BureauLayout pattern with:
+  - Dark sidebar (#1A1A2E) with coral (#FF6B35) accent (differentiated from Bureau teal)
+  - 6 navigation items with icons: Tableau de bord, Conseillers, Beneficiaires, Planning, Statistiques, Parametres
+  - Collapse/expand toggle, mobile Sheet drawer
+  - TopBar: "Administration Centre GIDEF" + city + current tab label, search, notifications bell, user dropdown
+  - AnimatePresence tab transitions
+- Created `/src/components/admin-centre/dashboard.tsx` — Admin dashboard with:
+  - Greeting banner with gradient-coral design + center name + date
+  - 6 KPI cards: Total beneficiaires (130), Conseillers actifs (7), Entretiens ce mois (48), Taux completion (62%), Nouveaux ce mois (18), Livrables valides (34) — each with trend indicators
+  - BarChart (recharts): beneficiaires par phase de parcours
+  - LineChart (recharts): evolution mensuelle des inscriptions (10 months)
+  - Top performers: 5 counselors ranked by avg beneficiary progress with progress bars
+  - Recent activity feed: 5 items with color-coded icons
+- Created `/src/components/admin-centre/conseillers.tsx` — Conseillers management with:
+  - Search bar (name, email, specialities)
+  - Table: name, email, specialities badges, beneficiaires count, capacity bar (X/30), status badge
+  - "Ajouter un conseiller" button (coral accent)
+  - Click-to-open detail dialog: contact info, 3 stat cards (beneficiaires, progression, entretiens), capacity progress bar, specialities, assigned beneficiaries list
+  - 7 mock counselors with varied data
+- Created `/src/components/admin-centre/beneficiaires.tsx` — Beneficiaires management with:
+  - Search + 3 filter dropdowns (conseiller, phase, status)
+  - Table: name, project, conseiller, phase badge, progress bar, registration date
+  - Export CSV button (mock with toast notification)
+  - Click-to-open detail dialog: contact, project info, progress bar
+  - 12 mock beneficiaries with varied sectors, phases, progress
+  - Phase-specific color badges (Ideation=amber, Structuration=teal, Financement=coral, Lancement=green, Developpement=purple)
+- Created `/src/components/admin-centre/planning.tsx` — Weekly planning calendar with:
+  - Grid view: Mon-Fri columns x 8:00-18:00 time rows
+  - Filter by conseiller dropdown
+  - Color-coded appointment types: bilan=teal, suivi=amber, atelier=coral
+  - Click-to-open appointment detail dialog (time, conseiller, beneficiaire, location)
+  - "Ajouter un creneau" button
+  - 10 mock appointments spread across the week
+- Created `/src/components/admin-centre/statistiques.tsx` — Statistics page with:
+  - Period selector: Ce mois / Ce trimestre / Cette annee (toggle buttons)
+  - 3 key metric cards: Temps moyen parcours, Taux reussite tremplin, Score BP moyen
+  - BarChart: beneficiaires par phase (data varies by period)
+  - LineChart: evolution inscriptions (data varies by period)
+  - PieChart (donut): repartition par secteur (6 sectors)
+  - Horizontal progress bars: completion par conseiller (7 counselors)
+  - All charts use recharts with consistent tooltip styling
+- Created `/src/app/api/admin-centre/conseillers/route.ts` — GET endpoint with search and status filters
+- Created `/src/app/api/admin-centre/beneficiaires/route.ts` — GET endpoint with search, conseiller, phase, status filters
+- Created `/src/app/api/admin-centre/stats/route.ts` — GET endpoint returning all statistics data
+- Updated `/src/app/page.tsx` — Added "Admin Centre" button (coral, ShieldCheck icon) in navbar next to "Super Admin" button; AdminCentreLayout and useAdminCentreStore were already imported/rendered by a parallel agent
+- ESLint: 0 errors
+
+Stage Summary:
+- 8 new files created in `/src/components/admin-centre/`
+- 3 new API routes in `/src/app/api/admin-centre/`
+- 1 file updated (page.tsx — admin centre button added to navbar)
+- Complete Admin Centre experience: dashboard → conseillers → beneficiaires → planning → statistiques
+- Coral (#FF6B35) accent differentiates from Bureau (teal) and Conseiller universes
+- Dark sidebar with coral highlights, professional data-dense admin interface
+- All charts via recharts (BarChart, LineChart, PieChart, progress bars)
+- Mobile-first responsive: collapsible sidebar, Sheet drawer, responsive tables
+- All French text, CreaPulse design system, framer-motion animations, shadcn/ui components
+
+---
+Task ID: 11-FINALIZE
+Agent: Conseiller Finalizer
+Task: Complete Conseiller universe — Entretiens component, API routes, page.tsx integration
+
+Work Log:
+- Created `/src/components/conseiller/entretiens.tsx` (~400 lines) — Full Entretiens view component with:
+  - **Header** with upcoming/today counts and "Nouvel entretien" button
+  - **Quick stats row**: 4 KPI cards (A venir, Aujourd'hui, Bilan, Termines) with colored icons
+  - **Search + Filters**: search by beneficiary/conseiller name, type filter (Bilan/Suivi/Atelier), status filter (Planifie/Confirme/Termine), active filter chips with reset
+  - **Entretien cards list**: each card shows avatar, beneficiary name (strikethrough if termine), type badge (bilan=teal, suivi=amber, atelier=coral), status badge with colored dot (planifie=blue, confirme=green, termine=gray), date/time/conseiller info, notes preview, message icon
+  - **Pagination**: page navigation for 6 items per page
+  - **"Nouvel entretien" Dialog**: beneficiary select (10 mock), type select (Bilan/Suivi/Atelier), date input, time input, notes textarea, validation on required fields, submit creates mock entretien
+  - **8 mock entretiens** with realistic French data (dates in Feb 2025, varied types and statuses)
+  - **Empty state** with illustration and reset button
+  - All framer-motion animated (fade-in, stagger, AnimatePresence popLayout), all French text
+- Created `/src/app/api/conseiller/beneficiaires/route.ts` — GET endpoint returning 10 mock beneficiaires with standardized API response
+- Created `/src/app/api/conseiller/entretiens/route.ts` — GET list + POST create endpoint with Zod validation, type validation, standardized API response
+- Created `/src/app/api/conseiller/stats/route.ts` — GET endpoint returning dashboard stats (KPIs, repartition type/status, activite recente, prochains RDV)
+- Updated `/src/app/page.tsx` — 4 changes:
+  - Added imports: ConseillerLayout + useConseillerStore
+  - Added openConseiller store hook in Navbar
+  - Added "Conseiller" button (GraduationCap icon, teal hover) BEFORE Admin Centre in navbar
+  - Added <ConseillerLayout /> overlay after AdminPlateformeLayout
+- Verified ConseillerLayout already imports and uses EntretiensView (line 9 import, line 357 route)
+- ESLint: 0 errors, 0 warnings
+
+Stage Summary:
+- 4 new files created (1 component + 3 API routes)
+- 1 file updated (page.tsx — conseiller navbar button + overlay integration)
+- Entretiens component fully functional with list view, filters, pagination, and create dialog
+- 3 API routes for conseiller data (beneficiaires, entretiens, stats) using standardized api-response
+- Conseiller espace accessible from navbar "Conseiller" button
+- ConseillerLayout already had EntretiensView properly imported and routed
+- All French text, CreaPulse design system, framer-motion animations, shadcn/ui components

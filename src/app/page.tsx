@@ -78,6 +78,7 @@ import {
   ExternalLink,
   LogOut,
   UserCircle,
+  ShieldCheck,
 } from 'lucide-react'
 
 /* ─── Auth dialogs ─── */
@@ -87,6 +88,18 @@ import { RegisterDialog } from '@/components/auth/register-dialog'
 /* ─── Bureau Virtuel ─── */
 import { BureauLayout } from '@/components/bureau/bureau-layout'
 import { useBureauStore } from '@/components/bureau/bureau-store'
+
+/* ─── Admin Plateforme ─── */
+import { AdminPlateformeLayout } from '@/components/admin-plateforme/admin-plateforme-layout'
+import { useAdminPlateformeStore } from '@/components/admin-plateforme/admin-plateforme-store'
+
+/* ─── Admin Centre ─── */
+import { AdminCentreLayout } from '@/components/admin-centre/admin-centre-layout'
+import { useAdminCentreStore } from '@/components/admin-centre/admin-centre-store'
+
+/* ─── Conseiller ─── */
+import { ConseillerLayout } from '@/components/conseiller/conseiller-layout'
+import { useConseillerStore } from '@/components/conseiller/conseiller-store'
 
 /* ═══════════════════════════════════════════════════════════
    Animation variants for framer-motion scroll reveals
@@ -157,6 +170,8 @@ function Navbar() {
   const [registerOpen, setRegisterOpen] = useState(false)
   const [authUser, setAuthUser] = useState<AuthUser>(null)
   const { openBureau, setUserName } = useBureauStore()
+  const { openAdminPlateforme } = useAdminPlateformeStore()
+  const { openConseiller } = useConseillerStore()
 
   const handleLoginSuccess = (user: { firstName: string; lastName: string; email: string }) => {
     setAuthUser(user)
@@ -244,6 +259,33 @@ function Navbar() {
 
           {/* Right side — desktop */}
           <div className="hidden items-center gap-2 md:flex">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs text-muted-foreground hover:text-primary"
+              onClick={openConseiller}
+            >
+              <GraduationCap className="mr-1 h-3.5 w-3.5" />
+              Conseiller
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs text-muted-foreground hover:text-[#FF6B35]"
+              onClick={() => useAdminCentreStore.getState().openAdminCentre()}
+            >
+              <ShieldCheck className="mr-1 h-3.5 w-3.5" />
+              Admin Centre
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs text-muted-foreground hover:text-[#FFB74D]"
+              onClick={openAdminPlateforme}
+            >
+              <Shield className="mr-1 h-3.5 w-3.5" />
+              Super Admin
+            </Button>
             {authUser ? (
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
@@ -1470,6 +1512,15 @@ export default function Home() {
     <div className="flex min-h-screen flex-col">
       {/* Bureau Virtuel overlay */}
       <BureauLayout />
+
+      {/* Admin Centre overlay */}
+      <AdminCentreLayout />
+
+      {/* Admin Plateforme overlay */}
+      <AdminPlateformeLayout />
+
+      {/* Conseiller overlay */}
+      <ConseillerLayout />
 
       {/* Section 1 — Sticky Navigation */}
       <Navbar />
