@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useBureauStore } from './bureau-store'
 import { cn } from '@/lib/utils'
@@ -122,8 +123,14 @@ export function IAAssistant() {
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [greetingShown, setGreetingShown] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Ensure portal target is available (client-only)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Determine context
   const activeModule = currentModule || ''
@@ -243,7 +250,13 @@ export function IAAssistant() {
     }
   }, [activeModule])
 
-  return (
+  if (!mounted) return null
+
+  // Portal container to render at document body level — prevents fixed positioning
+  // issues caused by parent transform/stacking-context (e.g. framer-motion on BureauLayout)
+  const portalContainer = typeof document !== 'undefined' ? document.body : null
+
+  return portalContainer ? createPortal(
     <>
       {/* ─── FAB Button ─── */}
       {!isOpen && (
@@ -252,7 +265,7 @@ export function IAAssistant() {
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-          className="fixed bottom-6 right-6 z-[200] md:bottom-8 md:right-8"
+          className="fixed bottom-6 right-6 z-[9999] md:bottom-8 md:right-8"
         >
           <Button
             onClick={() => setIsOpen(true)}
@@ -283,7 +296,7 @@ export function IAAssistant() {
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 350, damping: 28 }}
             className={cn(
-              'fixed z-[200] flex flex-col overflow-hidden',
+              'fixed z-[9999] flex flex-col overflow-hidden',
               'bottom-0 right-0 w-full h-full sm:bottom-4 sm:right-4',
               'sm:h-[500px] sm:w-[400px] sm:max-h-[80vh]',
               'rounded-none sm:rounded-2xl',
@@ -454,6 +467,7 @@ export function IAAssistant() {
           </motion.div>
         )}
       </AnimatePresence>
-    </>
-  )
+    </>,
+    portalContainer
+  ) : null
 }

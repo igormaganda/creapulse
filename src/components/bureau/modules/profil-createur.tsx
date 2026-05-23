@@ -40,7 +40,6 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { useAuthStore } from '@/lib/zustand/store'
 
 // ────────────────────────────────────────────
 // Types
@@ -168,7 +167,6 @@ export function ProfilCreateur() {
   const [isUploading, setIsUploading] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const token = useAuthStore((s) => s.token)
 
   // ── Load data ──
   useEffect(() => {
@@ -180,23 +178,19 @@ export function ProfilCreateur() {
           const parsed = JSON.parse(saved)
           setData(parsed)
           setLoading(false)
-          // Then fetch from API in background
-          if (token) fetchFromApi()
+          // Then fetch from API in background (always try — cookie auth)
+          fetchFromApi()
           return
         } catch { /* ignore */ }
       }
-      // Fetch from API
-      if (token) {
-        await fetchFromApi()
-      } else {
-        setLoading(false)
-      }
+      // Fetch from API (always try — cookie auth)
+      await fetchFromApi()
     }
 
     async function fetchFromApi() {
       try {
         const res = await fetch('/api/profil', {
-          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
         })
         if (res.ok) {
           const json = await res.json()
@@ -210,7 +204,7 @@ export function ProfilCreateur() {
     }
 
     loadProfil()
-  }, [token])
+  }, [])
 
   // ── Auto-save to localStorage on change ──
   useEffect(() => {
@@ -252,20 +246,16 @@ export function ProfilCreateur() {
     setHasChanges(true)
   }, [])
 
-  // ── Save to API ──
+  // ── Save to API (cookie-based auth — session cookie sent automatically) ──
   const handleSave = async () => {
-    if (!token) {
-      toast.error('Vous devez être connecté(e) pour sauvegarder')
-      return
-    }
     setSaveStatus('saving')
     try {
       const res = await fetch('/api/profil', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify(data),
       })
       if (res.ok) {
@@ -274,8 +264,17 @@ export function ProfilCreateur() {
         toast.success('Profil sauvegardé avec succès !')
         setTimeout(() => setSaveStatus('idle'), 3000)
       } else {
+        const errData = await res.json().catch(() => ({}))
         setSaveStatus('error')
-        toast.error('Erreur lors de la sauvegarde')
+        if (res.status === 401) {
+          toast.error('Vous devez être connecté(e) pour sauvegarder', {
+            description: 'Votre session a peut-être expiré. Reconnectez-vous.',
+          })
+        } else {
+          toast.error('Erreur lors de la sauvegarde', {
+            description: errData?.error?.message || 'Veuillez réessayer.',
+          })
+        }
       }
     } catch {
       setSaveStatus('error')
@@ -496,7 +495,7 @@ export function ProfilCreateur() {
                       <SelectTrigger>
                         <SelectValue placeholder="Sélectionnez..." />
                       </SelectTrigger>
-                      <SelectContent position="popper">
+                      <SelectContent position="popper" className="z-[250]">
                         {EMPLOYMENT_OPTIONS.map((opt) => (
                           <SelectItem key={opt.value} value={opt.value}>
                             {opt.label}
@@ -514,7 +513,7 @@ export function ProfilCreateur() {
                       <SelectTrigger>
                         <SelectValue placeholder="Sélectionnez..." />
                       </SelectTrigger>
-                      <SelectContent position="popper">
+                      <SelectContent position="popper" className="z-[250]">
                         {EDUCATION_OPTIONS.map((opt) => (
                           <SelectItem key={opt.value} value={opt.value}>
                             {opt.label}
@@ -811,6 +810,7 @@ export function ProfilCreateur() {
                       const res = await fetch('/api/upload', {
                         method: 'POST',
                         body: formData,
+                        credentials: 'include',
                       })
                       if (res.ok) {
                         setCvFile({ name: file.name, size: file.size, uploadedAt: new Date().toLocaleString('fr-FR') })

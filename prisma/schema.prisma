@@ -1045,3 +1045,30 @@ model SavedNews {
   @@unique([userId, newsId])
   @@index([userId])
 }
+
+model NewsArticle {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  title        String
+  excerpt      String
+  content      String   @default("")
+  category     String   @default("Inspiration")
+  imageGradient String?
+  authorName   String   @default("Équipe CreaPulse")
+  authorRole   String   @default("GIDEF Île-de-France")
+  isPublished  Boolean  @default(true)
+  isFeatured   Boolean  @default(false)
+  readTime     Int      @default(5)
+  viewCount    Int      @default(0)
+  publishedAt  DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([category])
+  @@index([publishedAt])
+  @@index([isPublished])
+}
+
+// ============================================
+// ARTICLES / BLOG
+// ============================================

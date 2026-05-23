@@ -80,14 +80,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Reject empty files
+    if (file.size === 0) {
+      return Errors.validation(null, 'Le fichier est vide.')
+    }
+
     // Ensure upload directory exists
     await mkdir(UPLOAD_DIR, { recursive: true })
 
-    // Generate unique filename
+    // Generate unique filename (sanitize extension)
     const timestamp = Date.now()
     const ext = getExtension(file.name)
     const uniqueName = `${timestamp}-${randomUUID()}${ext}`
     const filePath = join(UPLOAD_DIR, uniqueName)
+
+    // Double-check path stays within upload directory
+    const resolvedPath = join(process.cwd(), filePath)
+    if (!resolvedPath.startsWith(UPLOAD_DIR)) {
+      logger.warn('Tentative de path traversal bloquée', { fileName: file.name, resolvedPath })
+      return Errors.validation(null, 'Nom de fichier invalide.')
+    }
 
     // Save file to disk
     const bytes = await file.arrayBuffer()
@@ -158,7 +170,10 @@ export async function POST(request: NextRequest) {
 
 function getExtension(filename: string): string {
   const lastDot = filename.lastIndexOf('.')
-  return lastDot !== -1 ? filename.substring(lastDot).toLowerCase() : ''
+  if (lastDot === -1) return ''
+  const ext = filename.substring(lastDot).toLowerCase()
+  // Extra safety: strip any non-alphanumeric characters (prevent path traversal)
+  return ext.replace(/[^a-z0-9.]/g, '')
 }
 
 function isValidExtension(filename: string): boolean {

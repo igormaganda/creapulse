@@ -990,3 +990,84 @@ Stage Summary:
 - Performance: 18 bureau modules code-split via next/dynamic with loading skeletons
 - SEO: Complete metadata (title template, OG, Twitter, robots), dynamic sitemap, robots.txt, JSON-LD structured data
 - All French text, Echo Entreprendre / GIDEF branding
+
+---
+Task ID: 6
+Agent: Debug & Security Auditor
+Task: Comprehensive debug and security audit + fix critical issues
+
+Work Log:
+- Read worklog.md and analyzed full project history
+- Read all 14+ files listed in task specification
+- **Bug 1 (RIASEC save error)**: Root cause — component used `useAuthStore((s) => s.token)` to get JWT from Zustand store, which was null for cookie-authenticated users. Fix: removed client-side token guard and Authorization header, now uses `credentials: 'include'` for cookie-based auth. Server already supports cookie auth via `getTokenFromRequest`.
+- **Bug 2 (Reprendre button broken)**: Root cause — button only called `setSection('parcours')` which set `currentModule: null`, showing section overview instead of a specific module. Fix: added `setModule('riasec')` to navigate directly to the RIASEC diagnostic module.
+- **Bug 3 (CV import)**: Root cause — CV upload didn't send credentials with the fetch request, so server couldn't identify user to create CvUpload DB record. Fix: added `credentials: 'include'` to CV upload fetch and file-upload.tsx upload fetch.
+- **Bug 4 (Profil Créateur save auth error)**: Root cause — same as Bug 1, used Zustand token which was null. Fix: removed token dependency from save handler and load handler, now uses cookie-based auth with `credentials: 'include'`. 401 errors now handled gracefully with proper French toast messages.
+- **Bug 5 (Dropdowns not working)**: Root cause — Radix Select portal content rendered with insufficient z-index, potentially hidden behind bureau overlay (z-[100]). Fix: added `className="z-[250]"` to both SelectContent components (employmentStatus and educationLevel).
+- **Bug 6 (IA Chat positioning)**: Root cause — fixed-position chat panel rendered in React tree that could be affected by framer-motion transform stacking contexts. Fix: rendered IA assistant via `createPortal` to `document.body` with `z-[9999]` to guarantee correct viewport-relative positioning.
+- **Security: Register endpoint was a STUB** — replaced with full implementation: Zod validation, bcryptjs password hashing, GIDEF tenant upsert, email uniqueness check, User+Beneficiary+CreatorJourney creation in transaction, audit log, in-memory rate limiting (5 attempts/hour per IP).
+- **Security: Login endpoint** — fixed `password` → `passwordHash` field name (Prisma schema), `findUnique` → `findFirst` (composite unique constraint), added `tenantId` extraction fix, added in-memory rate limiting (10 attempts/15min per IP), added Secure cookie flag in production.
+- **Security: File upload** — added extension sanitization (strip non-alphanumeric chars), added path traversal check (resolved path must start with upload directory), added empty file rejection.
+- **Security: Error handling** — `handleApiError` in api-response.ts now sanitizes error output: logs message + stack only in development, returns generic message in production.
+- **Security: API response** — added `Error.rateLimited` code for rate limit responses.
+- ESLint: 0 new errors across all modified files
+- TypeScript: 0 new errors introduced (verified against modified files)
+
+Stage Summary:
+- 6 bugs fixed:
+  1. RIASEC save: removed client-side token dependency, cookie-based auth
+  2. Reprendre button: navigates to RIASEC module instead of section overview
+  3. CV import: added credentials: 'include' for auth
+  4. Profil save auth: removed token guard, cookie-based auth, proper 401 handling
+  5. Dropdowns: added z-[250] to SelectContent components
+  6. IA Chat: rendered via createPortal to document.body for correct fixed positioning
+- Security improvements:
+  - Register endpoint: fully implemented (was a STUB)
+  - Login endpoint: fixed schema field names, rate limiting, Secure cookie
+  - File upload: path traversal protection, extension sanitization, empty file rejection
+  - Error handling: production-safe error messages (no stack exposure)
+- Files modified:
+  - `/src/components/bureau/modules/riasec.tsx` — Bug 1 fix
+  - `/src/components/bureau/dashboard.tsx` — Bug 2 fix
+  - `/src/components/bureau/modules/profil-createur.tsx` — Bugs 3, 4, 5 fixes
+  - `/src/components/bureau/file-upload.tsx` — Bug 3 fix
+  - `/src/components/bureau/ia-assistant.tsx` — Bug 6 fix
+  - `/src/app/api/auth/register/route.ts` — Security: full register implementation
+  - `/src/app/api/auth/login/route.ts` — Security: field names, rate limiting, cookie security
+  - `/src/app/api/upload/route.ts` — Security: path traversal, sanitization, empty file check
+  - `/src/lib/api-response.ts` — Security: production-safe error messages
+
+---
+Task ID: 7
+Agent: Main Architect
+Task: Home page updates — menu cleanup, hero/stats, accents, padding, articles system
+
+Work Log:
+- Removed "Conseiller", "Admin Centre", "Super Admin" buttons from main navbar
+- Added collapsible accordion section to LoginDialog with admin access links
+- Changed hero title to "Accompagnement de l'idée jusqu'à l'entreprise"
+- Updated hero stats to: 50 000 accompagnés, 60 agences GIDEF, 150 conseillers, 1 900 entreprises créées
+- Updated hero description to match new stats
+- Reduced all section padding from py-16 md:py-24 to py-12 md:py-16
+- Set first section (hero) padding to pt-[120px] pb-12 md:pb-16 (120px top padding)
+- Added French accents throughout all sections (é, è, ê, à, ç, ô, î, û, etc.)
+- Fixed testimonials cities to Île-de-France locations (Créteil, Nanterre, Paris)
+- Updated Partenaires to Île-de-France (Région Île-de-France, CCI Île-de-France)
+- Created NewsArticle Prisma model (id, slug, title, excerpt, content, category, imageGradient, authorName, authorRole, isPublished, isFeatured, readTime, viewCount, publishedAt)
+- Created articles API route (/api/articles) with pagination, category filter, search
+- Created seed script with 76 articles (Sept 2024 - May 2025) covering 7 categories
+- Seeded 76 articles to PostgreSQL database
+- Replaced static ActualitésSection with dynamic version that fetches from API
+- Added category filter tabs (Tous, Financement, Juridique, Marketing, Île-de-France, Inspiration, Outils numériques, Événements)
+- Added article reader Sheet with HTML content rendering
+- Added pagination (load more button)
+- Added skeleton loading state
+
+Stage Summary:
+- Menu simplified: admin access moved to login popup
+- Hero section fully updated with new stats and title
+- All French text properly accented across the entire page
+- All section paddings reduced to 50px max (first section 120px)
+- 76 articles seeded across 7 categories in the database
+- Dynamic articles section with filters, pagination, and article reader
+- ESLint: 0 errors

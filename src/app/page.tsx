@@ -24,6 +24,7 @@ import {
   SheetTrigger,
   SheetClose,
 } from '@/components/ui/sheet'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Carousel,
   CarouselContent,
@@ -74,6 +75,7 @@ import {
   GraduationCap,
   Handshake,
   Bell,
+  Monitor,
   Clock,
   ExternalLink,
   LogOut,
@@ -201,8 +203,8 @@ function Navbar() {
   const navLinks = [
     { label: 'Parcours', href: '#parcours' },
     { label: 'Outils', href: '#outils' },
-    { label: 'Reseau', href: '#reseau' },
-    { label: 'Actualites', href: '#actualites' },
+    { label: 'Réseau', href: '#reseau' },
+    { label: 'Actualités', href: '#actualites' },
     { label: 'Tarifs', href: '#cta' },
   ]
 
@@ -217,7 +219,7 @@ function Navbar() {
               <span className="text-xl font-bold text-primary">CreaPulse</span>
             </div>
             <span className="hidden text-xs text-muted-foreground sm:inline">
-              GIDEF Ile-de-France
+              GIDEF Île-de-France
             </span>
           </div>
 
@@ -234,16 +236,16 @@ function Navbar() {
               <DropdownMenuContent align="center" className="w-52">
                 <DropdownMenuItem className="gap-2 cursor-pointer">
                   <Lightbulb className="h-4 w-4 text-amber-500" />
-                  Je decouvre une idee
+                  Je découvre une idée
                 </DropdownMenuItem>
                 <DropdownMenuItem className="gap-2 cursor-pointer">
                   <Rocket className="h-4 w-4 text-primary" />
-                  Je cree mon entreprise
+                  Je crée mon entreprise
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="gap-2 cursor-pointer">
                   <TrendingUp className="h-4 w-4 text-coral-500" />
-                  Je developpe mon activite
+                  Je développe mon activité
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -266,33 +268,6 @@ function Navbar() {
           {/* Right side — desktop */}
           <div className="hidden items-center gap-2 md:flex">
             <ThemeToggle />
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs text-muted-foreground hover:text-primary"
-              onClick={openConseiller}
-            >
-              <GraduationCap className="mr-1 h-3.5 w-3.5" />
-              Conseiller
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs text-muted-foreground hover:text-[#FF6B35]"
-              onClick={() => useAdminCentreStore.getState().openAdminCentre()}
-            >
-              <ShieldCheck className="mr-1 h-3.5 w-3.5" />
-              Admin Centre
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs text-muted-foreground hover:text-[#FFB74D]"
-              onClick={openAdminPlateforme}
-            >
-              <Shield className="mr-1 h-3.5 w-3.5" />
-              Super Admin
-            </Button>
             {authUser ? (
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
@@ -348,7 +323,7 @@ function Navbar() {
                   <Zap className="h-5 w-5 text-primary" />
                   CreaPulse
                 </SheetTitle>
-                <SheetDescription>GIDEF Ile-de-France</SheetDescription>
+                <SheetDescription>GIDEF Île-de-France</SheetDescription>
               </SheetHeader>
               <nav className="flex flex-col gap-1 px-4 pt-2">
                 <a href="#besoin" onClick={() => setMobileOpen(false)}>
@@ -443,13 +418,13 @@ function Navbar() {
    SECTION 2 — HERO
    ═══════════════════════════════════════════════════════════ */
 function HeroSection() {
-  const stat1 = useCountUp(68000, 2200)
-  const stat2 = useCountUp(549, 1800)
-  const stat3 = useCountUp(1350, 2000)
-  const stat4 = useCountUp(19000, 2400)
+  const stat1 = useCountUp(50000, 2200)
+  const stat2 = useCountUp(60, 1800)
+  const stat3 = useCountUp(150, 2000)
+  const stat4 = useCountUp(1900, 2400)
 
   return (
-    <section className="gradient-hero overflow-hidden py-16 md:py-24 lg:py-32">
+    <section className="gradient-hero overflow-hidden pt-[120px] pb-12 md:pb-16">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
           {/* Left — text */}
@@ -462,22 +437,21 @@ function HeroSection() {
             <motion.div variants={fadeInUp}>
               <Badge className="mb-4 bg-teal-100 text-primary hover:bg-teal-100 dark:bg-teal-900/40">
                 <Sparkles className="mr-1 h-3 w-3" />
-                Nouveau : IA integree a tous vos outils
+                Nouveau : IA intégrée à tous vos outils
               </Badge>
             </motion.div>
             <motion.h1
               variants={fadeInUp}
               className="text-4xl leading-tight font-extrabold tracking-tight sm:text-5xl lg:text-6xl"
             >
-              Accompagnez votre{' '}
-              <span className="text-gradient-teal">idee</span> jusqu&apos;a{' '}
+              Accompagnement de l&apos;<span className="text-gradient-teal">idée</span> jusqu&apos;à{' '}
               <span className="text-gradient-accent">l&apos;entreprise</span>
             </motion.h1>
             <motion.p
               variants={fadeInUp}
               className="mt-4 text-lg text-muted-foreground sm:text-xl"
             >
-              Le bureau virtuel qui guide 100 000 createurs par an.
+              Le bureau virtuel qui accompagne 50 000 créateurs par an.
               Structurez, financez et lancez votre projet avec confiance.
             </motion.p>
             <motion.div
@@ -489,7 +463,7 @@ function HeroSection() {
                 <ArrowRight className="h-4 w-4" />
               </Button>
               <Button variant="outline" size="lg" className="gap-2 text-base">
-                Decouvrir les outils
+                Découvrir les outils
                 <Search className="h-4 w-4" />
               </Button>
             </motion.div>
@@ -514,7 +488,7 @@ function HeroSection() {
                       </div>
                       <div>
                         <p className="text-xs font-semibold text-foreground">CreaSim</p>
-                        <p className="text-xs text-muted-foreground">+23% rentabilite</p>
+                        <p className="text-xs text-muted-foreground">+23% rentabilité</p>
                       </div>
                     </div>
                   </div>
@@ -529,7 +503,7 @@ function HeroSection() {
                       </div>
                       <div>
                         <p className="text-xs font-semibold text-foreground">Passeport</p>
-                        <p className="text-xs text-muted-foreground">Certifie</p>
+                        <p className="text-xs text-muted-foreground">Certifié</p>
                       </div>
                     </div>
                   </div>
@@ -544,7 +518,7 @@ function HeroSection() {
                       </div>
                       <div>
                         <p className="text-xs font-semibold text-foreground">Business Plan</p>
-                        <p className="text-xs text-muted-foreground">IA Generee</p>
+                        <p className="text-xs text-muted-foreground">IA Générée</p>
                       </div>
                     </div>
                   </div>
@@ -558,7 +532,7 @@ function HeroSection() {
                         <Rocket className="h-6 w-6 text-primary" />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-foreground">Entreprise creee !</p>
+                        <p className="text-sm font-semibold text-foreground">Entreprise créée !</p>
                         <div className="mt-1 flex gap-0.5">
                           {[...Array(5)].map((_, i) => (
                             <Star key={i} className="h-3 w-3 fill-amber-400 text-amber-400" />
@@ -583,13 +557,13 @@ function HeroSection() {
           whileInView="visible"
           viewport={{ once: true, amount: 0.3 }}
           variants={staggerContainer}
-          className="mt-16 grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-8"
+          className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-8"
         >
           {[
-            { ref: stat1.ref, count: stat1.count, suffix: '', label: 'accompagnes' },
-            { ref: stat2.ref, count: stat2.count, suffix: '', label: "agences GIDEF" },
+            { ref: stat1.ref, count: stat1.count, suffix: '', label: 'accompagnés' },
+            { ref: stat2.ref, count: stat2.count, suffix: '', label: 'agences GIDEF' },
             { ref: stat3.ref, count: stat3.count, suffix: '', label: 'conseillers' },
-            { ref: stat4.ref, count: stat4.count, suffix: '', label: 'entreprises crees' },
+            { ref: stat4.ref, count: stat4.count, suffix: '', label: 'entreprises créées' },
           ].map((stat, i) => (
             <motion.div
               key={i}
@@ -618,34 +592,34 @@ const besoinCards = [
     icon: Lightbulb,
     iconBg: 'bg-amber-100 dark:bg-amber-900/30',
     iconColor: 'text-amber-500',
-    title: 'Je decouvre une idee',
+    title: 'Je découvre une idée',
     description:
-      'Vous avez un projet en tete ? Explorez votre idee, testez sa viabilite et validez votre marche avec nos outils de diagnostic.',
+      'Vous avez un projet en tête ? Explorez votre idée, testez sa viabilité et validez votre marché avec nos outils de diagnostic.',
     borderColor: 'hover:border-amber-400',
   },
   {
     icon: Rocket,
     iconBg: 'bg-teal-100 dark:bg-teal-900/40',
     iconColor: 'text-primary',
-    title: 'Je cree mon entreprise',
+    title: 'Je crée mon entreprise',
     description:
-      'De la structuration juridique au business plan, suivez chaque etape pour imatriculer votre societe en toute serenite.',
+      'De la structuration juridique au business plan, suivez chaque étape pour immatriculer votre société en toute sérénité.',
     borderColor: 'hover:border-primary',
   },
   {
     icon: TrendingUp,
     iconBg: 'bg-coral-50 dark:bg-coral-900/20',
     iconColor: 'text-coral-500',
-    title: 'Je developpe mon activite',
+    title: 'Je développe mon activité',
     description:
-      'Votre entreprise est lancee ? Accompagnez votre croissance avec nos outils marketing, financier et de reseau.',
+      'Votre entreprise est lancée ? Accompagnez votre croissance avec nos outils marketing, financier et de réseau.',
     borderColor: 'hover:border-coral-400',
   },
 ]
 
 function BesoinSection() {
   return (
-    <section id="besoin" className="py-16 md:py-24">
+    <section id="besoin" className="py-12 md:py-16">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div
           initial="hidden"
@@ -656,13 +630,13 @@ function BesoinSection() {
         >
           <Badge variant="secondary" className="mb-3">
             <Target className="mr-1 h-3 w-3" />
-            Par ou commencer ?
+            Par où commencer ?
           </Badge>
           <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
             Quel est <span className="text-gradient-teal">votre besoin</span> ?
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
-            CreaPulse s&apos;adapte a chaque etape de votre parcours entrepreneurial
+            CreaPulse s&apos;adapte à chaque étape de votre parcours entrepreneurial
           </p>
         </motion.div>
 
@@ -711,8 +685,8 @@ const parcoursSteps = [
   {
     icon: Lightbulb,
     step: '01',
-    title: 'Idee & Vision',
-    subtitle: 'Definissez votre projet',
+    title: 'Idée & Vision',
+    subtitle: 'Définissez votre projet',
     tools: '6 outils',
     color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
     ring: 'ring-amber-200 dark:ring-amber-800',
@@ -721,7 +695,7 @@ const parcoursSteps = [
     icon: Target,
     step: '02',
     title: 'Structurer',
-    subtitle: 'Modelisez votre activite',
+    subtitle: 'Modélisez votre activité',
     tools: '10 outils',
     color: 'bg-teal-100 text-primary dark:bg-teal-900/40 dark:text-teal-300',
     ring: 'ring-teal-200 dark:ring-teal-800',
@@ -730,7 +704,7 @@ const parcoursSteps = [
     icon: Calculator,
     step: '03',
     title: 'Financer',
-    subtitle: 'Securisez votre plan',
+    subtitle: 'Sécurisez votre plan',
     tools: '8 outils',
     color: 'bg-coral-50 text-coral-500 dark:bg-coral-900/20 dark:text-coral-400',
     ring: 'ring-coral-200 dark:ring-coral-800',
@@ -739,7 +713,7 @@ const parcoursSteps = [
     icon: Rocket,
     step: '04',
     title: 'Lancer',
-    subtitle: 'Immatriculez et developpez',
+    subtitle: 'Immatriculez et développez',
     tools: '6 outils',
     color: 'bg-teal-100 text-primary dark:bg-teal-900/40 dark:text-teal-300',
     ring: 'ring-teal-200 dark:ring-teal-800',
@@ -748,7 +722,7 @@ const parcoursSteps = [
 
 function ParcoursSection() {
   return (
-    <section id="parcours" className="bg-muted/50 py-16 md:py-24">
+    <section id="parcours" className="bg-muted/50 py-12 md:py-16">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div
           initial="hidden"
@@ -759,13 +733,13 @@ function ParcoursSection() {
         >
           <Badge variant="secondary" className="mb-3">
             <Rocket className="mr-1 h-3 w-3" />
-            Guide etape par etape
+            Guide étape par étape
           </Badge>
           <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
             Votre parcours <span className="text-gradient-teal">entrepreneurial</span>
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
-            Un chemin structure en 4 phases pour passer de l&apos;idee a l&apos;entreprise
+            Un chemin structuré en 4 phases pour passer de l&apos;idée à l&apos;entreprise
           </p>
         </motion.div>
 
@@ -774,7 +748,7 @@ function ParcoursSection() {
           whileInView="visible"
           viewport={{ once: true, amount: 0.2 }}
           variants={staggerContainer}
-          className="relative mt-16"
+          className="relative mt-12"
         >
           {/* Desktop: horizontal connected steps */}
           <div className="hidden lg:flex lg:items-start lg:justify-between">
@@ -789,7 +763,7 @@ function ParcoursSection() {
                     <step.icon className="h-9 w-9" />
                   </div>
                   <span className="mt-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Etape {step.step}
+                    Étape {step.step}
                   </span>
                   <h3 className="mt-1 text-xl font-bold text-foreground">{step.title}</h3>
                   <p className="mt-1 text-sm text-muted-foreground">{step.subtitle}</p>
@@ -825,7 +799,7 @@ function ParcoursSection() {
                   </div>
                   <div className="pb-4">
                     <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Etape {step.step}
+                      Étape {step.step}
                     </span>
                     <h3 className="text-lg font-bold text-foreground">{step.title}</h3>
                     <p className="text-sm text-muted-foreground">{step.subtitle}</p>
@@ -851,15 +825,15 @@ const outilsCards = [
     icon: Calculator,
     title: 'CreaSim',
     description: 'Simulateur financier interactif',
-    details: 'Estimez vos charges, revenus et rentabilite en quelques clics.',
+    details: 'Estimez vos charges, revenus et rentabilité en quelques clics.',
     gradient: 'from-teal-50 to-teal-100 dark:from-teal-900/20 dark:to-teal-900/10',
     iconColor: 'text-primary',
   },
   {
     icon: FileText,
     title: 'Business Plan IA',
-    description: 'Editeur intelligent 22 sections',
-    details: 'Generez un business plan professionnel avec l\'aide de l\'IA.',
+    description: 'Éditeur intelligent 22 sections',
+    details: 'Générez un business plan professionnel avec l\'aide de l\'IA.',
     gradient: 'from-coral-50 to-amber-50 dark:from-coral-900/10 dark:to-amber-900/10',
     iconColor: 'text-coral-500',
   },
@@ -874,8 +848,8 @@ const outilsCards = [
   {
     icon: Sparkles,
     title: 'IA Marketing',
-    description: 'Strategie communication auto',
-    details: 'Planifiez et optimisez votre strategie marketing grace a l\'IA.',
+    description: 'Stratégie communication auto',
+    details: 'Planifiez et optimisez votre stratégie marketing grâce à l\'IA.',
     gradient: 'from-teal-50 to-coral-50 dark:from-teal-900/10 dark:to-coral-900/10',
     iconColor: 'text-primary',
   },
@@ -883,7 +857,7 @@ const outilsCards = [
 
 function OutilsSection() {
   return (
-    <section id="outils" className="py-16 md:py-24">
+    <section id="outils" className="py-12 md:py-16">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div
           initial="hidden"
@@ -898,10 +872,10 @@ function OutilsSection() {
           </Badge>
           <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
             Vos outils de{' '}
-            <span className="text-gradient-teal">creation d&apos;entreprise</span>
+            <span className="text-gradient-teal">création d&apos;entreprise</span>
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
-            Des outils conçus pour vous accompagner a chaque etape
+            Des outils conçus pour vous accompagner à chaque étape
           </p>
         </motion.div>
 
@@ -948,25 +922,25 @@ const temoignages = [
   {
     initials: 'MD',
     name: 'Marie D.',
-    city: 'Rennes',
+    city: 'Créteil',
     quote:
-      "CreaPulse m'a permis de structurer mon projet de boulangerie en 3 mois. Le simulateur financier m'a donne confiance pour me lancer.",
+      "CreaPulse m'a permis de structurer mon projet de boulangerie en 3 mois. Le simulateur financier m'a donné confiance pour me lancer.",
     rating: 5,
   },
   {
     initials: 'TL',
     name: 'Thomas L.',
-    city: 'Nantes',
+    city: 'Nanterre',
     quote:
-      "Le Business Plan IA est incroyable. En quelques heures, j'avais un document professionnel que ma banque a valide.",
+      "Le Business Plan IA est incroyable. En quelques heures, j'avais un document professionnel que ma banque a validé.",
     rating: 5,
   },
   {
     initials: 'SM',
     name: 'Sophie M.',
-    city: 'Brest',
+    city: 'Paris',
     quote:
-      "L'accompagnement personnalise et les outils de diagnostic m'ont aide a trouver mon reseau GIDEF local.",
+      "L'accompagnement personnalisé et les outils de diagnostic m'ont aidé à trouver mon réseau GIDEF local.",
     rating: 5,
   },
 ]
@@ -996,7 +970,7 @@ function TemoignagesSection() {
   }, [api])
 
   return (
-    <section className="bg-muted/50 py-16 md:py-24">
+    <section className="bg-muted/50 py-12 md:py-16">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div
           initial="hidden"
@@ -1007,10 +981,10 @@ function TemoignagesSection() {
         >
           <Badge variant="secondary" className="mb-3">
             <Heart className="mr-1 h-3 w-3" />
-            Temoignages
+            Témoignages
           </Badge>
           <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
-            Ils ont cree leur entreprise avec{' '}
+            Ils ont créé leur entreprise avec{' '}
             <span className="text-gradient-teal">CreaPulse</span>
           </h2>
         </motion.div>
@@ -1077,7 +1051,7 @@ function TemoignagesSection() {
             ))}
           </div>
           <p className="mt-3 text-center text-xs text-muted-foreground">
-            Defilement automatique toutes les 5 secondes
+            Défilement automatique toutes les 5 secondes
           </p>
         </motion.div>
       </div>
@@ -1113,7 +1087,7 @@ function ReseauGIDEFSection() {
   const [searchCode, setSearchCode] = useState('')
 
   return (
-    <section id="reseau" className="py-16 md:py-24">
+    <section id="reseau" className="py-12 md:py-16">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div
           initial="hidden"
@@ -1124,14 +1098,14 @@ function ReseauGIDEFSection() {
         >
           <Badge variant="secondary" className="mb-3">
             <MapPin className="mr-1 h-3 w-3" />
-            Reseau GIDEF
+            Réseau GIDEF
           </Badge>
           <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
             Trouvez votre agence GIDEF{' '}
             <span className="text-gradient-teal">la plus proche</span>
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
-            549 agences en France pour un accompagnement de proximite
+            60 agences en Île-de-France pour un accompagnement de proximité
           </p>
         </motion.div>
 
@@ -1205,35 +1179,65 @@ function ReseauGIDEFSection() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   SECTION 8 — ACTUALITES
+   SECTION 8 — ACTUALITES (dynamic, fetched from API)
    ═══════════════════════════════════════════════════════════ */
-const articles = [
-  {
-    title: 'Nouvelles aides a la creation 2025',
-    excerpt: 'Decouvrez les dernieres mesures de soutien aux entrepreneurs.',
-    gradient: 'from-teal-600 to-teal-500 dark:from-teal-700 dark:to-teal-600',
-    icon: Bell,
-    date: '15 Jan 2025',
-  },
-  {
-    title: 'Le reseau GIDEF en Ile-de-France',
-    excerpt: '5 nouvelles agences ouvrent leurs portes pour accompagner les createurs.',
-    gradient: 'from-amber-500 to-amber-400',
-    icon: Globe,
-    date: '8 Jan 2025',
-  },
-  {
-    title: 'Guide du statut juridique',
-    excerpt: 'SASU, SARL, auto-entrepreneur... Quel statut choisir pour votre projet ?',
-    gradient: 'from-coral-500 to-coral-400',
-    icon: BookOpen,
-    date: '2 Jan 2025',
-  },
-]
+
+const ARTICLE_CATEGORIES = ['Tous', 'Financement', 'Juridique', 'Marketing', 'Île-de-France', 'Inspiration', 'Outils numériques', 'Événements'] as const
+type ArticleCategory = (typeof ARTICLE_CATEGORIES)[number]
+
+interface Article {
+  id: string
+  slug: string
+  title: string
+  excerpt: string
+  content: string
+  category: string
+  imageGradient: string | null
+  authorName: string
+  authorRole: string
+  isFeatured: boolean
+  readTime: number
+  viewCount: number
+  publishedAt: string
+}
 
 function ActualitesSection() {
+  const [articles, setArticles] = useState<Article[]>([])
+  const [loading, setLoading] = useState(true)
+  const [category, setCategory] = useState<ArticleCategory>('Tous')
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
+  const [articleOpen, setArticleOpen] = useState(false)
+
+  const fetchArticles = useCallback(async (cat: ArticleCategory, p: number) => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({ page: String(p), limit: '9' })
+      if (cat !== 'Tous') params.set('category', cat)
+      const res = await fetch(`/api/articles?${params}`)
+      const data = await res.json()
+      if (data.success) {
+        setArticles(data.data.articles)
+        setTotalPages(data.data.pagination.totalPages)
+        setPage(p)
+      }
+    } catch {
+      setArticles([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchArticles(category, 1) }, [category, fetchArticles])
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr)
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+  }
+
   return (
-    <section id="actualites" className="bg-muted/50 py-16 md:py-24">
+    <section id="actualites" className="bg-muted/50 py-12 md:py-16">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div
           initial="hidden"
@@ -1244,49 +1248,145 @@ function ActualitesSection() {
         >
           <Badge variant="secondary" className="mb-3">
             <BookOpen className="mr-1 h-3 w-3" />
-            Blog
+            Actualités
           </Badge>
           <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
-            Actualites{' '}
+            Actualités{' '}
             <span className="text-gradient-teal">entrepreneuriales</span>
           </h2>
+          <p className="mx-auto mt-2 max-w-2xl text-muted-foreground">
+            Suivez les dernières tendances et actualités pour créateurs d&apos;entreprise
+          </p>
         </motion.div>
 
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.2 }}
-          variants={staggerContainer}
-          className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
-        >
-          {articles.map((article) => (
-            <motion.div key={article.title} variants={scaleIn}>
-              <Card className="group h-full cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-                {/* Colored header */}
-                <div
-                  className={`flex h-40 items-center justify-center bg-gradient-to-br ${article.gradient}`}
-                >
-                  <article.icon className="h-16 w-16 text-white/80" />
-                </div>
+        {/* Category tabs */}
+        <div className="mt-8 flex flex-wrap justify-center gap-2">
+          {ARTICLE_CATEGORIES.map((cat) => (
+            <Button
+              key={cat}
+              variant={category === cat ? 'default' : 'outline'}
+              size="sm"
+              className="text-xs"
+              onClick={() => fetchArticles(cat, 1)}
+            >
+              {cat}
+            </Button>
+          ))}
+        </div>
+
+        {/* Articles grid */}
+        {loading ? (
+          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {[...Array(6)].map((_, i) => (
+              <Card key={i} className="overflow-hidden">
+                <Skeleton className="h-40 w-full" />
                 <CardHeader className="pb-2">
-                  <Badge variant="secondary" className="w-fit text-xs">
-                    {article.date}
-                  </Badge>
-                  <CardTitle className="mt-2 text-lg leading-snug">
-                    {article.title}
-                  </CardTitle>
+                  <Skeleton className="mb-2 h-4 w-20" />
+                  <Skeleton className="h-5 w-full" />
                 </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">{article.excerpt}</p>
-                  <div className="mt-4 flex items-center text-sm font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
-                    Lire l&apos;article
-                    <ArrowRight className="ml-1 h-3.5 w-3.5" />
-                  </div>
+                <CardContent className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
                 </CardContent>
               </Card>
+            ))}
+          </div>
+        ) : articles.length === 0 ? (
+          <div className="mt-10 text-center">
+            <p className="text-muted-foreground">Aucun article dans cette catégorie pour le moment.</p>
+          </div>
+        ) : (
+          <>
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, amount: 0.1 }}
+              variants={staggerContainer}
+              className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+            >
+              {articles.map((article) => (
+                <motion.div key={article.id} variants={scaleIn}>
+                  <Card
+                    className="group h-full cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
+                    onClick={() => { setSelectedArticle(article); setArticleOpen(true) }}
+                  >
+                    <div
+                      className={`flex h-36 items-center justify-center bg-gradient-to-br ${article.imageGradient || 'from-teal-600 to-teal-400'}`}
+                    >
+                      <BookOpen className="h-14 w-14 text-white/70" />
+                    </div>
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="w-fit text-xs">
+                          {article.category}
+                        </Badge>
+                        {article.isFeatured && (
+                          <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/40">
+                            <Star className="mr-0.5 h-2.5 w-2.5" />
+                            À la une
+                          </Badge>
+                        )}
+                      </div>
+                      <CardTitle className="mt-1 text-base leading-snug line-clamp-2">
+                        {article.title}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{article.excerpt}</p>
+                      <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                        <span>{formatDate(article.publishedAt)}</span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {article.readTime} min
+                        </span>
+                      </div>
+                      <div className="mt-3 flex items-center text-sm font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                        Lire l&apos;article
+                        <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
             </motion.div>
-          ))}
-        </motion.div>
+
+            {/* Load more */}
+            {page < totalPages && (
+              <div className="mt-10 text-center">
+                <Button variant="outline" onClick={() => fetchArticles(category, page + 1)}>
+                  Voir plus d&apos;articles
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Article reader sheet */}
+        <Sheet open={articleOpen} onOpenChange={setArticleOpen}>
+          <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
+            {selectedArticle && (
+              <>
+                <SheetHeader>
+                  <SheetTitle className="pr-4 text-lg leading-snug">
+                    {selectedArticle.title}
+                  </SheetTitle>
+                  <SheetDescription className="pr-4">
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <Badge variant="secondary">{selectedArticle.category}</Badge>
+                      <span>{formatDate(selectedArticle.publishedAt)}</span>
+                      <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{selectedArticle.readTime} min de lecture</span>
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">Par {selectedArticle.authorName} — {selectedArticle.authorRole}</p>
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="px-6 pb-8 prose prose-sm max-w-none [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-6 [&_h2]:mb-3 [&_h2]:text-foreground [&_ul]:list-disc [&_ul]:pl-5 [&_li]:text-muted-foreground [&_p]:text-muted-foreground [&_a]:text-primary [&_a]:underline">
+                  <div dangerouslySetInnerHTML={{ __html: selectedArticle.content }} />
+                </div>
+              </>
+            )}
+          </SheetContent>
+        </Sheet>
       </div>
     </section>
   )
@@ -1298,8 +1398,8 @@ function ActualitesSection() {
 const partenaires = [
   'BPI France',
   'France Travail',
-  'Region Bretagne',
-  'CCI Bretagne',
+  'Région Île-de-France',
+  'CCI Île-de-France',
   'Banque Populaire',
 ]
 
@@ -1339,7 +1439,7 @@ function PartenairesSection() {
    ═══════════════════════════════════════════════════════════ */
 function CtaFinalSection() {
   return (
-    <section id="cta" className="relative overflow-hidden py-16 md:py-24">
+    <section id="cta" className="relative overflow-hidden py-12 md:py-16">
       {/* Background */}
       <div className="gradient-teal absolute inset-0" />
       {/* Decorative circles */}
@@ -1357,13 +1457,13 @@ function CtaFinalSection() {
           variants={fadeInUp}
           className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl lg:text-5xl"
         >
-          Pret a creer votre entreprise ?
+          Prêt à créer votre entreprise ?
         </motion.h2>
         <motion.p
           variants={fadeInUp}
           className="mt-4 text-lg text-white/80"
         >
-          Rejoignez les 100 000 entrepreneurs qui nous font confiance. Commencez gratuitement.
+          Rejoignez les 50 000 entrepreneurs qui nous font confiance. Commencez gratuitement.
         </motion.p>
         <motion.div
           variants={fadeInUp}
@@ -1381,7 +1481,7 @@ function CtaFinalSection() {
             size="lg"
             className="gap-2 border-white/40 bg-transparent font-semibold text-white hover:bg-white/10 hover:text-white"
           >
-            Demander une demo
+            Demander une démo
             <MessageCircle className="h-4 w-4" />
           </Button>
         </motion.div>
@@ -1441,8 +1541,8 @@ function FooterSection() {
               <span className="text-xl font-bold text-primary">CreaPulse</span>
             </div>
             <p className="mt-2 max-w-xs text-sm text-muted-foreground">
-              Le bureau virtuel pour les entrepreneurs. Accompagne par le reseau GIDEF
-              Ile-de-France.
+              Le bureau virtuel pour les entrepreneurs. Accompagné par le réseau GIDEF
+              Île-de-France.
             </p>
 
             {/* Newsletter */}
@@ -1502,11 +1602,11 @@ function FooterSection() {
 
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            &copy; 2025 CreaPulse - GIDEF Ile-de-France. Tous droits reserves.
+            &copy; 2025 CreaPulse - GIDEF Île-de-France. Tous droits réservés.
           </p>
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Shield className="h-3 w-3" />
-            Donnees securisees
+            Données sécurisées
           </div>
         </div>
       </div>

@@ -380,7 +380,11 @@ export function Dashboard() {
                 variant="secondary"
                 size="sm"
                 className="bg-white/20 backdrop-blur-sm border-white/30 text-white hover:bg-white/30 hover:text-white"
-                onClick={() => useBureauStore.getState().setSection('parcours')}
+                onClick={() => {
+                  const store = useBureauStore.getState()
+                  store.setSection('parcours')
+                  store.setModule('riasec')
+                }}
               >
                 <Lightbulb className="mr-2 h-4 w-4" />
                 Reprendre

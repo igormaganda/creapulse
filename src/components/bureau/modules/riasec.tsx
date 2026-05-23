@@ -40,7 +40,6 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { useAuthStore } from '@/lib/zustand/store'
 
 // ────────────────────────────────────────────
 // Types
@@ -1155,17 +1154,9 @@ export function RiasecModule() {
     setScreen('intro')
   }, [])
 
-  // Save results to API
-  const token = useAuthStore((s) => s.token)
-
+  // Save results to API (cookie-based auth — session cookie is sent automatically)
   const handleSave = useCallback(async () => {
     if (!savedScores) return
-    if (!token) {
-      toast.error('Vous devez être connecté(e) pour sauvegarder', {
-        description: 'Connectez-vous à votre compte CreaPulse.',
-      })
-      return
-    }
     setIsSaving(true)
     try {
       const types: RiasecType[] = ['R', 'I', 'A', 'S', 'E', 'C']
@@ -1179,8 +1170,8 @@ export function RiasecModule() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify({ results }),
       })
 
@@ -1191,7 +1182,7 @@ export function RiasecModule() {
         })
       } else {
         toast.error('Erreur de sauvegarde', {
-          description: data.error?.message || 'Impossible de sauvegarder vos résultats.',
+          description: data.error?.message || 'Impossible de sauvegarder vos résultats. Êtes-vous connecté(e) ?',
         })
       }
     } catch {
@@ -1201,7 +1192,7 @@ export function RiasecModule() {
     } finally {
       setIsSaving(false)
     }
-  }, [savedScores, token])
+  }, [savedScores])
 
   return (
     <div className="relative">

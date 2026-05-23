@@ -140,7 +140,16 @@ export const Errors = {
  * Handle unknown errors in API routes (catch-all)
  */
 export function handleApiError(err: unknown): NextResponse<ApiError> {
-  console.error('[API Error]', err)
+  // Log error without exposing sensitive details to console
+  const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+  const errorStack = err instanceof Error ? err.stack : undefined
+  console.error('[API Error]', errorMessage)
+  if (errorStack) {
+    // Log stack only in development for debugging
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[API Stack]', errorStack)
+    }
+  }
 
   // Zod validation error
   if (err && typeof err === 'object' && 'issues' in err) {
@@ -171,8 +180,12 @@ export function handleApiError(err: unknown): NextResponse<ApiError> {
     }
   }
 
-  // Generic error with message
+  // Generic error with message (sanitize — don't expose raw error details to client)
   if (err instanceof Error) {
+    // In production, don't expose internal error messages
+    if (process.env.NODE_ENV === 'production') {
+      return Errors.internal('An unexpected error occurred')
+    }
     return Errors.internal(err.message)
   }
 

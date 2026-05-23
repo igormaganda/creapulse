@@ -2,8 +2,11 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Loader2, Mail, Lock, Zap } from 'lucide-react'
+import { Loader2, Mail, Lock, Zap, GraduationCap, ShieldCheck, Shield, ChevronDown } from 'lucide-react'
 import { useAuthStore } from '@/lib/zustand/store'
+import { useConseillerStore } from '@/components/conseiller/conseiller-store'
+import { useAdminCentreStore } from '@/components/admin-centre/admin-centre-store'
+import { useAdminPlateformeStore } from '@/components/admin-plateforme/admin-plateforme-store'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +19,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
 
 interface LoginDialogProps {
   open: boolean
@@ -107,7 +116,7 @@ export function LoginDialog({
             Connexion
           </DialogTitle>
           <DialogDescription className="text-center sm:text-left">
-            Connectez-vous a votre espace entrepreneur
+            Connectez-vous à votre espace entrepreneur
           </DialogDescription>
         </DialogHeader>
 
@@ -193,9 +202,65 @@ export function LoginDialog({
               onSwitchToRegister()
             }}
           >
-            Creer un compte
+            Créer un compte
           </button>
         </p>
+
+        {/* Admin / Staff access */}
+        <Accordion type="single" collapsible className="mt-2">
+          <AccordionItem value="admin" className="border-b-0">
+            <AccordionTrigger className="py-2 text-xs font-medium text-muted-foreground hover:no-underline">
+              <span className="flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Accès conseiller & administration
+                <ChevronDown className="h-3 w-3" />
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="pb-0">
+              <div className="flex flex-col gap-1.5 rounded-lg border border-border/60 bg-muted/30 p-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start gap-2 text-xs"
+                  onClick={() => {
+                    onOpenChange(false)
+                    useConseillerStore.getState().openConseiller()
+                  }}
+                >
+                  <GraduationCap className="h-4 w-4 text-primary" />
+                  Espace Conseiller
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start gap-2 text-xs"
+                  onClick={() => {
+                    onOpenChange(false)
+                    useAdminCentreStore.getState().openAdminCentre()
+                  }}
+                >
+                  <ShieldCheck className="h-4 w-4 text-[#FF6B35]" />
+                  Admin Centre
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start gap-2 text-xs"
+                  onClick={() => {
+                    onOpenChange(false)
+                    useAdminPlateformeStore.getState().openAdminPlateforme()
+                  }}
+                >
+                  <Shield className="h-4 w-4 text-[#FFB74D]" />
+                  Super Admin
+                </Button>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </DialogContent>
     </Dialog>
   )
