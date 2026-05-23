@@ -1,31 +1,1386 @@
 'use client'
 
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { motion } from 'framer-motion'
+
+/* ─── shadcn/ui components ─── */
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Separator } from '@/components/ui/separator'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetTrigger,
+  SheetClose,
+} from '@/components/ui/sheet'
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselPrevious,
+  CarouselNext,
+  type CarouselApi,
+} from '@/components/ui/carousel'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
+
+/* ─── Lucide icons ─── */
+import {
+  Lightbulb,
+  Rocket,
+  TrendingUp,
+  Users,
+  MapPin,
+  Search,
+  ChevronRight,
+  ChevronLeft,
+  ArrowRight,
+  Star,
+  CheckCircle2,
+  Shield,
+  Zap,
+  Target,
+  BarChart3,
+  Briefcase,
+  Globe,
+  BookOpen,
+  Calculator,
+  FileText,
+  Award,
+  Heart,
+  MessageCircle,
+  Mail,
+  Phone,
+  Menu,
+  X,
+  Sparkles,
+  Building2,
+  GraduationCap,
+  Handshake,
+  Bell,
+  Clock,
+  ExternalLink,
+} from 'lucide-react'
+
+/* ═══════════════════════════════════════════════════════════
+   Animation variants for framer-motion scroll reveals
+   ═══════════════════════════════════════════════════════════ */
+const fadeInUp = {
+  hidden: { opacity: 0, y: 30 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } },
+}
+
+const staggerContainer = {
+  hidden: {},
+  visible: {
+    transition: { staggerChildren: 0.12 },
+  },
+}
+
+const scaleIn = {
+  hidden: { opacity: 0, scale: 0.9 },
+  visible: { opacity: 1, scale: 1, transition: { duration: 0.5, ease: 'easeOut' } },
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Animated counter hook
+   ═══════════════════════════════════════════════════════════ */
+function useCountUp(target: number, duration = 2000, startOnView = true) {
+  const [count, setCount] = useState(0)
+  const [started, setStarted] = useState(!startOnView)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!startOnView) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setStarted(true)
+          observer.disconnect()
+        }
+      },
+      { threshold: 0.3 }
+    )
+    if (ref.current) observer.observe(ref.current)
+    return () => observer.disconnect()
+  }, [startOnView])
+
+  useEffect(() => {
+    if (!started) return
+    let startTime: number | null = null
+    const step = (timestamp: number) => {
+      if (!startTime) startTime = timestamp
+      const progress = Math.min((timestamp - startTime) / duration, 1)
+      setCount(Math.floor(progress * target))
+      if (progress < 1) requestAnimationFrame(step)
+    }
+    requestAnimationFrame(step)
+  }, [started, target, duration])
+
+  return { count, ref }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SECTION 1 — TOP UTILITY BAR (sticky navigation)
+   ═══════════════════════════════════════════════════════════ */
+function Navbar() {
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  const navLinks = [
+    { label: 'Parcours', href: '#parcours' },
+    { label: 'Outils', href: '#outils' },
+    { label: 'Reseau', href: '#reseau' },
+    { label: 'Actualites', href: '#actualites' },
+    { label: 'Tarifs', href: '#cta' },
+  ]
+
+  return (
+    <header className="sticky top-0 z-50 w-full glass-card border-b border-border/60">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        {/* Logo */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <Zap className="h-6 w-6 text-primary" />
+            <span className="text-xl font-bold text-primary">CreaPulse</span>
+          </div>
+          <span className="hidden text-xs text-muted-foreground sm:inline">
+            BGE Bretagne
+          </span>
+        </div>
+
+        {/* Center nav links — desktop */}
+        <nav className="hidden items-center gap-1 md:flex">
+          {/* Mon Besoin dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="gap-1 text-sm font-medium">
+                Mon Besoin
+                <ChevronRight className="h-3.5 w-3.5 rotate-90" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="w-52">
+              <DropdownMenuItem className="gap-2 cursor-pointer">
+                <Lightbulb className="h-4 w-4 text-amber-500" />
+                Je decouvre une idee
+              </DropdownMenuItem>
+              <DropdownMenuItem className="gap-2 cursor-pointer">
+                <Rocket className="h-4 w-4 text-primary" />
+                Je cree mon entreprise
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="gap-2 cursor-pointer">
+                <TrendingUp className="h-4 w-4 text-coral-500" />
+                Je developpe mon activite
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <a href="#reseau">
+            <Button variant="ghost" className="text-sm font-medium">
+              Trouver ma BGE
+            </Button>
+          </a>
+
+          {navLinks.slice(0, 3).map((link) => (
+            <a key={link.href} href={link.href}>
+              <Button variant="ghost" className="text-sm font-medium">
+                {link.label}
+              </Button>
+            </a>
+          ))}
+        </nav>
+
+        {/* Right side — desktop */}
+        <div className="hidden items-center gap-2 md:flex">
+          <Button variant="outline" size="sm" className="text-sm">
+            Se connecter
+          </Button>
+          <Button size="sm" className="text-sm">
+            S&apos;inscrire
+          </Button>
+        </div>
+
+        {/* Mobile hamburger */}
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="md:hidden">
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Menu</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-80">
+            <SheetHeader>
+              <SheetTitle className="flex items-center gap-2">
+                <Zap className="h-5 w-5 text-primary" />
+                CreaPulse
+              </SheetTitle>
+              <SheetDescription>BGE Bretagne</SheetDescription>
+            </SheetHeader>
+            <nav className="flex flex-col gap-1 px-4 pt-2">
+              <a href="#besoin" onClick={() => setMobileOpen(false)}>
+                <Button variant="ghost" className="w-full justify-start gap-2">
+                  <Lightbulb className="h-4 w-4 text-amber-500" />
+                  Mon Besoin
+                </Button>
+              </a>
+              <a href="#reseau" onClick={() => setMobileOpen(false)}>
+                <Button variant="ghost" className="w-full justify-start gap-2">
+                  <MapPin className="h-4 w-4 text-primary" />
+                  Trouver ma BGE
+                </Button>
+              </a>
+              <Separator className="my-2" />
+              {navLinks.map((link) => (
+                <a key={link.href} href={link.href} onClick={() => setMobileOpen(false)}>
+                  <Button variant="ghost" className="w-full justify-start">
+                    {link.label}
+                  </Button>
+                </a>
+              ))}
+              <Separator className="my-2" />
+              <Button variant="outline" className="w-full">
+                Se connecter
+              </Button>
+              <Button className="w-full">S&apos;inscrire</Button>
+            </nav>
+          </SheetContent>
+        </Sheet>
+      </div>
+    </header>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SECTION 2 — HERO
+   ═══════════════════════════════════════════════════════════ */
+function HeroSection() {
+  const stat1 = useCountUp(68000, 2200)
+  const stat2 = useCountUp(549, 1800)
+  const stat3 = useCountUp(1350, 2000)
+  const stat4 = useCountUp(19000, 2400)
+
+  return (
+    <section className="gradient-hero overflow-hidden py-16 md:py-24 lg:py-32">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
+          {/* Left — text */}
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={staggerContainer}
+            className="text-center lg:text-left"
+          >
+            <motion.div variants={fadeInUp}>
+              <Badge className="mb-4 bg-teal-100 text-primary hover:bg-teal-100 dark:bg-teal-900/40">
+                <Sparkles className="mr-1 h-3 w-3" />
+                Nouveau : IA integree a tous vos outils
+              </Badge>
+            </motion.div>
+            <motion.h1
+              variants={fadeInUp}
+              className="text-4xl leading-tight font-extrabold tracking-tight sm:text-5xl lg:text-6xl"
+            >
+              Accompagnez votre{' '}
+              <span className="text-gradient-teal">idee</span> jusqu&apos;a{' '}
+              <span className="text-gradient-accent">l&apos;entreprise</span>
+            </motion.h1>
+            <motion.p
+              variants={fadeInUp}
+              className="mt-4 text-lg text-muted-foreground sm:text-xl"
+            >
+              Le bureau virtuel qui guide 100 000 createurs par an.
+              Structurez, financez et lancez votre projet avec confiance.
+            </motion.p>
+            <motion.div
+              variants={fadeInUp}
+              className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start"
+            >
+              <Button size="lg" className="gap-2 text-base font-semibold">
+                Commencer mon parcours
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="lg" className="gap-2 text-base">
+                Decouvrir les outils
+                <Search className="h-4 w-4" />
+              </Button>
+            </motion.div>
+          </motion.div>
+
+          {/* Right — illustration placeholder */}
+          <motion.div
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            className="relative hidden lg:block"
+          >
+            <div className="relative mx-auto aspect-square max-w-md rounded-3xl gradient-teal p-1">
+              <div className="flex h-full w-full flex-col items-center justify-center rounded-3xl bg-card p-8">
+                {/* Floating cards composition */}
+                <div className="relative h-full w-full">
+                  {/* Card 1 — top-left */}
+                  <div className="animate-float absolute -top-2 left-0 rounded-2xl border border-teal-100 bg-white p-4 shadow-lg dark:border-teal-900/30">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-100 dark:bg-teal-900/40">
+                        <Calculator className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-foreground">CreaSim</p>
+                        <p className="text-xs text-muted-foreground">+23% rentabilite</p>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Card 2 — top-right */}
+                  <div
+                    className="animate-float absolute -top-2 right-0 rounded-2xl border border-amber-100 bg-white p-4 shadow-lg dark:border-amber-900/30"
+                    style={{ animationDelay: '0.5s' }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-900/30">
+                        <Award className="h-5 w-5 text-amber-500" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-foreground">Passeport</p>
+                        <p className="text-xs text-muted-foreground">Certifie</p>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Card 3 — bottom-left */}
+                  <div
+                    className="animate-float absolute bottom-16 left-4 rounded-2xl border border-coral-100 bg-white p-4 shadow-lg dark:border-coral-900/30"
+                    style={{ animationDelay: '1s' }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-coral-50 dark:bg-coral-900/20">
+                        <FileText className="h-5 w-5 text-coral-500" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-foreground">Business Plan</p>
+                        <p className="text-xs text-muted-foreground">IA Generee</p>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Card 4 — center bottom */}
+                  <div
+                    className="animate-float absolute bottom-0 right-4 rounded-2xl border border-teal-100 bg-white p-5 shadow-lg dark:border-teal-900/30"
+                    style={{ animationDelay: '1.5s' }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-100 dark:bg-teal-900/40">
+                        <Rocket className="h-6 w-6 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">Entreprise creee !</p>
+                        <div className="mt-1 flex gap-0.5">
+                          {[...Array(5)].map((_, i) => (
+                            <Star key={i} className="h-3 w-3 fill-amber-400 text-amber-400" />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Central pulse circle */}
+                  <div className="animate-pulse-glow absolute top-1/2 left-1/2 flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-teal-50 dark:bg-teal-900/30">
+                    <Briefcase className="h-8 w-8 text-primary" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Stats bar */}
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.3 }}
+          variants={staggerContainer}
+          className="mt-16 grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-8"
+        >
+          {[
+            { ref: stat1.ref, count: stat1.count, suffix: '', label: 'accompagnes' },
+            { ref: stat2.ref, count: stat2.count, suffix: '', label: 'lieux BGE' },
+            { ref: stat3.ref, count: stat3.count, suffix: '', label: 'conseillers' },
+            { ref: stat4.ref, count: stat4.count, suffix: '', label: 'entreprises crees' },
+          ].map((stat, i) => (
+            <motion.div
+              key={i}
+              ref={stat.ref}
+              variants={fadeInUp}
+              className="text-center"
+            >
+              <p className="text-3xl font-extrabold text-primary sm:text-4xl">
+                {stat.count.toLocaleString('fr-FR')}
+                {stat.suffix}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">{stat.label}</p>
+            </motion.div>
+          ))}
+        </motion.div>
+      </div>
+    </section>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SECTION 3 — MON BESOIN
+   ═══════════════════════════════════════════════════════════ */
+const besoinCards = [
+  {
+    icon: Lightbulb,
+    iconBg: 'bg-amber-100 dark:bg-amber-900/30',
+    iconColor: 'text-amber-500',
+    title: 'Je decouvre une idee',
+    description:
+      'Vous avez un projet en tete ? Explorez votre idee, testez sa viabilite et validez votre marche avec nos outils de diagnostic.',
+    borderColor: 'hover:border-amber-400',
+  },
+  {
+    icon: Rocket,
+    iconBg: 'bg-teal-100 dark:bg-teal-900/40',
+    iconColor: 'text-primary',
+    title: 'Je cree mon entreprise',
+    description:
+      'De la structuration juridique au business plan, suivez chaque etape pour imatriculer votre societe en toute serenite.',
+    borderColor: 'hover:border-primary',
+  },
+  {
+    icon: TrendingUp,
+    iconBg: 'bg-coral-50 dark:bg-coral-900/20',
+    iconColor: 'text-coral-500',
+    title: 'Je developpe mon activite',
+    description:
+      'Votre entreprise est lancee ? Accompagnez votre croissance avec nos outils marketing, financier et de reseau.',
+    borderColor: 'hover:border-coral-400',
+  },
+]
+
+function BesoinSection() {
+  return (
+    <section id="besoin" className="py-16 md:py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.2 }}
+          variants={fadeInUp}
+          className="text-center"
+        >
+          <Badge variant="secondary" className="mb-3">
+            <Target className="mr-1 h-3 w-3" />
+            Par ou commencer ?
+          </Badge>
+          <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
+            Quel est <span className="text-gradient-teal">votre besoin</span> ?
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
+            CreaPulse s&apos;adapte a chaque etape de votre parcours entrepreneurial
+          </p>
+        </motion.div>
+
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.2 }}
+          variants={staggerContainer}
+          className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+        >
+          {besoinCards.map((card) => (
+            <motion.div key={card.title} variants={scaleIn}>
+              <Card
+                className={`group cursor-pointer border-2 border-transparent bg-card transition-all duration-300 hover:scale-[1.03] hover:shadow-xl ${card.borderColor}`}
+              >
+                <CardHeader className="pb-3">
+                  <div
+                    className={`mb-2 flex h-14 w-14 items-center justify-center rounded-2xl ${card.iconBg}`}
+                  >
+                    <card.icon className={`h-7 w-7 ${card.iconColor}`} />
+                  </div>
+                  <CardTitle className="text-xl">{card.title}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-sm leading-relaxed">
+                    {card.description}
+                  </CardDescription>
+                  <div className="mt-4 flex items-center text-sm font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                    Commencer
+                    <ArrowRight className="ml-1 h-4 w-4" />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </motion.div>
+      </div>
+    </section>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SECTION 4 — PARCOURS VISUEL
+   ═══════════════════════════════════════════════════════════ */
+const parcoursSteps = [
+  {
+    icon: Lightbulb,
+    step: '01',
+    title: 'Idee & Vision',
+    subtitle: 'Definissez votre projet',
+    tools: '6 outils',
+    color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
+    ring: 'ring-amber-200 dark:ring-amber-800',
+  },
+  {
+    icon: Target,
+    step: '02',
+    title: 'Structurer',
+    subtitle: 'Modelisez votre activite',
+    tools: '10 outils',
+    color: 'bg-teal-100 text-primary dark:bg-teal-900/40 dark:text-teal-300',
+    ring: 'ring-teal-200 dark:ring-teal-800',
+  },
+  {
+    icon: Calculator,
+    step: '03',
+    title: 'Financer',
+    subtitle: 'Securisez votre plan',
+    tools: '8 outils',
+    color: 'bg-coral-50 text-coral-500 dark:bg-coral-900/20 dark:text-coral-400',
+    ring: 'ring-coral-200 dark:ring-coral-800',
+  },
+  {
+    icon: Rocket,
+    step: '04',
+    title: 'Lancer',
+    subtitle: 'Immatriculez et developpez',
+    tools: '6 outils',
+    color: 'bg-teal-100 text-primary dark:bg-teal-900/40 dark:text-teal-300',
+    ring: 'ring-teal-200 dark:ring-teal-800',
+  },
+]
+
+function ParcoursSection() {
+  return (
+    <section id="parcours" className="bg-muted/50 py-16 md:py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.2 }}
+          variants={fadeInUp}
+          className="text-center"
+        >
+          <Badge variant="secondary" className="mb-3">
+            <Rocket className="mr-1 h-3 w-3" />
+            Guide etape par etape
+          </Badge>
+          <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
+            Votre parcours <span className="text-gradient-teal">entrepreneurial</span>
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
+            Un chemin structure en 4 phases pour passer de l&apos;idee a l&apos;entreprise
+          </p>
+        </motion.div>
+
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.2 }}
+          variants={staggerContainer}
+          className="relative mt-16"
+        >
+          {/* Desktop: horizontal connected steps */}
+          <div className="hidden lg:flex lg:items-start lg:justify-between">
+            {parcoursSteps.map((step, i) => (
+              <motion.div key={step.step} variants={fadeInUp} className="relative flex flex-1 items-start">
+                {/* Step card */}
+                <div className="flex w-full max-w-[260px] flex-col items-center text-center">
+                  {/* Step number + icon */}
+                  <div
+                    className={`flex h-20 w-20 items-center justify-center rounded-full ${step.color} ring-4 ${step.ring} transition-transform hover:scale-110`}
+                  >
+                    <step.icon className="h-9 w-9" />
+                  </div>
+                  <span className="mt-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Etape {step.step}
+                  </span>
+                  <h3 className="mt-1 text-xl font-bold text-foreground">{step.title}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{step.subtitle}</p>
+                  <Badge variant="secondary" className="mt-3">
+                    {step.tools}
+                  </Badge>
+                </div>
+                {/* Connector line (not on last item) */}
+                {i < parcoursSteps.length - 1 && (
+                  <div className="absolute top-10 right-0 left-0 z-0 translate-x-1/2">
+                    <div className="h-0.5 w-full bg-gradient-to-r from-primary/30 via-primary/50 to-primary/30" />
+                    <ChevronRight className="absolute -top-2.5 right-0 h-5 w-5 text-primary/50" />
+                  </div>
+                )}
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Mobile: vertical connected steps */}
+          <div className="flex flex-col gap-6 lg:hidden">
+            {parcoursSteps.map((step, i) => (
+              <motion.div key={step.step} variants={fadeInUp}>
+                <div className="flex items-start gap-4">
+                  <div className="flex flex-col items-center">
+                    <div
+                      className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${step.color} ring-4 ${step.ring}`}
+                    >
+                      <step.icon className="h-6 w-6" />
+                    </div>
+                    {i < parcoursSteps.length - 1 && (
+                      <div className="h-12 w-0.5 bg-gradient-to-b from-primary/40 to-primary/10" />
+                    )}
+                  </div>
+                  <div className="pb-4">
+                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      Etape {step.step}
+                    </span>
+                    <h3 className="text-lg font-bold text-foreground">{step.title}</h3>
+                    <p className="text-sm text-muted-foreground">{step.subtitle}</p>
+                    <Badge variant="secondary" className="mt-2">
+                      {step.tools}
+                    </Badge>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      </div>
+    </section>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SECTION 5 — OUTILS PHARES
+   ═══════════════════════════════════════════════════════════ */
+const outilsCards = [
+  {
+    icon: Calculator,
+    title: 'CreaSim',
+    description: 'Simulateur financier interactif',
+    details: 'Estimez vos charges, revenus et rentabilite en quelques clics.',
+    gradient: 'from-teal-50 to-teal-100 dark:from-teal-900/20 dark:to-teal-900/10',
+    iconColor: 'text-primary',
+  },
+  {
+    icon: FileText,
+    title: 'Business Plan IA',
+    description: 'Editeur intelligent 22 sections',
+    details: 'Generez un business plan professionnel avec l\'aide de l\'IA.',
+    gradient: 'from-coral-50 to-amber-50 dark:from-coral-900/10 dark:to-amber-900/10',
+    iconColor: 'text-coral-500',
+  },
+  {
+    icon: Award,
+    title: 'Passeport Entrepreneurial',
+    description: 'Certifiez votre parcours',
+    details: 'Obtenez une certification reconnue par les partenaires financiers.',
+    gradient: 'from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-900/10',
+    iconColor: 'text-amber-500',
+  },
+  {
+    icon: Sparkles,
+    title: 'IA Marketing',
+    description: 'Strategie communication auto',
+    details: 'Planifiez et optimisez votre strategie marketing grace a l\'IA.',
+    gradient: 'from-teal-50 to-coral-50 dark:from-teal-900/10 dark:to-coral-900/10',
+    iconColor: 'text-primary',
+  },
+]
+
+function OutilsSection() {
+  return (
+    <section id="outils" className="py-16 md:py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.2 }}
+          variants={fadeInUp}
+          className="text-center"
+        >
+          <Badge variant="secondary" className="mb-3">
+            <Zap className="mr-1 h-3 w-3" />
+            Outils puissants
+          </Badge>
+          <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
+            Vos outils de{' '}
+            <span className="text-gradient-teal">creation d&apos;entreprise</span>
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
+            Des outils conçus pour vous accompagner a chaque etape
+          </p>
+        </motion.div>
+
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.2 }}
+          variants={staggerContainer}
+          className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4"
+        >
+          {outilsCards.map((outil) => (
+            <motion.div key={outil.title} variants={scaleIn}>
+              <Card className="group h-full overflow-hidden border transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+                <div className={`h-2 bg-gradient-to-r ${outil.gradient}`} />
+                <CardHeader className="pb-2">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted">
+                    <outil.icon className={`h-6 w-6 ${outil.iconColor}`} />
+                  </div>
+                  <CardTitle className="mt-2 text-lg">{outil.title}</CardTitle>
+                  <CardDescription className="text-sm font-medium">
+                    {outil.description}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">{outil.details}</p>
+                  <div className="mt-4 flex items-center text-sm font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                    Essayer
+                    <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </motion.div>
+      </div>
+    </section>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SECTION 6 — TEMOIGNAGES (carousel)
+   ═══════════════════════════════════════════════════════════ */
+const temoignages = [
+  {
+    initials: 'MD',
+    name: 'Marie D.',
+    city: 'Rennes',
+    quote:
+      "CreaPulse m'a permis de structurer mon projet de boulangerie en 3 mois. Le simulateur financier m'a donne confiance pour me lancer.",
+    rating: 5,
+  },
+  {
+    initials: 'TL',
+    name: 'Thomas L.',
+    city: 'Nantes',
+    quote:
+      "Le Business Plan IA est incroyable. En quelques heures, j'avais un document professionnel que ma banque a valide.",
+    rating: 5,
+  },
+  {
+    initials: 'SM',
+    name: 'Sophie M.',
+    city: 'Brest',
+    quote:
+      "L'accompagnement personnalise et les outils de diagnostic m'ont aide a trouver mon reseau BGE local.",
+    rating: 5,
+  },
+]
+
+function TemoignagesSection() {
+  const [api, setApi] = useState<CarouselApi>()
+  const [current, setCurrent] = useState(0)
+
+  useEffect(() => {
+    if (!api) return
+    const handleSelect = () => {
+      setCurrent(api.selectedScrollSnap())
+    }
+    api.on('select', handleSelect)
+    return () => {
+      api.off('select', handleSelect)
+    }
+  }, [api])
+
+  // Auto-play
+  useEffect(() => {
+    if (!api) return
+    const interval = setInterval(() => {
+      api.scrollNext()
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [api])
+
+  return (
+    <section className="bg-muted/50 py-16 md:py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.2 }}
+          variants={fadeInUp}
+          className="text-center"
+        >
+          <Badge variant="secondary" className="mb-3">
+            <Heart className="mr-1 h-3 w-3" />
+            Temoignages
+          </Badge>
+          <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
+            Ils ont cree leur entreprise avec{' '}
+            <span className="text-gradient-teal">CreaPulse</span>
+          </h2>
+        </motion.div>
+
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.2 }}
+          variants={fadeInUp}
+          className="mx-auto mt-12 max-w-3xl"
+        >
+          <Carousel setApi={setApi} opts={{ loop: true }} className="w-full">
+            <CarouselContent>
+              {temoignages.map((temoignage, i) => (
+                <CarouselItem key={i}>
+                  <Card className="border-0 bg-card shadow-lg">
+                    <CardContent className="p-6 sm:p-8">
+                      {/* Stars */}
+                      <div className="mb-4 flex gap-1">
+                        {[...Array(temoignage.rating)].map((_, j) => (
+                          <Star
+                            key={j}
+                            className="h-4 w-4 fill-amber-400 text-amber-400"
+                          />
+                        ))}
+                      </div>
+                      {/* Quote */}
+                      <blockquote className="text-base leading-relaxed text-foreground sm:text-lg">
+                        &ldquo;{temoignage.quote}&rdquo;
+                      </blockquote>
+                      {/* Author */}
+                      <div className="mt-6 flex items-center gap-3">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                          {temoignage.initials}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-foreground">{temoignage.name}</p>
+                          <p className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <MapPin className="h-3 w-3" />
+                            {temoignage.city}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <CarouselPrevious className="left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 sm:-left-12" />
+            <CarouselNext className="right-0 top-1/2 -translate-y-1/2 translate-x-1/2 sm:-right-12" />
+          </Carousel>
+
+          {/* Dots */}
+          <div className="mt-6 flex justify-center gap-2">
+            {temoignages.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => api?.scrollTo(i)}
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  i === current ? 'w-6 bg-primary' : 'w-2 bg-primary/30'
+                }`}
+                aria-label={`Aller au temoignage ${i + 1}`}
+              />
+            ))}
+          </div>
+          <p className="mt-3 text-center text-xs text-muted-foreground">
+            Defilement automatique toutes les 5 secondes
+          </p>
+        </motion.div>
+      </div>
+    </section>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SECTION 7 — RESEAU BGE
+   ═══════════════════════════════════════════════════════════ */
+const bgeCards = [
+  {
+    name: 'BGE Rennes',
+    address: '12 rue de la Monnaie, 35000 Rennes',
+    hours: '09:00 - 18:00',
+    phone: '02 99 XX XX XX',
+  },
+  {
+    name: 'BGE Nantes',
+    address: '8 rue de Strasbourg, 44000 Nantes',
+    hours: '09:00 - 17:30',
+    phone: '02 40 XX XX XX',
+  },
+  {
+    name: 'BGE Brest',
+    address: '15 rue de Lyon, 29200 Brest',
+    hours: '09:00 - 18:00',
+    phone: '02 98 XX XX XX',
+  },
+]
+
+function ReseauBGESection() {
+  const [searchCode, setSearchCode] = useState('')
+
+  return (
+    <section id="reseau" className="py-16 md:py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.2 }}
+          variants={fadeInUp}
+          className="text-center"
+        >
+          <Badge variant="secondary" className="mb-3">
+            <MapPin className="mr-1 h-3 w-3" />
+            Reseau BGE
+          </Badge>
+          <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
+            Trouvez votre BGE{' '}
+            <span className="text-gradient-teal">la plus proche</span>
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
+            549 agences en France pour un accompagnement de proximite
+          </p>
+        </motion.div>
+
+        {/* Search bar */}
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.3 }}
+          variants={fadeInUp}
+          className="mx-auto mt-10 flex max-w-md gap-2"
+        >
+          <div className="relative flex-1">
+            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Code postal..."
+              value={searchCode}
+              onChange={(e) => setSearchCode(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Button>
+            <Search className="mr-2 h-4 w-4" />
+            Rechercher
+          </Button>
+        </motion.div>
+
+        {/* BGE cards */}
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.2 }}
+          variants={staggerContainer}
+          className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+        >
+          {bgeCards.map((bge) => (
+            <motion.div key={bge.name} variants={scaleIn}>
+              <Card className="h-full transition-all duration-300 hover:shadow-lg">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-100 dark:bg-teal-900/40">
+                      <Building2 className="h-5 w-5 text-primary" />
+                    </div>
+                    <CardTitle className="text-lg">{bge.name}</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                    {bge.address}
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4 shrink-0 text-primary" />
+                    {bge.hours}
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Phone className="h-4 w-4 shrink-0 text-primary" />
+                    {bge.phone}
+                  </div>
+                  <Button variant="outline" size="sm" className="mt-4 w-full gap-2">
+                    <MessageCircle className="h-4 w-4" />
+                    Contacter
+                  </Button>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </motion.div>
+      </div>
+    </section>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SECTION 8 — ACTUALITES
+   ═══════════════════════════════════════════════════════════ */
+const articles = [
+  {
+    title: 'Nouvelles aides a la creation 2025',
+    excerpt: 'Decouvrez les dernieres mesures de soutien aux entrepreneurs.',
+    gradient: 'from-teal-600 to-teal-500 dark:from-teal-700 dark:to-teal-600',
+    icon: Bell,
+    date: '15 Jan 2025',
+  },
+  {
+    title: 'Reseau BGE s\'etend en Bretagne',
+    excerpt: '5 nouvelles agences ouvrent leurs portes pour accompagner les createurs.',
+    gradient: 'from-amber-500 to-amber-400',
+    icon: Globe,
+    date: '8 Jan 2025',
+  },
+  {
+    title: 'Guide du statut juridique',
+    excerpt: 'SASU, SARL, auto-entrepreneur... Quel statut choisir pour votre projet ?',
+    gradient: 'from-coral-500 to-coral-400',
+    icon: BookOpen,
+    date: '2 Jan 2025',
+  },
+]
+
+function ActualitesSection() {
+  return (
+    <section id="actualites" className="bg-muted/50 py-16 md:py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.2 }}
+          variants={fadeInUp}
+          className="text-center"
+        >
+          <Badge variant="secondary" className="mb-3">
+            <BookOpen className="mr-1 h-3 w-3" />
+            Blog
+          </Badge>
+          <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
+            Actualites{' '}
+            <span className="text-gradient-teal">entrepreneuriales</span>
+          </h2>
+        </motion.div>
+
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.2 }}
+          variants={staggerContainer}
+          className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+        >
+          {articles.map((article) => (
+            <motion.div key={article.title} variants={scaleIn}>
+              <Card className="group h-full cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+                {/* Colored header */}
+                <div
+                  className={`flex h-40 items-center justify-center bg-gradient-to-br ${article.gradient}`}
+                >
+                  <article.icon className="h-16 w-16 text-white/80" />
+                </div>
+                <CardHeader className="pb-2">
+                  <Badge variant="secondary" className="w-fit text-xs">
+                    {article.date}
+                  </Badge>
+                  <CardTitle className="mt-2 text-lg leading-snug">
+                    {article.title}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">{article.excerpt}</p>
+                  <div className="mt-4 flex items-center text-sm font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                    Lire l&apos;article
+                    <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </motion.div>
+      </div>
+    </section>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SECTION 9 — PARTENAIRES
+   ═══════════════════════════════════════════════════════════ */
+const partenaires = [
+  'BPI France',
+  'France Travail',
+  'Region Bretagne',
+  'CCI Bretagne',
+  'Banque Populaire',
+]
+
+function PartenairesSection() {
+  return (
+    <section className="py-12 md:py-16">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.3 }}
+          variants={fadeInUp}
+          className="text-center"
+        >
+          <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+            Nos partenaires de confiance
+          </p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-4 sm:gap-6">
+            {partenaires.map((nom) => (
+              <div
+                key={nom}
+                className="flex h-14 items-center rounded-xl border border-border bg-card px-6 text-sm font-semibold text-muted-foreground transition-all duration-200 hover:border-primary/30 hover:text-primary"
+              >
+                <Handshake className="mr-2 h-4 w-4" />
+                {nom}
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      </div>
+    </section>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SECTION 10 — CTA FINAL
+   ═══════════════════════════════════════════════════════════ */
+function CtaFinalSection() {
+  return (
+    <section id="cta" className="relative overflow-hidden py-16 md:py-24">
+      {/* Background */}
+      <div className="gradient-teal absolute inset-0" />
+      {/* Decorative circles */}
+      <div className="absolute -top-20 -left-20 h-60 w-60 rounded-full bg-white/5" />
+      <div className="absolute -bottom-16 -right-16 h-48 w-48 rounded-full bg-white/5" />
+
+      <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.3 }}
+        variants={staggerContainer}
+        className="relative mx-auto max-w-3xl px-4 text-center sm:px-6"
+      >
+        <motion.h2
+          variants={fadeInUp}
+          className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl lg:text-5xl"
+        >
+          Pret a creer votre entreprise ?
+        </motion.h2>
+        <motion.p
+          variants={fadeInUp}
+          className="mt-4 text-lg text-white/80"
+        >
+          Rejoignez les 100 000 entrepreneurs qui nous font confiance. Commencez gratuitement.
+        </motion.p>
+        <motion.div
+          variants={fadeInUp}
+          className="mt-8 flex flex-wrap justify-center gap-4"
+        >
+          <Button
+            size="lg"
+            className="gap-2 bg-white text-primary font-semibold hover:bg-white/90"
+          >
+            Commencer gratuitement
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
+            className="gap-2 border-white/40 bg-transparent font-semibold text-white hover:bg-white/10 hover:text-white"
+          >
+            Demander une demo
+            <MessageCircle className="h-4 w-4" />
+          </Button>
+        </motion.div>
+      </motion.div>
+    </section>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SECTION 11 — FOOTER
+   ═══════════════════════════════════════════════════════════ */
+const footerColumns = [
+  {
+    title: 'Solution',
+    links: [
+      { label: 'Parcours', href: '#parcours' },
+      { label: 'Outils', href: '#outils' },
+      { label: 'Tarifs', href: '#cta' },
+    ],
+  },
+  {
+    title: 'Ressources',
+    links: [
+      { label: 'Blog', href: '#actualites' },
+      { label: 'Guides', href: '#' },
+      { label: 'FAQ', href: '#' },
+    ],
+  },
+  {
+    title: 'Entreprise',
+    links: [
+      { label: 'A propos', href: '#' },
+      { label: 'Contact', href: '#' },
+    ],
+  },
+  {
+    title: 'Legal',
+    links: [
+      { label: 'CGU', href: '#' },
+      { label: 'Confidentialite', href: '#' },
+      { label: 'Cookies', href: '#' },
+    ],
+  },
+]
+
+function FooterSection() {
+  const [email, setEmail] = useState('')
+
+  return (
+    <footer className="border-t border-border bg-card">
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-6">
+          {/* Brand column */}
+          <div className="lg:col-span-2">
+            <div className="flex items-center gap-2">
+              <Zap className="h-6 w-6 text-primary" />
+              <span className="text-xl font-bold text-primary">CreaPulse</span>
+            </div>
+            <p className="mt-2 max-w-xs text-sm text-muted-foreground">
+              Le bureau virtuel pour les entrepreneurs. Accompagne par le reseau BGE
+              Bretagne.
+            </p>
+
+            {/* Newsletter */}
+            <div className="mt-6">
+              <p className="mb-2 text-sm font-medium text-foreground">Newsletter</p>
+              <div className="flex gap-2">
+                <Input
+                  type="email"
+                  placeholder="votre@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="max-w-[220px]"
+                />
+                <Button size="sm">S&apos;abonner</Button>
+              </div>
+            </div>
+
+            {/* Social icons */}
+            <div className="mt-6 flex gap-3">
+              {[
+                { icon: Globe, label: 'LinkedIn' },
+                { icon: MessageCircle, label: 'Facebook' },
+                { icon: Heart, label: 'Instagram' },
+              ].map((social) => (
+                <button
+                  key={social.label}
+                  aria-label={social.label}
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                >
+                  <social.icon className="h-4 w-4" />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Link columns */}
+          {footerColumns.map((col) => (
+            <div key={col.title}>
+              <p className="mb-3 text-sm font-semibold text-foreground">{col.title}</p>
+              <ul className="space-y-2">
+                {col.links.map((link) => (
+                  <li key={link.label}>
+                    <a
+                      href={link.href}
+                      className="text-sm text-muted-foreground transition-colors hover:text-primary"
+                    >
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        <Separator className="my-8" />
+
+        <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+          <p className="text-xs text-muted-foreground">
+            &copy; 2025 CreaPulse - Reseau BGE Bretagne. Tous droits reserves.
+          </p>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Shield className="h-3 w-3" />
+            Donnees securisees
+          </div>
+        </div>
+      </div>
+    </footer>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MAIN PAGE — assembles all sections
+   ═══════════════════════════════════════════════════════════ */
 export default function Home() {
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-      gap: '2rem',
-      padding: '1rem'
-    }}>
-      <div style={{
-        position: 'relative',
-        width: '6rem',
-        height: '6rem'
-      }}>
-        <img
-          src="/logo.svg"
-          alt="Z.ai Logo"
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain'
-          }}
-        />
-      </div>
+    <div className="flex min-h-screen flex-col">
+      {/* Section 1 — Sticky Navigation */}
+      <Navbar />
+
+      <main className="flex-1">
+        {/* Section 2 — Hero */}
+        <HeroSection />
+
+        {/* Section 3 — Mon Besoin */}
+        <BesoinSection />
+
+        {/* Section 4 — Parcours Visuel */}
+        <ParcoursSection />
+
+        {/* Section 5 — Outils Phares */}
+        <OutilsSection />
+
+        {/* Section 6 — Temoignages */}
+        <TemoignagesSection />
+
+        {/* Section 7 — Reseau BGE */}
+        <ReseauBGESection />
+
+        {/* Section 8 — Actualites */}
+        <ActualitesSection />
+
+        {/* Section 9 — Partenaires */}
+        <PartenairesSection />
+
+        {/* Section 10 — CTA Final */}
+        <CtaFinalSection />
+      </main>
+
+      {/* Section 11 — Footer */}
+      <FooterSection />
     </div>
   )
 }

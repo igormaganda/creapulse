@@ -14,24 +14,32 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Z.ai Code Scaffold - AI-Powered Development",
-  description: "Modern Next.js scaffold optimized for AI-powered development with Z.ai. Built with TypeScript, Tailwind CSS, and shadcn/ui.",
-  keywords: ["Z.ai", "Next.js", "TypeScript", "Tailwind CSS", "shadcn/ui", "AI development", "React"],
-  authors: [{ name: "Z.ai Team" }],
+  title: "CreaPulse V2 — Le Bureau Virtuel de l'Entrepreneur | BGE Bretagne",
+  description:
+    "CreaPulse accompagne 100 000 créateurs d'entreprise par an de l'idée à l'immatriculation. Simulateurs financiers, Business Plan IA, diagnostic RIASEC, réseau BGE — tout votre parcours entrepreneurial en un seul endroit.",
+  keywords: [
+    "CreaPulse",
+    "BGE Bretagne",
+    "création d'entreprise",
+    "business plan",
+    "simulateur financier",
+    "entrepreneuriat",
+    "accompagnement création",
+    "bureau virtuel",
+    "France Travail",
+    "aide création entreprise",
+  ],
+  authors: [{ name: "BGE Bretagne" }],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/logo.svg",
   },
   openGraph: {
-    title: "Z.ai Code Scaffold",
-    description: "AI-powered development with modern React stack",
-    url: "https://chat.z.ai",
-    siteName: "Z.ai",
+    title: "CreaPulse V2 — Le Bureau Virtuel de l'Entrepreneur",
+    description:
+      "Accompagnez votre idée jusqu'à l'entreprise avec CreaPulse. 50+ outils, IA intégrée, réseau BGE.",
     type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Z.ai Code Scaffold",
-    description: "AI-powered development with modern React stack",
+    locale: "fr_FR",
+    siteName: "CreaPulse",
   },
 };
 
@@ -41,9 +49,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="fr" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased bg-background text-foreground`}
       >
         {children}
         <Toaster />
