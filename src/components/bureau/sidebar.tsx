@@ -75,6 +75,7 @@ const navigationGroups: NavGroup[] = [
       { id: 'vision', label: 'Vision', icon: Eye },
       { id: 'riasec', label: 'RIASEC', icon: FlaskConical },
       { id: 'kiviat', label: 'Kiviat', icon: Pentagon },
+      { id: 'bilan-ia', label: 'Bilan IA', icon: Sparkles, badge: 'IA' },
     ],
   },
   {

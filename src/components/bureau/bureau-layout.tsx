@@ -41,6 +41,7 @@ const Tremplin = dynamic(() => import('./modules/tremplin').then(m => ({ default
 const Passeport = dynamic(() => import('./modules/passeport').then(m => ({ default: m.Passeport })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const Mentorat = dynamic(() => import('./modules/mentorat').then(m => ({ default: m.Mentorat })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const Certifications = dynamic(() => import('./modules/certifications').then(m => ({ default: m.Certifications })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const BilanIA = dynamic(() => import('./modules/bilan-ia').then(m => ({ default: m.BilanIA })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const MessagesModule = dynamic(() => import('./modules/messages').then(m => ({ default: m.MessagesModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -51,6 +52,7 @@ import {
   Eye,
   FlaskConical,
   Pentagon,
+  Brain,
   Target,
   Scale,
   Calculator,
@@ -76,6 +78,7 @@ const moduleContent: Record<string, { title: string; description: string; icon: 
   'vision': { title: 'Vision', description: 'Structurez votre vision à long terme et vos objectifs stratégiques.', icon: Eye, color: 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30' },
   'riasec': { title: 'Test RIASEC', description: 'Découvrez votre profil entrepreneurial grâce au test RIASEC.', icon: FlaskConical, color: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20' },
   'kiviat': { title: 'Test Kiviat', description: 'Évaluez vos compétences clés avec le radar Kiviat.', icon: Pentagon, color: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20' },
+  'bilan-ia': { title: 'Bilan IA', description: 'Synthèse intelligente de votre parcours entrepreneurial grâce à l\'IA.', icon: Brain, color: 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20' },
   'marche': { title: 'Analyse de Marché', description: 'Étudiez votre marché cible, concurrents et positionnement.', icon: Globe, color: 'text-primary bg-primary/10' },
   'juridique': { title: 'Analyse Juridique', description: 'Choisissez le statut juridique adapté à votre projet.', icon: Scale, color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' },
   'financier': { title: 'Plan Financier', description: 'Structurez votre plan financier prévisionnel.', icon: Calculator, color: 'text-coral-500 bg-coral-50 dark:bg-coral-900/20' },
@@ -134,7 +137,7 @@ function SectionOverview({ sectionId }: { sectionId: string }) {
   // Get modules for this section
   const modules = Object.entries(moduleContent).filter(([, v]) => {
     const sectionMap: Record<string, string[]> = {
-      parcours: ['profil-createur', 'mon-projet', 'vision', 'riasec', 'kiviat'],
+      parcours: ['profil-createur', 'mon-projet', 'vision', 'riasec', 'kiviat', 'bilan-ia'],
       strategie: ['marche', 'juridique', 'financier', 'creasim', 'business-plan', 'pitch-deck'],
       ecosysteme: ['annuaire', 'forum', 'messages', 'mentorat'],
       pilotage: ['tremplin', 'passeport', 'certifications'],
@@ -212,13 +215,14 @@ function BureauContent() {
         {currentModule === 'pitch-deck' && <PitchDeckModule />}
         {currentModule === 'profil-createur' && <ProfilCreateur />}
         {currentModule === 'kiviat' && <KiviatModule />}
+        {currentModule === 'bilan-ia' && <BilanIA />}
         {currentModule === 'vision' && <VisionModule />}
         {currentModule === 'tremplin' && <Tremplin />}
         {currentModule === 'passeport' && <Passeport />}
         {currentModule === 'mentorat' && <Mentorat />}
         {currentModule === 'certifications' && <Certifications />}
         {currentModule === 'messages' && <MessagesModule />}
-        {currentSection !== 'dashboard' && currentModule && currentModule !== 'riasec' && currentModule !== 'mon-projet' && currentModule !== 'creasim' && currentModule !== 'business-plan' && currentModule !== 'annuaire' && currentModule !== 'forum' && currentModule !== 'marche' && currentModule !== 'juridique' && currentModule !== 'financier' && currentModule !== 'pitch-deck' && currentModule !== 'profil-createur' && currentModule !== 'kiviat' && currentModule !== 'vision' && currentModule !== 'tremplin' && currentModule !== 'passeport' && currentModule !== 'mentorat' && currentModule !== 'certifications' && currentModule !== 'messages' && <ModulePlaceholder moduleId={currentModule} />}
+        {currentSection !== 'dashboard' && currentModule && currentModule !== 'riasec' && currentModule !== 'mon-projet' && currentModule !== 'creasim' && currentModule !== 'business-plan' && currentModule !== 'annuaire' && currentModule !== 'forum' && currentModule !== 'marche' && currentModule !== 'juridique' && currentModule !== 'financier' && currentModule !== 'pitch-deck' && currentModule !== 'profil-createur' && currentModule !== 'kiviat' && currentModule !== 'vision' && currentModule !== 'tremplin' && currentModule !== 'passeport' && currentModule !== 'mentorat' && currentModule !== 'certifications' && currentModule !== 'messages' && currentModule !== 'bilan-ia' && <ModulePlaceholder moduleId={currentModule} />}
         {currentSection !== 'dashboard' && !currentModule && <SectionOverview sectionId={currentSection} />}
       </motion.div>
     </AnimatePresence>
