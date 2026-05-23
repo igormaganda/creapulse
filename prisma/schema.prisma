@@ -23,7 +23,7 @@ enum TenantPlan {
 
 enum OrgType {
   FORMATION_CENTER
-  BGE_AGENCY
+  GIDEF_AGENCY
   INCUBATOR
   PEPITE
   CO_WORKING
@@ -107,7 +107,7 @@ enum DraftStatus {
 }
 
 enum ActorType {
-  BGE
+  GIDEF
   INCUBATOR
   PEPITE
   CHAMBER_COMMERCE

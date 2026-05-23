@@ -76,7 +76,17 @@ import {
   Bell,
   Clock,
   ExternalLink,
+  LogOut,
+  UserCircle,
 } from 'lucide-react'
+
+/* ─── Auth dialogs ─── */
+import { LoginDialog } from '@/components/auth/login-dialog'
+import { RegisterDialog } from '@/components/auth/register-dialog'
+
+/* ─── Bureau Virtuel ─── */
+import { BureauLayout } from '@/components/bureau/bureau-layout'
+import { useBureauStore } from '@/components/bureau/bureau-store'
 
 /* ═══════════════════════════════════════════════════════════
    Animation variants for framer-motion scroll reveals
@@ -137,10 +147,35 @@ function useCountUp(target: number, duration = 2000, startOnView = true) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   SECTION 1 — TOP UTILITY BAR (sticky navigation)
+   SECTION 1 — NAVBAR + AUTH STATE
    ═══════════════════════════════════════════════════════════ */
+type AuthUser = { firstName: string; lastName: string; email: string } | null
+
 function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [loginOpen, setLoginOpen] = useState(false)
+  const [registerOpen, setRegisterOpen] = useState(false)
+  const [authUser, setAuthUser] = useState<AuthUser>(null)
+  const { openBureau, setUserName } = useBureauStore()
+
+  const handleLoginSuccess = (user: { firstName: string; lastName: string; email: string }) => {
+    setAuthUser(user)
+    const fullName = `${user.firstName} ${user.lastName}`
+    setUserName(fullName)
+    openBureau()
+  }
+
+  const handleRegisterSuccess = (user: { firstName: string; lastName: string; email: string }) => {
+    setAuthUser(user)
+    const fullName = `${user.firstName} ${user.lastName}`
+    setUserName(fullName)
+    openBureau()
+  }
+
+  const handleLogout = () => {
+    setAuthUser(null)
+    useBureauStore.getState().closeBureau()
+  }
 
   const navLinks = [
     { label: 'Parcours', href: '#parcours' },
@@ -151,118 +186,204 @@ function Navbar() {
   ]
 
   return (
-    <header className="sticky top-0 z-50 w-full glass-card border-b border-border/60">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Logo */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1">
-            <Zap className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold text-primary">CreaPulse</span>
+    <>
+      <header className="sticky top-0 z-50 w-full glass-card border-b border-border/60">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          {/* Logo */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <Zap className="h-6 w-6 text-primary" />
+              <span className="text-xl font-bold text-primary">CreaPulse</span>
+            </div>
+            <span className="hidden text-xs text-muted-foreground sm:inline">
+              GIDEF Ile-de-France
+            </span>
           </div>
-          <span className="hidden text-xs text-muted-foreground sm:inline">
-            BGE Bretagne
-          </span>
-        </div>
 
-        {/* Center nav links — desktop */}
-        <nav className="hidden items-center gap-1 md:flex">
-          {/* Mon Besoin dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="gap-1 text-sm font-medium">
-                Mon Besoin
-                <ChevronRight className="h-3.5 w-3.5 rotate-90" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" className="w-52">
-              <DropdownMenuItem className="gap-2 cursor-pointer">
-                <Lightbulb className="h-4 w-4 text-amber-500" />
-                Je decouvre une idee
-              </DropdownMenuItem>
-              <DropdownMenuItem className="gap-2 cursor-pointer">
-                <Rocket className="h-4 w-4 text-primary" />
-                Je cree mon entreprise
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="gap-2 cursor-pointer">
-                <TrendingUp className="h-4 w-4 text-coral-500" />
-                Je developpe mon activite
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Center nav links — desktop */}
+          <nav className="hidden items-center gap-1 md:flex">
+            {/* Mon Besoin dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="gap-1 text-sm font-medium">
+                  Mon Besoin
+                  <ChevronRight className="h-3.5 w-3.5 rotate-90" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="w-52">
+                <DropdownMenuItem className="gap-2 cursor-pointer">
+                  <Lightbulb className="h-4 w-4 text-amber-500" />
+                  Je decouvre une idee
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2 cursor-pointer">
+                  <Rocket className="h-4 w-4 text-primary" />
+                  Je cree mon entreprise
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="gap-2 cursor-pointer">
+                  <TrendingUp className="h-4 w-4 text-coral-500" />
+                  Je developpe mon activite
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-          <a href="#reseau">
-            <Button variant="ghost" className="text-sm font-medium">
-              Trouver ma BGE
-            </Button>
-          </a>
-
-          {navLinks.slice(0, 3).map((link) => (
-            <a key={link.href} href={link.href}>
+            <a href="#reseau">
               <Button variant="ghost" className="text-sm font-medium">
-                {link.label}
+                Trouver mon agence GIDEF
               </Button>
             </a>
-          ))}
-        </nav>
 
-        {/* Right side — desktop */}
-        <div className="hidden items-center gap-2 md:flex">
-          <Button variant="outline" size="sm" className="text-sm">
-            Se connecter
-          </Button>
-          <Button size="sm" className="text-sm">
-            S&apos;inscrire
-          </Button>
-        </div>
-
-        {/* Mobile hamburger */}
-        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="md:hidden">
-              <Menu className="h-5 w-5" />
-              <span className="sr-only">Menu</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="right" className="w-80">
-            <SheetHeader>
-              <SheetTitle className="flex items-center gap-2">
-                <Zap className="h-5 w-5 text-primary" />
-                CreaPulse
-              </SheetTitle>
-              <SheetDescription>BGE Bretagne</SheetDescription>
-            </SheetHeader>
-            <nav className="flex flex-col gap-1 px-4 pt-2">
-              <a href="#besoin" onClick={() => setMobileOpen(false)}>
-                <Button variant="ghost" className="w-full justify-start gap-2">
-                  <Lightbulb className="h-4 w-4 text-amber-500" />
-                  Mon Besoin
+            {navLinks.slice(0, 3).map((link) => (
+              <a key={link.href} href={link.href}>
+                <Button variant="ghost" className="text-sm font-medium">
+                  {link.label}
                 </Button>
               </a>
-              <a href="#reseau" onClick={() => setMobileOpen(false)}>
-                <Button variant="ghost" className="w-full justify-start gap-2">
-                  <MapPin className="h-4 w-4 text-primary" />
-                  Trouver ma BGE
+            ))}
+          </nav>
+
+          {/* Right side — desktop */}
+          <div className="hidden items-center gap-2 md:flex">
+            {authUser ? (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <UserCircle className="h-5 w-5 text-primary" />
+                  <span className="text-sm font-medium text-foreground">
+                    {authUser.firstName} {authUser.lastName}
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-sm text-muted-foreground hover:text-destructive"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="mr-1.5 h-4 w-4" />
+                  Se deconnecter
                 </Button>
-              </a>
-              <Separator className="my-2" />
-              {navLinks.map((link) => (
-                <a key={link.href} href={link.href} onClick={() => setMobileOpen(false)}>
-                  <Button variant="ghost" className="w-full justify-start">
-                    {link.label}
+              </div>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-sm"
+                  onClick={() => setLoginOpen(true)}
+                >
+                  Se connecter
+                </Button>
+                <Button
+                  size="sm"
+                  className="text-sm"
+                  onClick={() => setRegisterOpen(true)}
+                >
+                  S&apos;inscrire
+                </Button>
+              </>
+            )}
+          </div>
+
+          {/* Mobile hamburger */}
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-80">
+              <SheetHeader>
+                <SheetTitle className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-primary" />
+                  CreaPulse
+                </SheetTitle>
+                <SheetDescription>GIDEF Ile-de-France</SheetDescription>
+              </SheetHeader>
+              <nav className="flex flex-col gap-1 px-4 pt-2">
+                <a href="#besoin" onClick={() => setMobileOpen(false)}>
+                  <Button variant="ghost" className="w-full justify-start gap-2">
+                    <Lightbulb className="h-4 w-4 text-amber-500" />
+                    Mon Besoin
                   </Button>
                 </a>
-              ))}
-              <Separator className="my-2" />
-              <Button variant="outline" className="w-full">
-                Se connecter
-              </Button>
-              <Button className="w-full">S&apos;inscrire</Button>
-            </nav>
-          </SheetContent>
-        </Sheet>
-      </div>
-    </header>
+                <a href="#reseau" onClick={() => setMobileOpen(false)}>
+                  <Button variant="ghost" className="w-full justify-start gap-2">
+                    <MapPin className="h-4 w-4 text-primary" />
+                    Trouver mon agence GIDEF
+                  </Button>
+                </a>
+                <Separator className="my-2" />
+                {navLinks.map((link) => (
+                  <a key={link.href} href={link.href} onClick={() => setMobileOpen(false)}>
+                    <Button variant="ghost" className="w-full justify-start">
+                      {link.label}
+                    </Button>
+                  </a>
+                ))}
+                <Separator className="my-2" />
+                {authUser ? (
+                  <>
+                    <div className="flex items-center gap-2 px-2 py-1">
+                      <UserCircle className="h-5 w-5 text-primary" />
+                      <span className="text-sm font-medium">
+                        {authUser.firstName} {authUser.lastName}
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      className="w-full text-destructive hover:text-destructive"
+                      onClick={() => {
+                        handleLogout()
+                        setMobileOpen(false)
+                      }}
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Se deconnecter
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        setMobileOpen(false)
+                        setLoginOpen(true)
+                      }}
+                    >
+                      Se connecter
+                    </Button>
+                    <Button
+                      className="w-full"
+                      onClick={() => {
+                        setMobileOpen(false)
+                        setRegisterOpen(true)
+                      }}
+                    >
+                      S&apos;inscrire
+                    </Button>
+                  </>
+                )}
+              </nav>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </header>
+
+      {/* Auth Dialogs */}
+      <LoginDialog
+        open={loginOpen}
+        onOpenChange={setLoginOpen}
+        onSwitchToRegister={() => setRegisterOpen(true)}
+        onLoginSuccess={handleLoginSuccess}
+      />
+      <RegisterDialog
+        open={registerOpen}
+        onOpenChange={setRegisterOpen}
+        onSwitchToLogin={() => setLoginOpen(true)}
+        onRegisterSuccess={handleRegisterSuccess}
+      />
+    </>
   )
 }
 
@@ -414,7 +535,7 @@ function HeroSection() {
         >
           {[
             { ref: stat1.ref, count: stat1.count, suffix: '', label: 'accompagnes' },
-            { ref: stat2.ref, count: stat2.count, suffix: '', label: 'lieux BGE' },
+            { ref: stat2.ref, count: stat2.count, suffix: '', label: "agences GIDEF" },
             { ref: stat3.ref, count: stat3.count, suffix: '', label: 'conseillers' },
             { ref: stat4.ref, count: stat4.count, suffix: '', label: 'entreprises crees' },
           ].map((stat, i) => (
@@ -793,7 +914,7 @@ const temoignages = [
     name: 'Sophie M.',
     city: 'Brest',
     quote:
-      "L'accompagnement personnalise et les outils de diagnostic m'ont aide a trouver mon reseau BGE local.",
+      "L'accompagnement personnalise et les outils de diagnostic m'ont aide a trouver mon reseau GIDEF local.",
     rating: 5,
   },
 ]
@@ -913,30 +1034,30 @@ function TemoignagesSection() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   SECTION 7 — RESEAU BGE
+   SECTION 7 — RESEAU GIDEF
    ═══════════════════════════════════════════════════════════ */
-const bgeCards = [
+const gidefCards = [
   {
-    name: 'BGE Rennes',
-    address: '12 rue de la Monnaie, 35000 Rennes',
+    name: 'GIDEF Paris',
+    address: '15 rue de la Paix, 75002 Paris',
     hours: '09:00 - 18:00',
-    phone: '02 99 XX XX XX',
+    phone: '01 42 XX XX XX',
   },
   {
-    name: 'BGE Nantes',
-    address: '8 rue de Strasbourg, 44000 Nantes',
+    name: 'GIDEF Creteil',
+    address: '8 avenue de Paris, 94000 Creteil',
     hours: '09:00 - 17:30',
-    phone: '02 40 XX XX XX',
+    phone: '01 43 XX XX XX',
   },
   {
-    name: 'BGE Brest',
-    address: '15 rue de Lyon, 29200 Brest',
+    name: 'GIDEF Nanterre',
+    address: '24 rue Victor Hugo, 92000 Nanterre',
     hours: '09:00 - 18:00',
-    phone: '02 98 XX XX XX',
+    phone: '01 47 XX XX XX',
   },
 ]
 
-function ReseauBGESection() {
+function ReseauGIDEFSection() {
   const [searchCode, setSearchCode] = useState('')
 
   return (
@@ -951,10 +1072,10 @@ function ReseauBGESection() {
         >
           <Badge variant="secondary" className="mb-3">
             <MapPin className="mr-1 h-3 w-3" />
-            Reseau BGE
+            Reseau GIDEF
           </Badge>
           <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
-            Trouvez votre BGE{' '}
+            Trouvez votre agence GIDEF{' '}
             <span className="text-gradient-teal">la plus proche</span>
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
@@ -985,7 +1106,7 @@ function ReseauBGESection() {
           </Button>
         </motion.div>
 
-        {/* BGE cards */}
+        {/* GIDEF cards */}
         <motion.div
           initial="hidden"
           whileInView="visible"
@@ -993,29 +1114,29 @@ function ReseauBGESection() {
           variants={staggerContainer}
           className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
         >
-          {bgeCards.map((bge) => (
-            <motion.div key={bge.name} variants={scaleIn}>
+          {gidefCards.map((gidef) => (
+            <motion.div key={gidef.name} variants={scaleIn}>
               <Card className="h-full transition-all duration-300 hover:shadow-lg">
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-100 dark:bg-teal-900/40">
                       <Building2 className="h-5 w-5 text-primary" />
                     </div>
-                    <CardTitle className="text-lg">{bge.name}</CardTitle>
+                    <CardTitle className="text-lg">{gidef.name}</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <div className="flex items-start gap-2 text-sm text-muted-foreground">
                     <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    {bge.address}
+                    {gidef.address}
                   </div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Clock className="h-4 w-4 shrink-0 text-primary" />
-                    {bge.hours}
+                    {gidef.hours}
                   </div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Phone className="h-4 w-4 shrink-0 text-primary" />
-                    {bge.phone}
+                    {gidef.phone}
                   </div>
                   <Button variant="outline" size="sm" className="mt-4 w-full gap-2">
                     <MessageCircle className="h-4 w-4" />
@@ -1043,7 +1164,7 @@ const articles = [
     date: '15 Jan 2025',
   },
   {
-    title: 'Reseau BGE s\'etend en Bretagne',
+    title: 'Le reseau GIDEF en Ile-de-France',
     excerpt: '5 nouvelles agences ouvrent leurs portes pour accompagner les createurs.',
     gradient: 'from-amber-500 to-amber-400',
     icon: Globe,
@@ -1268,8 +1389,8 @@ function FooterSection() {
               <span className="text-xl font-bold text-primary">CreaPulse</span>
             </div>
             <p className="mt-2 max-w-xs text-sm text-muted-foreground">
-              Le bureau virtuel pour les entrepreneurs. Accompagne par le reseau BGE
-              Bretagne.
+              Le bureau virtuel pour les entrepreneurs. Accompagne par le reseau GIDEF
+              Ile-de-France.
             </p>
 
             {/* Newsletter */}
@@ -1329,7 +1450,7 @@ function FooterSection() {
 
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            &copy; 2025 CreaPulse - Reseau BGE Bretagne. Tous droits reserves.
+            &copy; 2025 CreaPulse - GIDEF Ile-de-France. Tous droits reserves.
           </p>
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Shield className="h-3 w-3" />
@@ -1347,6 +1468,9 @@ function FooterSection() {
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col">
+      {/* Bureau Virtuel overlay */}
+      <BureauLayout />
+
       {/* Section 1 — Sticky Navigation */}
       <Navbar />
 
@@ -1366,8 +1490,8 @@ export default function Home() {
         {/* Section 6 — Temoignages */}
         <TemoignagesSection />
 
-        {/* Section 7 — Reseau BGE */}
-        <ReseauBGESection />
+        {/* Section 7 — Reseau GIDEF */}
+        <ReseauGIDEFSection />
 
         {/* Section 8 — Actualites */}
         <ActualitesSection />

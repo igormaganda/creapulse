@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "@/components/ui/toaster";
+import { Providers } from "@/components/providers";
+import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,12 +15,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CreaPulse V2 — Le Bureau Virtuel de l'Entrepreneur | BGE Bretagne",
+  title: "CreaPulse V2 — Le Bureau Virtuel de l'Entrepreneur | GIDEF Ile-de-France",
   description:
-    "CreaPulse accompagne 100 000 créateurs d'entreprise par an de l'idée à l'immatriculation. Simulateurs financiers, Business Plan IA, diagnostic RIASEC, réseau BGE — tout votre parcours entrepreneurial en un seul endroit.",
+    "CreaPulse accompagne 100 000 créateurs d'entreprise par an de l'idée à l'immatriculation. Simulateurs financiers, Business Plan IA, diagnostic RIASEC, réseau GIDEF — tout votre parcours entrepreneurial en un seul endroit.",
   keywords: [
     "CreaPulse",
-    "BGE Bretagne",
+    "GIDEF Ile-de-France",
     "création d'entreprise",
     "business plan",
     "simulateur financier",
@@ -29,14 +30,14 @@ export const metadata: Metadata = {
     "France Travail",
     "aide création entreprise",
   ],
-  authors: [{ name: "BGE Bretagne" }],
+  authors: [{ name: "GIDEF Ile-de-France" }],
   icons: {
     icon: "/logo.svg",
   },
   openGraph: {
     title: "CreaPulse V2 — Le Bureau Virtuel de l'Entrepreneur",
     description:
-      "Accompagnez votre idée jusqu'à l'entreprise avec CreaPulse. 50+ outils, IA intégrée, réseau BGE.",
+      "Accompagnez votre idée jusqu'à l'entreprise avec CreaPulse. 50+ outils, IA intégrée, réseau GIDEF.",
     type: "website",
     locale: "fr_FR",
     siteName: "CreaPulse",
@@ -53,8 +54,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased bg-background text-foreground`}
       >
-        {children}
-        <Toaster />
+        <Providers>
+          {children}
+          <Toaster position="top-right" richColors closeButton />
+        </Providers>
       </body>
     </html>
   );
