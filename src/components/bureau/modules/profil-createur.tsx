@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -28,6 +28,7 @@ import {
   Save,
   CheckCircle2,
   Clock,
+  Phone,
   Loader2,
   X,
   Plus,
@@ -163,6 +164,10 @@ export function ProfilCreateur() {
   const [newSkill, setNewSkill] = useState('')
   const [activeTab, setActiveTab] = useState('personal')
   const [hasChanges, setHasChanges] = useState(false)
+  const [cvFile, setCvFile] = useState<{ name: string; size: number; uploadedAt: string } | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const token = useAuthStore((s) => s.token)
 
   // ── Load data ──
@@ -394,6 +399,7 @@ export function ProfilCreateur() {
             transition={{ duration: 0.3 }}
             className="space-y-6"
           >
+            {/* Read-only personal info card (counselor-entered) */}
             <Card className="border-none shadow-sm">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -401,51 +407,52 @@ export function ProfilCreateur() {
                   Informations personnelles
                 </CardTitle>
                 <CardDescription>
-                  Ces informations nous aident à mieux vous connaître
+                  Informations saisies par votre conseiller
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-sm text-muted-foreground">Prénom :</span>{' '}
+                    <span className="text-sm font-medium">{data.firstName || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-sm text-muted-foreground">Nom :</span>{' '}
+                    <span className="text-sm font-medium">{data.lastName || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-sm text-muted-foreground">Email :</span>{' '}
+                    <span className="text-sm font-medium">{data.email || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-sm text-muted-foreground">Date de naissance :</span>{' '}
+                    <span className="text-sm font-medium">{data.birthdate || '—'}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Editable contact info */}
+            <Card className="border-none shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Phone className="h-5 w-5 text-primary" />
+                  Coordonnées
+                </CardTitle>
+                <CardDescription>
+                  Informations que vous pouvez modifier
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName">Prénom</Label>
-                    <Input
-                      id="firstName"
-                      placeholder="Votre prénom"
-                      value={data.firstName || ''}
-                      onChange={(e) => updateField('firstName', e.target.value || null)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">Nom</Label>
-                    <Input
-                      id="lastName"
-                      placeholder="Votre nom"
-                      value={data.lastName || ''}
-                      onChange={(e) => updateField('lastName', e.target.value || null)}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="birthdate">Date de naissance</Label>
-                    <Input
-                      id="birthdate"
-                      type="date"
-                      value={data.birthdate || ''}
-                      onChange={(e) => updateField('birthdate', e.target.value || null)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Téléphone</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="06 12 34 56 78"
-                      value={data.phone || ''}
-                      onChange={(e) => updateField('phone', e.target.value || null)}
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Téléphone</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="06 12 34 56 78"
+                    value={data.phone || ''}
+                    onChange={(e) => updateField('phone', e.target.value || null)}
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -459,11 +466,22 @@ export function ProfilCreateur() {
                 </div>
               </CardContent>
             </Card>
+          </motion.div>
+        </TabsContent>
 
+        {/* ── TAB 2: Entrepreneurial Profile ── */}
+        <TabsContent value="entrepreneurial">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-6"
+          >
+            {/* Employment status & education */}
             <Card className="border-none shadow-sm">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-amber-500" />
+                  <Briefcase className="h-5 w-5 text-primary" />
                   Situation professionnelle
                 </CardTitle>
               </CardHeader>
@@ -478,7 +496,7 @@ export function ProfilCreateur() {
                       <SelectTrigger>
                         <SelectValue placeholder="Sélectionnez..." />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent position="popper">
                         {EMPLOYMENT_OPTIONS.map((opt) => (
                           <SelectItem key={opt.value} value={opt.value}>
                             {opt.label}
@@ -496,7 +514,7 @@ export function ProfilCreateur() {
                       <SelectTrigger>
                         <SelectValue placeholder="Sélectionnez..." />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent position="popper">
                         {EDUCATION_OPTIONS.map((opt) => (
                           <SelectItem key={opt.value} value={opt.value}>
                             {opt.label}
@@ -565,17 +583,7 @@ export function ProfilCreateur() {
                 </div>
               </CardContent>
             </Card>
-          </motion.div>
-        </TabsContent>
 
-        {/* ── TAB 2: Entrepreneurial Profile ── */}
-        <TabsContent value="entrepreneurial">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-6"
-          >
             <Card className="border-none shadow-sm">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -783,28 +791,108 @@ export function ProfilCreateur() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
-                {/* Upload area (mock) */}
-                <div className="border-2 border-dashed border-muted-foreground/25 rounded-2xl p-8 text-center hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer group">
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="flex flex-col items-center gap-3"
-                  >
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                      <Upload className="h-7 w-7 text-primary" />
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+                    if (file.size > 5 * 1024 * 1024) {
+                      toast.error('Fichier trop volumineux', { description: 'La taille maximale est de 5 Mo.' })
+                      return
+                    }
+                    setIsUploading(true)
+                    try {
+                      const formData = new FormData()
+                      formData.append('file', file)
+                      const res = await fetch('/api/upload', {
+                        method: 'POST',
+                        body: formData,
+                      })
+                      if (res.ok) {
+                        setCvFile({ name: file.name, size: file.size, uploadedAt: new Date().toLocaleString('fr-FR') })
+                        toast.success('CV importé avec succès', { description: `${file.name} a été téléchargé.` })
+                      } else {
+                        toast.error('Erreur lors de l\'import', { description: 'Impossible de télécharger le fichier.' })
+                      }
+                    } catch {
+                      toast.error('Erreur réseau', { description: 'Vérifiez votre connexion.' })
+                    } finally {
+                      setIsUploading(false)
+                      // Reset input so same file can be re-selected
+                      if (fileInputRef.current) fileInputRef.current.value = ''
+                    }
+                  }}
+                />
+
+                {/* Upload area */}
+                <div
+                  className={cn(
+                    'border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer group',
+                    isDragOver
+                      ? 'border-primary bg-primary/10'
+                      : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-primary/5',
+                    isUploading && 'pointer-events-none opacity-60'
+                  )}
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
+                  onDragLeave={() => setIsDragOver(false)}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    setIsDragOver(false)
+                    const file = e.dataTransfer.files?.[0]
+                    if (file) {
+                      const dt = new DataTransfer()
+                      dt.items.add(file)
+                      if (fileInputRef.current) {
+                        fileInputRef.current.files = dt.files
+                        fileInputRef.current.dispatchEvent(new Event('change', { bubbles: true }))
+                      }
+                    }
+                  }}
+                >
+                  {isUploading ? (
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                      <p className="text-sm text-muted-foreground">Téléchargement en cours...</p>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        Glissez-déposez votre CV ici
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        ou cliquez pour sélectionner (PDF, DOCX — max 5 Mo)
-                      </p>
+                  ) : cvFile ? (
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-green-100 dark:bg-green-900/30 transition-colors">
+                        <CheckCircle2 className="h-7 w-7 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{cvFile.name}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {(cvFile.size / 1024).toFixed(1)} Ko — importé le {cvFile.uploadedAt}
+                        </p>
+                      </div>
+                      <Badge variant="secondary" className="text-xs text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400">
+                        Importé
+                      </Badge>
                     </div>
-                    <Badge variant="outline" className="text-xs">
-                      Fonctionnalité bientôt disponible
-                    </Badge>
-                  </motion.div>
+                  ) : (
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="flex flex-col items-center gap-3"
+                    >
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                        <Upload className="h-7 w-7 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          Glissez-déposez votre CV ici
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          ou cliquez pour sélectionner (PDF, DOCX — max 5 Mo)
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
               </CardContent>
             </Card>

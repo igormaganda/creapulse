@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Loader2, Mail, Lock, Zap } from 'lucide-react'
+import { useAuthStore } from '@/lib/zustand/store'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -57,12 +58,30 @@ export function LoginDialog({
       const data = await res.json()
 
       if (!res.ok) {
-        toast.error(data.error || 'Identifiants incorrects')
+        toast.error(data.error?.message || data.error || 'Identifiants incorrects')
         return
       }
 
-      toast.success(`Bienvenue ${data.user.firstName || ''} !`)
-      onLoginSuccess(data.user)
+      if (data.success && data.data) {
+        // Store token and user in auth store
+        const { user: userData, accessToken } = data.data
+        if (accessToken) {
+          useAuthStore.getState().login(accessToken, {
+            id: userData.id || 'unknown',
+            email: userData.email,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            role: userData.role || 'BENEFICIARY',
+            avatarUrl: userData.avatarUrl || null,
+          })
+        }
+        toast.success(`Bienvenue ${userData.firstName || ''} !`)
+        onLoginSuccess(userData)
+      } else {
+        // Fallback for old API format
+        toast.success(`Bienvenue ${data.user.firstName || ''} !`)
+        onLoginSuccess(data.user)
+      }
       onOpenChange(false)
       setEmail('')
       setPassword('')

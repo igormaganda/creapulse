@@ -3,7 +3,6 @@
 import { useMemo, useState } from 'react'
 import { useBureauStore } from './bureau-store'
 import { cn } from '@/lib/utils'
-import { IAAssistant } from './ia-assistant'
 import { NotificationsPanel } from './notifications-panel'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
@@ -157,9 +156,6 @@ export function TopBar({ onMenuClick }: TopBarProps) {
       <div className="flex items-center gap-1">
         {/* Theme toggle */}
         <ThemeToggle />
-
-        {/* IA Assistant */}
-        <IAAssistant />
 
         {/* Notification bell — real panel */}
         <NotificationsPanel />

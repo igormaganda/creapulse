@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import { generateAuthResponse, verifyPassword } from '@/lib/auth'
+import { success, Errors, handleApiError } from '@/lib/api-response'
 
 export async function POST(request: Request) {
   try {
@@ -6,27 +9,60 @@ export async function POST(request: Request) {
     const { email, password } = body
 
     if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Veuillez saisir votre e-mail et votre mot de passe' },
-        { status: 400 }
-      )
+      return Errors.validation({ email: ['Email requis'], password: ['Mot de passe requis'] }, 'Champs manquants')
     }
 
-    // TODO: Replace with real authentication logic (NextAuth / Prisma)
-    // For now, return a mock user for demonstration
+    // Find user by email
+    const user = await db.user.findUnique({
+      where: { email: email.trim().toLowerCase() },
+    })
+
+    if (!user) {
+      return Errors.invalidCredentials('Aucun compte trouvé avec cet email')
+    }
+
+    if (!user.password) {
+      return Errors.invalidCredentials('Méthode de connexion invalide')
+    }
+
+    // Verify password
+    const isValid = await verifyPassword(password, user.password)
+    if (!isValid) {
+      return Errors.invalidCredentials('Mot de passe incorrect')
+    }
+
+    // Get tenant ID
+    let tenantId = 'default'
+    if (user.tenantId) {
+      const tenant = await db.tenant.findUnique({ where: { id: user.tenantId } })
+    }
+
+    // Generate auth tokens
+    const authTokens = await generateAuthResponse({
+      id: user.id,
+      tenantId,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      avatarUrl: user.avatarUrl,
+    })
+
+    // Set session cookie
+    const sessionCookie = `session=${authTokens.accessToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${authTokens.expiresIn}`
+
     return NextResponse.json({
-      user: {
-        id: 'demo-user-id',
-        firstName: 'Jean',
-        lastName: 'Dupont',
-        email: email,
-        role: 'BENEFICIARY',
+      success: true,
+      data: {
+        user: authTokens.user,
+        accessToken: authTokens.accessToken,
+      },
+    }, {
+ headers: {
+        'Set-Cookie': sessionCookie,
       },
     })
-  } catch {
-    return NextResponse.json(
-      { error: 'Une erreur est survenue' },
-      { status: 500 }
-    )
+  } catch (err) {
+    return handleApiError(err)
   }
 }

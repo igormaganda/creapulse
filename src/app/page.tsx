@@ -104,6 +104,9 @@ import { useAdminCentreStore } from '@/components/admin-centre/admin-centre-stor
 import { ConseillerLayout } from '@/components/conseiller/conseiller-layout'
 import { useConseillerStore } from '@/components/conseiller/conseiller-store'
 
+/* ─── IA Assistant ─── */
+import { IAAssistant } from '@/components/bureau/ia-assistant'
+
 /* ═══════════════════════════════════════════════════════════
    Animation variants for framer-motion scroll reveals
    ═══════════════════════════════════════════════════════════ */
@@ -1528,6 +1531,9 @@ export default function Home() {
 
       {/* Conseiller overlay */}
       <ConseillerLayout />
+
+      {/* IA Assistant — rendered at page root (outside transformed Bureau overlay) */}
+      <IAAssistant />
 
       {/* Section 1 — Sticky Navigation */}
       <Navbar />

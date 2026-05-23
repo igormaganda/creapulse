@@ -183,7 +183,14 @@ export function handleApiError(err: unknown): NextResponse<ApiError> {
  * Extract JWT token from Authorization header
  */
 export function getTokenFromHeader(request: Request): string | null {
+  // Try Authorization header first
   const authHeader = request.headers.get('authorization')
-  if (!authHeader?.startsWith('Bearer ')) return null
-  return authHeader.slice(7)
+  if (authHeader?.startsWith('Bearer ')) return authHeader.slice(7)
+
+  // Try session cookie
+  const cookie = request.headers.get('cookie') || ''
+  const match = cookie.match(/session=([^;]+)/)
+  if (match) return match[1]
+
+  return null
 }

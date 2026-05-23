@@ -26,6 +26,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
   Globe,
   Save,
   Sparkles,
@@ -41,6 +46,8 @@ import {
   Shield,
   Check,
   Circle,
+  Info,
+  Wand2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -79,12 +86,88 @@ const CATEGORIES = ['Commerce', 'Services', 'Tech', 'Artisanat', 'Restauration',
 
 const DEFAULT_SWOT: SwotData = { strengths: '', weaknesses: '', opportunities: '', threats: '' }
 
+// ─── InfoPopover helper ─────────────────────
+
+function InfoPopover({ text }: { text: string }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className="inline-flex items-center justify-center h-5 w-5 rounded-full text-muted-foreground hover:text-[#00838F] hover:bg-[#00838F]/10 transition-colors shrink-0">
+          <Info className="h-3.5 w-3.5" />
+          <span className="sr-only">Aide</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="top" className="max-w-sm text-sm bg-popover border-border shadow-lg">
+        <p className="text-muted-foreground leading-relaxed">{text}</p>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+// ─── AI Section Button ──────────────────────
+
+function AiSectionButton({
+  section,
+  existingContent,
+  onResult,
+}: {
+  section: string
+  existingContent?: string
+  onResult: (suggestion: unknown) => void
+}) {
+  const [loading, setLoading] = useState(false)
+
+  const handleClick = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/marche', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'ai-suggest-section',
+          section,
+          existingContent: existingContent || undefined,
+        }),
+      })
+      const json = await res.json()
+      if (json.success && json.data?.suggestion !== undefined) {
+        onResult(json.data.suggestion)
+        toast.success('Suggestion IA chargée')
+      } else {
+        toast.error(json.error?.message || 'Erreur lors de la suggestion IA')
+      }
+    } catch {
+      toast.error('Erreur de connexion au serveur')
+    } finally {
+      setLoading(false)
+    }
+  }, [section, existingContent, onResult])
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="gap-1.5 text-[#FFB74D] hover:text-[#FFB74D] hover:bg-[#FFB74D]/10 h-7 px-2 shrink-0"
+      onClick={handleClick}
+      disabled={loading}
+    >
+      {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+      <span className="text-xs">Aide IA</span>
+    </Button>
+  )
+}
+
 // ─── Main Component ─────────────────────────
 
 export function MarcheModule() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
+  const [autofillLoading, setAutofillLoading] = useState(false)
+
+  // Section-level AI loading states
+  const [sectionAiLoading, setSectionAiLoading] = useState<Record<string, boolean>>({})
 
   // Sector
   const [sector, setSector] = useState('')
@@ -197,7 +280,7 @@ export function MarcheModule() {
     }
   }, [sector, category, marketSize, growthRate, targetAudience, targetAgeRange, targetLocation, targetRevenue, trends, competitors, swot, aiSynthesis])
 
-  // ─── AI Synthesis ──────────────────────
+  // ─── AI Synthesis (legacy) ──────────────
   const handleAiSynthesis = useCallback(async () => {
     setAiLoading(true)
     try {
@@ -219,6 +302,74 @@ export function MarcheModule() {
       setAiLoading(false)
     }
   }, [sector, marketSize, targetAudience, trends, competitors, swot])
+
+  // ─── AI Autofill ────────────────────────
+  const handleAutofill = useCallback(async () => {
+    setAutofillLoading(true)
+    try {
+      const res = await fetch('/api/marche', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'ai-autofill' }),
+      })
+      const json = await res.json()
+      if (json.success && json.data?.suggestion) {
+        const s = json.data.suggestion
+        if (s.sector) setSector(s.sector)
+        if (s.category) setCategory(s.category)
+        if (s.marketSize) setMarketSize(String(s.marketSize))
+        if (s.growthRate != null) setGrowthRate(s.growthRate)
+        if (s.targetAudience) setTargetAudience(s.targetAudience)
+        if (s.targetAgeRange) setTargetAgeRange(s.targetAgeRange)
+        if (s.targetLocation) setTargetLocation(s.targetLocation)
+        if (s.targetRevenue) setTargetRevenue(s.targetRevenue)
+        if (Array.isArray(s.trends)) setTrends(s.trends)
+        if (Array.isArray(s.competitors)) setCompetitors(s.competitors)
+        setSwot(prev => ({
+          strengths: s.strengths || prev.strengths,
+          weaknesses: s.weaknesses || prev.weaknesses,
+          opportunities: s.opportunities || prev.opportunities,
+          threats: s.threats || prev.threats,
+        }))
+        toast.success('Toutes les sections ont été remplies par l\'IA')
+      } else {
+        toast.error(json.error?.message || 'Erreur lors du remplissage automatique')
+      }
+    } catch {
+      toast.error('Erreur de connexion au serveur')
+    } finally {
+      setAutofillLoading(false)
+    }
+  }, [])
+
+  // ─── AI Section Suggest ─────────────────
+  const handleAiSection = useCallback((sectionKey: string, setter: (val: string) => void, existingContent?: string) => {
+    return async () => {
+      setSectionAiLoading(prev => ({ ...prev, [sectionKey]: true }))
+      try {
+        const res = await fetch('/api/marche', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'ai-suggest-section',
+            section: sectionKey,
+            existingContent: existingContent || undefined,
+          }),
+        })
+        const json = await res.json()
+        if (json.success && json.data?.suggestion !== undefined) {
+          setter(json.data.suggestion)
+          toast.success('Suggestion IA chargée')
+        } else {
+          toast.error(json.error?.message || 'Erreur lors de la suggestion IA')
+        }
+      } catch {
+        toast.error('Erreur de connexion au serveur')
+      } finally {
+        setSectionAiLoading(prev => ({ ...prev, [sectionKey]: false }))
+      }
+    }
+  }, [])
 
   // ─── Trend CRUD ─────────────────────────
   const addTrend = useCallback(() => {
@@ -249,6 +400,66 @@ export function MarcheModule() {
   // ─── SWOT update ───────────────────────
   const updateSwot = useCallback((key: keyof SwotData, value: string) => {
     setSwot(prev => ({ ...prev, [key]: value }))
+  }, [])
+
+  // ─── AI Generate Trends ────────────────
+  const handleAiTrends = useCallback(async () => {
+    setSectionAiLoading(prev => ({ ...prev, trends: true }))
+    try {
+      const res = await fetch('/api/marche', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'ai-suggest-section',
+          section: 'trends',
+        }),
+      })
+      const json = await res.json()
+      if (json.success && json.data?.suggestion) {
+        if (Array.isArray(json.data.suggestion)) {
+          setTrends(json.data.suggestion)
+        } else {
+          toast.error('Format de réponse inattendu')
+        }
+        toast.success('Tendances IA chargées')
+      } else {
+        toast.error(json.error?.message || 'Erreur')
+      }
+    } catch {
+      toast.error('Erreur de connexion au serveur')
+    } finally {
+      setSectionAiLoading(prev => ({ ...prev, trends: false }))
+    }
+  }, [])
+
+  // ─── AI Generate Competitors ────────────
+  const handleAiCompetitors = useCallback(async () => {
+    setSectionAiLoading(prev => ({ ...prev, competitors: true }))
+    try {
+      const res = await fetch('/api/marche', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'ai-suggest-section',
+          section: 'competitors',
+        }),
+      })
+      const json = await res.json()
+      if (json.success && json.data?.suggestion) {
+        if (Array.isArray(json.data.suggestion)) {
+          setCompetitors(json.data.suggestion)
+        } else {
+          toast.error('Format de réponse inattendu')
+        }
+        toast.success('Concurrents IA chargés')
+      } else {
+        toast.error(json.error?.message || 'Erreur')
+      }
+    } catch {
+      toast.error('Erreur de connexion au serveur')
+    } finally {
+      setSectionAiLoading(prev => ({ ...prev, competitors: false }))
+    }
   }, [])
 
   // ─── Completion ─────────────────────────
@@ -300,7 +511,18 @@ export function MarcheModule() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Autofill button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 border-[#FFB74D]/40 text-[#FFB74D] hover:bg-[#FFB74D]/10 hover:text-[#FFB74D]"
+            onClick={handleAutofill}
+            disabled={autofillLoading}
+          >
+            {autofillLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+            Remplir avec l&apos;IA
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -354,7 +576,13 @@ export function MarcheModule() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Secteur d&apos;activité</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-base">Secteur d&apos;activité</CardTitle>
+                      <InfoPopover text="Définissez le secteur principal dans lequel votre entreprise évolue. Cela permet d'identifier les tendances, concurrents et opportunités spécifiques à votre domaine." />
+                    </div>
+                    <AiSectionButton section="sector" existingContent={sector} onResult={(val: unknown) => setSector(String(val))} />
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
@@ -389,7 +617,13 @@ export function MarcheModule() {
 
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Taille du marché</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-base">Taille du marché</CardTitle>
+                      <InfoPopover text="La taille du marché représente le chiffre d'affaires total généré par votre secteur en France. Des sources comme INSEE, Xerfi ou les fédérations professionnelles peuvent vous aider." />
+                    </div>
+                    <AiSectionButton section="marketSize" existingContent={marketSize} onResult={(val: unknown) => setMarketSize(String(val))} />
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
@@ -433,10 +667,16 @@ export function MarcheModule() {
           <TabsContent value="cible" className="space-y-6">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Users className="h-4 w-4 text-[#FF6B35]" />
-                  Client cible
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Users className="h-4 w-4 text-[#FF6B35]" />
+                      Client cible
+                    </CardTitle>
+                    <InfoPopover text="Définir précisément votre client idéal est essentiel pour adapter votre offre, votre communication et votre stratégie commerciale. Pensez à ses besoins, ses habitudes et ses motivations." />
+                  </div>
+                  <AiSectionButton section="targetAudience" existingContent={targetAudience} onResult={(val: unknown) => setTargetAudience(String(val))} />
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -451,34 +691,82 @@ export function MarcheModule() {
                 <Separator />
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label className="flex items-center gap-1.5">
-                      <Target className="h-3.5 w-3.5" /> Tranche d&apos;âge
-                    </Label>
-                    <Input
-                      value={targetAgeRange}
-                      onChange={e => setTargetAgeRange(e.target.value)}
-                      placeholder="Ex : 25-45 ans"
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <Label className="flex items-center gap-1.5">
+                        <Target className="h-3.5 w-3.5" /> Tranche d&apos;âge
+                      </Label>
+                      <InfoPopover text="L'âge de votre client cible influence vos canaux de communication et votre offre. Par exemple, les 18-25 ans sont plus sensibles aux réseaux sociaux." />
+                    </div>
+                    <div className="flex gap-1">
+                      <Input
+                        value={targetAgeRange}
+                        onChange={e => setTargetAgeRange(e.target.value)}
+                        placeholder="Ex : 25-45 ans"
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-[#FFB74D] hover:text-[#FFB74D] hover:bg-[#FFB74D]/10 shrink-0 h-auto px-2"
+                        onClick={handleAiSection('targetAgeRange', setTargetAgeRange, targetAgeRange)}
+                        disabled={sectionAiLoading['targetAgeRange']}
+                      >
+                        {sectionAiLoading['targetAgeRange'] ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
-                    <Label className="flex items-center gap-1.5">
-                      <Globe className="h-3.5 w-3.5" /> Localisation
-                    </Label>
-                    <Input
-                      value={targetLocation}
-                      onChange={e => setTargetLocation(e.target.value)}
-                      placeholder="Ex : Île-de-France"
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <Label className="flex items-center gap-1.5">
+                        <Globe className="h-3.5 w-3.5" /> Localisation
+                      </Label>
+                      <InfoPopover text="La zone géographique détermine où vous chercherez vos clients. Une activité locale visera une ville ou région, tandis qu'une activité en ligne peut viser la France entière." />
+                    </div>
+                    <div className="flex gap-1">
+                      <Input
+                        value={targetLocation}
+                        onChange={e => setTargetLocation(e.target.value)}
+                        placeholder="Ex : Île-de-France"
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-[#FFB74D] hover:text-[#FFB74D] hover:bg-[#FFB74D]/10 shrink-0 h-auto px-2"
+                        onClick={handleAiSection('targetLocation', setTargetLocation, targetLocation)}
+                        disabled={sectionAiLoading['targetLocation']}
+                      >
+                        {sectionAiLoading['targetLocation'] ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
-                    <Label className="flex items-center gap-1.5">
-                      <TrendingUp className="h-3.5 w-3.5" /> Revenu moyen
-                    </Label>
-                    <Input
-                      value={targetRevenue}
-                      onChange={e => setTargetRevenue(e.target.value)}
-                      placeholder="Ex : 30 000 - 50 000 €/an"
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <Label className="flex items-center gap-1.5">
+                        <TrendingUp className="h-3.5 w-3.5" /> Revenu moyen
+                      </Label>
+                      <InfoPopover text="Le revenu moyen de votre cible aide à calibrer votre pricing. Un revenu élevé permet des prix premium, un revenu modéré demande une offre plus accessible." />
+                    </div>
+                    <div className="flex gap-1">
+                      <Input
+                        value={targetRevenue}
+                        onChange={e => setTargetRevenue(e.target.value)}
+                        placeholder="Ex : 30 000 - 50 000 €/an"
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-[#FFB74D] hover:text-[#FFB74D] hover:bg-[#FFB74D]/10 shrink-0 h-auto px-2"
+                        onClick={handleAiSection('targetRevenue', setTargetRevenue, targetRevenue)}
+                        disabled={sectionAiLoading['targetRevenue']}
+                      >
+                        {sectionAiLoading['targetRevenue'] ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -488,17 +776,32 @@ export function MarcheModule() {
           {/* ── Tab: Tendances ── */}
           <TabsContent value="tendances" className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold">Tendances du marché</h3>
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={addTrend} disabled={trends.length >= 10}>
-                <Plus className="h-3.5 w-3.5" />
-                Ajouter
-              </Button>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-semibold">Tendances du marché</h3>
+                <InfoPopover text="Les tendances de marché sont les évolutions majeures qui impactent votre secteur. Les identifier permet d'anticiper les opportunités et les menaces pour votre activité." />
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 border-[#FFB74D]/40 text-[#FFB74D] hover:bg-[#FFB74D]/10 hover:text-[#FFB74D]"
+                  onClick={handleAiTrends}
+                  disabled={sectionAiLoading['trends']}
+                >
+                  {sectionAiLoading['trends'] ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  Aide IA
+                </Button>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={addTrend} disabled={trends.length >= 10}>
+                  <Plus className="h-3.5 w-3.5" />
+                  Ajouter
+                </Button>
+              </div>
             </div>
             {trends.length === 0 ? (
               <Card className="p-8 text-center">
                 <TrendingUp className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-50" />
-                <p className="text-sm text-muted-foreground">
-                  Aucune tendance ajoutée. Cliquez sur &quot;Ajouter&quot; pour commencer.
+                <p className="text-sm text-muted-foreground mb-3">
+                  Aucune tendance ajoutée. Cliquez sur &quot;Aide IA&quot; pour générer automatiquement ou sur &quot;Ajouter&quot; pour saisir manuellement.
                 </p>
               </Card>
             ) : (
@@ -556,17 +859,32 @@ export function MarcheModule() {
           {/* ── Tab: Concurrents ── */}
           <TabsContent value="concurrents" className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold">Analyse concurrentielle</h3>
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={addCompetitor} disabled={competitors.length >= 10}>
-                <Plus className="h-3.5 w-3.5" />
-                Ajouter ({competitors.length}/10)
-              </Button>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-semibold">Analyse concurrentielle</h3>
+                <InfoPopover text="L'analyse concurrentielle vous permet de comprendre votre positionnement par rapport aux acteurs existants. Identifiez leurs forces, faiblesses et parts de marché pour trouver votre avantage compétitif." />
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 border-[#FFB74D]/40 text-[#FFB74D] hover:bg-[#FFB74D]/10 hover:text-[#FFB74D]"
+                  onClick={handleAiCompetitors}
+                  disabled={sectionAiLoading['competitors']}
+                >
+                  {sectionAiLoading['competitors'] ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  Aide IA
+                </Button>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={addCompetitor} disabled={competitors.length >= 10}>
+                  <Plus className="h-3.5 w-3.5" />
+                  Ajouter ({competitors.length}/10)
+                </Button>
+              </div>
             </div>
             {competitors.length === 0 ? (
               <Card className="p-8 text-center">
                 <BarChart3 className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-50" />
-                <p className="text-sm text-muted-foreground">
-                  Aucun concurrent ajouté. Cliquez sur &quot;Ajouter&quot; pour commencer.
+                <p className="text-sm text-muted-foreground mb-3">
+                  Aucun concurrent ajouté. Cliquez sur &quot;Aide IA&quot; pour identifier les concurrents principaux ou sur &quot;Ajouter&quot; pour saisir manuellement.
                 </p>
               </Card>
             ) : (
@@ -640,18 +958,25 @@ export function MarcheModule() {
 
           {/* ── Tab: SWOT ── */}
           <TabsContent value="swot" className="space-y-4">
-            <h3 className="text-base font-semibold">Analyse SWOT simplifiée</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-semibold">Analyse SWOT simplifiée</h3>
+              <InfoPopover text="L'analyse SWOT (Strengths, Weaknesses, Opportunities, Threats) est un outil stratégique qui vous aide à identifier vos forces internes, faiblesses internes, opportunités externes et menaces externes." />
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
-                { key: 'strengths' as keyof SwotData, label: 'Forces', icon: '💪', color: 'border-green-500/30 bg-green-50/50 dark:bg-green-900/10' },
-                { key: 'weaknesses' as keyof SwotData, label: 'Faiblesses', icon: '⚠️', color: 'border-red-500/30 bg-red-50/50 dark:bg-red-900/10' },
-                { key: 'opportunities' as keyof SwotData, label: 'Opportunités', icon: '🚀', color: 'border-sky-500/30 bg-sky-50/50 dark:bg-sky-900/10' },
-                { key: 'threats' as keyof SwotData, label: 'Menaces', icon: '🛡️', color: 'border-amber-500/30 bg-amber-50/50 dark:bg-amber-900/10' },
+                { key: 'strengths' as keyof SwotData, label: 'Forces', icon: '💪', color: 'border-green-500/30 bg-green-50/50 dark:bg-green-900/10', help: 'Vos forces sont les avantages internes de votre projet : compétences uniques, innovation, réseau, expérience, ressources...' },
+                { key: 'weaknesses' as keyof SwotData, label: 'Faiblesses', icon: '⚠️', color: 'border-red-500/30 bg-red-50/50 dark:bg-red-900/10', help: 'Vos faiblesses sont les points internes à améliorer : manque de financement, expérience limitée, absence de réseau, charge de travail...' },
+                { key: 'opportunities' as keyof SwotData, label: 'Opportunités', icon: '🚀', color: 'border-sky-500/30 bg-sky-50/50 dark:bg-sky-900/10', help: 'Les opportunités sont des facteurs externes favorables : marché en croissance, besoins non satisfaits, aides publiques, nouvelles technologies...' },
+                { key: 'threats' as keyof SwotData, label: 'Menaces', icon: '🛡️', color: 'border-amber-500/30 bg-amber-50/50 dark:bg-amber-900/10', help: 'Les menaces sont des facteurs externes défavorables : concurrence accrue, réglementation, évolution technologique, crise économique...' },
               ].map(q => (
                 <div key={q.key} className={cn('rounded-xl border p-4', q.color)}>
-                  <Label className="text-sm font-semibold flex items-center gap-1.5 mb-3">
-                    <span>{q.icon}</span> {q.label}
-                  </Label>
+                  <div className="flex items-center justify-between mb-3">
+                    <Label className="text-sm font-semibold flex items-center gap-1.5">
+                      <span>{q.icon}</span> {q.label}
+                      <InfoPopover text={q.help} />
+                    </Label>
+                    <AiSectionButton section={q.key} existingContent={swot[q.key]} onResult={(val: unknown) => updateSwot(q.key, String(val))} />
+                  </div>
                   <Textarea
                     value={swot[q.key]}
                     onChange={e => updateSwot(q.key, e.target.value)}

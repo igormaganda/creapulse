@@ -1,16 +1,17 @@
 // ============================================
 // CreaPulse V2 — Analyse Juridique API
 // GET  /api/juridique  — Retrieve juridical analysis
-// POST /api/juridique  — Save answers + get recommendation
+// POST /api/juridique  — Save answers + get recommendation / AI suggest / AI autofill
 // ============================================
 
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
-import { success, Errors, handleApiError } from '@/lib/api-response'
+import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
 import { verifyToken } from '@/lib/auth'
 import { z } from 'zod'
+import ZAI from 'z-ai-web-dev-sdk'
 
-// ─── Validation Schema ───────────────────────
+// ─── Validation Schemas ──────────────────────
 
 const juridiqueSchema = z.object({
   answers: z.record(z.string(), z.string()).optional(),
@@ -25,18 +26,65 @@ const juridiqueSchema = z.object({
   }).optional(),
 }).passthrough()
 
+const aiSuggestSchema = z.object({
+  action: z.literal('ai-suggest'),
+  questionId: z.string().min(1),
+  questionTitle: z.string().min(1),
+  answers: z.record(z.string(), z.string()).optional(),
+})
+
+const aiAutofillSchema = z.object({
+  action: z.literal('ai-autofill'),
+})
+
 // ─── Auth helper ─────────────────────────────
 
-async function authenticate(request: NextRequest) {
+async function getAuth(request: NextRequest) {
   const cookieToken = request.cookies.get('session')?.value
-  const authHeader = request.headers.get('authorization')
-  const token = cookieToken || (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null)
-  if (!token) return null
-  try {
-    return await verifyToken(token)
-  } catch {
-    return null
-  }
+  const headerToken = getTokenFromHeader(request)
+  const token = cookieToken || headerToken
+  if (!token) throw Object.assign(new Error('No session token found'), { code: 'UNAUTHORIZED' })
+  return verifyToken(token)
+}
+
+// ─── Fetch project context from CreatorJourney ─
+
+async function getProjectContext(userId: string): Promise<string> {
+  const journey = await db.creatorJourney.findUnique({
+    where: { userId },
+    select: {
+      projectTitle: true,
+      projectSector: true,
+      projectStage: true,
+      targetAudience: true,
+      valueProposition: true,
+      projectDescription: true,
+      activityType: true,
+    },
+  })
+  if (!journey) return ''
+  const parts: string[] = []
+  if (journey.projectTitle) parts.push(`Titre du projet: ${journey.projectTitle}`)
+  if (journey.projectSector) parts.push(`Secteur: ${journey.projectSector}`)
+  if (journey.projectStage) parts.push(`Stade du projet: ${journey.projectStage}`)
+  if (journey.targetAudience) parts.push(`Cible visée: ${journey.targetAudience}`)
+  if (journey.valueProposition) parts.push(`Proposition de valeur: ${journey.valueProposition}`)
+  if (journey.projectDescription) parts.push(`Description: ${journey.projectDescription}`)
+  if (journey.activityType) parts.push(`Type d'activité: ${journey.activityType}`)
+  return parts.join('\n')
+}
+
+// ─── Question help for AI suggestions ────────
+
+const QUESTION_HELP: Record<string, string> = {
+  activityType: "type d'activité (service, commerce, artisanat, tech, restauration)",
+  associatesCount: "nombre d'associés (solo, 2-5, 6+)",
+  initialCapital: "capital initial disponible (aucun, <1000€, 1000-10000€, >10000€)",
+  revenueForecast: "chiffre d'affaires prévisionnel année 1 (<30k€, 30-70k€, >70k€)",
+  liabilityPreference: "préférence de responsabilité (limitée ou illimitée)",
+  socialRegime: "régime social préféré (assimilé salarié, TNS, pas de préférence)",
+  vatRegime: "régime de TVA (franchise, simplifié, réel normal)",
+  growthPlans: "plans de croissance (stable ou rapide avec levée de fonds)",
 }
 
 // ─── Recommendation Engine ───────────────────
@@ -191,8 +239,7 @@ function getRecommendation(answers: QuestionAnswer) {
 
 export async function GET(request: NextRequest) {
   try {
-    const payload = await authenticate(request)
-    if (!payload) return Errors.unauthorized()
+    const payload = await getAuth(request)
 
     const analysis = await db.juridiqueAnalysis.findUnique({
       where: { userId: payload.userId },
@@ -202,18 +249,116 @@ export async function GET(request: NextRequest) {
 
     return success(analysis, 'Analyse juridique chargée')
   } catch (err) {
+    if (err && typeof err === 'object' && 'code' in err) {
+      const authErr = err as { code: string }
+      if (authErr.code === 'TOKEN_EXPIRED' || authErr.code === 'UNAUTHORIZED') {
+        return Errors.unauthorized('Session expirée — veuillez vous reconnecter')
+      }
+    }
     return handleApiError(err)
   }
 }
 
-// ─── POST: Save answers + get recommendation ─
+// ─── POST: Actions ──────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
-    const payload = await authenticate(request)
-    if (!payload) return Errors.unauthorized()
+    const payload = await getAuth(request)
 
     const body = await request.json()
+    const { action } = body
+
+    // ── AI Suggest for a specific question ──
+    if (action === 'ai-suggest') {
+      const parsed = aiSuggestSchema.safeParse(body)
+      if (!parsed.success) {
+        return Errors.validation(
+          parsed.error.issues.map(i => ({ field: i.path.join('.'), message: i.message }))
+        )
+      }
+
+      const { questionId, questionTitle, answers: currentAnswers } = parsed.data
+      const context = await getProjectContext(payload.userId)
+
+      const systemPrompt = `Tu es un expert en droit des affaires et en création d'entreprise en France. Tu aides les entrepreneurs à choisir le bon statut juridique.
+
+RÈGLES :
+- Réponds TOUJOURS en français
+- Sois concis (2-4 phrases max)
+- Donne une recommandation claire avec une justification
+- Adapte tes conseils au contexte du projet
+
+${context ? `CONTEXTE DU PROJET :\n${context}` : 'Aucun contexte de projet fourni.'}
+
+${currentAnswers ? `RÉPONSES DÉJÀ DONNÉES :\n${Object.entries(currentAnswers).map(([k, v]) => `- ${k}: ${v}`).join('\n')}` : ''}`
+
+      const questionHelp = QUESTION_HELP[questionId] || questionTitle
+      const userPrompt = `L'utilisateur hésite sur la question : "${questionTitle}" (${questionHelp}). 
+Quelle réponse lui recommandes-tu pour son projet ? Donne ta recommandation sous la forme d'une réponse courte et claire, puis une brève justification.`
+
+      const zai = await ZAI.create()
+      const completion = await zai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.7,
+        max_tokens: 400,
+      })
+
+      const suggestion = completion.choices?.[0]?.message?.content || 'Désolé, une erreur est survenue.'
+
+      return success({ questionId, suggestion }, 'Suggestion IA générée')
+    }
+
+    // ── AI Autofill all questions ──
+    if (action === 'ai-autofill') {
+      const context = await getProjectContext(payload.userId)
+
+      const systemPrompt = `Tu es un expert en droit des affaires et en création d'entreprise en France. Tu dois recommander les meilleures réponses pour un questionnaire juridique.
+
+RÈGLES :
+- Réponds TOUJOURS en français
+- Utilise les valeurs exactes des options disponibles
+- Adapte tes recommandations au contexte du projet
+
+${context ? `CONTEXTE DU PROJET :\n${context}` : 'Aucun contexte de projet. Génére des réponses génériques.'}`
+
+      const userPrompt = `Recommande les meilleures réponses pour chaque question d'un questionnaire de création d'entreprise. Renvoie un objet JSON avec les clés suivantes et les valeurs parmi les options disponibles :
+- "activityType" : "service" | "commerce" | "artisanat" | "tech" | "restauration"
+- "associatesCount" : "solo" | "2-5" | "6+"
+- "initialCapital" : "none" | "low" | "medium" | "high"
+- "revenueForecast" : "low" | "medium" | "high"
+- "liabilityPreference" : "limited" | "unlimited"
+- "socialRegime" : "salaried" | "independent" | "no-preference"
+- "vatRegime" : "exempt" | "simplified" | "real"
+- "growthPlans" : "steady" | "rapid"
+
+Renvoie UNIQUEMENT le JSON, sans backticks ni texte autour.`
+
+      const zai = await ZAI.create()
+      const completion = await zai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.7,
+        max_tokens: 600,
+      })
+
+      const raw = completion.choices?.[0]?.message?.content || ''
+      const jsonMatch = raw.match(/\{[\s\S]*\}/)
+      if (!jsonMatch) {
+        return success({ suggestion: raw }, 'Suggestion IA générée (format brut)')
+      }
+
+      const result = JSON.parse(jsonMatch[0])
+      return success({ suggestion: result }, 'Remplissage automatique IA terminé')
+    }
+
+    // ── Legacy: Save answers + get recommendation ──
     const parsed = juridiqueSchema.safeParse(body)
     if (!parsed.success) {
       return Errors.validation(
@@ -252,6 +397,12 @@ export async function POST(request: NextRequest) {
       recommendation,
     }, 'Recommandation générée')
   } catch (err) {
+    if (err && typeof err === 'object' && 'code' in err) {
+      const authErr = err as { code: string }
+      if (authErr.code === 'TOKEN_EXPIRED' || authErr.code === 'UNAUTHORIZED') {
+        return Errors.unauthorized('Session expirée — veuillez vous reconnecter')
+      }
+    }
     return handleApiError(err)
   }
 }

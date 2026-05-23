@@ -243,12 +243,17 @@ function SidebarContent({ collapsed, onNavigate, onCloseMobile }: {
       )}>
         {!collapsed && (
           <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-teal-400" />
-            <span className="text-base font-bold text-white">Bureau Virtuel</span>
+            <div className="flex items-center gap-2 px-3 mt-2 mb-1">
+              <img src="/images/logo-creapulse.svg" alt="CreaPulse" className="h-8 w-8 shrink-0" />
+              <img src="/images/logo-gidef.svg" alt="GIDEF" className="h-5 w-auto shrink-0" />
+            </div>
           </div>
         )}
         {collapsed && (
-          <Sparkles className="h-5 w-5 text-teal-400" />
+          <div className="flex flex-col items-center gap-1">
+            <img src="/images/logo-creapulse.svg" alt="CreaPulse" className="h-7 w-7 shrink-0" />
+            <img src="/images/logo-gidef.svg" alt="GIDEF" className="h-4 w-auto shrink-0" />
+          </div>
         )}
       </div>
 

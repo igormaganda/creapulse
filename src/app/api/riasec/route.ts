@@ -10,6 +10,17 @@ import { db } from '@/lib/db'
 import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
 import { verifyToken, AuthError } from '@/lib/auth'
 
+// Helper: extract token from Authorization header or session cookie
+function getTokenFromRequest(request: NextRequest): string | null {
+  // Try Authorization header first
+  const authHeader = getTokenFromHeader(request)
+  if (authHeader) return authHeader
+  // Fallback: session cookie
+  const cookie = request.headers.get('cookie') || ''
+  const match = cookie.match(/session=([^;]+)/)
+  return match ? match[1] : null
+}
+
 // ─── Validation schemas ────────────────────
 
 const RiasecResultSchema = z.object({
@@ -27,7 +38,7 @@ const SaveRiasecBody = z.object({
 export async function GET(request: NextRequest) {
   try {
     // Verify authentication
-    const token = getTokenFromHeader(request)
+    const token = getTokenFromRequest(request)
     if (!token) {
       throw new AuthError('Authentication required', 'UNAUTHORIZED', 401)
     }
@@ -65,7 +76,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Verify authentication
-    const token = getTokenFromHeader(request)
+    const token = getTokenFromRequest(request)
     if (!token) {
       throw new AuthError('Authentication required', 'UNAUTHORIZED', 401)
     }
