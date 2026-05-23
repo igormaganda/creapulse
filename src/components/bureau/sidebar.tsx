@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useBureauStore, type BureauSection } from './bureau-store'
 import { cn } from '@/lib/utils'
@@ -42,6 +42,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
+  LayoutGrid,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -62,13 +63,12 @@ interface NavGroup {
   progress?: number
 }
 
-/* ─── Navigation data ─── */
-const navigationGroups: NavGroup[] = [
+/* ─── Fallback navigation data (used before API loads) ─── */
+const BASE_NAVIGATION: Omit<NavGroup, 'progress'>[] = [
   {
     id: 'parcours',
     label: 'Parcours',
     icon: User,
-    progress: 35,
     items: [
       { id: 'profil-createur', label: 'Profil créateur', icon: User },
       { id: 'mon-projet', label: 'Mon projet', icon: Lightbulb, badge: 'Nouveau' },
@@ -82,12 +82,12 @@ const navigationGroups: NavGroup[] = [
     id: 'strategie',
     label: 'Stratégie',
     icon: Target,
-    progress: 20,
     items: [
       { id: 'marche', label: 'Marché', icon: Globe },
       { id: 'juridique', label: 'Juridique', icon: Scale },
       { id: 'financier', label: 'Financier', icon: Calculator },
       { id: 'creasim', label: 'CreaSim', icon: TrendingUp, badge: 'IA' },
+      { id: 'bmc', label: 'Business Model Canvas', icon: LayoutGrid, badge: 'Nouveau' },
       { id: 'business-plan', label: 'Business Plan', icon: FileText },
       { id: 'pitch-deck', label: 'Pitch Deck', icon: Presentation },
     ],
@@ -96,7 +96,6 @@ const navigationGroups: NavGroup[] = [
     id: 'ecosysteme',
     label: 'Écosystème',
     icon: Globe,
-    progress: 10,
     items: [
       { id: 'annuaire', label: 'Annuaire', icon: Globe },
       { id: 'forum', label: 'Forum', icon: MessageSquare },
@@ -108,7 +107,6 @@ const navigationGroups: NavGroup[] = [
     id: 'pilotage',
     label: 'Pilotage',
     icon: Rocket,
-    progress: 5,
     items: [
       { id: 'tremplin', label: 'Tremplin', icon: Rocket },
       { id: 'passeport', label: 'Passeport', icon: Stamp, badge: 'Nouveau' },
@@ -116,6 +114,42 @@ const navigationGroups: NavGroup[] = [
     ],
   },
 ]
+
+/* ─── Progress hook ─── */
+interface ProgressResponse {
+  parcours: { progress: number; modules: Record<string, boolean> }
+  strategie: { progress: number; modules: Record<string, boolean> }
+  global: number
+}
+
+const FALLBACK_GLOBAL = 18
+
+function useProgressData() {
+  const [data, setData] = useState<ProgressResponse | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const fetchProgress = useCallback(async () => {
+    try {
+      const res = await fetch('/api/progress', { credentials: 'include' })
+      if (res.ok) {
+        const json = await res.json()
+        if (json.success && json.data) {
+          setData(json.data as ProgressResponse)
+        }
+      }
+    } catch {
+      // Silently fall back to default values
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchProgress()
+  }, [fetchProgress])
+
+  return { data, loading, refetch: fetchProgress }
+}
 
 /* ─── Circular progress helper ─── */
 function MiniProgress({ value, size = 24, className }: { value: number; size?: number; className?: string }) {
@@ -220,6 +254,22 @@ function SidebarContent({ collapsed, onNavigate, onCloseMobile }: {
   onCloseMobile?: () => void
 }) {
   const { currentSection, currentModule, setSection, setModule, sidebarOpen } = useBureauStore()
+  const { data: progressData } = useProgressData()
+
+  // Build navigation groups with dynamic progress from API
+  const navigationGroups: NavGroup[] = useMemo(() => {
+    return BASE_NAVIGATION.map((group) => {
+      let progress: number | undefined
+      if (progressData) {
+        if (group.id === 'parcours') progress = progressData.parcours.progress
+        else if (group.id === 'strategie') progress = progressData.strategie.progress
+        // ecosysteme and pilotage keep no progress indicator
+      }
+      return { ...group, progress }
+    })
+  }, [progressData])
+
+  const globalProgress = progressData?.global ?? FALLBACK_GLOBAL
 
   const handleNavClick = (groupId: BureauSection, itemId: string) => {
     setSection(groupId)
@@ -305,7 +355,7 @@ function SidebarContent({ collapsed, onNavigate, onCloseMobile }: {
                   </TooltipTrigger>
                   {collapsed && (
                     <TooltipContent side="right">
-                      {group.label} ({group.progress}%)
+                      {group.label}{group.progress !== undefined ? ` (${group.progress}%)` : ''}
                     </TooltipContent>
                   )}
                 </Tooltip>
@@ -348,10 +398,10 @@ function SidebarContent({ collapsed, onNavigate, onCloseMobile }: {
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-xs text-neutral-400">Progression globale</p>
-              <p className="text-sm font-semibold text-white">18%</p>
+              <p className="text-sm font-semibold text-white">{globalProgress}%</p>
             </div>
           )}
-          <MiniProgress value={18} size={collapsed ? 28 : 32} className="text-teal-400" />
+          <MiniProgress value={globalProgress} size={collapsed ? 28 : 32} className="text-teal-400" />
         </div>
       </div>
     </nav>

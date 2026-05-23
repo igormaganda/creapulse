@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  FileDown,
   Loader2,
   Plus,
   Trash2,
@@ -73,6 +74,9 @@ function genId(): string {
 export function PitchDeckModule() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [isExportingPptx, setIsExportingPptx] = useState(false)
+  const [aiLoadingSlide, setAiLoadingSlide] = useState<string | null>(null)
   const [currentSlide, setCurrentSlide] = useState(0)
   const [projectTitle, setProjectTitle] = useState('Mon Pitch Deck')
   const [slides, setSlides] = useState<SlideData[]>([])
@@ -221,6 +225,95 @@ export function PitchDeckModule() {
     }
   }, [slides, projectTitle, completion])
 
+  // ─── Generate from BP (full pitch deck) ─
+  const handleGenerateFromBp = useCallback(async () => {
+    setIsGenerating(true)
+    try {
+      const res = await fetch('/api/pitch-deck', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generate-from-bp' }),
+      })
+      const json = await res.json()
+      if (json.success && json.data?.slides) {
+        setSlides(prev => prev.map(s => {
+          const genSlide = json.data.slides.find((gs: { id: string; content: string }) => gs.id === s.id)
+          return genSlide ? { ...s, content: genSlide.content || s.content } : s
+        }))
+        toast.success('Pitch deck généré par l\'IA depuis votre Business Plan')
+      } else {
+        toast.error(json.error?.message || 'Erreur lors de la génération IA')
+      }
+    } catch {
+      toast.error('Erreur de connexion au serveur')
+    } finally {
+      setIsGenerating(false)
+    }
+  }, [])
+
+  // ─── AI suggest for a single slide ──────
+  const handleAiSuggestSlide = useCallback(async (slideId: string) => {
+    setAiLoadingSlide(slideId)
+    try {
+      const slide = slides.find(s => s.id === slideId)
+      const def = SLIDE_DEFINITIONS.find(d => d.id === slideId)
+      const res = await fetch('/api/pitch-deck', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'ai-suggest-slide',
+          slideId,
+          slideTitle: def?.title || slideId,
+          existingContent: slide?.content || undefined,
+        }),
+      })
+      const json = await res.json()
+      if (json.success && json.data?.suggestion) {
+        setSlides(prev => prev.map(s => s.id === slideId ? { ...s, content: json.data.suggestion } : s))
+        toast.success(`Slide "${def?.title}" mise à jour par l'IA`)
+      } else {
+        toast.error(json.error?.message || 'Erreur lors de la suggestion IA')
+      }
+    } catch {
+      toast.error('Erreur de connexion au serveur')
+    } finally {
+      setAiLoadingSlide(null)
+    }
+  }, [slides])
+
+  // ─── Export PPTX ──────────────────────
+  const handleExportPptx = useCallback(async () => {
+    if (completion.filled === 0) {
+      toast.error('Renseignez au moins une slide avant d\'exporter')
+      return
+    }
+
+    setIsExportingPptx(true)
+    try {
+      const res = await fetch('/api/export/pitch-deck')
+      if (!res.ok) {
+        const json = await res.json().catch(() => null)
+        throw new Error(json?.error?.message || 'Erreur lors de l\'export PPTX')
+      }
+
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${projectTitle.replace(/\s+/g, '_')}_pitch_deck.pptx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      toast.success('Pitch deck exporté en PowerPoint')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'export PPTX')
+    } finally {
+      setIsExportingPptx(false)
+    }
+  }, [completion.filled, projectTitle])
+
   // ─── Export (text summary) ─────────────
   const handleExport = useCallback(() => {
     if (completion.filled === 0) {
@@ -303,9 +396,37 @@ export function PitchDeckModule() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 border-[#FFB74D]/40 text-[#FFB74D] hover:bg-[#FFB74D]/10 hover:text-[#FFB74D]"
+            onClick={handleGenerateFromBp}
+            disabled={isGenerating}
+          >
+            {isGenerating ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5" />
+            )}
+            <span className="hidden sm:inline">{isGenerating ? 'Génération en cours...' : 'Générer avec l\'IA'}</span>
+          </Button>
           <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExport} disabled={completion.filled === 0}>
             <Download className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Exporter</span>
+            <span className="hidden sm:inline">Exporter TXT</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 border-[#00838F]/40 text-[#00838F] hover:bg-[#00838F]/10 hover:text-[#00838F]"
+            onClick={handleExportPptx}
+            disabled={completion.filled === 0 || isExportingPptx}
+          >
+            {isExportingPptx ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <FileDown className="h-3.5 w-3.5" />
+            )}
+            <span className="hidden sm:inline">{isExportingPptx ? 'Export en cours...' : 'Exporter PPTX'}</span>
           </Button>
           <Button
             size="sm"
@@ -358,7 +479,23 @@ export function PitchDeckModule() {
                     <Badge variant="outline" className="text-[10px] mb-1">Slide {currentSlide + 1}/{slides.length}</Badge>
                     <CardTitle className="text-lg">{activeSlide?.title}</CardTitle>
                   </div>
-                  <div className="ml-auto">
+                  <div className="ml-auto flex items-center gap-2">
+                    {activeSlide?.id !== 'team' && activeSlide?.id !== 'ask' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1 h-7 text-xs border-[#FFB74D]/40 text-[#FFB74D] hover:bg-[#FFB74D]/10 hover:text-[#FFB74D]"
+                        onClick={() => handleAiSuggestSlide(activeSlide.id)}
+                        disabled={aiLoadingSlide === activeSlide.id || isGenerating}
+                      >
+                        {aiLoadingSlide === activeSlide.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3 w-3" />
+                        )}
+                        IA
+                      </Button>
+                    )}
                     {activeSlide?.content || (activeSlide?.id === 'team' && activeSlide.teamMembers?.length) || (activeSlide?.id === 'ask' && activeSlide.fundingAmount) ? (
                       <Badge className="bg-green-500 hover:bg-green-600 gap-1">
                         <Check className="h-3 w-3" /> Rempli

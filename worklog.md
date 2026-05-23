@@ -1071,3 +1071,205 @@ Stage Summary:
 - 76 articles seeded across 7 categories in the database
 - Dynamic articles section with filters, pagination, and article reader
 - ESLint: 0 errors
+
+---
+Task ID: P1-1/P1-2/P1-3
+Agent: backend-api
+Task: BP generation from Parcours + Sync Simulators + Financier real IA
+
+Work Log:
+- Added generate-from-parcours action to BP API
+- Added sync-simulators action to BP API
+- Replaced fake Financier IA with real LLM call
+
+Stage Summary:
+- Business Plan can now be auto-generated from Parcours data
+- Simulators can sync their data into BP sections
+- Financier module now uses real AI analysis
+
+---
+Task ID: P1-4/P1-5/P1-6
+Agent: frontend-dev
+Task: BMC Frontend + Pitch Deck AI + BP Generation buttons + Sidebar update
+
+Work Log:
+- Created `/src/components/bureau/modules/bmc.tsx` (~280 lines) — Interactive Business Model Canvas with:
+  - Standard 9-block BMC grid layout (Partenaires Clés, Activités Clés, Ressources Clés, Proposition de Valeur, Relations Clients, Canaux, Segments Clients, Structure des Coûts, Sources de Revenus)
+  - Each block: card with title + icon, textarea for editing, hover-revealed "✨ IA" button, character count
+  - Top bar: title with LayoutGrid icon, status badge (DRAFT/GENERATED/REFINED), "Générer avec l'IA" button, "Réinitialiser" button, "Sauvegarder" button
+  - Loading overlay with spinner during AI generation
+  - Auto-save on textarea blur (1.5s debounce to PUT /api/bmc)
+  - Full save, generate-from-bp, ai-suggest-block, reset handlers
+  - Load from localStorage + API fallback on mount
+  - Dark theme design: bg-[#1A1A2E] header, bg-white/5 cards, teal/coral/amber accent system
+- Updated `/src/components/bureau/modules/pitch-deck.tsx` — Added AI generation features:
+  - "Générer avec l'IA" button in header bar (amber-styled, calls POST /api/pitch-deck?action=generate-from-bp)
+  - Per-slide "✨ IA" button in card header for text slides (team/ask excluded), calls POST /api/pitch-deck?action=ai-suggest-slide
+  - Loading states for both full generation and per-slide generation
+  - Existing slide editing, team CRUD, navigation, and export unchanged
+- Updated `/src/components/bureau/modules/business-plan.tsx` — Added generation + sync buttons:
+  - "Générer depuis Parcours" button (prominent amber, Sparkles icon, calls POST /api/business-plan?action=generate-from-parcours)
+  - "Synchroniser les simulateurs" button (secondary teal, TrendingUp icon, calls POST /api/business-plan?action=sync-simulators)
+  - Pipeline Status Bar showing 5 sources: Parcours, Marché, Financier, Juridique, CreaSim with ✓/○ indicators
+  - PipelineStatus state tracks which data sources have been synced
+  - Handlers update sections + pipelineStatus on success
+- Updated `/src/components/bureau/sidebar.tsx` — Added BMC entry in stratégie group:
+  - `{ id: 'bmc\, label: 'Business Model Canvas', icon: LayoutGrid, badge: 'Nouveau' }` between creasim and business-plan
+  - Added LayoutGrid import from lucide-react
+- Updated `/src/components/bureau/bureau-layout.tsx` — Integrated BMC module:
+  - Dynamic import: `const BmcModule = dynamic(() => import('./modules/bmc').then(m => ({ default: m.BusinessModelCanvasModule })), ...)`
+  - Routing: `{currentModule === 'bmc' && <BmcModule />}`
+  - Added to SectionOverview strategie array
+  - Added to module placeholder exclusion list
+  - Added LayoutGrid import + moduleContent entry for BMC
+
+Stage Summary:
+- BMC is now accessible from the Strategy section sidebar (with "Nouveau" badge)
+- BMC features 9-block interactive grid with per-block and full-canvas AI generation
+- Pitch Deck supports AI generation from BP (full deck) + per-slide AI suggestions
+- Business Plan supports generation from Parcours + simulator sync with pipeline status tracking
+- ESLint: 0 errors
+- Dev server: running, no compilation errors
+
+---
+Task ID: P0-3/P0-4
+Agent: backend-api
+Task: Update CreaSim API + Create BMC API + Update Pitch Deck API
+
+Work Log:
+- Updated CreaSim API to use CreaSimSimulation model
+- Created BMC API with GET/PUT/POST (generate-from-bp, ai-suggest-block)
+- Updated Pitch Deck API with POST (generate-from-bp, ai-suggest-slide)
+
+Stage Summary:
+- 3 API routes updated/created
+- CreaSim now uses dedicated model, no more conflict with Financier
+
+---
+Task ID: P2-1
+Agent: export-dev
+Task: Export BMC PDF + Pitch Deck PPTX
+
+Work Log:
+- Installed pptxgenjs@4.0.1 for PowerPoint generation
+- Created `/src/app/api/export/bmc/route.ts` — BMC PDF export API:
+  - GET: Fetches BMC data from `db.businessModelCanvas` + project info from `db.creatorJourney`
+  - Returns print-to-PDF HTML page with A4 landscape layout
+  - CreaPulse + GIDEF branding header with project title and author name
+  - Professional 9-block CSS Grid layout matching standard BMC structure
+  - Color-coded block headers (teal for key activities, amber for value prop, coral for financial blocks)
+  - Formatted block content with bullet point support
+  - Print-specific CSS (@media print, @page A4 landscape)
+  - Screen-only print button with gradient styling
+  - Footer with generation date
+  - Auth: JWT via cookie or Bearer token
+- Created `/src/app/api/export/pitch-deck/route.ts` — Pitch Deck PPTX export API:
+  - GET: Fetches pitch deck data from `db.zeroDraft` + project info from `db.creatorJourney`
+  - Uses pptxgenjs to generate real .pptx file (16:9 widescreen layout)
+  - Title slide: dark background (#1A1A2E), project title in white, teal accent bars, GIDEF branding
+  - 8 content slides: Problème, Solution, Marché, Business Model, Traction, Équipe, Financier, Ask
+  - Each slide has: colored top bar (per-slide color), slide number, title with separator line, content area, branding footer
+  - Returns proper binary response with Content-Disposition attachment header
+  - Safe filename sanitization for download
+  - Auth: JWT via cookie or Bearer token
+- Updated `/src/components/bureau/modules/bmc.tsx`:
+  - Added `Download` icon import from lucide-react
+  - Added `handleExportPdf` callback (validates at least 1 block filled, opens /api/export/bmc in new tab)
+  - Added "Exporter PDF" button in header between "Réinitialiser" and "Générer avec l'IA"
+  - Button styled with dark theme (border-white/10 text-neutral-300)
+- Updated `/src/components/bureau/modules/pitch-deck.tsx`:
+  - Added `FileDown` icon import from lucide-react
+  - Added `isExportingPptx` loading state
+  - Added `handleExportPptx` async callback (fetches /api/export/pitch-deck, downloads blob as .pptx file)
+  - Added "Exporter PPTX" button with teal styling and loading spinner
+  - Renamed existing "Exporter" button to "Exporter TXT" for clarity
+  - Error handling with toast notifications for auth/empty/network errors
+
+Stage Summary:
+- 2 new API routes created (BMC PDF export + Pitch Deck PPTX export)
+- 2 frontend components updated (BMC + Pitch Deck export buttons)
+- BMC can be exported as PDF via browser print dialog (A4 landscape, professional 9-block grid)
+- Pitch Deck can be exported as real PowerPoint file (.pptx) with 9 slides (title + 8 content)
+- All exports require authentication (JWT via cookie or Bearer token)
+- All French text, CreaPulse/GIDEF branding, professional design system
+- ESLint: 0 errors
+
+---
+Task ID: P2-2
+Agent: sidebar-progress
+Task: Dynamic sidebar progression + Progress API + Pipeline status API
+
+Work Log:
+- Created `/src/app/api/progress/route.ts` — GET endpoint computing real module completion progress:
+  - Authenticates user via JWT (cookie or Bearer token)
+  - Fetches 10 data sources in parallel (CreatorJourney, RiasecResult.count, KiviatResult.count, ModuleResult, MarketAnalysis, JuridiqueAnalysis, FinancialForecast, CreaSimSimulation, BusinessModelCanvas, ZeroDraft)
+  - Computes Parcours progress (6 modules): profil-createur (auto), mon-projet (projectTitle/description/sector), vision (visionAnswers keys), riasec (≥6 results), kiviat (≥8 results), bilan-ia (moduleResult exists)
+  - Computes Stratégie progress (7 modules): marche (sector+targetAudience), juridique (recommendedStatus), financier (year1Revenue+year1Expenses), creasim (monthlyRevenue > 0), bmc (≥5 of 9 blocks filled), business-plan (bpStatus DRAFT+ and score > 50), pitch-deck (content has ≥8 slide markers)
+  - Global progress: weighted average Parcours 40% + Stratégie 60%
+  - Returns `{ parcours, strategie, global }` with per-module boolean status
+
+- Updated `/src/components/bureau/sidebar.tsx` — Dynamic progress in sidebar:
+  - Refactored `navigationGroups` from hardcoded const to `BASE_NAVIGATION` (without progress) + `useMemo` that injects dynamic progress from API
+  - Added `useProgressData()` custom hook: fetches `/api/progress` on mount with `credentials: 'include'`, stores in state, provides `{ data, loading, refetch }`
+  - SidebarContent now calls `useProgressData()` and builds `navigationGroups` dynamically via `useMemo` keyed on progressData
+  - Global progress (bottom of sidebar) reads from `progressData?.global ?? 18` (fallback to 18%)
+  - If API fails or hasn't loaded yet, Parcours and Stratégie groups show no progress indicator (undefined = no MiniProgress rendered)
+  - Collapsed tooltip now conditionally shows `(X%)` only when progress is available
+  - Added `useEffect`, `useMemo`, `useState`, `useCallback` imports
+
+- Created `/src/app/api/pipeline-status/route.ts` — GET endpoint for BP section origin tracking:
+  - Authenticates user via JWT
+  - Fetches bpSections from CreatorJourney + 4 simulateur tables (MarketAnalysis, JuridiqueAnalysis, FinancialForecast, CreaSimSimulation) in parallel
+  - Maps 22 BP section IDs to their data origin:
+    - marche (6 sections: etude-marche, segmentation, concurrence, etc.) → source: "marche" if MarketAnalysis has data
+    - juridique (1 section: statut-juridique) → source: "juridique" if JuridiqueAnalysis has data
+    - financier (5 sections: financement, compte-resultat, tresorerie, investissements, bilan) → source: "financier" if FinancialForecast has data
+    - creasim (1 section: seuil-rentabilite) → source: "creasim" if CreaSimSimulation has data
+    - parcours (5 sections: resume, equipe, historique, vision, valeurs) → source: "parcours"
+    - manual (4 sections: localisation, organisation, production, calendrier) → source: "manual"
+  - Returns `{ sections: Record<sectionId, {filled, source}>, summary: { total, filled, sources } }`
+  - `isFilled()` helper handles strings, arrays, and nested objects (SWOT, milestones)
+
+- ESLint: 0 errors, 0 warnings
+- Dev server: running, no compilation errors
+
+Stage Summary:
+- 2 new API routes created (progress + pipeline-status), 1 file modified (sidebar.tsx)
+- Sidebar now shows real progress based on actual module completion from database
+- Progress percentages are no longer hardcoded — computed dynamically from 10 data sources
+- Global progression (bottom of sidebar) updates from API
+- Fallback behavior: if API fails, no progress circles shown (graceful degradation)
+- Pipeline status API available for BP section origin tracking (simulateur → BP data flow)
+---
+Task ID: P0-P2-Complete
+Agent: coordinator
+Task: Full Strategy Pipeline Optimization (P0 → P1 → P2)
+
+Work Log:
+- P0-1: Created CreaSimSimulation model in Prisma (dedicated, separate from FinancialForecast)
+- P0-2: Created BusinessModelCanvas model in Prisma (9 BMC blocks + status/metadata)
+- P0-3: Updated CreaSim API to use new CreaSimSimulation model
+- P0-4: Created BMC API (GET/PUT/POST with generate-from-bp + ai-suggest-block)
+- P0-4b: Updated Pitch Deck API with POST (generate-from-bp + ai-suggest-slide)
+- P1-1: Added generate-from-parcours action to BP API (auto-generates 8 sections from Parcours data)
+- P1-2: Added sync-simulators action to BP API (maps 5 simulators → BP sections)
+- P1-3: Replaced fake Financier IA with real gpt-4o-mini LLM call
+- P1-4: Created BMC frontend component (9-block interactive grid + AI generation)
+- P1-5: Updated Pitch Deck component with AI generation buttons
+- P1-6: Updated Business Plan component with "Générer depuis Parcours" + "Sync Simulateurs" buttons + pipeline status bar
+- P1-6b: Added BMC to sidebar navigation + bureau-layout routing
+- P2-1: Created BMC PDF export API (print-to-PDF HTML)
+- P2-1b: Created Pitch Deck PPTX export API (pptxgenjs)
+- P2-1c: Added export buttons to BMC (PDF) and Pitch Deck (PPTX) components
+- P2-2: Created Progress API (computes real module completion from 10 DB tables)
+- P2-2b: Created Pipeline Status API (tracks BP section data origins)
+- P2-2c: Updated sidebar to use dynamic progress from API
+
+Stage Summary:
+- 6 new API routes created: /api/bmc, /api/export/bmc, /api/export/pitch-deck, /api/progress, /api/pipeline-status
+- 3 existing API routes updated: /api/creasim, /api/business-plan, /api/pitch-deck, /api/financier
+- 2 new Prisma models: CreaSimSimulation, BusinessModelCanvas
+- 1 new frontend component: BMC module
+- 3 existing components updated: Business Plan, Pitch Deck, Sidebar
+- New exports: BMC PDF, Pitch Deck PPTX
+- Pipeline fully operational: Parcours → BP partial → Simulateurs → BP sync → BMC auto-gen → Pitch Deck auto-gen

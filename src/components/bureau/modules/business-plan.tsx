@@ -240,17 +240,38 @@ function formatCurrency(value: number): string {
 
 // ─── Main Component ─────────────────────────
 
+type PipelineSource = 'parcours' | 'marche' | 'financier' | 'juridique' | 'creasim' | 'manual' | null
+
+interface PipelineStatus {
+  parcours: boolean
+  marche: boolean
+  financier: boolean
+  juridique: boolean
+  creasim: boolean
+}
+
+const DEFAULT_PIPELINE: PipelineStatus = {
+  parcours: false,
+  marche: false,
+  financier: false,
+  juridique: false,
+  creasim: false,
+}
+
 export function BusinessPlanModule() {
   const [sections, setSections] = useState<BpSections>(DEFAULT_SECTIONS)
   const [activeTab, setActiveTab] = useState('presentation')
   const [activeSection, setActiveSection] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [isGeneratingParcours, setIsGeneratingParcours] = useState(false)
+  const [isSyncing, setIsSyncing] = useState(false)
   const [aiLoading, setAiLoading] = useState<string | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [exportPdfOpen, setExportPdfOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [projectContext, setProjectContext] = useState<Record<string, string | null> | null>(null)
+  const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus>(DEFAULT_PIPELINE)
   const contentRef = useRef<HTMLDivElement>(null)
 
   // ─── Load data on mount ──────────────────
@@ -371,6 +392,69 @@ export function BusinessPlanModule() {
       setAiLoading(null)
     }
   }, [sections, projectContext, updateSection])
+
+  // ─── Generate from Parcours ─────────────
+  const handleGenerateFromParcours = useCallback(async () => {
+    setIsGeneratingParcours(true)
+    try {
+      const res = await fetch('/api/business-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generate-from-parcours' }),
+      })
+      const json = await res.json()
+      if (json.success && json.data?.sections) {
+        const merged = { ...DEFAULT_SECTIONS, ...sections, ...json.data.sections }
+        setSections(merged)
+        setPipelineStatus(prev => ({ ...prev, parcours: true }))
+        localStorage.setItem('creapulse-bp', JSON.stringify(merged))
+        toast.success('Business Plan généré depuis votre parcours entrepreneurial')
+      } else {
+        toast.error(json.error?.message || 'Erreur lors de la génération depuis le parcours')
+      }
+    } catch {
+      toast.error('Erreur de connexion au serveur')
+    } finally {
+      setIsGeneratingParcours(false)
+    }
+  }, [sections])
+
+  // ─── Sync Simulators ─────────────────────
+  const handleSyncSimulators = useCallback(async () => {
+    setIsSyncing(true)
+    try {
+      const res = await fetch('/api/business-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'sync-simulators' }),
+      })
+      const json = await res.json()
+      if (json.success && json.data) {
+        if (json.data.sections) {
+          const merged = { ...DEFAULT_SECTIONS, ...sections, ...json.data.sections }
+          setSections(merged)
+          localStorage.setItem('creapulse-bp', JSON.stringify(merged))
+        }
+        if (json.data.syncedSources) {
+          setPipelineStatus(prev => ({
+            ...prev,
+            ...(json.data.syncedSources.marche && { marche: true }),
+            ...(json.data.syncedSources.financier && { financier: true }),
+            ...(json.data.syncedSources.juridique && { juridique: true }),
+            ...(json.data.syncedSources.creasim && { creasim: true }),
+          }))
+        }
+        const summary = json.data.summary || 'Données synchronisées'
+        toast.success(`Simulateurs synchronisés — ${summary}`)
+      } else {
+        toast.error(json.error?.message || 'Erreur lors de la synchronisation')
+      }
+    } catch {
+      toast.error('Erreur de connexion au serveur')
+    } finally {
+      setIsSyncing(false)
+    }
+  }, [sections])
 
   // ─── Export PDF ──────────────────────────
   const handleExportPdf = useCallback(() => {
@@ -685,40 +769,101 @@ export function BusinessPlanModule() {
           </div>
 
           {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 md:px-6 border-b bg-background">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00838F]/10">
-                <FileText className="h-5 w-5 text-[#00838F]" />
+          <div className="flex flex-col gap-3 p-4 md:px-6 border-b bg-background">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00838F]/10">
+                  <FileText className="h-5 w-5 text-[#00838F]" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-foreground">Business Plan IA</h2>
+                  <p className="text-xs text-muted-foreground">
+                    {completionInfo.filled}/{completionInfo.total} sections complétées — {completionInfo.percent}%
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-xl font-bold text-foreground">Business Plan IA</h2>
-                <p className="text-xs text-muted-foreground">
-                  {completionInfo.filled}/{completionInfo.total} sections complétées — {completionInfo.percent}%
-                </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExportPdf}>
+                  <Download className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Exporter PDF</span>
+                </Button>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setPreviewOpen(true)}>
+                  <Eye className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Prévisualiser</span>
+                </Button>
+                <Button
+                  size="sm"
+                  className="gap-1.5 bg-[#00838F] hover:bg-[#00838F]/90 text-white"
+                  onClick={handleSave}
+                  disabled={isSaving}
+                >
+                  {isSaving ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Save className="h-3.5 w-3.5" />
+                  )}
+                  <span className="hidden sm:inline">Sauvegarder</span>
+                </Button>
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExportPdf}>
-                <Download className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Exporter PDF</span>
-              </Button>
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setPreviewOpen(true)}>
-                <Eye className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Prévisualiser</span>
-              </Button>
+
+            {/* ── AI Action Buttons ── */}
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 size="sm"
-                className="gap-1.5 bg-[#00838F] hover:bg-[#00838F]/90 text-white"
-                onClick={handleSave}
-                disabled={isSaving}
+                className="gap-1.5 bg-[#FFB74D]/20 text-[#FFB74D] hover:bg-[#FFB74D]/30 border border-[#FFB74D]/30"
+                onClick={handleGenerateFromParcours}
+                disabled={isGeneratingParcours}
               >
-                {isSaving ? (
+                {isGeneratingParcours ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <Save className="h-3.5 w-3.5" />
+                  <Sparkles className="h-3.5 w-3.5" />
                 )}
-                <span className="hidden sm:inline">Sauvegarder</span>
+                {isGeneratingParcours ? 'Génération en cours...' : 'Générer depuis Parcours'}
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 border-[#00838F]/30 text-[#00838F] hover:bg-[#00838F]/10 hover:text-[#00838F]"
+                onClick={handleSyncSimulators}
+                disabled={isSyncing}
+              >
+                {isSyncing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <TrendingUp className="h-3.5 w-3.5" />
+                )}
+                {isSyncing ? 'Synchronisation...' : 'Synchroniser les simulateurs'}
+              </Button>
+            </div>
+
+            {/* ── Pipeline Status Bar ── */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted-foreground font-medium">Vue Pipeline :</span>
+              {([
+                { key: 'parcours' as const, label: 'Parcours', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
+                { key: 'marche' as const, label: 'Marché', color: 'bg-teal-500/20 text-teal-400 border-teal-500/30' },
+                { key: 'financier' as const, label: 'Financier', color: 'bg-coral-500/20 text-coral-400 border-coral-500/30' },
+                { key: 'juridique' as const, label: 'Juridique', color: 'bg-teal-500/20 text-teal-400 border-teal-500/30' },
+                { key: 'creasim' as const, label: 'CreaSim', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
+              ]).map(item => (
+                <Badge
+                  key={item.key}
+                  variant="outline"
+                  className={cn(
+                    'text-[10px] px-1.5 py-0 h-5 font-medium gap-0.5',
+                    pipelineStatus[item.key] ? item.color : 'bg-white/5 text-neutral-500 border-white/10'
+                  )}
+                >
+                  {pipelineStatus[item.key] ? (
+                    <Check className="h-2.5 w-2.5" />
+                  ) : (
+                    <Circle className="h-2.5 w-2.5" />
+                  )}
+                  {item.label}
+                </Badge>
+              ))}
             </div>
           </div>
 

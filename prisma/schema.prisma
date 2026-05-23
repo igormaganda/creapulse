@@ -161,6 +161,8 @@ enum AuditAction {
   MODULE_COMPLETE
   BP_GENERATE
   BP_VALIDATE
+  BMC_GENERATE
+  PITCH_GENERATE
   PASSPORT_EXPORT
   USER_CREATE
   USER_UPDATE
@@ -290,8 +292,10 @@ model User {
   riasecResults       RiasecResult[]
   motivations         MotivationAssessment?
   cvUploads           CvUpload[]
+  creasimSimulation   CreaSimSimulation?
   financialForecast   FinancialForecast?
   juridiqueAnalysis   JuridiqueAnalysis?
+  businessModelCanvas BusinessModelCanvas?
   marketAnalysis      MarketAnalysis?
   tremplin            Tremplin?
   zeroDraft           ZeroDraft?
@@ -530,18 +534,47 @@ model FinancialForecast {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
-  // CreaSim Simulator inputs
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CreaSimSimulation {
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+
+  // Simulator inputs
   monthlyRevenue       Float?
-  fixedCharges         Json?    // [{name: string, amount: number}]
-  variableChargesRate  Float?   // percentage 0-100
+  fixedCharges         Json?     // [{name: string, amount: number}]
+  variableChargesRate  Float?    // percentage 0-100
   averageSellingPrice  Float?
   unitCost             Float?
-  targetMarginRate     Float?   // percentage 0-100
+  targetMarginRate     Float?    // percentage 0-100
+  initialInvestment    Float?
 
-  // CreaSim calculated outputs
+  // Calculated outputs (from frontend)
+  fixedChargesTotal    Float?
+  variableChargesAmount Float?
+  totalCharges         Float?
+  grossMarginAmount    Float?
   grossMarginRate      Float?
+  netMarginAmount      Float?
   netMarginRate        Float?
   monthlyBreakeven     Float?
+  breakevenMonths      Float?
+  profitability1Y      Float?
+  profitability2Y      Float?
+  profitability3Y      Float?
+
+  // Yearly projections
+  year1Revenue         Float?
+  year1Expenses        Float?
+  year2Revenue         Float?
+  year2Expenses        Float?
+  year3Revenue         Float?
+  year3Expenses        Float?
+
+  aiAnalysis           String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -589,6 +622,31 @@ model Tremplin {
   recommendations Json             @default("[]")
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model BusinessModelCanvas {
+  id                  String    @id @default(cuid())
+  userId              String    @unique
+
+  // 9 BMC blocks
+  partenairesCles     String?   @default("")  // Key Partners
+  activitesCles       String?   @default("")  // Key Activities
+  ressourcesCles      String?   @default("")  // Key Resources
+  propositionValeur   String?   @default("")  // Value Proposition
+  relationsClients    String?   @default("")  // Customer Relationships
+  canaux              String?   @default("")  // Channels
+  segmentsClients     String?   @default("")  // Customer Segments
+  structureCouts      String?   @default("")  // Cost Structure
+  sourcesRevenus      String?   @default("")  // Revenue Streams
+
+  status              String    @default("DRAFT")  // DRAFT, GENERATED, REFINED
+  generatedFromBp     Boolean   @default(false)
+  generatedAt         DateTime?
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

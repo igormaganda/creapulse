@@ -2,7 +2,7 @@
 // CreaPulse V2 — Plan Financier API
 // GET  /api/financier  — Retrieve financial plan
 // PUT  /api/financier  — Save / update financial plan
-// POST /api/financier  — AI suggestions (mock)
+// POST /api/financier  — AI-powered financial analysis
 // ============================================
 
 import { NextRequest } from 'next/server'
@@ -10,6 +10,7 @@ import { db } from '@/lib/db'
 import { success, Errors, handleApiError } from '@/lib/api-response'
 import { verifyToken } from '@/lib/auth'
 import { z } from 'zod'
+import ZAI from 'z-ai-web-dev-sdk'
 
 // ─── Validation Schema ───────────────────────
 
@@ -76,6 +77,12 @@ export async function GET(request: NextRequest) {
 
     return success(forecast, 'Plan financier chargé')
   } catch (err) {
+    if (err && typeof err === 'object' && 'code' in err) {
+      const authErr = err as { code: string }
+      if (authErr.code === 'TOKEN_EXPIRED' || authErr.code === 'UNAUTHORIZED') {
+        return Errors.unauthorized('Session expirée — veuillez vous reconnecter')
+      }
+    }
     return handleApiError(err)
   }
 }
@@ -128,50 +135,206 @@ export async function PUT(request: NextRequest) {
 
     return success(forecast, 'Plan financier sauvegardé')
   } catch (err) {
+    if (err && typeof err === 'object' && 'code' in err) {
+      const authErr = err as { code: string }
+      if (authErr.code === 'TOKEN_EXPIRED' || authErr.code === 'UNAUTHORIZED') {
+        return Errors.unauthorized('Session expirée — veuillez vous reconnecter')
+      }
+    }
     return handleApiError(err)
   }
 }
 
-// ─── POST: AI Suggestions (mock) ────────────
+// ─── POST: Real AI Financial Analysis ────────
 
 export async function POST(request: NextRequest) {
   try {
     const payload = await authenticate(request)
     if (!payload) return Errors.unauthorized()
 
-    const body = await request.json()
-    const { year1Revenue, year1Expenses, year2Revenue, year2Expenses } = body
+    // 1. Fetch all financial data in parallel
+    const [financialForecast, creatorJourney, creaSimData] = await Promise.all([
+      db.financialForecast.findUnique({ where: { userId: payload.userId } }),
+      db.creatorJourney.findUnique({
+        where: { userId: payload.userId },
+        select: {
+          projectTitle: true,
+          projectSector: true,
+          projectStage: true,
+          projectDescription: true,
+          targetAudience: true,
+          valueProposition: true,
+          creationMotivation: true,
+        },
+      }),
+      db.creaSimSimulation.findUnique({ where: { userId: payload.userId } }),
+    ])
 
-    const y1Result = (year1Revenue || 0) - (year1Expenses || 0)
-    const y2Result = (year2Revenue || 0) - (year2Expenses || 0)
-    const y1Margin = year1Revenue ? ((y1Result / year1Revenue) * 100).toFixed(1) : 0
+    // Check we have at least some financial data to analyze
+    const hasFinancialData = financialForecast && (
+      financialForecast.year1Revenue || financialForecast.year1Expenses ||
+      financialForecast.year2Revenue || financialForecast.year2Expenses ||
+      financialForecast.year3Revenue || financialForecast.year3Expenses
+    )
 
-    const suggestions = `## Suggestions IA — Optimisation financière
+    const hasCreaSimData = creaSimData && (
+      creaSimData.monthlyRevenue || creaSimData.grossMarginRate ||
+      creaSimData.netMarginRate || creaSimData.monthlyBreakeven
+    )
 
-### Analyse rapide
-- **Résultat Année 1** : ${new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(y1Result)}
-- **Marge nette Année 1** : ${y1Margin}%
-- ${y2Result > y1Result ? '**Croissance positive entre A1 et A2** — bon signal !' : '**Attention** : le résultat diminue entre A1 et A2.'}
+    if (!hasFinancialData && !hasCreaSimData) {
+      return Errors.validation(
+        'Aucune donnée financière à analyser. Remplissez d\'abord vos prévisions financières ou utilisez CreaSim.',
+      )
+    }
 
-### Recommandations
-${y1Result < 0 ? '1. **Urgence** : Votre résultat Année 1 est négatif. Révisez vos charges à la baisse ou votre CA à la hausse.\n' : ''}1. **Diversification des revenus** : Explorez de nouvelles sources de revenus pour réduire la dépendance à un seul produit/service.
-2. **Optimisation des charges** : Identifiez les charges fixes que vous pouvez réduire ou transformer en charges variables.
-3. **Trésorerie** : Maintenez un fonds de roulement suffisant pour couvrir au moins 3 mois de charges.
-4. **Suivi mensuel** : Mettez en place un tableau de bord mensuel pour suivre l\'évolution réelle vs prévisions.
-5. **Scénarios** : Préparez un scénario pessimiste et un scénario optimiste en plus du scénario principal.
+    // 2. Build comprehensive context for the LLM
+    const contextParts: string[] = []
 
-*Conseil : Discutez de ces projections avec votre conseiller GIDEF pour affiner votre plan.*
+    // Project context
+    if (creatorJourney) {
+      contextParts.push('## CONTEXTE DU PROJET')
+      if (creatorJourney.projectTitle) contextParts.push(`- Titre : ${creatorJourney.projectTitle}`)
+      if (creatorJourney.projectSector) contextParts.push(`- Secteur : ${creatorJourney.projectSector}`)
+      if (creatorJourney.projectStage) contextParts.push(`- Stade : ${creatorJourney.projectStage}`)
+      if (creatorJourney.projectDescription) contextParts.push(`- Description : ${creatorJourney.projectDescription}`)
+      if (creatorJourney.targetAudience) contextParts.push(`- Clientèle cible : ${creatorJourney.targetAudience}`)
+      if (creatorJourney.valueProposition) contextParts.push(`- Proposition de valeur : ${creatorJourney.valueProposition}`)
+      if (creatorJourney.creationMotivation) contextParts.push(`- Motivation : ${creatorJourney.creationMotivation}`)
+    }
 
-*Nouvelle analyse effectuée automatiquement — consultez votre conseiller pour un avis personnalisé.*`
+    // Financial Forecast data
+    if (financialForecast) {
+      const fmtEur = (n: number) => n.toLocaleString('fr-FR')
 
-    await db.financialForecast.upsert({
-      where: { userId: payload.userId },
-      create: { userId: payload.userId, aiSynthesis: suggestions },
-      update: { aiSynthesis: suggestions },
+      contextParts.push('\n## PRÉVISIONS FINANCIÈRES (3 ans)')
+      if (financialForecast.sector) contextParts.push(`- Secteur financier : ${financialForecast.sector}`)
+      if (financialForecast.initialInvestment) contextParts.push(`- Investissement initial : ${fmtEur(financialForecast.initialInvestment)} €`)
+      if (financialForecast.breakevenMonth) contextParts.push(`- Seuil de rentabilité : Mois ${financialForecast.breakevenMonth}`)
+
+      // Year-by-year breakdown
+      const years = [
+        { y: 1, rev: financialForecast.year1Revenue, exp: financialForecast.year1Expenses },
+        { y: 2, rev: financialForecast.year2Revenue, exp: financialForecast.year2Expenses },
+        { y: 3, rev: financialForecast.year3Revenue, exp: financialForecast.year3Expenses },
+      ]
+      contextParts.push('\n### Tableau des résultats prévisionnels')
+      for (const yr of years) {
+        if (yr.rev != null || yr.exp != null) {
+          const rev = yr.rev ?? 0
+          const exp = yr.exp ?? 0
+          const result = rev - exp
+          const margin = rev > 0 ? ((result / rev) * 100).toFixed(1) : 'N/A'
+          contextParts.push(`- **Année ${yr.y}** : CA ${fmtEur(rev)} € | Charges ${fmtEur(exp)} € | Résultat ${fmtEur(result)} € | Marge ${margin}%`)
+        }
+      }
+    }
+
+    // CreaSim data for cross-reference
+    if (creaSimData) {
+      const fmtEur = (n: number) => n.toLocaleString('fr-FR')
+      const fmtPct = (n: number) => `${n.toFixed(1)}%`
+
+      contextParts.push('\n## DONNÉES CREASIM (Simulateur financier)')
+      if (creaSimData.monthlyRevenue) contextParts.push(`- CA mensuel estimé : ${fmtEur(creaSimData.monthlyRevenue)} €`)
+      if (creaSimData.grossMarginRate) contextParts.push(`- Marge brute : ${fmtPct(creaSimData.grossMarginRate)}`)
+      if (creaSimData.netMarginRate) contextParts.push(`- Marge nette : ${fmtPct(creaSimData.netMarginRate)}`)
+      if (creaSimData.monthlyBreakeven) contextParts.push(`- Seuil de rentabilité mensuel : ${fmtEur(creaSimData.monthlyBreakeven)} €`)
+      if (creaSimData.breakevenMonths) contextParts.push(`- Point mort : ${creaSimData.breakevenMonths.toFixed(1)} mois`)
+      if (creaSimData.profitability1Y != null) contextParts.push(`- Rentabilité Année 1 : ${fmtEur(creaSimData.profitability1Y)} €`)
+      if (creaSimData.profitability2Y != null) contextParts.push(`- Rentabilité Année 2 : ${fmtEur(creaSimData.profitability2Y)} €`)
+      if (creaSimData.profitability3Y != null) contextParts.push(`- Rentabilité Année 3 : ${fmtEur(creaSimData.profitability3Y)} €`)
+      if (creaSimData.averageSellingPrice) contextParts.push(`- Prix de vente moyen : ${fmtEur(creaSimData.averageSellingPrice)} €`)
+      if (creaSimData.unitCost) contextParts.push(`- Coût unitaire : ${fmtEur(creaSimData.unitCost)} €`)
+      if (creaSimData.targetMarginRate) contextParts.push(`- Marge cible : ${fmtPct(creaSimData.targetMarginRate)}`)
+
+      // Fixed charges breakdown
+      const fixedCharges = creaSimData.fixedCharges as Array<{ name: string; amount: number }> | null
+      if (Array.isArray(fixedCharges) && fixedCharges.length > 0) {
+        contextParts.push(`- Détail des charges fixes : ${fixedCharges.map(c => `${c.name} (${fmtEur(c.amount)} €)`).join(', ')}`)
+      }
+      if (creaSimData.variableChargesRate != null) contextParts.push(`- Taux de charges variables : ${fmtPct(creaSimData.variableChargesRate)}`)
+    }
+
+    const fullContext = contextParts.join('\n')
+
+    // 3. Build system prompt
+    const systemPrompt = `Tu es un expert-comptable et analyste financier spécialisé dans l'accompagnement des créateurs d'entreprise. Tu travailles pour CreaPulse / GIDEF, un réseau d'accompagnement entrepreneurial en Île-de-France.
+
+MISSION : Analyser les projections financières d'un entrepreneur et fournir une synthèse professionnelle, des recommandations concrètes et une évaluation des risques.
+
+RÈGLES :
+- Réponds TOUJOURS en français
+- Sois professionnel, précis et encourageant
+- Utilise des données chiffrées et des pourcentages
+- Adapte ton analyse au secteur et au stade du projet
+- Formule des recommandations actionnables et concrètes
+- Signale clairement les risques et les points de vigilance
+
+STRUCTURE DE TA RÉPONSE (en Markdown) :
+
+## 1. Analyse des tendances de revenus
+- Analyse de l'évolution du CA sur 3 ans
+- Croissance année par année
+- Cohérence des prévisions
+
+## 2. Analyse des marges
+- Marge brute et marge nette (si données CreaSim disponibles)
+- Évolution des marges dans le temps
+- Comparaison avec les objectifs
+
+## 3. Analyse du seuil de rentabilité
+- Point mort estimé
+- Délai avant atteinte de la rentabilité
+- Scénario pessimiste vs optimiste
+
+## 4. Évaluation des risques
+- Risques financiers identifiés
+- Points de vigilance spécifiques au secteur
+- Stress-test (que se passe-t-il si le CA est -20% ?)
+
+## 5. Recommandations
+- Actions prioritaires
+- Optimisations possibles
+- Points à discuter avec le conseiller GIDEF
+- Prochaines étapes recommandées`
+
+    const userPrompt = `Voici les données financières complètes du projet :\n\n${fullContext}\n\nAnalyse ces données et fournis une synthèse financière professionnelle comme spécifié dans le format de réponse.`
+
+    // 4. Call LLM via ZAI SDK
+    const zai = await ZAI.create()
+    const completion = await zai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 3000,
     })
 
-    return success({ suggestions }, 'Suggestions IA générées')
+    const aiSynthesis = completion.choices?.[0]?.message?.content || 'Désolé, une erreur est survenue lors de la génération de l\'analyse. Veuillez réessayer.'
+
+    // 5. Save the result
+    await db.financialForecast.upsert({
+      where: { userId: payload.userId },
+      create: {
+        userId: payload.userId,
+        aiSynthesis,
+      },
+      update: {
+        aiSynthesis,
+      },
+    })
+
+    return success({ suggestions: aiSynthesis }, 'Analyse IA générée avec succès')
   } catch (err) {
+    if (err && typeof err === 'object' && 'code' in err) {
+      const authErr = err as { code: string }
+      if (authErr.code === 'TOKEN_EXPIRED' || authErr.code === 'UNAUTHORIZED') {
+        return Errors.unauthorized('Session expirée — veuillez vous reconnecter')
+      }
+    }
     return handleApiError(err)
   }
 }
