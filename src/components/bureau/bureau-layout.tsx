@@ -8,7 +8,9 @@ import { Sidebar, MobileSidebar } from './sidebar'
 import { TopBar } from './topbar'
 import { Dashboard } from './dashboard'
 import { Welcome } from './welcome'
+import { ErrorBoundary } from './error-boundary'
 import { cn } from '@/lib/utils'
+import { Loader2 } from 'lucide-react'
 
 /* ─── Dynamic imports for heavy modules (code splitting) ─── */
 function ModuleLoadingSkeleton() {
@@ -292,7 +294,9 @@ export function BureauLayout() {
 
                   {/* Main content */}
                   <main className="flex-1 overflow-y-auto scrollbar-thin bg-muted/30">
-                    <BureauContent />
+                    <ErrorBoundary>
+                      <BureauContent />
+                    </ErrorBoundary>
                   </main>
                 </div>
               </>

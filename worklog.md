@@ -1273,3 +1273,24 @@ Stage Summary:
 - 3 existing components updated: Business Plan, Pitch Deck, Sidebar
 - New exports: BMC PDF, Pitch Deck PPTX
 - Pipeline fully operational: Parcours → BP partial → Simulateurs → BP sync → BMC auto-gen → Pitch Deck auto-gen
+
+---
+Task ID: 1
+Agent: main
+Task: Fix post-onboarding ReferenceError "Cannot access 'G' before initialization" on Vercel production build
+
+Work Log:
+- Analyzed the error stack trace: `ReferenceError: Cannot access 'G' before initialization` at `0bzz8pkp41tuc.js:1:8450` through React internals
+- Identified the error as a Temporal Dead Zone (TDZ) issue caused by circular module initialization in the production webpack build
+- Reviewed all source files: page.tsx (1675 lines), bureau-layout.tsx, dashboard.tsx, sidebar.tsx, topbar.tsx, notifications-panel.tsx, all stores, all auth components
+- Found bug #1: `setCurrentModule` used in notifications-panel.tsx but the method is named `setModule` in bureau-store.ts — fixed both the destructuring and the usage
+- Found root cause: page.tsx statically imports 5 heavy overlay components (BureauLayout, AdminPlateformeLayout, AdminCentreLayout, ConseillerLayout, IAAssistant) at top level, creating a massive bundle with initialization order issues in production
+- Fix #1: Converted all 5 overlay components from static imports to `dynamic()` with `ssr: false` to ensure they load in separate chunks
+- Fix #2: Added `ErrorBoundary` around `BureauContent` inside bureau-layout.tsx to prevent the entire app from crashing if the dashboard has an error
+- Verified: lint passes, dev server returns 200
+
+Stage Summary:
+- Fixed `setCurrentModule` → `setModule` in notifications-panel.tsx (3 edits)
+- Converted BureauLayout, AdminPlateformeLayout, AdminCentreLayout, ConseillerLayout, IAAssistant to dynamic imports in page.tsx
+- Added ErrorBoundary around BureauContent in bureau-layout.tsx
+- All changes verified with lint and dev server

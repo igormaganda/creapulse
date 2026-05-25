@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion } from 'framer-motion'
+import dynamic from 'next/dynamic'
 
 /* ─── shadcn/ui components ─── */
 import { Button } from '@/components/ui/button'
@@ -90,24 +91,24 @@ import { RegisterDialog } from '@/components/auth/register-dialog'
 /* ─── Theme Toggle ─── */
 import { ThemeToggle, ThemeToggleMobile } from '@/components/theme-toggle'
 
-/* ─── Bureau Virtuel ─── */
-import { BureauLayout } from '@/components/bureau/bureau-layout'
+/* ─── Bureau Virtuel (lazy loaded to avoid circular init issues) ─── */
+const BureauLayout = dynamic(() => import('@/components/bureau/bureau-layout').then(m => ({ default: m.BureauLayout })), { ssr: false })
 import { useBureauStore } from '@/components/bureau/bureau-store'
 
-/* ─── Admin Plateforme ─── */
-import { AdminPlateformeLayout } from '@/components/admin-plateforme/admin-plateforme-layout'
+/* ─── Admin Plateforme (lazy loaded) ─── */
+const AdminPlateformeLayout = dynamic(() => import('@/components/admin-plateforme/admin-plateforme-layout').then(m => ({ default: m.AdminPlateformeLayout })), { ssr: false })
 import { useAdminPlateformeStore } from '@/components/admin-plateforme/admin-plateforme-store'
 
-/* ─── Admin Centre ─── */
-import { AdminCentreLayout } from '@/components/admin-centre/admin-centre-layout'
+/* ─── Admin Centre (lazy loaded) ─── */
+const AdminCentreLayout = dynamic(() => import('@/components/admin-centre/admin-centre-layout').then(m => ({ default: m.AdminCentreLayout })), { ssr: false })
 import { useAdminCentreStore } from '@/components/admin-centre/admin-centre-store'
 
-/* ─── Conseiller ─── */
-import { ConseillerLayout } from '@/components/conseiller/conseiller-layout'
+/* ─── Conseiller (lazy loaded) ─── */
+const ConseillerLayout = dynamic(() => import('@/components/conseiller/conseiller-layout').then(m => ({ default: m.ConseillerLayout })), { ssr: false })
 import { useConseillerStore } from '@/components/conseiller/conseiller-store'
 
-/* ─── IA Assistant ─── */
-import { IAAssistant } from '@/components/bureau/ia-assistant'
+/* ─── IA Assistant (lazy loaded — includes react-markdown) ─── */
+const IAAssistant = dynamic(() => import('@/components/bureau/ia-assistant').then(m => ({ default: m.IAAssistant })), { ssr: false })
 
 /* ═══════════════════════════════════════════════════════════
    Animation variants for framer-motion scroll reveals

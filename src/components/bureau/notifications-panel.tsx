@@ -249,7 +249,7 @@ function NotificationPanelContent({
   const [tab, setTab] = useState<TabValue>('all')
   const [isLoading, setIsLoading] = useState(false)
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
-  const { setSection, setCurrentModule } = useBureauStore()
+  const { setSection, setModule } = useBureauStore()
   const {
     notifications,
     unreadCount,
@@ -347,11 +347,11 @@ function NotificationPanelContent({
       const parts = n.link.split(':')
       if (parts.length === 2) {
         if (parts[0] === 'section') setSection(parts[1] as 'dashboard' | 'parcours' | 'strategie' | 'ecosysteme' | 'pilotage')
-        if (parts[0] === 'module') setCurrentModule(parts[1])
+        if (parts[0] === 'module') setModule(parts[1])
       }
     }
     onClose()
-  }, [setSection, setCurrentModule, onClose])
+  }, [setSection, setModule, onClose])
 
   // ── Filtered notifications ──
   const filteredNotifications = useMemo(() => {
