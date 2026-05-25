@@ -1,15 +1,13 @@
 import { db } from '@/lib/db'
 import { NextRequest } from 'next/server'
-import { success, Errors, handleApiError } from '@/lib/api-response'
+import { success, Errors, handleApiError } from '@/lib/auth'
 import { verifyToken } from '@/lib/auth'
 
 // Helper to get token from cookie or header
 function getToken(request: NextRequest): string | null {
-  // Try cookie first
   const cookie = request.headers.get('cookie') || ''
   const match = cookie.match(/session=([^;]+)/)
   if (match) return match[1]
-  // Try Authorization header
   const auth = request.headers.get('authorization')
   if (auth?.startsWith('Bearer ')) return auth.slice(7)
   return null
@@ -23,7 +21,7 @@ export async function GET(request: NextRequest) {
     const payload = await verifyToken(token)
     const userId = payload.userId
 
-    const [user, journey, moduleResults, notifications, appointments] = await Promise.all([
+    const [user, journey, moduleResults, unreadNotifs, appointments] = await Promise.all([
       db.user.findUnique({
         where: { id: userId },
         select: { id: true, email: true, firstName: true, lastName: true, role: true, avatarUrl: true }
@@ -43,26 +41,69 @@ export async function GET(request: NextRequest) {
 
     const totalModules = 20
     const modulesCompleted = moduleResults
-    const progression = Math.round((modulesCompleted / totalModules) * 100)
+    const progression = journey?.progressPercent ?? Math.round((modulesCompleted / totalModules) * 100)
+    const scoreBP = journey?.bpScore ?? null
 
+    const prochainRDV = appointments.length > 0
+      ? formatAppointmentDate(appointments[0].scheduledAt)
+      : null
+
+    // Build response matching Dashboard component expected format
     return success({
-      user,
-      journey,
-      stats: {
+      kpis: {
+        progression,
         modulesCompleted,
         totalModules,
-        progression,
-        unreadNotifications: notifications,
-        upcomingAppointments: appointments,
-        recentActivity: appointments.slice(0, 3).map(a => ({
-          type: 'appointment',
-          title: a.title,
-          date: a.scheduledAt,
-          with: a.counselor.name
-        }))
-      }
+        prochainRDV,
+        scoreBP,
+      },
+      activities: [
+        {
+          id: '1',
+          action: `Progression parcours : ${progression}%`,
+          detail: journey?.projectTitle || 'Démarrez votre parcours entrepreneurial',
+          time: 'Maintenant',
+          icon: 'trending',
+          color: 'text-teal-500',
+        },
+        ...(appointments.length > 0 ? [{
+          id: '2',
+          action: 'Rendez-vous planifié',
+          detail: `${appointments[0].title} — ${appointments[0].counselor.name}`,
+          time: formatAppointmentDate(appointments[0].scheduledAt),
+          icon: 'calendar' as const,
+          color: 'text-coral-500',
+        }] : []),
+        ...(unreadNotifs > 0 ? [{
+          id: '3',
+          action: `${unreadNotifs} notification${unreadNotifs > 1 ? 's' : ''} non lue${unreadNotifs > 1 ? 's' : ''}`,
+          detail: 'Consultez votre boîte de notifications',
+          time: 'À vérifier',
+          icon: 'check' as const,
+          color: 'text-amber-500',
+        }] : []),
+      ],
+      appointments: appointments.map((a) => ({
+        id: a.id,
+        title: a.title,
+        description: `${a.counselor.name} — ${a.type === 'PHYSICAL' ? 'Physique' : a.type === 'VIDEO' ? 'En ligne' : a.type}`,
+        date: formatAppointmentDate(a.scheduledAt),
+        type: a.type === 'PHYSICAL' ? 'Physique' : a.type === 'VIDEO' ? 'En ligne' : a.type,
+      })),
     })
   } catch (err) {
     return handleApiError(err)
   }
+}
+
+function formatAppointmentDate(date: Date): string {
+  const now = new Date()
+  const diff = date.getTime() - now.getTime()
+  const days = Math.ceil(diff / (1000 * 60 * 60 * 24))
+
+  if (days === 0) return "Aujourd'hui"
+  if (days === 1) return 'Demain'
+  if (days <= 7) return `Dans ${days} jours`
+
+  return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 }
