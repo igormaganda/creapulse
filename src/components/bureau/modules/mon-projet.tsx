@@ -419,7 +419,7 @@ function StepIdentite({ data, errors, onChange }: {
             <SelectTrigger className={cn(errors.projectSector && 'border-red-500 focus:ring-red-500')}>
               <SelectValue placeholder="Sélectionnez un secteur" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent position="popper" className="z-[250]">
               {SECTORS.map((s) => (
                 <SelectItem key={s} value={s}>{s}</SelectItem>
               ))}
@@ -596,7 +596,7 @@ function StepMarche({ data, errors, onChange }: {
           <SelectTrigger>
             <SelectValue placeholder="Sélectionnez la portée" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent position="popper" className="z-[250]">
             {MARKET_SIZES.map((m) => (
               <SelectItem key={m} value={m}>{m}</SelectItem>
             ))}
@@ -717,7 +717,7 @@ function StepEconomie({ data, onChange }: {
           <SelectTrigger className="max-w-sm">
             <SelectValue placeholder="Sélectionnez une tranche" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent position="popper" className="z-[250]">
             {FINANCING_OPTIONS.map((opt) => (
               <SelectItem key={opt} value={opt}>{opt}</SelectItem>
             ))}
@@ -834,7 +834,7 @@ function StepEquipe({ data, errors, onChange }: {
           <SelectTrigger className={cn(errors.motivation && 'border-red-500 focus:ring-red-500')}>
             <SelectValue placeholder="Sélectionnez votre motivation" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent position="popper" className="z-[250]">
             {MOTIVATIONS.map((m) => (
               <SelectItem key={m} value={m}>{m}</SelectItem>
             ))}

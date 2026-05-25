@@ -333,51 +333,91 @@ RÈGLES :
 async function generateBilanAI(data: ParcoursData): Promise<BilanAIGenerated> {
   const prompt = buildBilanPrompt(data)
 
-  const zai = await ZAI.create()
-  const completion = await zai.chat.completions.create({
-    model: 'claude-sonnet-4-20250514',
-    messages: [
-      { role: 'system', content: 'Tu es un assistant IA expert en bilan entrepreneurial. Tu réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.' },
-      { role: 'user', content: prompt },
-    ],
-    temperature: 0.5,
-    max_tokens: 2000,
-  })
-
-  let raw = completion.choices?.[0]?.message?.content || ''
-
-  // Clean JSON response (remove markdown code blocks if present)
-  raw = raw.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim()
-
+  let zai: InstanceType<typeof ZAI> | null = null
   try {
-    const parsed = JSON.parse(raw) as BilanAIGenerated
-
-    // Validate and sanitize
+    zai = await ZAI.create()
+  } catch (sdkErr) {
+    console.error('[Bilan IA] ZAI.create() failed:', sdkErr)
+    // Fallback response when SDK init fails
     return {
-      synthesis: typeof parsed.synthesis === 'string' ? parsed.synthesis : 'Bilan en cours de génération.',
-      coherenceAnalysis: typeof parsed.coherenceAnalysis === 'string' ? parsed.coherenceAnalysis : '',
-      strengths: Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 6) : [],
-      weaknesses: Array.isArray(parsed.weaknesses) ? parsed.weaknesses.slice(0, 5) : [],
-      recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations.slice(0, 7) : [],
-      priorityActions: Array.isArray(parsed.priorityActions) ? parsed.priorityActions.slice(0, 3).map(a => ({
-        title: String(a.title || ''),
-        description: String(a.description || ''),
-        priority: ['high', 'medium', 'low'].includes(a.priority) ? a.priority : 'medium' as const,
-      })) : [],
-      globalScore: typeof parsed.globalScore === 'number' ? Math.min(100, Math.max(0, Math.round(parsed.globalScore))) : 50,
-      globalScoreLabel: typeof parsed.globalScoreLabel === 'string' ? parsed.globalScoreLabel : 'Profil Prometteur',
-    }
-  } catch {
-    // Fallback if JSON parsing fails
-    return {
-      synthesis: 'Votre bilan est en cours de préparation. Les données de votre parcours sont en cours d\'analyse.',
+      synthesis: `Bonjour ${data.profil.firstName || ''}, votre bilan est en cours de préparation. L'IA n'est pas disponible pour le moment.`,
       coherenceAnalysis: '',
       strengths: ['Parcours entrepreneurial initié'],
-      weaknesses: ['Complétez les modules du parcours pour un bilan détaillé'],
-      recommendations: ['Complétez votre Profil Créateur', 'Remplissez la fiche Mon Projet', 'Passez le test RIASEC', 'Passez le test Kiviat'],
+      weaknesses: ['Service IA temporairement indisponible'],
+      recommendations: ['Réessayez dans quelques instants', 'Complétez les modules du parcours'],
       priorityActions: [
-        { title: 'Compléter le profil', description: 'Remplissez vos informations personnelles et entrepreneuriales', priority: 'high' },
+        { title: 'Compléter le profil', description: 'Remplissez vos informations entrepreneuriales', priority: 'high' },
         { title: 'Définir le projet', description: 'Décrivez votre projet en détail', priority: 'medium' },
+        { title: 'Réessayer le bilan', description: 'Le service IA sera bientôt disponible', priority: 'low' },
+      ],
+      globalScore: 25,
+      globalScoreLabel: 'Profil Émergent',
+    }
+  }
+
+  try {
+    const completion = await zai.chat.completions.create({
+      model: 'claude-sonnet-4-20250514',
+      messages: [
+        { role: 'system', content: 'Tu es un assistant IA expert en bilan entrepreneurial. Tu réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.' },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.5,
+      max_tokens: 2000,
+    })
+
+    let raw = completion.choices?.[0]?.message?.content || ''
+
+    // Clean JSON response (remove markdown code blocks if present)
+    raw = raw.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim()
+
+    try {
+      const parsed = JSON.parse(raw) as BilanAIGenerated
+
+      // Validate and sanitize
+      return {
+        synthesis: typeof parsed.synthesis === 'string' ? parsed.synthesis : 'Bilan en cours de génération.',
+        coherenceAnalysis: typeof parsed.coherenceAnalysis === 'string' ? parsed.coherenceAnalysis : '',
+        strengths: Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 6) : [],
+        weaknesses: Array.isArray(parsed.weaknesses) ? parsed.weaknesses.slice(0, 5) : [],
+        recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations.slice(0, 7) : [],
+        priorityActions: Array.isArray(parsed.priorityActions) ? parsed.priorityActions.slice(0, 3).map(a => ({
+          title: String(a.title || ''),
+          description: String(a.description || ''),
+          priority: ['high', 'medium', 'low'].includes(a.priority) ? a.priority : 'medium' as const,
+        })) : [],
+        globalScore: typeof parsed.globalScore === 'number' ? Math.min(100, Math.max(0, Math.round(parsed.globalScore))) : 50,
+        globalScoreLabel: typeof parsed.globalScoreLabel === 'string' ? parsed.globalScoreLabel : 'Profil Prometteur',
+      }
+    } catch {
+      // Fallback if JSON parsing fails
+      return {
+        synthesis: 'Votre bilan est en cours de préparation. Les données de votre parcours sont en cours d\'analyse.',
+        coherenceAnalysis: '',
+        strengths: ['Parcours entrepreneurial initié'],
+        weaknesses: ['Complétez les modules du parcours pour un bilan détaillé'],
+        recommendations: ['Complétez votre Profil Créateur', 'Remplissez la fiche Mon Projet', 'Passez le test RIASEC', 'Passez le test Kiviat'],
+        priorityActions: [
+          { title: 'Compléter le profil', description: 'Remplissez vos informations personnelles et entrepreneuriales', priority: 'high' },
+          { title: 'Définir le projet', description: 'Décrivez votre projet en détail', priority: 'medium' },
+          { title: 'Passer les tests', description: 'Complétez les tests RIASEC et Kiviat', priority: 'low' },
+        ],
+        globalScore: 25,
+        globalScoreLabel: 'Profil Émergent',
+      }
+    }
+  } catch (aiErr) {
+    console.error('[Bilan IA] AI generation failed:', aiErr)
+    // Fallback response when AI call fails
+    return {
+      synthesis: `Bonjour ${data.profil.firstName || ''}, une erreur est survenue lors de la génération par l'IA. Veuillez réessayer ultérieurement.`,
+      coherenceAnalysis: '',
+      strengths: ['Parcours entrepreneurial initié', 'Connexion au service réussie'],
+      weaknesses: ['Service IA temporairement indisponible', 'Réessayez dans quelques minutes'],
+      recommendations: ['Réessayez de générer le bilan IA', 'Complétez les modules du parcours en attendant'],
+      priorityActions: [
+        { title: 'Réessayer le bilan', description: 'Le service IA est temporairement indisponible', priority: 'high' },
+        { title: 'Compléter le profil', description: 'Remplissez vos informations entrepreneuriales', priority: 'medium' },
         { title: 'Passer les tests', description: 'Complétez les tests RIASEC et Kiviat', priority: 'low' },
       ],
       globalScore: 25,

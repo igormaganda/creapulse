@@ -423,9 +423,18 @@ export function ProfilCreateur() {
                     <span className="text-sm text-muted-foreground">Email :</span>{' '}
                     <span className="text-sm font-medium">{data.email || '—'}</span>
                   </div>
-                  <div>
-                    <span className="text-sm text-muted-foreground">Date de naissance :</span>{' '}
-                    <span className="text-sm font-medium">{data.birthdate || '—'}</span>
+                  <div className="space-y-2">
+                    <Label htmlFor="birthdate" className="text-sm font-medium">
+                      Date de naissance
+                    </Label>
+                    <Input
+                      id="birthdate"
+                      type="date"
+                      value={data.birthdate || ''}
+                      onChange={(e) => updateField('birthdate', e.target.value || null)}
+                      className="max-w-[220px]"
+                      max={new Date().toISOString().split('T')[0]}
+                    />
                   </div>
                 </div>
               </CardContent>
