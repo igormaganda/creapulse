@@ -1294,3 +1294,23 @@ Stage Summary:
 - Converted BureauLayout, AdminPlateformeLayout, AdminCentreLayout, ConseillerLayout, IAAssistant to dynamic imports in page.tsx
 - Added ErrorBoundary around BureauContent in bureau-layout.tsx
 - All changes verified with lint and dev server
+
+---
+Task ID: 2
+Agent: main
+Task: Fix TypeError "e.services.slice(...).map is not a function" and missing icon-192.png
+
+Work Log:
+- Analyzed error: `TypeError: e.services.slice(...).map is not a function` — `services` was expected as array but received string
+- Found root cause in seed.ts: `JSON.stringify(['service1', ...])` wraps the array as a JSON string
+- Prisma `Json?` type stores this as a string in the database, not as an array
+- Fix #1: Removed `JSON.stringify()` from all 5 actor entries in prisma/seed.ts
+- Fix #2: Added safe parsing in /api/annuaire/route.ts — handles string, array, and null cases
+- Fix #3: Added `Array.isArray()` check in annuaire.tsx client-side code
+- Fix #4: Generated missing icon-192.png using AI image generation
+- Verified: lint passes, dev server returns 200 for both / and /icons/icon-192.png
+
+Stage Summary:
+- Fixed services data type issue at 3 levels: seed, API, and client
+- Created missing icon-192.png for PWA manifest
+- All changes verified

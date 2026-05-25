@@ -55,23 +55,34 @@ export async function GET(request: NextRequest) {
     ])
 
     return success({
-      actors: actors.map((a) => ({
-        id: a.id,
-        name: a.name,
-        type: a.type,
-        category: a.category,
-        city: a.city,
-        region: a.region,
-        address: a.address,
-        phone: a.phone,
-        email: a.email,
-        website: a.website,
-        description: a.description,
-        services: a.services as string[] | null,
-        featured: a.featured,
-        successRate: a.successRate,
-        createdAt: a.createdAt,
-      })),
+      actors: actors.map((a) => {
+        // Safely parse services — Prisma Json? may return a string, array, or null
+        let parsedServices: string[] | null = null
+        if (a.services != null) {
+          if (Array.isArray(a.services)) {
+            parsedServices = a.services
+          } else if (typeof a.services === 'string') {
+            try { parsedServices = JSON.parse(a.services) } catch { parsedServices = null }
+          }
+        }
+        return {
+          id: a.id,
+          name: a.name,
+          type: a.type,
+          category: a.category,
+          city: a.city,
+          region: a.region,
+          address: a.address,
+          phone: a.phone,
+          email: a.email,
+          website: a.website,
+          description: a.description,
+          services: parsedServices,
+          featured: a.featured,
+          successRate: a.successRate,
+          createdAt: a.createdAt,
+        }
+      }),
       pagination: {
         page,
         limit,

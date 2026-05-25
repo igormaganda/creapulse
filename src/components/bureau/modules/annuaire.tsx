@@ -479,7 +479,7 @@ export function AnnuaireModule() {
           email: (a.email as string) ?? null,
           website: (a.website as string) ?? null,
           description: (a.description as string) ?? null,
-          services: (a.services as string[]) ?? null,
+          services: Array.isArray(a.services) ? a.services : null,
           featured: (a.featured as boolean) ?? false,
           successRate: (a.successRate as number) ?? null,
         }))
