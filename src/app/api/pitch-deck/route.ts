@@ -10,7 +10,7 @@ import { db } from '@/lib/db'
 import { success, Errors, handleApiError } from '@/lib/api-response'
 import { verifyToken } from '@/lib/auth'
 import { z } from 'zod'
-import ZAI from 'z-ai-web-dev-sdk'
+import { callZAI, parseJSONFromAI, getZAIErrorMessage, aiUnavailableResponse, aiErrorResponse } from '@/lib/zai-helper'
 
 // ─── Validation Schemas ───────────────────────
 
@@ -341,39 +341,25 @@ Réponds en JSON avec exactement ces 8 clés :
   "ask": "..."
 }`
 
-      let raw: string | null = null
-      try {
-        const zai = await ZAI.create()
-        const completion = await zai.chat.completions.create({
-          model: 'claude-sonnet-4-20250514',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          temperature: 0.7,
-          max_tokens: 2500,
-        })
-        raw = completion.choices?.[0]?.message?.content || ''
-      } catch (aiErr) {
-        console.error('[Pitch Deck IA] ZAI call failed:', aiErr)
-        return Errors.internal('Service IA temporairement indisponible. Veuillez réessayer.')
-      }
-      if (!raw) {
-        return Errors.internal('La réponse IA est vide. Veuillez réessayer.')
+      // Call LLM via shared ZAI helper (never throws)
+      const aiResult = await callZAI([
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ], { temperature: 0.7, max_tokens: 2500 })
+
+      if (!aiResult.success) {
+        return aiUnavailableResponse(getZAIErrorMessage(aiResult))
       }
 
-      // Extract JSON from response (handle markdown code blocks)
-      let jsonStr = raw.trim()
-      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/)
-      if (jsonMatch) {
-        jsonStr = jsonMatch[0]
+      if (!aiResult.content.trim()) {
+        return aiErrorResponse('La réponse IA est vide. Veuillez réessayer.')
       }
 
-      let generatedSlides: Partial<Record<SlideKey, string>>
-      try {
-        generatedSlides = JSON.parse(jsonStr)
-      } catch {
-        return Errors.internal('Erreur de parsing de la réponse IA. Veuillez réessayer.')
+      // Parse JSON from AI response
+      const generatedSlides = parseJSONFromAI<Partial<Record<SlideKey, string>>>(aiResult.content)
+
+      if (!generatedSlides) {
+        return aiErrorResponse('Erreur de parsing de la réponse IA. Veuillez réessayer.')
       }
 
       // Build slides array for persistence
@@ -476,26 +462,17 @@ RÈGLES IMPORTANTES :
 
       userPrompt += existingSlidesText
 
-      let suggestion: string
-      try {
-        const zai = await ZAI.create()
-        const completion = await zai.chat.completions.create({
-          model: 'claude-sonnet-4-20250514',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          temperature: 0.7,
-          max_tokens: 800,
-        })
-        suggestion = completion.choices?.[0]?.message?.content || ''
-      } catch (aiErr) {
-        console.error('[Pitch Deck IA] ZAI suggest slide call failed:', aiErr)
-        return Errors.internal('Service IA temporairement indisponible. Veuillez réessayer.')
+      // Call LLM via shared ZAI helper (never throws)
+      const aiResult = await callZAI([
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ], { temperature: 0.7, max_tokens: 800 })
+
+      if (!aiResult.success) {
+        return aiUnavailableResponse(getZAIErrorMessage(aiResult))
       }
-      if (!suggestion) {
-        suggestion = 'Désolé, une erreur est survenue lors de la génération. Veuillez réessayer.'
-      }
+
+      const suggestion = aiResult.content || 'Désolé, une erreur est survenue lors de la génération. Veuillez réessayer.'
 
       return success(
         {

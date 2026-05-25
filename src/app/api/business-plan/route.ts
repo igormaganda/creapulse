@@ -14,7 +14,7 @@ import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-r
 import { verifyToken } from '@/lib/auth'
 import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
-import ZAI from 'z-ai-web-dev-sdk'
+import { callZAI, parseJSONFromAI, getZAIErrorMessage, aiUnavailableResponse, aiErrorResponse } from '@/lib/zai-helper'
 
 // ─── Validation Schemas ──────────────────────
 
@@ -311,19 +311,17 @@ ${context ? `CONTEXTE DU PROJET :\n${context}` : 'Aucun contexte de projet fourn
 
   userPrompt += `\n\nSection ID: ${sectionId}`
 
-  // Call LLM via ZAI SDK
-  const zai = await ZAI.create()
-  const completion = await zai.chat.completions.create({
-    model: 'claude-sonnet-4-20250514',
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ],
-    temperature: 0.7,
-    max_tokens: 1200,
-  })
+  // Call LLM via shared ZAI helper (never throws)
+  const result = await callZAI([
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userPrompt },
+  ], { temperature: 0.7, max_tokens: 1200 })
 
-  const suggestion = completion.choices?.[0]?.message?.content || 'Désolé, une erreur est survenue lors de la génération. Veuillez réessayer.'
+  if (!result.success) {
+    return aiUnavailableResponse(getZAIErrorMessage(result))
+  }
+
+  const suggestion = result.content || 'Désolé, une erreur est survenue lors de la génération. Veuillez réessayer.'
 
   return success(
     {
@@ -491,25 +489,21 @@ Tu dois répondre UNIQUEMENT avec un objet JSON valide (pas de markdown, pas de 
 
   const userPrompt = `Voici les données complètes du parcours entrepreneur :\n\n${fullContext}\n\nGénère les 8 sections du business plan en JSON comme spécifié.`
 
-  // 4. Call LLM
-  const zai = await ZAI.create()
-  const completion = await zai.chat.completions.create({
-    model: 'claude-sonnet-4-20250514',
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ],
-    temperature: 0.7,
-    max_tokens: 3000,
-  })
+  // 4. Call LLM via shared ZAI helper (never throws)
+  const result = await callZAI([
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userPrompt },
+  ], { temperature: 0.7, max_tokens: 3000 })
 
-  const rawContent = completion.choices?.[0]?.message?.content || ''
+  if (!result.success) {
+    return aiUnavailableResponse(getZAIErrorMessage(result))
+  }
 
   // 5. Parse JSON response
-  const generatedSections = parseJsonFromLLM(rawContent)
+  const generatedSections = parseJsonFromLLM(result.content)
 
   if (!generatedSections) {
-    return Errors.internal('Erreur lors de la génération : la réponse IA n\'a pas pu être parsée. Veuillez réessayer.')
+    return aiErrorResponse("La réponse IA n'a pas pu être interprétée. Veuillez réessayer.")
   }
 
   // 6. Merge into existing bpSections (don't overwrite filled sections)

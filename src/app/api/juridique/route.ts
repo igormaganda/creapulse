@@ -9,7 +9,7 @@ import { db } from '@/lib/db'
 import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
 import { verifyToken } from '@/lib/auth'
 import { z } from 'zod'
-import ZAI from 'z-ai-web-dev-sdk'
+import { callZAI, parseJSONFromAI, getZAIErrorMessage, aiUnavailableResponse } from '@/lib/zai-helper'
 
 // ─── Validation Schemas ──────────────────────
 
@@ -296,18 +296,16 @@ ${currentAnswers ? `RÉPONSES DÉJÀ DONNÉES :\n${Object.entries(currentAnswers
       const userPrompt = `L'utilisateur hésite sur la question : "${questionTitle}" (${questionHelp}). 
 Quelle réponse lui recommandes-tu pour son projet ? Donne ta recommandation sous la forme d'une réponse courte et claire, puis une brève justification.`
 
-      const zai = await ZAI.create()
-      const completion = await zai.chat.completions.create({
-        model: 'claude-sonnet-4-20250514',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.7,
-        max_tokens: 400,
-      })
+      const zaiResult = await callZAI([
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ], { temperature: 0.7, max_tokens: 400 })
 
-      const suggestion = completion.choices?.[0]?.message?.content || 'Désolé, une erreur est survenue.'
+      if (!zaiResult.success) {
+        return aiUnavailableResponse(getZAIErrorMessage(zaiResult))
+      }
+
+      const suggestion = zaiResult.content || 'Désolé, une erreur est survenue.'
 
       return success({ questionId, suggestion }, 'Suggestion IA générée')
     }
@@ -337,25 +335,27 @@ ${context ? `CONTEXTE DU PROJET :\n${context}` : 'Aucun contexte de projet. Gén
 
 Renvoie UNIQUEMENT le JSON, sans backticks ni texte autour.`
 
-      const zai = await ZAI.create()
-      const completion = await zai.chat.completions.create({
-        model: 'claude-sonnet-4-20250514',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.7,
-        max_tokens: 600,
-      })
+      const autofillResult = await callZAI([
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ], { temperature: 0.7, max_tokens: 600 })
 
-      const raw = completion.choices?.[0]?.message?.content || ''
+      if (!autofillResult.success) {
+        return aiUnavailableResponse(getZAIErrorMessage(autofillResult))
+      }
+
+      const raw = autofillResult.content || ''
       const jsonMatch = raw.match(/\{[\s\S]*\}/)
       if (!jsonMatch) {
         return success({ suggestion: raw }, 'Suggestion IA générée (format brut)')
       }
 
-      const result = JSON.parse(jsonMatch[0])
-      return success({ suggestion: result }, 'Remplissage automatique IA terminé')
+      try {
+        const result = JSON.parse(jsonMatch[0])
+        return success({ suggestion: result }, 'Remplissage automatique IA terminé')
+      } catch {
+        return success({ suggestion: raw }, 'Suggestion IA générée (format brut)')
+      }
     }
 
     // ── Legacy: Save answers + get recommendation ──

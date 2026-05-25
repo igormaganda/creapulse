@@ -33,7 +33,6 @@ import {
   FileCheck,
   ArrowRight,
   Info,
-  HelpCircle,
   Wand2,
 } from 'lucide-react'
 import {
@@ -61,7 +60,6 @@ interface Question {
     label: string
     explanation: string
   }[]
-  isVatQuestion?: boolean
 }
 
 const QUESTIONS: Question[] = [
@@ -131,18 +129,6 @@ const QUESTIONS: Question[] = [
       { value: 'salaried', label: 'Assimilé salarié (SAS/SASU)', explanation: 'Cotisations plus élevées mais meilleure couverture sociale (chômage, retraite).' },
       { value: 'independent', label: 'Travailleur non-salarié (EI/EURL/SARL)', explanation: 'Cotisations plus faibles mais couverture réduite.' },
       { value: 'no-preference', label: 'Pas de préférence', explanation: 'Je choisis en fonction des autres critères.' },
-    ],
-  },
-  {
-    id: 'vatRegime',
-    title: 'Concernant la TVA, que préférez-vous ?',
-    description: 'Le régime de TVA dépend de votre CA et de votre activité.',
-    helpText: 'La TVA (Taxe sur la Valeur Ajoutée) est un impôt sur la consommation que vous collectez sur vos ventes et déduisez sur vos achats. En franchise de TVA (CA < 85 800€ pour les services / 188 700€ pour les ventes), vous ne facturez pas de TVA mais ne pouvez pas la récupérer. En TVA réelle, vous facturez la TVA et la déduisez sur vos achats.',
-    isVatQuestion: true,
-    options: [
-      { value: 'exempt', label: 'Franchise de TVA', explanation: 'Pas de TVA collectée ni déductible. Simplifié mais limité en CA.' },
-      { value: 'simplified', label: 'Régime simplifié', explanation: 'Déclarations annuelles, TVA déductible.' },
-      { value: 'real', label: 'Régime réel normal', explanation: 'Déclarations mensuelles, adapté aux gros volumes.' },
     ],
   },
   {
@@ -270,107 +256,6 @@ function InfoPopoverButton({ text }: { text: string }) {
   )
 }
 
-// ─── TVA Guided Card Component ──────────────
-
-function VatGuidedCards({
-  selected,
-  onSelect,
-}: {
-  selected: string
-  onSelect: (value: string) => void
-}) {
-  return (
-    <div className="space-y-3 mt-4">
-      <p className="text-sm text-muted-foreground mb-3">Choisissez le régime qui vous correspond :</p>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {/* Franchise de TVA */}
-        <button
-          type="button"
-          onClick={() => onSelect('exempt')}
-          className={cn(
-            'text-left rounded-xl border-2 p-4 transition-all hover:shadow-md',
-            selected === 'exempt'
-              ? 'border-green-500 bg-green-50/50 dark:bg-green-900/10 ring-1 ring-green-500/20'
-              : 'border-border hover:border-green-500/30',
-          )}
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <div className={cn(
-              'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
-              selected === 'exempt' ? 'border-green-500 bg-green-500' : 'border-muted-foreground/30',
-            )}>
-              {selected === 'exempt' && <Check className="h-3 w-3 text-white" />}
-            </div>
-            <span className="text-sm font-semibold text-green-700 dark:text-green-400">Franchise de TVA</span>
-          </div>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Pas de TVA facturée à vos clients. Simple et adapté aux petites activités. 
-          </p>
-          <Badge variant="secondary" className="mt-2 text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-            Plafond : 85 800 € de CA (services)
-          </Badge>
-        </button>
-
-        {/* TVA réelle */}
-        <button
-          type="button"
-          onClick={() => onSelect('real')}
-          className={cn(
-            'text-left rounded-xl border-2 p-4 transition-all hover:shadow-md',
-            selected === 'real'
-              ? 'border-[#00838F] bg-[#00838F]/5 ring-1 ring-[#00838F]/20'
-              : 'border-border hover:border-[#00838F]/30',
-          )}
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <div className={cn(
-              'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
-              selected === 'real' ? 'border-[#00838F] bg-[#00838F]' : 'border-muted-foreground/30',
-            )}>
-              {selected === 'real' && <Check className="h-3 w-3 text-white" />}
-            </div>
-            <span className="text-sm font-semibold text-[#00838F]">TVA réelle (20%)</span>
-          </div>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Vous facturez la TVA et la récupérez sur vos achats. Obligatoire au-delà du plafond de franchise.
-          </p>
-          <Badge variant="secondary" className="mt-2 text-xs bg-[#00838F]/10 text-[#00838F]">
-            Adapté aux CA élevés
-          </Badge>
-        </button>
-
-        {/* Pas sûr(e) */}
-        <button
-          type="button"
-          onClick={() => onSelect('not-sure')}
-          className={cn(
-            'text-left rounded-xl border-2 p-4 transition-all hover:shadow-md',
-            selected === 'not-sure'
-              ? 'border-[#FFB74D] bg-[#FFB74D]/5 ring-1 ring-[#FFB74D]/20'
-              : 'border-border hover:border-[#FFB74D]/30',
-          )}
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <div className={cn(
-              'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
-              selected === 'not-sure' ? 'border-[#FFB74D] bg-[#FFB74D]' : 'border-muted-foreground/30',
-            )}>
-              {selected === 'not-sure' && <HelpCircle className="h-3 w-3 text-white" />}
-            </div>
-            <span className="text-sm font-semibold text-[#FFB74D]">Pas sûr(e)</span>
-          </div>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            L&apos;IA peut vous recommander le meilleur régime TVA adapté à votre situation.
-          </p>
-          <Badge variant="secondary" className="mt-2 text-xs bg-[#FFB74D]/10 text-[#FFB74D]">
-            ✨ Recommandation IA
-          </Badge>
-        </button>
-      </div>
-    </div>
-  )
-}
-
 // ─── Main Component ─────────────────────────
 
 export function JuridiqueModule() {
@@ -403,7 +288,7 @@ export function JuridiqueModule() {
       }
 
       try {
-        const res = await fetch('/api/juridique')
+        const res = await fetch('/api/juridique', { credentials: 'include' })
         if (res.ok) {
           const json = await res.json()
           if (json.success && json.data) {
@@ -474,6 +359,7 @@ export function JuridiqueModule() {
       const res = await fetch('/api/juridique', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           action: 'ai-suggest',
           questionId,
@@ -502,6 +388,7 @@ export function JuridiqueModule() {
       const res = await fetch('/api/juridique', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ action: 'ai-autofill' }),
       })
       const json = await res.json()
@@ -518,49 +405,6 @@ export function JuridiqueModule() {
       setAutofillLoading(false)
     }
   }, [])
-
-  // ─── Handle TVA "not-sure" → AI recommendation ──
-  const handleVatNotSure = useCallback(async () => {
-    // First select "not-sure" to show the visual state
-    selectAnswer('vatRegime', 'not-sure')
-
-    // Then ask AI for recommendation
-    setAiLoading('vatRegime')
-    try {
-      const res = await fetch('/api/juridique', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'ai-suggest',
-          questionId: 'vatRegime',
-          questionTitle: 'Concernant la TVA, que préférez-vous ?',
-          answers,
-        }),
-      })
-      const json = await res.json()
-      if (json.success && json.data?.suggestion) {
-        setAiSuggestion(prev => ({ ...prev, vatRegime: json.data.suggestion }))
-
-        // Try to auto-detect the recommendation and select it
-        const suggestion = json.data.suggestion.toLowerCase()
-        if (suggestion.includes('franchise') || suggestion.includes('exempt')) {
-          selectAnswer('vatRegime', 'exempt')
-        } else if (suggestion.includes('réel') || suggestion.includes('20%')) {
-          selectAnswer('vatRegime', 'real')
-        } else if (suggestion.includes('simplifié')) {
-          selectAnswer('vatRegime', 'simplified')
-        }
-
-        toast.success('Recommandation TVA IA appliquée')
-      } else {
-        toast.error(json.error?.message || 'Erreur')
-      }
-    } catch {
-      toast.error('Erreur de connexion')
-    } finally {
-      setAiLoading(null)
-    }
-  }, [answers, selectAnswer])
 
   // ─── Generate recommendation ──────────
   const handleGenerate = useCallback(async () => {
@@ -584,6 +428,7 @@ export function JuridiqueModule() {
       const res = await fetch('/api/juridique', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ answers: finalAnswers }),
       })
       const json = await res.json()
@@ -771,21 +616,8 @@ export function JuridiqueModule() {
                     </motion.div>
                   )}
 
-                  {/* TVA Guided Cards */}
-                  {question.isVatQuestion ? (
-                    <VatGuidedCards
-                      selected={answers[question.id] || ''}
-                      onSelect={(value) => {
-                        if (value === 'not-sure') {
-                          handleVatNotSure()
-                        } else {
-                          selectAnswer(question.id, value)
-                        }
-                      }}
-                    />
-                  ) : (
-                    /* Standard options */
-                    question.options.map((option) => {
+                  {/* Standard options */}
+                  {question.options.map((option) => {
                       const isSelected = answers[question.id] === option.value
                       return (
                         <motion.button
@@ -814,8 +646,7 @@ export function JuridiqueModule() {
                           </div>
                         </motion.button>
                       )
-                    })
-                  )}
+                    })}
                 </CardContent>
               </Card>
 

@@ -179,6 +179,7 @@ export function VisionModule() {
       try {
         const res = await fetch('/api/vision', {
           headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
         })
         if (res.ok) {
           const json = await res.json()
@@ -299,6 +300,7 @@ export function VisionModule() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify(data),
       })
       if (res.ok) {

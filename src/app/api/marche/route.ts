@@ -11,7 +11,7 @@ import { success, error, ErrorCode, Errors, handleApiError, getTokenFromHeader }
 import { verifyToken } from '@/lib/auth'
 import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
-import ZAI from 'z-ai-web-dev-sdk'
+import { callZAI as sharedCallZAI, getZAIErrorMessage, aiUnavailableResponse } from '@/lib/zai-helper'
 
 // ─── Validation Schemas ──────────────────────
 
@@ -115,22 +115,15 @@ const SECTION_PROMPTS: Record<string, string> = {
   threats: `Liste 4-5 menaces (Threats) pour ce projet dans le cadre d'une analyse SWOT. Format : une liste à puces avec tirets.`,
 }
 
-// ─── ZAI helper with fallback ────────────────
+// ─── ZAI helper with fallback (delegates to shared helper) ────────
 
 async function callZAI(messages: Array<{ role: string; content: string }>, options?: { temperature?: number; max_tokens?: number }): Promise<string | null> {
-  try {
-    const zai = await ZAI.create()
-    const completion = await zai.chat.completions.create({
-      model: 'claude-sonnet-4-20250514',
-      messages,
-      temperature: options?.temperature ?? 0.7,
-      max_tokens: options?.max_tokens ?? 800,
-    })
-    return completion.choices?.[0]?.message?.content || ''
-  } catch (err) {
-    console.error('[Marché IA] ZAI call failed:', err)
+  const result = await sharedCallZAI(messages as Array<{ role: 'system' | 'user' | 'assistant'; content: string }>, options)
+  if (!result.success) {
+    console.error('[Marché IA] ZAI call failed:', result.reason)
     return null
   }
+  return result.content || ''
 }
 
 // ─── GET: Retrieve market analysis ──────────

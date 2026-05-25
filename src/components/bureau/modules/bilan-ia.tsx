@@ -161,6 +161,7 @@ export function BilanIA() {
       try {
         const res = await fetch('/api/bilan', {
           headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
         })
         if (res.ok) {
           const json = await res.json()
@@ -191,6 +192,7 @@ export function BilanIA() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
       })
       if (res.ok) {
         const json = await res.json()

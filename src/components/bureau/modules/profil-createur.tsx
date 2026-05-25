@@ -432,7 +432,7 @@ export function ProfilCreateur() {
                       type="date"
                       value={data.birthdate || ''}
                       onChange={(e) => updateField('birthdate', e.target.value || null)}
-                      className="max-w-[220px]"
+                      className="max-w-[220px] relative z-10"
                       max={new Date().toISOString().split('T')[0]}
                     />
                   </div>

@@ -120,7 +120,7 @@ export function PitchDeckModule() {
       }
 
       try {
-        const res = await fetch('/api/pitch-deck')
+        const res = await fetch('/api/pitch-deck', { credentials: 'include' })
         if (res.ok) {
           const json = await res.json()
           if (json.success && json.data?.content) {
@@ -223,6 +223,7 @@ export function PitchDeckModule() {
       const res = await fetch('/api/pitch-deck', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ slides, projectTitle }),
       })
       const json = await res.json()
@@ -245,6 +246,7 @@ export function PitchDeckModule() {
       const res = await fetch('/api/pitch-deck', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ action: 'generate-from-bp' }),
       })
       const json = await res.json()
@@ -273,6 +275,7 @@ export function PitchDeckModule() {
       const res = await fetch('/api/pitch-deck', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           action: 'ai-suggest-slide',
           slideKey: SLIDE_ID_TO_KEY[slideId],
@@ -302,7 +305,7 @@ export function PitchDeckModule() {
 
     setIsExportingPptx(true)
     try {
-      const res = await fetch('/api/export/pitch-deck')
+      const res = await fetch('/api/export/pitch-deck', { credentials: 'include' })
       if (!res.ok) {
         const json = await res.json().catch(() => null)
         throw new Error(json?.error?.message || 'Erreur lors de l\'export PPTX')

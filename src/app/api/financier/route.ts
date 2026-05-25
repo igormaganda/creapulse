@@ -10,7 +10,7 @@ import { db } from '@/lib/db'
 import { success, Errors, handleApiError } from '@/lib/api-response'
 import { verifyToken } from '@/lib/auth'
 import { z } from 'zod'
-import ZAI from 'z-ai-web-dev-sdk'
+import { callZAI, getZAIErrorMessage, aiUnavailableResponse } from '@/lib/zai-helper'
 
 // ─── Validation Schema ───────────────────────
 
@@ -301,19 +301,17 @@ STRUCTURE DE TA RÉPONSE (en Markdown) :
 
     const userPrompt = `Voici les données financières complètes du projet :\n\n${fullContext}\n\nAnalyse ces données et fournis une synthèse financière professionnelle comme spécifié dans le format de réponse.`
 
-    // 4. Call LLM via ZAI SDK
-    const zai = await ZAI.create()
-    const completion = await zai.chat.completions.create({
-      model: 'claude-sonnet-4-20250514',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.7,
-      max_tokens: 3000,
-    })
+    // 4. Call LLM via shared ZAI helper (never throws)
+    const aiResult = await callZAI([
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ], { temperature: 0.7, max_tokens: 3000 })
 
-    const aiSynthesis = completion.choices?.[0]?.message?.content || 'Désolé, une erreur est survenue lors de la génération de l\'analyse. Veuillez réessayer.'
+    if (!aiResult.success) {
+      return aiUnavailableResponse(getZAIErrorMessage(aiResult))
+    }
+
+    const aiSynthesis = aiResult.content || 'Désolé, une erreur est survenue lors de la génération de l\'analyse. Veuillez réessayer.'
 
     // 5. Save the result
     await db.financialForecast.upsert({

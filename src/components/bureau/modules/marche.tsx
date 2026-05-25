@@ -123,6 +123,7 @@ function AiSectionButton({
       const res = await fetch('/api/marche', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           action: 'ai-suggest-section',
           section,
@@ -218,7 +219,7 @@ export function MarcheModule() {
       }
 
       try {
-        const res = await fetch('/api/marche')
+        const res = await fetch('/api/marche', { credentials: 'include' })
         if (res.ok) {
           const json = await res.json()
           if (json.success && json.data) {
@@ -269,6 +270,7 @@ export function MarcheModule() {
       const res = await fetch('/api/marche', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           sector, category, marketSize: parseFloat(marketSize) || 0, growthRate,
           targetAudience, targetAgeRange, targetLocation, targetRevenue,
@@ -295,6 +297,7 @@ export function MarcheModule() {
       const res = await fetch('/api/marche', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ sector, marketSize, targetAudience, trends, competitors, swot }),
       })
       const json = await res.json()
@@ -318,6 +321,7 @@ export function MarcheModule() {
       const res = await fetch('/api/marche', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ action: 'ai-autofill' }),
       })
       const json = await res.json()
@@ -358,6 +362,7 @@ export function MarcheModule() {
         const res = await fetch('/api/marche', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
             action: 'ai-suggest-section',
             section: sectionKey,
@@ -417,6 +422,7 @@ export function MarcheModule() {
       const res = await fetch('/api/marche', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           action: 'ai-suggest-section',
           section: 'trends',
@@ -447,6 +453,7 @@ export function MarcheModule() {
       const res = await fetch('/api/marche', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           action: 'ai-suggest-section',
           section: 'competitors',

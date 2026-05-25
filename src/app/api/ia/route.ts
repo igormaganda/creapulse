@@ -4,8 +4,8 @@
 // ============================================
 
 import { NextRequest } from 'next/server'
-import ZAI from 'z-ai-web-dev-sdk'
 import { z } from 'zod'
+import { callZAI } from '@/lib/zai-helper'
 
 // ─── Validation Schema ──────────────────────
 
@@ -124,17 +124,12 @@ export async function POST(request: NextRequest) {
     // Add current message
     messages.push({ role: 'user', content: message })
 
-    // Call LLM via ZAI SDK
-    const zai = await ZAI.create()
-    const completion = await zai.chat.completions.create({
-      model: 'claude-sonnet-4-20250514',
-      messages,
-      temperature: 0.7,
-      max_tokens: 1000,
-    })
+    // Call LLM via shared ZAI helper (never throws)
+    const result = await callZAI(messages, { temperature: 0.7, max_tokens: 1000 })
 
-    const reply = completion.choices?.[0]?.message?.content ||
-      'Désolé, une erreur est survenue. Veuillez réessayer.'
+    const reply = result.success
+      ? result.content || 'Désolé, une erreur est survenue. Veuillez réessayer.'
+      : 'Je suis temporairement indisponible. Veuillez réessayer dans quelques instants. En attendant, n\'hésitez pas à consulter les ressources disponibles dans votre Bureau Virtuel ou à contacter votre conseiller GIDEF.'
 
     return Response.json({
       success: true,

@@ -107,6 +107,9 @@ export function FinancierModule() {
   const [aiLoading, setAiLoading] = useState(false)
   const [aiSynthesis, setAiSynthesis] = useState('')
 
+  // VAT regime
+  const [vatRegime, setVatRegime] = useState('')
+
   // Active year tab
   const [activeYear, setActiveYear] = useState(1)
 
@@ -128,11 +131,12 @@ export function FinancierModule() {
           if (parsed.expenseItems?.length) setExpenseItems(parsed.expenseItems)
           if (parsed.investments?.length) setInvestments(parsed.investments)
           if (parsed.aiSynthesis) setAiSynthesis(parsed.aiSynthesis)
+          if (parsed.vatRegime) setVatRegime(parsed.vatRegime)
         } catch { /* ignore */ }
       }
 
       try {
-        const res = await fetch('/api/financier')
+        const res = await fetch('/api/financier', { credentials: 'include' })
         if (res.ok) {
           const json = await res.json()
           if (json.success && json.data?.aiSynthesis) {
@@ -150,10 +154,10 @@ export function FinancierModule() {
   useEffect(() => {
     if (!isLoading) {
       localStorage.setItem('creapulse-financier', JSON.stringify({
-        revenueItems, expenseItems, investments, aiSynthesis,
+        revenueItems, expenseItems, investments, aiSynthesis, vatRegime,
       }))
     }
-  }, [isLoading, revenueItems, expenseItems, investments, aiSynthesis])
+  }, [isLoading, revenueItems, expenseItems, investments, aiSynthesis, vatRegime])
 
   // ─── Computed values ─────────────────────
   const yearRevenue = useCallback((year: number) => {
@@ -249,6 +253,7 @@ export function FinancierModule() {
       const res = await fetch('/api/financier', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           year1Revenue: yearResults[0].revenue,
           year2Revenue: yearResults[1].revenue,
@@ -259,6 +264,7 @@ export function FinancierModule() {
           breakevenMonth,
           initialInvestment: totalInvestment,
           aiSynthesis,
+          vatRegime,
         }),
       })
       const json = await res.json()
@@ -281,6 +287,7 @@ export function FinancierModule() {
       const res = await fetch('/api/financier', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           year1Revenue: yearResults[0].revenue,
           year1Expenses: yearResults[0].expenses,
@@ -436,6 +443,9 @@ export function FinancierModule() {
             ))}
             <TabsTrigger value="invest" className="gap-1.5 data-[state=active]:bg-[#00838F] data-[state=active]:text-white">
               Investissements
+            </TabsTrigger>
+            <TabsTrigger value="fiscalite" className="gap-1.5 data-[state=active]:bg-[#00838F] data-[state=active]:text-white">
+              Fiscalité
             </TabsTrigger>
           </TabsList>
 
@@ -706,6 +716,115 @@ export function FinancierModule() {
                     </Table>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Fiscalité tab */}
+          <TabsContent value="fiscalite" className="space-y-4 mt-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-base">Régime fiscal / TVA</CardTitle>
+                    <Badge variant="secondary" className={cn(
+                      'text-xs',
+                      vatRegime && 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+                    )}>
+                      {vatRegime ? 'Sélectionné' : 'Non défini'}
+                    </Badge>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Le régime de TVA dépend de votre chiffre d&apos;affaires et de la nature de votre activité. Choisissez le régime qui correspond à votre situation.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Franchise de TVA */}
+                  <button
+                    type="button"
+                    onClick={() => setVatRegime('exempt')}
+                    className={cn(
+                      'text-left rounded-xl border-2 p-4 transition-all hover:shadow-md',
+                      vatRegime === 'exempt'
+                        ? 'border-green-500 bg-green-50/50 dark:bg-green-900/10 ring-1 ring-green-500/20'
+                        : 'border-border hover:border-green-500/30',
+                    )}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={cn(
+                        'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+                        vatRegime === 'exempt' ? 'border-green-500 bg-green-500' : 'border-muted-foreground/30',
+                      )}>
+                        {vatRegime === 'exempt' && <Check className="h-3 w-3 text-white" />}
+                      </div>
+                      <span className="text-sm font-semibold text-green-700 dark:text-green-400">Franchise de TVA</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Pas de TVA facturée à vos clients. Simple et adapté aux petites activités.
+                    </p>
+                    <Badge variant="secondary" className="mt-2 text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                      Plafond : 85 800 € (services)
+                    </Badge>
+                  </button>
+
+                  {/* Régime simplifié */}
+                  <button
+                    type="button"
+                    onClick={() => setVatRegime('simplified')}
+                    className={cn(
+                      'text-left rounded-xl border-2 p-4 transition-all hover:shadow-md',
+                      vatRegime === 'simplified'
+                        ? 'border-[#00838F] bg-[#00838F]/5 ring-1 ring-[#00838F]/20'
+                        : 'border-border hover:border-[#00838F]/30',
+                    )}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={cn(
+                        'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+                        vatRegime === 'simplified' ? 'border-[#00838F] bg-[#00838F]' : 'border-muted-foreground/30',
+                      )}>
+                        {vatRegime === 'simplified' && <Check className="h-3 w-3 text-white" />}
+                      </div>
+                      <span className="text-sm font-semibold text-[#00838F]">Régime simplifié</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Déclarations annuelles. TVA déductible sur vos achats.
+                    </p>
+                    <Badge variant="secondary" className="mt-2 text-xs bg-[#00838F]/10 text-[#00838F]">
+                      CA &lt; 85 800 € (ventes)
+                    </Badge>
+                  </button>
+
+                  {/* Régime réel normal */}
+                  <button
+                    type="button"
+                    onClick={() => setVatRegime('real')}
+                    className={cn(
+                      'text-left rounded-xl border-2 p-4 transition-all hover:shadow-md',
+                      vatRegime === 'real'
+                        ? 'border-[#FF6B35] bg-[#FF6B35]/5 ring-1 ring-[#FF6B35]/20'
+                        : 'border-border hover:border-[#FF6B35]/30',
+                    )}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={cn(
+                        'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+                        vatRegime === 'real' ? 'border-[#FF6B35] bg-[#FF6B35]' : 'border-muted-foreground/30',
+                      )}>
+                        {vatRegime === 'real' && <Check className="h-3 w-3 text-white" />}
+                      </div>
+                      <span className="text-sm font-semibold text-[#FF6B35]">Régime réel normal</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Déclarations mensuelles. Adapté aux gros volumes de CA.
+                    </p>
+                    <Badge variant="secondary" className="mt-2 text-xs bg-[#FF6B35]/10 text-[#FF6B35]">
+                      Obligatoire au-delà des plafonds
+                    </Badge>
+                  </button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

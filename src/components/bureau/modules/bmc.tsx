@@ -116,7 +116,7 @@ export function BusinessModelCanvasModule() {
 
       // Then try API
       try {
-        const res = await fetch('/api/bmc')
+        const res = await fetch('/api/bmc', { credentials: 'include' })
         if (res.ok) {
           const json = await res.json()
           if (json.success && json.data?.blocks) {
@@ -158,6 +158,7 @@ export function BusinessModelCanvasModule() {
         const res = await fetch('/api/bmc', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ blocks: currentBlocks, status }),
         })
         if (res.ok) {
@@ -183,6 +184,7 @@ export function BusinessModelCanvasModule() {
       const res = await fetch('/api/bmc', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ blocks: currentBlocks, status }),
       })
       const json = await res.json()
@@ -205,6 +207,7 @@ export function BusinessModelCanvasModule() {
       const res = await fetch('/api/bmc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ action: 'generate-from-bp' }),
       })
       const json = await res.json()
@@ -233,6 +236,7 @@ export function BusinessModelCanvasModule() {
       const res = await fetch('/api/bmc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           action: 'ai-suggest-block',
           blockKey: BLOCK_ID_TO_KEY[block.id],
