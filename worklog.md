@@ -1314,3 +1314,24 @@ Stage Summary:
 - Fixed services data type issue at 3 levels: seed, API, and client
 - Created missing icon-192.png for PWA manifest
 - All changes verified
+---
+Task ID: 1
+Agent: Main Agent
+Task: Search for potential TDZ errors and similar bugs across the codebase + redesign messaging module
+
+Work Log:
+- Explored full project structure (src/app, src/components, src/lib)
+- Searched all .tsx/.ts files for wrong imports, circular dependencies, TDZ patterns
+- Found 1 bug: annuaire.tsx line 39 imported ScrollArea from @/components/ui/skeleton (which only exports Skeleton)
+- Found scroll-area.tsx exists at src/components/ui/scroll-area.tsx but ScrollArea was never used in JSX
+- Fixed by removing the unused import entirely
+- Verified no circular dependencies exist (all Zustand stores are independent, component graph is hierarchical)
+- Verified no self-referencing const declarations, no exports using undeclared variables
+- Noted duplicate providers.tsx (src/components/providers.tsx and src/lib/providers.tsx) - minor, no runtime impact
+- Redesigned messages.tsx with comprehensive UI improvements
+
+Stage Summary:
+- annuaire.tsx: Removed unused/wrong ScrollArea import from skeleton
+- messages.tsx: Complete redesign with grouped conversations, typing indicators, emoji picker, message grouping, hover timestamps, online status, dark mode, character counter, attachment/voice placeholders, improved empty states
+- No other TDZ-type errors found in codebase
+- All changes pass ESLint with zero errors
