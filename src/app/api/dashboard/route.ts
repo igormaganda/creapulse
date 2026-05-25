@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { NextRequest } from 'next/server'
-import { success, Errors, handleApiError } from '@/lib/auth'
+import { success, Errors, handleApiError } from '@/lib/api-response'
 import { verifyToken } from '@/lib/auth'
 
 // Helper to get token from cookie or header
