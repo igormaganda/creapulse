@@ -344,13 +344,17 @@ export function CreaSim() {
   const handleSave = useCallback(async () => {
     setIsSaving(true)
     try {
+      const payload = {
+        ...inputs,
+        ...results,
+        // JSON.stringify converts Infinity to null; explicitly convert for clarity
+        monthlyBreakeven: results.monthlyBreakeven === Infinity ? null : results.monthlyBreakeven,
+        breakevenMonths: results.breakevenMonths === Infinity ? null : results.breakevenMonths,
+      }
       const res = await fetch('/api/creasim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...inputs,
-          ...results,
-        }),
+        body: JSON.stringify(payload),
       })
       const json = await res.json()
       if (json.success) {

@@ -65,6 +65,19 @@ const SLIDE_DEFINITIONS = [
 
 // ─── Helpers ────────────────────────────────
 
+// ─── Mapping: frontend slide IDs → backend slide keys ───
+
+const SLIDE_ID_TO_KEY: Record<string, string> = {
+  'problem': 'probleme',
+  'solution': 'solution',
+  'market': 'marche',
+  'business-model': 'businessModel',
+  'traction': 'traction',
+  'team': 'equipe',
+  'financial': 'financier',
+  'ask': 'ask',
+}
+
 function genId(): string {
   return Math.random().toString(36).slice(2, 9)
 }
@@ -262,8 +275,7 @@ export function PitchDeckModule() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'ai-suggest-slide',
-          slideId,
-          slideTitle: def?.title || slideId,
+          slideKey: SLIDE_ID_TO_KEY[slideId],
           existingContent: slide?.content || undefined,
         }),
       })

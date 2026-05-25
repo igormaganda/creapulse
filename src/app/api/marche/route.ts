@@ -7,7 +7,7 @@
 
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
-import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
+import { success, error, ErrorCode, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
 import { verifyToken } from '@/lib/auth'
 import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
@@ -113,6 +113,24 @@ const SECTION_PROMPTS: Record<string, string> = {
   weaknesses: `Liste 4-5 faiblesses (Weaknesses) pour ce projet dans le cadre d'une analyse SWOT. Sois réaliste et spécifique. Format : une liste à puces avec tirets.`,
   opportunities: `Liste 4-5 opportunités (Opportunities) pour ce projet dans le cadre d'une analyse SWOT. Format : une liste à puces avec tirets.`,
   threats: `Liste 4-5 menaces (Threats) pour ce projet dans le cadre d'une analyse SWOT. Format : une liste à puces avec tirets.`,
+}
+
+// ─── ZAI helper with fallback ────────────────
+
+async function callZAI(messages: Array<{ role: string; content: string }>, options?: { temperature?: number; max_tokens?: number }): Promise<string | null> {
+  try {
+    const zai = await ZAI.create()
+    const completion = await zai.chat.completions.create({
+      model: 'claude-sonnet-4-20250514',
+      messages,
+      temperature: options?.temperature ?? 0.7,
+      max_tokens: options?.max_tokens ?? 800,
+    })
+    return completion.choices?.[0]?.message?.content || ''
+  } catch (err) {
+    console.error('[Marché IA] ZAI call failed:', err)
+    return null
+  }
 }
 
 // ─── GET: Retrieve market analysis ──────────
@@ -228,18 +246,16 @@ ${context ? `CONTEXTE DU PROJET :\n${context}` : 'Aucun contexte de projet fourn
         userPrompt += `\n\nContenu actuel de l'utilisateur :\n"${existingContent}"\n\nAméliore et complète ce contenu si nécessaire.`
       }
 
-      const zai = await ZAI.create()
-      const completion = await zai.chat.completions.create({
-        model: 'claude-sonnet-4-20250514',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.7,
-        max_tokens: 800,
-      })
+      const raw = await callZAI([
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ], { temperature: 0.7, max_tokens: 800 })
 
-      let suggestion = completion.choices?.[0]?.message?.content || ''
+      if (!raw) {
+        return error(ErrorCode.SERVICE_UNAVAILABLE, 'Service IA temporairement indisponible. Veuillez réessayer.', 503)
+      }
+
+      let suggestion = raw
 
       // Clean JSON responses
       if ((section === 'trends' || section === 'competitors') && suggestion) {
@@ -288,24 +304,26 @@ ${context ? `CONTEXTE DU PROJET :\n${context}` : 'Aucun contexte de projet. Gén
 
 Renvoie UNIQUEMENT le JSON, sans backticks ni texte autour.`
 
-      const zai = await ZAI.create()
-      const completion = await zai.chat.completions.create({
-        model: 'claude-sonnet-4-20250514',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.7,
-        max_tokens: 2000,
-      })
+      const raw = await callZAI([
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ], { temperature: 0.7, max_tokens: 2000 })
 
-      const raw = completion.choices?.[0]?.message?.content || ''
+      if (!raw) {
+        return error(ErrorCode.SERVICE_UNAVAILABLE, 'Service IA temporairement indisponible. Veuillez réessayer.', 503)
+      }
+
       const jsonMatch = raw.match(/\{[\s\S]*\}/)
       if (!jsonMatch) {
         return success({ suggestion: raw }, 'Suggestion IA générée (format brut)')
       }
 
-      const result = JSON.parse(jsonMatch[0])
+      let result: Record<string, unknown>
+      try {
+        result = JSON.parse(jsonMatch[0])
+      } catch {
+        return error(ErrorCode.INTERNAL_ERROR, "Erreur lors de l'analyse de la réponse IA. Veuillez réessayer.", 500)
+      }
 
       // Add IDs to trends and competitors if missing
       if (Array.isArray(result.trends)) {

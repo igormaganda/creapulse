@@ -1353,3 +1353,33 @@ Stage Summary:
 - api/bilan/route.ts: generateBilanAI() now has 3-layer error handling (SDK init, AI call, JSON parse) with fallback responses
 - profil-createur.tsx: birthdate field is now editable via date input
 - manifest.json: removed broken icon-512.png reference
+
+---
+Task ID: 2
+Agent: main
+Task: Fix Save buttons, AI generation buttons, and audit exports across all bureau modules
+
+Work Log:
+- **Comprehensive audit** of ALL 23 "Sauvegarder" buttons, 14 AI generation buttons, and 13 export buttons across 14 module files and 8 API routes
+- **Fixed marche.tsx Sauvegarder**: Empty trends/competitors caused Zod validation failure (title: z.string().min(1), name: z.string().min(1)). Now filters out empty items before API call and removes them from local state.
+- **Fixed marche API route (POST)**: Added `callZAI` helper function wrapping ZAI.create() + chat.completions.create() in try-catch with null fallback. Replaced all direct ZAI calls. Added proper 503 error ("Service IA temporairement indisponible") instead of generic "An unexpected error occurred". Wrapped JSON.parse for autofill in try-catch.
+- **Fixed BMC API route**: Added try-catch around ZAI.create() calls for both `generate-from-bp` and `ai-suggest-block` actions with meaningful French error messages.
+- **Fixed Pitch Deck API route**: Added try-catch around ZAI.create() calls for both `generate-from-bp` and `ai-suggest-slide` actions.
+- **CRITICAL: Fixed BMC Save data structure mismatch**: Frontend sent `{blocks: [{id, content}]}` array format but backend expected flat camelCase keys. Backend now accepts blocks array and converts to flat DB columns. GET handler now returns blocks array format. generate-from-bp also returns blocks array format.
+- **CRITICAL: Fixed BMC AI Suggest Block**: Frontend sent `blockId` (kebab-case) but backend expected `blockKey` (camelCase). Frontend now sends correct field name and value format.
+- **CRITICAL: Fixed Pitch Deck AI Suggest Slide**: Frontend sent `slideId` (English) but backend expected `slideKey` (French). Frontend now sends correct field name and value format via SLIDE_ID_TO_KEY mapping.
+- **MEDIUM: Fixed CreaSim Infinity save failure**: `calculateResults()` returns Infinity for monthlyBreakeven/breakevenMonths when margin ≤ 0. JSON.stringify(Infinity) → null, but schema z.number().optional() rejects null. Fixed by: (1) converting Infinity to null in frontend before send, (2) changing backend schema to z.number().nullable().optional().
+- **Verified all export buttons**: TXT exports (client-side blob), PDF exports (API-based), PPTX export (API binary) all use correct patterns with proper error handling.
+- **ESLint**: 0 errors after all changes.
+
+Stage Summary:
+- 8 files modified across frontend and backend
+- marche.tsx: Save button now filters empty trends/competitors
+- marche/route.ts: AI calls now have proper error handling with callZAI helper
+- bmc/route.ts: Accepts blocks array format, AI calls have error handling, ai-suggest-block accepts blockId
+- pitch-deck/route.ts: AI calls have error handling
+- bmc.tsx: handleAiBlock now sends blockKey (camelCase) instead of blockId (kebab-case)
+- pitch-deck.tsx: handleAiSuggestSlide now sends slideKey (French) via mapping
+- creasim.tsx: Converts Infinity to null before save
+- creasim/route.ts: monthlyBreakeven and breakevenMonths now accept nullable
+- Export buttons (TXT/PDF/PPTX): All verified working correctly

@@ -220,6 +220,24 @@ async function fetchBpContext(userId: string): Promise<string> {
   return parts.join('\n\n')
 }
 
+// ─── Block ID mapping: frontend kebab-case → DB camelCase ─
+
+const blockIdToDbKey: Record<string, BmcBlockKey> = {
+  'partenaires-cles': 'partenairesCles',
+  'activites-cles': 'activitesCles',
+  'ressources-cles': 'ressourcesCles',
+  'proposition-valeur': 'propositionValeur',
+  'relations-clients': 'relationsClients',
+  'canaux': 'canaux',
+  'segments-clients': 'segmentsClients',
+  'structure-couts': 'structureCouts',
+  'sources-revenus': 'sourcesRevenus',
+}
+
+const dbKeyToBlockId: Record<BmcBlockKey, string> = Object.fromEntries(
+  Object.entries(blockIdToDbKey).map(([k, v]) => [v, k])
+) as Record<BmcBlockKey, string>
+
 // ─── BMC Block Labels (French) ──────────────
 
 const bmcBlockLabels: Record<BmcBlockKey, string> = {
@@ -251,7 +269,17 @@ export async function GET(request: NextRequest) {
       return success(null, 'Aucun Business Model Canvas')
     }
 
-    return success(bmc, 'Business Model Canvas chargé')
+    // Convert flat DB columns → blocks array format expected by frontend
+    const bmcRecord = bmc as unknown as Record<string, unknown>
+    const blocks = bmcBlocks.map(key => ({
+      id: dbKeyToBlockId[key],
+      content: (bmcRecord[key] as string) || '',
+    }))
+
+    return success(
+      { blocks, status: bmc.status },
+      'Business Model Canvas chargé',
+    )
   } catch (err) {
     if (err && typeof err === 'object' && 'code' in err) {
       const authErr = err as { code: string }
@@ -273,23 +301,42 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const parsed = saveBmcSchema.safeParse(body)
 
-    if (!parsed.success) {
-      return Errors.validation(
-        parsed.error.issues.map(i => ({
-          field: i.path.join('.'),
-          message: i.message,
-        }))
-      )
+    // ── Convert frontend blocks array → flat keys if present ──
+    // Frontend sends: { blocks: [{ id: "partenaires-cles", content: "..." }, ...], status }
+    // Backend schema expects flat camelCase keys for DB columns
+    const rawBody = body as Record<string, unknown>
+
+    let flatBlocks: Partial<Record<BmcBlockKey, string>> = {}
+    let status: string | undefined = rawBody.status as string | undefined
+
+    if (Array.isArray(rawBody.blocks)) {
+      for (const block of rawBody.blocks as Array<{ id: string; content: string }>) {
+        const dbKey = blockIdToDbKey[block.id]
+        if (dbKey) {
+          flatBlocks[dbKey] = block.content || ''
+        }
+      }
+    } else {
+      // Fallback: accept flat keys directly (legacy / alternative callers)
+      const parsed = saveBmcSchema.safeParse(body)
+      if (!parsed.success) {
+        return Errors.validation(
+          parsed.error.issues.map(i => ({
+            field: i.path.join('.'),
+            message: i.message,
+          }))
+        )
+      }
+      const { status: parsedStatus, ...rest } = parsed.data
+      flatBlocks = rest
+      status = status ?? parsedStatus
     }
-
-    const { status, ...blocks } = parsed.data
 
     // Build update data — only include blocks that were provided
     const updateData: Record<string, string | undefined> = {}
     for (const key of bmcBlocks) {
-      const val = blocks[key]
+      const val = flatBlocks[key]
       if (val !== undefined) {
         updateData[key] = val
       }
@@ -386,18 +433,27 @@ Réponds en JSON avec exactement ces 9 clés :
   "sourcesRevenus": "..."
 }`
 
-      const zai = await ZAI.create()
-      const completion = await zai.chat.completions.create({
-        model: 'claude-sonnet-4-20250514',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.7,
-        max_tokens: 2500,
-      })
+      let raw: string | null = null
+      try {
+        const zai = await ZAI.create()
+        const completion = await zai.chat.completions.create({
+          model: 'claude-sonnet-4-20250514',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.7,
+          max_tokens: 2500,
+        })
+        raw = completion.choices?.[0]?.message?.content || ''
+      } catch (aiErr) {
+        console.error('[BMC IA] ZAI call failed:', aiErr)
+        return Errors.internal('Service IA temporairement indisponible. Veuillez réessayer.')
+      }
+      if (!raw) {
+        return Errors.internal('La réponse IA est vide. Veuillez réessayer.')
+      }
 
-      const raw = completion.choices?.[0]?.message?.content || ''
       // Extract JSON from response (handle markdown code blocks)
       let jsonStr = raw.trim()
       const jsonMatch = jsonStr.match(/\{[\s\S]*\}/)
@@ -446,21 +502,30 @@ Réponds en JSON avec exactement ces 9 clés :
         },
       })
 
-      return success(bmc, 'Business Model Canvas généré par IA')
+      // Return blocks array format expected by frontend
+      const blocks = bmcBlocks.map(key => ({
+        id: dbKeyToBlockId[key],
+        content: (generatedBlocks[key] as string) || '',
+      }))
+
+      return success({ blocks, status: 'GENERATED' }, 'Business Model Canvas généré par IA')
 
     } else if (action === 'ai-suggest-block') {
       // ── Single block suggestion ──
-      const parsed = aiSuggestBlockSchema.safeParse(body)
-      if (!parsed.success) {
+
+      // Frontend sends blockId (kebab-case), backend expects blockKey (camelCase)
+      const rawBlockId = (body as Record<string, unknown>).blockId as string | undefined
+      const blockKey: BmcBlockKey = rawBlockId
+        ? (blockIdToDbKey[rawBlockId] ?? rawBlockId as BmcBlockKey)
+        : ((body as Record<string, unknown>).blockKey as BmcBlockKey)
+
+      if (!blockKey || !bmcBlocks.includes(blockKey)) {
         return Errors.validation(
-          parsed.error.issues.map(i => ({
-            field: i.path.join('.'),
-            message: i.message,
-          }))
+          { field: 'blockId', message: `Block invalide: ${rawBlockId || (body as Record<string, unknown>).blockKey}` }
         )
       }
 
-      const { blockKey, existingContent } = parsed.data
+      const existingContent = (body as Record<string, unknown>).existingContent as string | undefined
       const blockLabel = bmcBlockLabels[blockKey]
 
       // Fetch context
@@ -504,18 +569,26 @@ RÈGLES IMPORTANTES :
         userPrompt += `\n\nAUTRES BLOCS DÉJÀ REMPLIS (pour cohérence) :\n${otherBlocks}`
       }
 
-      const zai = await ZAI.create()
-      const completion = await zai.chat.completions.create({
-        model: 'claude-sonnet-4-20250514',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.7,
-        max_tokens: 800,
-      })
-
-      const suggestion = completion.choices?.[0]?.message?.content || 'Désolé, une erreur est survenue lors de la génération. Veuillez réessayer.'
+      let suggestion: string
+      try {
+        const zai = await ZAI.create()
+        const completion = await zai.chat.completions.create({
+          model: 'claude-sonnet-4-20250514',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.7,
+          max_tokens: 800,
+        })
+        suggestion = completion.choices?.[0]?.message?.content || ''
+      } catch (aiErr) {
+        console.error('[BMC IA] ZAI suggest block call failed:', aiErr)
+        return Errors.internal('Service IA temporairement indisponible. Veuillez réessayer.')
+      }
+      if (!suggestion) {
+        suggestion = 'Désolé, une erreur est survenue lors de la génération. Veuillez réessayer.'
+      }
 
       return success(
         {

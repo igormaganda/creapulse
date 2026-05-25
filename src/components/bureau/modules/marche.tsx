@@ -258,13 +258,21 @@ export function MarcheModule() {
   const handleSave = useCallback(async () => {
     setIsSaving(true)
     try {
+      // Filter out empty trends and competitors to prevent Zod validation errors
+      const validTrends = trends.filter(t => t.title.trim().length > 0)
+      const validCompetitors = competitors.filter(c => c.name.trim().length > 0)
+
+      // Remove empty items from local state
+      if (validTrends.length !== trends.length) setTrends(validTrends)
+      if (validCompetitors.length !== competitors.length) setCompetitors(validCompetitors)
+
       const res = await fetch('/api/marche', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sector, category, marketSize: parseFloat(marketSize) || 0, growthRate,
           targetAudience, targetAgeRange, targetLocation, targetRevenue,
-          trends, competitors, swot, aiSynthesis,
+          trends: validTrends, competitors: validCompetitors, swot, aiSynthesis,
         }),
       })
       const json = await res.json()

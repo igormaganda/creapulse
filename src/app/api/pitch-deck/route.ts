@@ -341,18 +341,27 @@ Réponds en JSON avec exactement ces 8 clés :
   "ask": "..."
 }`
 
-      const zai = await ZAI.create()
-      const completion = await zai.chat.completions.create({
-        model: 'claude-sonnet-4-20250514',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.7,
-        max_tokens: 2500,
-      })
+      let raw: string | null = null
+      try {
+        const zai = await ZAI.create()
+        const completion = await zai.chat.completions.create({
+          model: 'claude-sonnet-4-20250514',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.7,
+          max_tokens: 2500,
+        })
+        raw = completion.choices?.[0]?.message?.content || ''
+      } catch (aiErr) {
+        console.error('[Pitch Deck IA] ZAI call failed:', aiErr)
+        return Errors.internal('Service IA temporairement indisponible. Veuillez réessayer.')
+      }
+      if (!raw) {
+        return Errors.internal('La réponse IA est vide. Veuillez réessayer.')
+      }
 
-      const raw = completion.choices?.[0]?.message?.content || ''
       // Extract JSON from response (handle markdown code blocks)
       let jsonStr = raw.trim()
       const jsonMatch = jsonStr.match(/\{[\s\S]*\}/)
@@ -467,18 +476,26 @@ RÈGLES IMPORTANTES :
 
       userPrompt += existingSlidesText
 
-      const zai = await ZAI.create()
-      const completion = await zai.chat.completions.create({
-        model: 'claude-sonnet-4-20250514',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.7,
-        max_tokens: 800,
-      })
-
-      const suggestion = completion.choices?.[0]?.message?.content || 'Désolé, une erreur est survenue lors de la génération. Veuillez réessayer.'
+      let suggestion: string
+      try {
+        const zai = await ZAI.create()
+        const completion = await zai.chat.completions.create({
+          model: 'claude-sonnet-4-20250514',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.7,
+          max_tokens: 800,
+        })
+        suggestion = completion.choices?.[0]?.message?.content || ''
+      } catch (aiErr) {
+        console.error('[Pitch Deck IA] ZAI suggest slide call failed:', aiErr)
+        return Errors.internal('Service IA temporairement indisponible. Veuillez réessayer.')
+      }
+      if (!suggestion) {
+        suggestion = 'Désolé, une erreur est survenue lors de la génération. Veuillez réessayer.'
+      }
 
       return success(
         {

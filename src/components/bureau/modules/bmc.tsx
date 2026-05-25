@@ -71,6 +71,22 @@ function getDefaults(): BmcBlockData[] {
 
 // ─── Main Component ─────────────────────────
 
+// ─── Mapping: kebab-case block IDs → camelCase block keys (backend) ───
+
+const BLOCK_ID_TO_KEY: Record<string, string> = {
+  'partenaires-cles': 'partenairesCles',
+  'activites-cles': 'activitesCles',
+  'ressources-cles': 'ressourcesCles',
+  'proposition-valeur': 'propositionValeur',
+  'relations-clients': 'relationsClients',
+  'canaux': 'canaux',
+  'segments-clients': 'segmentsClients',
+  'structure-couts': 'structureCouts',
+  'sources-revenus': 'sourcesRevenus',
+}
+
+// ─── Main Component ─────────────────────────
+
 export function BusinessModelCanvasModule() {
   const [blocks, setBlocks] = useState<BmcBlockData[]>(getDefaults)
   const [status, setStatus] = useState<BmcStatus>('DRAFT')
@@ -219,8 +235,7 @@ export function BusinessModelCanvasModule() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'ai-suggest-block',
-          blockId: block.id,
-          blockTitle: block.title,
+          blockKey: BLOCK_ID_TO_KEY[block.id],
           existingContent: block.content || undefined,
         }),
       })
