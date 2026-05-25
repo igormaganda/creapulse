@@ -335,7 +335,7 @@ async function generateBilanAI(data: ParcoursData): Promise<BilanAIGenerated> {
 
   const zai = await ZAI.create()
   const completion = await zai.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: 'claude-sonnet-4-20250514',
     messages: [
       { role: 'system', content: 'Tu es un assistant IA expert en bilan entrepreneurial. Tu réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.' },
       { role: 'user', content: prompt },

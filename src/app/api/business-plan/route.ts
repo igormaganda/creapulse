@@ -314,7 +314,7 @@ ${context ? `CONTEXTE DU PROJET :\n${context}` : 'Aucun contexte de projet fourn
   // Call LLM via ZAI SDK
   const zai = await ZAI.create()
   const completion = await zai.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: 'claude-sonnet-4-20250514',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
@@ -494,7 +494,7 @@ Tu dois répondre UNIQUEMENT avec un objet JSON valide (pas de markdown, pas de 
   // 4. Call LLM
   const zai = await ZAI.create()
   const completion = await zai.chat.completions.create({
-    model: 'gpt-4o-mini',
+    model: 'claude-sonnet-4-20250514',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },

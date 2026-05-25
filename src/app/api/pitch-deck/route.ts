@@ -343,7 +343,7 @@ Réponds en JSON avec exactement ces 8 clés :
 
       const zai = await ZAI.create()
       const completion = await zai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'claude-sonnet-4-20250514',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -469,7 +469,7 @@ RÈGLES IMPORTANTES :
 
       const zai = await ZAI.create()
       const completion = await zai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'claude-sonnet-4-20250514',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },

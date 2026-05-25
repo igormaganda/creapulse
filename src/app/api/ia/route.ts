@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
     // Call LLM via ZAI SDK
     const zai = await ZAI.create()
     const completion = await zai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'claude-sonnet-4-20250514',
       messages,
       temperature: 0.7,
       max_tokens: 1000,
