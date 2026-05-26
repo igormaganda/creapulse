@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import { useBureauStore } from './bureau-store'
 import { cn } from '@/lib/utils'
 import { NotificationsPanel } from './notifications-panel'
@@ -182,11 +183,22 @@ export function TopBar({ onMenuClick }: TopBarProps) {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 cursor-pointer">
+            <DropdownMenuItem
+              className="gap-2 cursor-pointer"
+              onClick={() => {
+                useBureauStore.getState().setSection('parcours')
+                useBureauStore.getState().setModule('profil-createur')
+              }}
+            >
               <User className="h-4 w-4" />
               Mon profil
             </DropdownMenuItem>
-            <DropdownMenuItem className="gap-2 cursor-pointer">
+            <DropdownMenuItem
+              className="gap-2 cursor-pointer"
+              onClick={() => {
+                toast.info('Paramètres — fonctionnalité en cours de développement')
+              }}
+            >
               <Settings className="h-4 w-4" />
               Paramètres
             </DropdownMenuItem>
