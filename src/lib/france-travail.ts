@@ -10,6 +10,11 @@ interface TokenCache {
   expiresAt: number
 }
 
+interface PendingTokenRequest {
+  promise: Promise<string>
+  createdAt: number
+}
+
 // ─── FT API Scopes ──────────────────────────
 
 export const FT_SCOPES = {
@@ -49,6 +54,7 @@ const FT_AUTH_URL = 'https://entreprise.francetravail.io/connexion/oauth2/access
 // ─── In-memory Token Cache ───────────────────
 
 const tokenCache = new Map<string, TokenCache>()
+const pendingTokenRequests = new Map<string, PendingTokenRequest>()
 
 /**
  * Get a cached or freshly fetched OAuth2 token for the given scope.
@@ -63,44 +69,62 @@ export async function getFTToken(scope: string): Promise<string> {
     return cached.token
   }
 
+  // Check if there's already a pending token fetch for this scope (race condition lock)
+  const pending = pendingTokenRequests.get(scope)
+  if (pending && now - pending.createdAt < 10_000) {
+    return pending.promise
+  }
+
   const clientId = process.env.FT_CLIENT_ID
   const clientSecret = process.env.FT_SECRET
 
   if (!clientId || !clientSecret) {
-    throw new Error(
-      'Identifiants France Travail manquants : vérifiez FT_CLIENT_ID et FT_SECRET dans les variables d\'environnement.',
-    )
+    console.error('[FT Token] Identifiants manquants : FT_CLIENT_ID ou FT_SECRET non configurés')
+    throw new Error('Service France Travail temporairement indisponible.')
   }
 
-  const response = await fetch(FT_AUTH_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: new URLSearchParams({
-      grant_type: 'client_credentials',
-      client_id: clientId,
-      client_secret: clientSecret,
-      scope,
-    }),
-  })
+  // Create pending promise to deduplicate concurrent requests
+  const tokenPromise = (async () => {
+    try {
+      const response = await fetch(FT_AUTH_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'client_credentials',
+          client_id: clientId,
+          client_secret: clientSecret,
+          scope,
+        }),
+      })
 
-  if (!response.ok) {
-    const text = await response.text().catch(() => 'Pas de réponse')
-    throw new Error(`Erreur d'authentification France Travail (${response.status}) : ${text}`)
-  }
+      if (!response.ok) {
+        const text = await response.text().catch(() => 'Pas de réponse')
+        console.error(`[FT Token] Erreur d'authentification (${response.status}) : ${text}`)
+        throw new Error('Service France Travail temporairement indisponible.')
+      }
 
-  const data = await response.json()
-  const token: string = data.access_token
-  const expiresInMs = (data.expires_in ?? 3600) * 1000
+      const data = await response.json()
+      const token: string = data.access_token
+      const expiresInMs = (data.expires_in ?? 3600) * 1000
 
-  // Cache with 60-second safety buffer
-  tokenCache.set(scope, {
-    token,
-    expiresAt: now + expiresInMs - 60_000,
-  })
+      // Cache with 60-second safety buffer
+      tokenCache.set(scope, {
+        token,
+        expiresAt: now + expiresInMs - 60_000,
+      })
 
-  return token
+      return token
+    } finally {
+      // Always clean up pending entry
+      pendingTokenRequests.delete(scope)
+    }
+  })()
+
+  pendingTokenRequests.set(scope, { promise: tokenPromise, createdAt: now })
+
+  return tokenPromise
 }
 
 /**
@@ -137,7 +161,8 @@ export async function fetchFTAPI<T>(
 
   if (!response.ok) {
     const text = await response.text().catch(() => 'Pas de réponse')
-    throw new Error(`FT API erreur (${response.status}) pour ${url} : ${text}`)
+    console.error(`[FT API] Erreur ${response.status} pour ${url} : ${text}`)
+    throw new Error('Erreur lors de la communication avec le service France Travail.')
   }
 
   // Handle 204 No Content

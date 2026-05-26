@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -91,11 +92,11 @@ export function QuizEngine({ category }: QuizEngineProps) {
       answerCounts[i] > 0 ? Math.round((s / (answerCounts[i] * 5)) * 100) : 0
     )
 
-    // Calculate match percentages for each result
+    // Calculate match percentages for each result (deterministic)
     const avgScore = normalizedScores.reduce((a, b) => a + b, 0) / normalizedScores.length
     const resultsWithMatch = category.quizResults.map((result, idx) => ({
       ...result,
-      match: Math.min(98, Math.max(60, result.match + Math.round((avgScore - 65) * 0.3) + Math.round(Math.random() * 8 - 4))),
+      match: Math.min(98, Math.max(60, result.match + Math.round((avgScore - 65) * 0.3))),
     })).sort((a, b) => b.match - a.match)
 
     setCompetencyScores(normalizedScores)
@@ -103,14 +104,42 @@ export function QuizEngine({ category }: QuizEngineProps) {
     setStep('results-preview')
   }
 
-  const handleLeadSubmit = (e: React.FormEvent) => {
+  const handleLeadSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-    // Simulate submission
-    setTimeout(() => {
-      setIsSubmitting(false)
+
+    try {
+      const ageNum = leadForm.age ? parseInt(leadForm.age, 10) : null
+      const response = await fetch('/api/metiers/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prenom: leadForm.prenom,
+          email: leadForm.email,
+          telephone: leadForm.telephone || null,
+          ville: leadForm.ville || null,
+          age: ageNum,
+          metierCategory: category.slug,
+          quizResults: Object.fromEntries(
+            category.competencies.map((comp, idx) => [comp, competencyScores[idx]])
+          ),
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        const message = errorData?.error?.message || 'Une erreur est survenue lors de l\'enregistrement'
+        toast.error(message)
+        return
+      }
+
+      toast.success('Analyse enregistrée avec succès !')
       setStep('results-full')
-    }, 1500)
+    } catch {
+      toast.error('Erreur de connexion. Veuillez réessayer.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // Intro screen

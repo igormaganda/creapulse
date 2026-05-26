@@ -1200,5 +1200,24 @@ model NewsArticle {
 }
 
 // ============================================
+// QUIZ LEADS (Metiers)
+// ============================================
+
+model QuizLead {
+  id          String   @id @default(cuid())
+  prenom      String
+  email       String
+  telephone   String?
+  ville       String?
+  age         Int?
+  category    String
+  quizResults Json?
+  createdAt   DateTime @default(now())
+
+  @@index([category])
+  @@index([email])
+}
+
+// ============================================
 // ARTICLES / BLOG
 // ============================================

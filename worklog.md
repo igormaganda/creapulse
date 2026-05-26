@@ -1,6 +1,64 @@
 # CreaPulse V2 - Worklog
 
 ---
+Task ID: P0-4
+Agent: Quiz Fix Agent
+Task: Fix lead form API, quiz scoring, and 404 handling
+
+Work Log:
+- Created QuizLead model in Prisma schema (id, prenom, email, telephone, ville, age, category, quizResults, createdAt)
+- Pushed schema to PostgreSQL (QuizLead table created)
+- Regenerated Prisma Client v7.8.0
+- Created /src/app/api/metiers/leads/route.ts — POST endpoint with Zod validation:
+  - prenom: min 2 chars
+  - email: valid email format
+  - telephone: French regex (/^0[1-9]\d{8}$/), optional
+  - ville: min 2 chars, optional
+  - age: int 16-99, optional
+  - metierCategory: required string
+  - quizResults: JSON object, optional
+  - Uses success()/handleApiError() from @/lib/api-response
+  - Saves to QuizLead table via Prisma
+- Updated /src/components/metiers/quiz-engine.tsx:
+  - Replaced setTimeout fake submission with real fetch('/api/metiers/leads', { method: 'POST' })
+  - Added async/await with try/catch/finally
+  - Loading state preserved via isSubmitting
+  - Success: toast.success + setStep('results-full')
+  - Error: toast.error with server message, stays on form
+  - Connection error: toast.error with generic French message
+  - Added `import { toast } from 'sonner'`
+- Fixed deterministic scoring in calculateResults():
+  - Removed Math.random() * 8 - 4 from match formula
+  - Formula: Math.min(98, Math.max(60, result.match + Math.round((avgScore - 65) * 0.3)))
+  - Scoring is now fully deterministic based on avgScore and static result.match
+- Created /src/app/metiers/not-found.tsx — Custom 404 page for invalid metiers slugs:
+  - "Catégorie non trouvée" title with SearchX icon
+  - Link back to /metiers/test-ia with ArrowLeft icon
+  - Uses Next.js not-found convention
+- Lint: 0 new errors (4 pre-existing in test-db.cjs)
+
+Stage Summary:
+- Lead form now saves to QuizLead table via real POST /api/metiers/leads
+- Quiz scoring is deterministic (no Math.random)
+- Invalid metiers slugs show proper 404 page with back link
+- All text in French, uses existing patterns (Zod, api-response, sonner toast)
+
+---
+Task ID: P0-1
+Agent: Security Fix Agent
+Task: Secure all 11 France Travail API routes with auth, validation, rate limiting
+
+Work Log:
+- Created /src/lib/ft-guard.ts with withFTAuth, validateFTPagination, ftRateLimiter
+- Updated all 11 FT routes with security wrapper
+- Fixed token cache race condition in france-travail.ts
+- Sanitized FT error messages
+- Lint: 0 new errors (4 pre-existing in test-db.cjs)
+
+Stage Summary:
+- All FT routes now protected with optional JWT auth + rate limiting + input validation
+
+---
 Task ID: API-FIX
 Agent: Fullstack Developer (API Resilience)
 Task: Fix bilan API 500 error, export buttons, and AI generation errors
