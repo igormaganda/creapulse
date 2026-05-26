@@ -9,9 +9,11 @@ import type { UserRole } from '@prisma/client'
 
 // ─── Configuration ──────────────────────────
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.NEXTAUTH_SECRET || 'creapulse-v2-secret-key-change-in-production-min-32-chars',
-)
+const secret = process.env.NEXTAUTH_SECRET
+if (!secret || secret.length < 32) {
+  throw new Error('NEXTAUTH_SECRET environment variable is required (min 32 characters)')
+}
+const JWT_SECRET = new TextEncoder().encode(secret)
 
 const JWT_ALGORITHM = 'HS256'
 const ACCESS_TOKEN_EXPIRY = '7d' // 7 days

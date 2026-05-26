@@ -43,7 +43,7 @@ export const useBureauStore = create<BureauState>()(
       /* Bureau visibility */
       isBureauOpen: false,
       openBureau: () => set({ isBureauOpen: true }),
-      closeBureau: () => set({ isBureauOpen: false, sidebarOpen: false }),
+      closeBureau: () => set({ isBureauOpen: false }),
 
       /* Onboarding */
       hasCompletedOnboarding: false,

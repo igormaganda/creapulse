@@ -36,6 +36,7 @@ import {
   DollarSign,
   Target,
   BarChart3,
+  Check,
 } from 'lucide-react'
 import {
   BarChart,

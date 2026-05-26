@@ -108,7 +108,7 @@ export function RegisterDialog({
       }
 
       toast.success('Compte cree avec succes !')
-      onRegisterSuccess(data.user)
+      onRegisterSuccess(data.data?.user)
       onOpenChange(false)
       setFirstName('')
       setLastName('')

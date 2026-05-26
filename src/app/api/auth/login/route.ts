@@ -79,21 +79,24 @@ export async function POST(request: Request) {
       avatarUrl: user.avatarUrl,
     })
 
-    // Set session cookie (with Secure flag in production)
-    const isProduction = process.env.NODE_ENV === 'production'
-    const sessionCookie = `session=${authTokens.accessToken}; Path=/; HttpOnly; ${isProduction ? 'Secure; ' : ''}SameSite=Lax; Max-Age=${authTokens.expiresIn}`
-
-    return NextResponse.json({
+    // Set session cookie
+    const response = NextResponse.json({
       success: true,
       data: {
         user: authTokens.user,
         accessToken: authTokens.accessToken,
       },
-    }, {
- headers: {
-        'Set-Cookie': sessionCookie,
-      },
     })
+
+    response.cookies.set('session', authTokens.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: authTokens.expiresIn,
+    })
+
+    return response
   } catch (err) {
     return handleApiError(err)
   }

@@ -83,7 +83,6 @@ const QUESTION_HELP: Record<string, string> = {
   revenueForecast: "chiffre d'affaires prévisionnel année 1 (<30k€, 30-70k€, >70k€)",
   liabilityPreference: "préférence de responsabilité (limitée ou illimitée)",
   socialRegime: "régime social préféré (assimilé salarié, TNS, pas de préférence)",
-  vatRegime: "régime de TVA (franchise, simplifié, réel normal)",
   growthPlans: "plans de croissance (stable ou rapide avec levée de fonds)",
 }
 
@@ -96,7 +95,6 @@ interface QuestionAnswer {
   revenueForecast: string
   liabilityPreference: string
   socialRegime: string
-  vatRegime: string
   growthPlans: string
 }
 
@@ -184,11 +182,6 @@ function getRecommendation(answers: QuestionAnswer) {
     scores['Micro-entreprise'] += 2
     scores['EURL'] += 2
     scores['SARL'] += 1
-  }
-
-  // VAT regime
-  if (answers.vatRegime === 'exempt') {
-    scores['Micro-entreprise'] += 2
   }
 
   // Growth plans
@@ -330,7 +323,6 @@ ${context ? `CONTEXTE DU PROJET :\n${context}` : 'Aucun contexte de projet. Gén
 - "revenueForecast" : "low" | "medium" | "high"
 - "liabilityPreference" : "limited" | "unlimited"
 - "socialRegime" : "salaried" | "independent" | "no-preference"
-- "vatRegime" : "exempt" | "simplified" | "real"
 - "growthPlans" : "steady" | "rapid"
 
 Renvoie UNIQUEMENT le JSON, sans backticks ni texte autour.`

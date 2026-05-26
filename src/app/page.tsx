@@ -1,8 +1,11 @@
 'use client'
 
+import DOMPurify from 'dompurify'
+
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion } from 'framer-motion'
 import dynamic from 'next/dynamic'
+import { toast } from 'sonner'
 
 /* ─── shadcn/ui components ─── */
 import { Button } from '@/components/ui/button'
@@ -155,14 +158,18 @@ function useCountUp(target: number, duration = 2000, startOnView = true) {
 
   useEffect(() => {
     if (!started) return
+    let rafId: number
     let startTime: number | null = null
     const step = (timestamp: number) => {
       if (!startTime) startTime = timestamp
       const progress = Math.min((timestamp - startTime) / duration, 1)
       setCount(Math.floor(progress * target))
-      if (progress < 1) requestAnimationFrame(step)
+      if (progress < 1) {
+        rafId = requestAnimationFrame(step)
+      }
     }
-    requestAnimationFrame(step)
+    rafId = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(rafId)
   }, [started, target, duration])
 
   return { count, ref }
@@ -196,7 +203,10 @@ function Navbar() {
     openBureau()
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/me', { method: 'DELETE', credentials: 'include' })
+    } catch {}
     setAuthUser(null)
     useBureauStore.getState().closeBureau()
   }
@@ -459,11 +469,11 @@ function HeroSection() {
               variants={fadeInUp}
               className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start"
             >
-              <Button size="lg" className="gap-2 text-base font-semibold">
+              <Button size="lg" className="gap-2 text-base font-semibold" onClick={() => setRegisterOpen(true)}>
                 Commencer mon parcours
                 <ArrowRight className="h-4 w-4" />
               </Button>
-              <Button variant="outline" size="lg" className="gap-2 text-base">
+              <Button variant="outline" size="lg" className="gap-2 text-base" onClick={() => document.getElementById('outils')?.scrollIntoView({ behavior: 'smooth' })}>
                 Découvrir les outils
                 <Search className="h-4 w-4" />
               </Button>
@@ -482,7 +492,7 @@ function HeroSection() {
                 {/* Floating cards composition */}
                 <div className="relative h-full w-full">
                   {/* Card 1 — top-left */}
-                  <div className="animate-float absolute -top-2 left-0 rounded-2xl border border-teal-100 bg-white p-4 shadow-lg dark:border-teal-900/30">
+                  <div className="animate-float absolute -top-2 left-0 rounded-2xl border border-teal-100 bg-white p-4 shadow-lg dark:bg-slate-800/80 dark:border-teal-900/30">
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-100 dark:bg-teal-900/40">
                         <Calculator className="h-5 w-5 text-primary" />
@@ -495,7 +505,7 @@ function HeroSection() {
                   </div>
                   {/* Card 2 — top-right */}
                   <div
-                    className="animate-float absolute -top-2 right-0 rounded-2xl border border-amber-100 bg-white p-4 shadow-lg dark:border-amber-900/30"
+                    className="animate-float absolute -top-2 right-0 rounded-2xl border border-amber-100 bg-white p-4 shadow-lg dark:bg-slate-800/80 dark:border-amber-900/30"
                     style={{ animationDelay: '0.5s' }}
                   >
                     <div className="flex items-center gap-3">
@@ -510,7 +520,7 @@ function HeroSection() {
                   </div>
                   {/* Card 3 — bottom-left */}
                   <div
-                    className="animate-float absolute bottom-16 left-4 rounded-2xl border border-coral-100 bg-white p-4 shadow-lg dark:border-coral-900/30"
+                    className="animate-float absolute bottom-16 left-4 rounded-2xl border border-coral-100 bg-white p-4 shadow-lg dark:bg-slate-800/80 dark:border-coral-900/30"
                     style={{ animationDelay: '1s' }}
                   >
                     <div className="flex items-center gap-3">
@@ -525,7 +535,7 @@ function HeroSection() {
                   </div>
                   {/* Card 4 — center bottom */}
                   <div
-                    className="animate-float absolute bottom-0 right-4 rounded-2xl border border-teal-100 bg-white p-5 shadow-lg dark:border-teal-900/30"
+                    className="animate-float absolute bottom-0 right-4 rounded-2xl border border-teal-100 bg-white p-5 shadow-lg dark:bg-slate-800/80 dark:border-teal-900/30"
                     style={{ animationDelay: '1.5s' }}
                   >
                     <div className="flex items-center gap-3">
@@ -1382,7 +1392,7 @@ function ActualitesSection() {
                   </SheetDescription>
                 </SheetHeader>
                 <div className="px-6 pb-8 prose prose-sm max-w-none [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-6 [&_h2]:mb-3 [&_h2]:text-foreground [&_ul]:list-disc [&_ul]:pl-5 [&_li]:text-muted-foreground [&_p]:text-muted-foreground [&_a]:text-primary [&_a]:underline">
-                  <div dangerouslySetInnerHTML={{ __html: selectedArticle.content }} />
+                  <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedArticle.content || '') }} />
                 </div>
               </>
             )}
@@ -1557,7 +1567,7 @@ function FooterSection() {
                   onChange={(e) => setEmail(e.target.value)}
                   className="max-w-[220px]"
                 />
-                <Button size="sm">S&apos;abonner</Button>
+                <Button size="sm" onClick={() => toast.success('Merci ! Vous êtes inscrit(e) à la newsletter.')}>S&apos;abonner</Button>
               </div>
             </div>
 
@@ -1589,6 +1599,7 @@ function FooterSection() {
                     <a
                       href={link.href}
                       className="text-sm text-muted-foreground transition-colors hover:text-primary"
+                      onClick={link.href === '#' ? (e) => { e.preventDefault(); toast.info('Page en cours de construction') } : undefined}
                     >
                       {link.label}
                     </a>

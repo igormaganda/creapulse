@@ -218,9 +218,8 @@
     transition: background-color 0.3s ease, color 0.3s ease;
   }
   /* Smooth transitions for theme-aware elements */
-  *,
-  *::before,
-  *::after {
+  body, main, header, footer, nav, section, article, aside, div, p, h1, h2, h3, h4, h5, h6, span, a, button, input, textarea, select, label,
+  .card, .glass-card, .badge {
     transition-property: background-color, border-color, color, fill, stroke, box-shadow;
     transition-duration: 200ms;
     transition-timing-function: ease;
@@ -280,6 +279,18 @@
   }
   .text-gradient-accent {
     background: linear-gradient(135deg, #FF6B35 0%, #FFB74D 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .dark .text-gradient-teal {
+    background: linear-gradient(135deg, #4DD0E1 0%, #80DEEA 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .dark .text-gradient-accent {
+    background: linear-gradient(135deg, #FF8A65 0%, #FFCC80 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
