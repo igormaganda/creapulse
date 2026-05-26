@@ -310,6 +310,7 @@ model User {
   mentorRequests      MentorshipRequest[]  @relation("MenteeRequests")
   personalPaths       PersonalizedPath[]
   swipeResults        SwipeGameResult[]
+  swipeAnswers        SwipeAnswer[]
   registrations       Registration[]
   accessibility       AccessibilitySetting?
   livrables           Livrable[]          @relation("LivrableOwner")
@@ -1043,16 +1044,87 @@ model Registration {
   @@index([userId])
 }
 
+// ============================================
+// JEU DE CARTES « PÉPITES » — 60 Compétences + 300 Questions
+// ============================================
+
+model SwipeCard {
+  id          String   @id @default(cuid())
+  code        String   @unique          // ex: "ldr-01"
+  title       String                    // ex: "Leadership"
+  description String                    // Description détaillée
+  icon        String                    // Emoji ou Lucide icon name
+  category    String                    // Dimension Kiviat: leadership, stress, communication, resolution, creativity, adaptability
+  subcategory String?                   // Sous-catégorie
+  difficulty  Int      @default(1)     // 1-3 (facile, moyen, expert)
+  weight      Float    @default(1.0)   // Poids dans le calcul Kiviat
+  sortOrder   Int      @default(0)     // Ordre d'affichage
+  isActive    Boolean  @default(true)  // Actif/désactivé
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  swipeResults SwipeGameResult[]
+
+  @@index([category])
+  @@index([isActive, sortOrder])
+}
+
 model SwipeGameResult {
-  id         String   @id @default(cuid())
-  userId     String
-  cardId     String
-  direction  String
-  createdAt  DateTime @default(now())
+  id          String   @id @default(cuid())
+  userId      String
+  cardId      String
+  cardCode    String
+  cardTitle   String
+  kept        Boolean                   // true = pépite, false = pass
+  superPepite Boolean  @default(false)  // double-tap = super-pépite (expert)
+  confidence  Int?                      // 1-5 auto-évaluation
+  swipedAt    DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  card SwipeCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, cardId])
   @@index([userId])
+  @@index([cardCode])
+}
+
+model SwipeQuestion {
+  id          String   @id @default(cuid())
+  code        String   @unique          // ex: "ldr-q01"
+  question    String                    // Texte de la question
+  category    String                    // Dimension Kiviat
+  subcategory String?
+  type        String   @default("scale") // scale | choice | scenario | ranking | open | behavioral
+  options     Json?                     // Options pour type choice/scenario (JSON array)
+  helpText    String?                   // Texte d'aide
+  scoring     Json?                     // Scoring rules per answer (JSON)
+  difficulty  Int      @default(1)
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  answers     SwipeAnswer[]
+
+  @@index([category, type])
+  @@index([isActive, sortOrder])
+}
+
+model SwipeAnswer {
+  id          String   @id @default(cuid())
+  userId      String
+  questionId  String
+  value       String                    // Réponse (texte ou JSON)
+  confidence  Int?                      // 1-5
+  score       Float?                    // Score calculé (0-100)
+  answeredAt  DateTime @default(now())
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question SwipeQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+  @@index([userId])
+  @@index([questionId])
 }
 
 model Conversation {
