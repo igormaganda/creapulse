@@ -1,6 +1,26 @@
 # CreaPulse V2 - Worklog
 
 ---
+Task ID: P0-2-P0-3
+Agent: Main Architect
+Task: P0-2 (300 questions verification + fix) & P0-3 (seed update for SwipeCards + SwipeQuestions)
+
+Work Log:
+- Verified src/data/swipe-questions.ts already contains 300 questions (50 per dimension × 6)
+- Confirmed type distribution: 8 scale + 9 choice + 9 scenario + 8 open + 8 ranking + 8 behavioral per dimension
+- Fixed category inconsistency: "adaptabilité" → "adaptability" (50 replacements) to match swipe-cards.ts and KiviatDimensions
+- Corrected prisma/seed.ts FinancialForecast section (removed fields that moved to CreaSimSimulation model)
+- Added sections 16 & 17 to seed.ts: 60 SwipeCards + 300 SwipeQuestions using batch createMany (optimized)
+- Ran seed successfully: all data populated in PostgreSQL
+- Verified DB: 60 SwipeCards, 300 SwipeQuestions (50 each: leadership, stress, communication, resolution, creativity, adaptability)
+
+Stage Summary:
+- P0-2 COMPLETE: 300 questions exist in src/data/swipe-questions.ts, category names now consistent
+- P0-3 COMPLETE: prisma/seed.ts now seeds 60 cards + 300 questions into DB
+- Seed runs clean (no errors), all data verified in PostgreSQL
+- Remaining P0 items: all 4/4 now complete (P0-1 JWT auth ✅, P0-2 questions ✅, P0-3 seed ✅, P0-4 lead form ✅)
+
+---
 Task ID: P0-4
 Agent: Quiz Fix Agent
 Task: Fix lead form API, quiz scoring, and 404 handling

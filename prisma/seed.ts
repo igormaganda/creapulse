@@ -635,20 +635,6 @@ async function main() {
         breakevenMonth: 14,
         initialInvestment: 25000,
         aiSynthesis: 'Le projet TaskFlow présente un potentiel de croissance solide. Le seuil de rentabilité est atteint au 14ème mois grâce à un modèle d\'abonnement récurrent. Les marges s\'améliorent significativement en année 2 grâce aux économies d\'échelle.',
-        monthlyRevenue: 6667,
-        fixedCharges: JSON.stringify([
-          { name: 'Hébergement serveur', amount: 150 },
-          { name: 'Outils développement', amount: 80 },
-          { name: 'Comptabilité', amount: 200 },
-          { name: 'Assurance', amount: 75 },
-        ]),
-        variableChargesRate: 15,
-        averageSellingPrice: 29,
-        unitCost: 8,
-        targetMarginRate: 65,
-        grossMarginRate: 72.4,
-        netMarginRate: -6.25,
-        monthlyBreakeven: 8929,
       },
     })
     console.log('   ✅ Financial forecast created for Thomas')
@@ -686,6 +672,52 @@ async function main() {
     console.log('   ✅ 10 notifications created for Sophie')
 
     // ────────────────────────────────────────────
+    // 16. SWIPE CARDS (60)
+    // ────────────────────────────────────────────
+    console.log('🃏 Seeding 60 SwipeCards (Pépites)...')
+
+    const { SWIPE_CARDS } = await import('../src/data/swipe-cards')
+
+    await db.swipeCard.deleteMany({})
+    await db.swipeCard.createMany({
+      data: SWIPE_CARDS.map(card => ({
+        code: card.code,
+        title: card.title,
+        description: card.description,
+        icon: card.icon,
+        category: card.category,
+        difficulty: card.difficulty,
+        weight: card.weight,
+        sortOrder: card.sortOrder,
+      })),
+    })
+    console.log(`   ✅ ${SWIPE_CARDS.length} SwipeCards seeded`)
+
+    // ────────────────────────────────────────────
+    // 17. SWIPE QUESTIONS (300)
+    // ────────────────────────────────────────────
+    console.log('❓ Seeding 300 SwipeQuestions (Pépites)...')
+
+    const { SWIPE_QUESTIONS } = await import('../src/data/swipe-questions')
+
+    await db.swipeQuestion.deleteMany({})
+    await db.swipeQuestion.createMany({
+      data: SWIPE_QUESTIONS.map(q => ({
+        code: q.code,
+        question: q.question,
+        category: q.category,
+        subcategory: q.subcategory,
+        type: q.type,
+        options: q.options ? JSON.stringify(q.options) : null,
+        helpText: q.helpText,
+        scoring: q.scoring ? JSON.stringify(q.scoring) : null,
+        difficulty: q.difficulty,
+        sortOrder: q.sortOrder,
+      })),
+    })
+    console.log(`   ✅ ${SWIPE_QUESTIONS.length} SwipeQuestions seeded`)
+
+    // ────────────────────────────────────────────
     // DONE
     // ────────────────────────────────────────────
     console.log('\n✅ Seed completed successfully!')
@@ -701,6 +733,8 @@ async function main() {
     console.log('  RIASEC:         6 (Sophie)')
     console.log('  Forecast:       1 (Thomas)')
     console.log('  Notifications:  10 (Sophie)')
+    console.log('  SwipeCards:     60 (Pépites)')
+    console.log('  SwipeQuestions: 300 (Pépites Quiz)')
     console.log('─'.repeat(50))
   } catch (err) {
     console.error('\n❌ Seed failed:', err)

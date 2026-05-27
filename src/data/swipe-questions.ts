@@ -4007,7 +4007,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q01",
     question: "Je m'adapte rapidement quand les priorités de mon projet changent soudainement.",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "flexibilité",
     type: "scale",
     options: null,
@@ -4020,7 +4020,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q02",
     question: "Je consacre régulièrement du temps à suivre les évolutions technologiques de mon secteur.",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "veille",
     type: "scale",
     options: null,
@@ -4033,7 +4033,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q03",
     question: "J'apprends activement de mes échecs et j'ajuste ma stratégie en conséquence.",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "apprentissage",
     type: "scale",
     options: null,
@@ -4046,7 +4046,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q04",
     question: "Je suis ouvert aux idées et aux méthodes de travail très différentes des miennes.",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "ouverture",
     type: "scale",
     options: null,
@@ -4059,7 +4059,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q05",
     question: "Je perçois le changement organisationnel comme une opportunité plutôt que comme une menace.",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "changement",
     type: "scale",
     options: null,
@@ -4072,7 +4072,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q06",
     question: "Je suis capable d'intervenir sur différents aspects du projet quand l'équipe a besoin de renfort.",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "polyvalence",
     type: "scale",
     options: null,
@@ -4085,7 +4085,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q07",
     question: "Je reste efficace et serein quand les objectifs ou les directives sont flous.",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "ambiguïté",
     type: "scale",
     options: null,
@@ -4098,7 +4098,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q08",
     question: "Je travaille efficacement avec des profils très différents du mien, y compris culturellement.",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "collaboration",
     type: "scale",
     options: null,
@@ -4113,7 +4113,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q09",
     question: "Votre client principal change ses exigences en cours de projet. Comment réagissez-vous ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "flexibilité",
     type: "choice",
     options: [
@@ -4131,7 +4131,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q10",
     question: "Une nouvelle technologie menace de rendre votre produit obsolète. Que faites-vous en premier ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "veille",
     type: "choice",
     options: [
@@ -4149,7 +4149,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q11",
     question: "Vous devez apprendre un nouveau logiciel complexe en une semaine pour un projet critique. Comment procédez-vous ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "apprentissage",
     type: "choice",
     options: [
@@ -4167,7 +4167,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q12",
     question: "Un nouveau collaborateur propose une méthode de travail radicalement différente de la vôtre. Comment réagissez-vous ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "ouverture",
     type: "choice",
     options: [
@@ -4185,7 +4185,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q13",
     question: "Votre entreprise fusionne avec une autre et la culture d'entreprise est très différente. Comment vous adaptez-vous ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "changement",
     type: "choice",
     options: [
@@ -4203,7 +4203,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q14",
     question: "Deux membres clés de votre équipe tombent malades en plein projet. Que faites-vous ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "polyvalence",
     type: "choice",
     options: [
@@ -4221,7 +4221,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q15",
     question: "Vous recevez un brief client très vague sans critères de succès définis. Comment abordez-vous le projet ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "ambiguïté",
     type: "choice",
     options: [
@@ -4239,7 +4239,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q16",
     question: "Vous devez collaborer avec une équipe asiatique sur un projet avec un décalage horaire important. Comment gérez-vous la collaboration ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "collaboration",
     type: "choice",
     options: [
@@ -4257,7 +4257,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q17",
     question: "Le marché de votre produit s'effondre subitement. Comment redressez-vous la situation ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "flexibilité",
     type: "choice",
     options: [
@@ -4277,7 +4277,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q18",
     question: "Le gouvernement annonce une nouvelle réglementation qui impacte directement votre modèle économique. Comment réagissez-vous ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "changement",
     type: "scenario",
     options: [
@@ -4295,7 +4295,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q19",
     question: "Vous découvrez qu'un outil que vous utilisez depuis des années va être déprécié. Que faites-vous ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "veille",
     type: "scenario",
     options: [
@@ -4313,7 +4313,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q20",
     question: "Vous devez prendre en charge temporairement le rôle de directeur technique alors que vous êtes directeur commercial. Comment gérez-vous cette situation ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "polyvalence",
     type: "scenario",
     options: [
@@ -4331,7 +4331,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q21",
     question: "Votre startup passe de 5 à 30 collaborateurs en six mois. Comment adaptez-vous votre mode de management ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "changement",
     type: "scenario",
     options: [
@@ -4349,7 +4349,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q22",
     question: "Vous déménagez dans un nouveau pays pour développer votre activité et vous ne connaissez pas la culture locale. Comment procédez-vous ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "ouverture",
     type: "scenario",
     options: [
@@ -4367,7 +4367,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q23",
     question: "Un investisseur vous demande de changer votre modèle de revenus alors que vous êtes en pleine croissance. Comment gérez-vous cette demande ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "flexibilité",
     type: "scenario",
     options: [
@@ -4385,7 +4385,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q24",
     question: "Vous recevez un avis contradictoire de la part de vos trois principaux conseillers sur une direction stratégique. Comment décidez-vous ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "ambiguïté",
     type: "scenario",
     options: [
@@ -4403,7 +4403,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q25",
     question: "Une pandémie oblige votre équipe à travailler à distance du jour au lendemain. Comment assurez-vous la continuité ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "apprentissage",
     type: "scenario",
     options: [
@@ -4421,7 +4421,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q26",
     question: "Votre principal partenaire stratégique décide de travailler avec votre concurrent. Comment rebondissez-vous ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "veille",
     type: "scenario",
     options: [
@@ -4441,7 +4441,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q27",
     question: "Quelle est la plus grande adaptation que vous ayez dû faire dans votre parcours professionnel et qu'avez-vous appris ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "flexibilité",
     type: "open",
     options: null,
@@ -4454,7 +4454,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q28",
     question: "Comment organisez-vous votre veille pour rester informé des évolutions de votre secteur ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "veille",
     type: "open",
     options: null,
@@ -4467,7 +4467,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q29",
     question: "Quelle compétence avez-vous apprise récemment et comment l'avez-vous appliquée concrètement ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "apprentissage",
     type: "open",
     options: null,
@@ -4480,7 +4480,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q30",
     question: "Comment gérez-vous les situations où vos convictions personnelles sont remises en question par de nouvelles informations ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "ouverture",
     type: "open",
     options: null,
@@ -4493,7 +4493,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q31",
     question: "Quelle approche adoptez-vous pour aider votre équipe à traverser une période de transformation majeure ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "changement",
     type: "open",
     options: null,
@@ -4506,7 +4506,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q32",
     question: "Comment développez-vous votre polyvalence tout en restant excellent dans votre domaine de prédilection ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "polyvalence",
     type: "open",
     options: null,
@@ -4519,7 +4519,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q33",
     question: "Comment prenez-vous des décisions efficaces dans un contexte de forte incertitude et d'information incomplète ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "ambiguïté",
     type: "open",
     options: null,
@@ -4532,7 +4532,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q34",
     question: "Comment avez-vous adapté votre style de collaboration pour travailler efficacement avec des personnes aux profils très différents ?",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "collaboration",
     type: "open",
     options: null,
@@ -4547,7 +4547,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q35",
     question: "Classez ces aptitudes par ordre d'importance pour réussir dans un environnement en mutation permanente :",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "flexibilité",
     type: "ranking",
     options: [
@@ -4565,7 +4565,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q36",
     question: "Classez ces sources d'information par ordre de pertinence pour anticiper les changements de marché :",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "veille",
     type: "ranking",
     options: [
@@ -4583,7 +4583,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q37",
     question: "Classez ces méthodes d'apprentissage par ordre d'efficacité pour monter en compétences rapidement :",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "apprentissage",
     type: "ranking",
     options: [
@@ -4601,7 +4601,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q38",
     question: "Classez ces attitudes face à une nouveauté imposée par le marché, de la plus à la moins recommandée :",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "ouverture",
     type: "ranking",
     options: [
@@ -4619,7 +4619,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q39",
     question: "Classez ces actions pour réussir une transformation organisationnelle par ordre d'impact :",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "changement",
     type: "ranking",
     options: [
@@ -4637,7 +4637,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q40",
     question: "Classez ces compétences transversales par ordre de valeur pour un entrepreneur face à l'imprévu :",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "polyvalence",
     type: "ranking",
     options: [
@@ -4655,7 +4655,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q41",
     question: "Classez ces approches pour prendre une décision dans un contexte flou par ordre de pertinence :",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "ambiguïté",
     type: "ranking",
     options: [
@@ -4673,7 +4673,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q42",
     question: "Classez ces facteurs pour bâtir une équipe résiliente face au changement par ordre de priorité :",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "collaboration",
     type: "ranking",
     options: [
@@ -4693,7 +4693,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q43",
     question: "Racontez une fois où vous avez dû changer radicalement votre plan en cours de route.",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "flexibilité",
     type: "behavioral",
     options: [
@@ -4711,7 +4711,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q44",
     question: "Racontez une situation où une information glanée lors d'une veille vous a permis d'anticiper un changement important.",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "veille",
     type: "behavioral",
     options: [
@@ -4729,7 +4729,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q45",
     question: "Racontez une fois où vous avez dû apprendre une compétence totalement nouvelle pour sauver un projet.",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "apprentissage",
     type: "behavioral",
     options: [
@@ -4747,7 +4747,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q46",
     question: "Racontez une fois où vous avez accueilli favorablement une critique qui remettait en question votre approche.",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "ouverture",
     type: "behavioral",
     options: [
@@ -4765,7 +4765,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q47",
     question: "Racontez une fois où vous avez accompagné votre équipe à travers une restructuration difficile.",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "changement",
     type: "behavioral",
     options: [
@@ -4783,7 +4783,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q48",
     question: "Racontez une situation où vous avez dû intervenir en dehors de votre domaine de compétence principal pour débloquer un projet.",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "polyvalence",
     type: "behavioral",
     options: [
@@ -4801,7 +4801,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q49",
     question: "Racontez une fois où vous avez dû avancer sans avoir toutes les informations nécessaires pour décider.",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "ambiguïté",
     type: "behavioral",
     options: [
@@ -4819,7 +4819,7 @@ export const SWIPE_QUESTIONS: SwipeQuestionData[] = [
   {
     code: "ada-q50",
     question: "Racontez une fois où collaborer avec une personne très différente de vous a conduit à un résultat exceptionnel.",
-    category: "adaptabilité",
+    category: "adaptability",
     subcategory: "collaboration",
     type: "behavioral",
     options: [
