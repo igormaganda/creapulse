@@ -189,9 +189,8 @@ export function LoginDialog({
           </Button>
         </form>
 
+        {/* Switch to register — masqué temporairement
         <Separator className="my-2" />
-
-        {/* Switch to register */}
         <p className="text-center text-sm text-muted-foreground">
           Pas encore de compte ?{' '}
           <button
@@ -205,6 +204,7 @@ export function LoginDialog({
             Créer un compte
           </button>
         </p>
+        */}
 
         {/* Admin / Staff access */}
         <Accordion type="single" collapsible className="mt-2">

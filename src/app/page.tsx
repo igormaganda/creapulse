@@ -212,6 +212,7 @@ function Navbar({
                 >
                   Se connecter
                 </Button>
+                {/* S'inscrire — masqué temporairement (accessible via login uniquement)
                 <Button
                   size="sm"
                   className="text-sm"
@@ -219,6 +220,7 @@ function Navbar({
                 >
                   S&apos;inscrire
                 </Button>
+                */}
               </>
             )}
           </div>
@@ -307,6 +309,7 @@ function Navbar({
                     >
                       Se connecter
                     </Button>
+                    {/* S'inscrire — masqué temporairement (accessible via login uniquement)
                     <Button
                       className="w-full"
                       onClick={() => {
@@ -316,6 +319,7 @@ function Navbar({
                     >
                       S&apos;inscrire
                     </Button>
+                    */}
                   </>
                 )}
               </nav>
@@ -376,7 +380,7 @@ export default function Home() {
 
       <main className="flex-1">
         {/* Hero */}
-        <HeroSection onRegisterOpen={() => setRegisterOpen(true)} />
+        <HeroSection onRegisterOpen={() => setLoginOpen(true)} />
 
         {/* Mon Besoin */}
         <BesoinSection />
@@ -400,7 +404,7 @@ export default function Home() {
         <PartenairesSection />
 
         {/* CTA Final */}
-        <CtaFinalSection onRegisterOpen={() => setRegisterOpen(true)} />
+        <CtaFinalSection onRegisterOpen={() => setLoginOpen(true)} />
       </main>
 
       {/* Footer */}
