@@ -8,6 +8,7 @@ import { NextRequest } from 'next/server'
 import { accessSync, constants } from 'fs'
 import { db } from '@/lib/db'
 import { success, handleApiError } from '@/lib/api-response'
+import { verifyToken } from '@/lib/auth'
 import { createLogger } from '@/lib/logger'
 
 const logger = createLogger('HealthDetailed')
@@ -16,6 +17,18 @@ const UPLOAD_DIR = '/home/z/my-project/upload'
 
 export async function GET(_request: NextRequest) {
   try {
+    // Auth required (admin only)
+    try {
+      const token = _request.headers.get('authorization')?.replace('Bearer ', '')
+      if (!token) return success({ status: 'unauthenticated', message: 'Authentification requise' }, 'Non autorisé')
+      const payload = await verifyToken(token)
+      if (payload.role !== 'ADMIN') {
+        return success({ status: 'forbidden', message: 'Accès réservé aux administrateurs' }, 'Accès restreint')
+      }
+    } catch {
+      return success({ status: 'unauthenticated', message: 'Token invalide' }, 'Non autorisé')
+    }
+
     // ─── Database Check ──────────────────
     let dbStatus: 'connected' | 'error' = 'connected'
     let dbLatencyMs: number | null = null
@@ -94,7 +107,6 @@ export async function GET(_request: NextRequest) {
 
         // File system
         filesystem: {
-          uploadDir: UPLOAD_DIR,
           writable: fsWritable,
           error: fsError,
         },
@@ -102,13 +114,6 @@ export async function GET(_request: NextRequest) {
         // Memory
         memory: {
           ...memoryFormatted,
-          raw: {
-            rss: memoryUsage.rss,
-            heapTotal: memoryUsage.heapTotal,
-            heapUsed: memoryUsage.heapUsed,
-            external: memoryUsage.external,
-            arrayBuffers: memoryUsage.arrayBuffers,
-          },
         },
 
         // Runtime info
@@ -116,7 +121,6 @@ export async function GET(_request: NextRequest) {
           platform: process.platform,
           nodeVersion: process.version,
           arch: process.arch,
-          pid: process.pid,
         },
       },
       `CreaPulse V2 — ${overallStatus === 'healthy' ? 'Système en bonne santé' : 'Système dégradé'}`,

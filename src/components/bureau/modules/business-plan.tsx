@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { motion } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -126,7 +126,7 @@ const STATUT_JURIDIQUE_OPTIONS = [
   { value: 'sasu', label: 'SASU (SAS Unipersonnelle)' },
   { value: 'sarl', label: 'SARL (Société à Responsabilité Limitée)' },
   { value: 'sa', label: 'SA (Société Anonyme)' },
-  { value: 'sei', label: 'SEI (Société en Nom Collectif)' },
+  { value: 'sei', label: 'SEI (Société d\'Exercice Libéral à Responsabilité Limitée)' },
   { value: 'snc', label: 'SNC (Société en Nom Collectif)' },
   { value: 'association', label: 'Association loi 1901' },
   { value: 'autre', label: 'Autre' },
@@ -220,21 +220,13 @@ const DEFAULT_SECTIONS: BpSections = {
   'strategie-marketing': '',
   'plan-commercial': '',
   swot: { strengths: '', weaknesses: '', opportunities: '', threats: '' },
-  financement: [
-    { id: genId(), source: 'Apport personnel', montant: 10000 },
-    { id: genId(), source: 'Emprunt bancaire', montant: 30000 },
-  ],
+  financement: [],
   'compte-resultat': {
     year1: { ca: 0, charges: 0, resultat: 0 },
     year2: { ca: 0, charges: 0, resultat: 0 },
     year3: { ca: 0, charges: 0, resultat: 0 },
   },
-  tresorerie: MONTHS_FR.map((m) => ({
-    month: m,
-    encaissements: 0,
-    decaissements: 0,
-    solde: 0,
-  })),
+  tresorerie: [],
   'seuil-rentabilite': '',
   investissements: [],
   bilan: {
@@ -276,8 +268,6 @@ function formatCurrency(value: number): string {
 
 // ─── Main Component ─────────────────────────
 
-type PipelineSource = 'parcours' | 'marche' | 'financier' | 'juridique' | 'creasim' | 'manual' | null
-
 interface PipelineStatus {
   parcours: boolean
   marche: boolean
@@ -308,7 +298,7 @@ export function BusinessPlanModule() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [projectContext, setProjectContext] = useState<Record<string, string | null> | null>(null)
   const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus>(DEFAULT_PIPELINE)
-  const contentRef = useRef<HTMLDivElement>(null)
+
 
   // ─── Load data on mount ──────────────────
   useEffect(() => {
@@ -440,10 +430,12 @@ export function BusinessPlanModule() {
       })
       const json = await res.json()
       if (json.success && json.data?.sections) {
-        const merged = { ...DEFAULT_SECTIONS, ...sections, ...json.data.sections }
-        setSections(merged)
+        setSections(prev => {
+          const merged = { ...DEFAULT_SECTIONS, ...prev, ...json.data.sections }
+          localStorage.setItem('creapulse-bp', JSON.stringify(merged))
+          return merged
+        })
         setPipelineStatus(prev => ({ ...prev, parcours: true }))
-        localStorage.setItem('creapulse-bp', JSON.stringify(merged))
         toast.success('Business Plan généré depuis votre parcours entrepreneurial')
       } else {
         toast.error(json.error?.message || 'Erreur lors de la génération depuis le parcours')
@@ -453,7 +445,7 @@ export function BusinessPlanModule() {
     } finally {
       setIsGeneratingParcours(false)
     }
-  }, [sections])
+  }, [])
 
   // ─── Sync Simulators ─────────────────────
   const handleSyncSimulators = useCallback(async () => {
@@ -467,9 +459,11 @@ export function BusinessPlanModule() {
       const json = await res.json()
       if (json.success && json.data) {
         if (json.data.sections) {
-          const merged = { ...DEFAULT_SECTIONS, ...sections, ...json.data.sections }
-          setSections(merged)
-          localStorage.setItem('creapulse-bp', JSON.stringify(merged))
+          setSections(prev => {
+            const merged = { ...DEFAULT_SECTIONS, ...prev, ...json.data.sections }
+            localStorage.setItem('creapulse-bp', JSON.stringify(merged))
+            return merged
+          })
         }
         if (json.data.syncedSources) {
           setPipelineStatus(prev => ({
@@ -490,7 +484,7 @@ export function BusinessPlanModule() {
     } finally {
       setIsSyncing(false)
     }
-  }, [sections])
+  }, [])
 
   // ─── Export PDF ──────────────────────────
   const handleExportPdf = useCallback(() => {
@@ -781,7 +775,7 @@ export function BusinessPlanModule() {
         </div>
 
         {/* ═══ Main Content Area ═══ */}
-        <div className="flex-1 flex flex-col overflow-hidden" ref={contentRef}>
+        <div className="flex-1 flex flex-col overflow-hidden">
           {/* Mobile Section Navigation (horizontal scroll) */}
           <div className="lg:hidden border-b bg-muted/30 overflow-x-auto scrollbar-none">
             <div className="flex items-center gap-1 p-2 min-w-max">
@@ -889,7 +883,7 @@ export function BusinessPlanModule() {
               {([
                 { key: 'parcours' as const, label: 'Parcours', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
                 { key: 'marche' as const, label: 'Marché', color: 'bg-teal-500/20 text-teal-400 border-teal-500/30' },
-                { key: 'financier' as const, label: 'Financier', color: 'bg-coral-500/20 text-coral-400 border-coral-500/30' },
+                { key: 'financier' as const, label: 'Financier', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
                 { key: 'juridique' as const, label: 'Juridique', color: 'bg-teal-500/20 text-teal-400 border-teal-500/30' },
                 { key: 'creasim' as const, label: 'CreaSim', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
               ]).map(item => (

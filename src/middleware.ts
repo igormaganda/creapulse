@@ -67,11 +67,6 @@ export async function middleware(request: NextRequest) {
   // User is authenticated and authorized — allow through
   const response = NextResponse.next()
 
-  // Add helpful headers for downstream usage
-  response.headers.set('x-user-id', session.payload.userId)
-  response.headers.set('x-user-role', session.payload.role)
-  response.headers.set('x-tenant-id', session.payload.tenantId)
-
   return response
 }
 

@@ -168,7 +168,7 @@ export async function PUT(request: NextRequest) {
             Array.isArray(v) && v.length > 0,
         ).length
       : 0
-    const totalSections = 22
+    const totalSections = 24
     const bpScore = Math.round((filledSections / totalSections) * 100)
 
     // Determine status
@@ -527,7 +527,7 @@ Tu dois répondre UNIQUEMENT avec un objet JSON valide (pas de markdown, pas de 
     typeof v === 'object' && v !== null && !Array.isArray(v) && Object.keys(v).length > 0 ||
     Array.isArray(v) && (v as unknown[]).length > 0,
   ).length
-  const bpScore = Math.round((filledCount / 22) * 100)
+  const bpScore = Math.round((filledCount / 24) * 100)
 
   // 8. Update CreatorJourney
   await db.creatorJourney.upsert({
@@ -628,9 +628,9 @@ async function handleSyncSimulators(userId: string) {
     }
 
     if (parts.length > 0) {
-      fillSection('etudeMarche', `## Étude de marché\n\n${parts.join('\n\n')}`, 'Analyse de marché')
+      fillSection('etude-marche', `## Étude de marché\n\n${parts.join('\n\n')}`, 'Analyse de marché')
     } else {
-      skipped.push({ section: 'etudeMarche', source: 'Analyse de marché', reason: 'Données insuffisantes' })
+      skipped.push({ section: 'etude-marche', source: 'Analyse de marché', reason: 'Données insuffisantes' })
     }
 
     // Competition
@@ -655,7 +655,7 @@ async function handleSyncSimulators(userId: string) {
       skipped.push({ section: 'swot', source: 'Analyse de marché', reason: 'Données insuffisantes' })
     }
   } else {
-    skipped.push({ section: 'etudeMarche', source: 'Analyse de marché', reason: 'Simulation non complétée' })
+    skipped.push({ section: 'etude-marche', source: 'Analyse de marché', reason: 'Simulation non complétée' })
     skipped.push({ section: 'concurrence', source: 'Analyse de marché', reason: 'Simulation non complétée' })
     skipped.push({ section: 'swot', source: 'Analyse de marché', reason: 'Simulation non complétée' })
   }
@@ -675,9 +675,9 @@ async function handleSyncSimulators(userId: string) {
     if (financialForecast.initialInvestment) finParts.push(`**Investissement initial** : ${financialForecast.initialInvestment.toLocaleString('fr-FR')} €`)
 
     if (finParts.length > 0) {
-      fillSection('planFinancier', `## Plan financier (synthèse)\n\n${finParts.join('\n\n')}`, 'Prévisions financières')
+      fillSection('financement', `## Plan financier (synthèse)\n\n${finParts.join('\n\n')}`, 'Prévisions financières')
     } else {
-      skipped.push({ section: 'planFinancier', source: 'Prévisions financières', reason: 'Données insuffisantes' })
+      skipped.push({ section: 'financement', source: 'Prévisions financières', reason: 'Données insuffisantes' })
     }
 
     // P&L summary
@@ -697,9 +697,9 @@ async function handleSyncSimulators(userId: string) {
       }
     }
     if (plParts.length > 0) {
-      fillSection('compteResultat', `## Compte de résultat prévisionnel (3 ans)\n\n${plParts.join('\n\n')}`, 'Prévisions financières')
+      fillSection('compte-resultat', `## Compte de résultat prévisionnel (3 ans)\n\n${plParts.join('\n\n')}`, 'Prévisions financières')
     } else {
-      skipped.push({ section: 'compteResultat', source: 'Prévisions financières', reason: 'Données insuffisantes' })
+      skipped.push({ section: 'compte-resultat', source: 'Prévisions financières', reason: 'Données insuffisantes' })
     }
 
     // Investments
@@ -713,8 +713,8 @@ async function handleSyncSimulators(userId: string) {
       skipped.push({ section: 'investissements', source: 'Prévisions financières', reason: 'Aucun investissement renseigné' })
     }
   } else {
-    skipped.push({ section: 'planFinancier', source: 'Prévisions financières', reason: 'Simulation non complétée' })
-    skipped.push({ section: 'compteResultat', source: 'Prévisions financières', reason: 'Simulation non complétée' })
+    skipped.push({ section: 'financement', source: 'Prévisions financières', reason: 'Simulation non complétée' })
+    skipped.push({ section: 'compte-resultat', source: 'Prévisions financières', reason: 'Simulation non complétée' })
     skipped.push({ section: 'investissements', source: 'Prévisions financières', reason: 'Simulation non complétée' })
   }
 
@@ -754,12 +754,12 @@ async function handleSyncSimulators(userId: string) {
     }
 
     if (rentParts.length > 0) {
-      fillSection('rentabilite', `## Analyse de rentabilité (CreaSim)\n\n${rentParts.join('\n\n')}`, 'CreaSim')
+      fillSection('seuil-rentabilite', `## Analyse de rentabilité (CreaSim)\n\n${rentParts.join('\n\n')}`, 'CreaSim')
     } else {
-      skipped.push({ section: 'rentabilite', source: 'CreaSim', reason: 'Données insuffisantes' })
+      skipped.push({ section: 'seuil-rentabilite', source: 'CreaSim', reason: 'Données insuffisantes' })
     }
   } else {
-    skipped.push({ section: 'rentabilite', source: 'CreaSim', reason: 'Simulation non complétée' })
+    skipped.push({ section: 'seuil-rentabilite', source: 'CreaSim', reason: 'Simulation non complétée' })
   }
 
   // 6. Map juridiqueAnalysis → statutJuridique
@@ -779,12 +779,12 @@ async function handleSyncSimulators(userId: string) {
     }
 
     if (jurParts.length > 0) {
-      fillSection('statutJuridique', `## Statut juridique\n\n${jurParts.join('\n\n')}`, 'Analyse juridique')
+      fillSection('statut-juridique', `## Statut juridique\n\n${jurParts.join('\n\n')}`, 'Analyse juridique')
     } else {
-      skipped.push({ section: 'statutJuridique', source: 'Analyse juridique', reason: 'Données insuffisantes' })
+      skipped.push({ section: 'statut-juridique', source: 'Analyse juridique', reason: 'Données insuffisantes' })
     }
   } else {
-    skipped.push({ section: 'statutJuridique', source: 'Analyse juridique', reason: 'Simulation non complétée' })
+    skipped.push({ section: 'statut-juridique', source: 'Analyse juridique', reason: 'Simulation non complétée' })
   }
 
   // 7. Map businessModelCanvas → businessModelCanvas
@@ -811,11 +811,8 @@ async function handleSyncSimulators(userId: string) {
       }
     }
 
-    if (hasContent) {
-      fillSection('businessModelCanvas', `## Business Model Canvas (BMC)\n\n${bmcParts.join('\n\n')}`, 'Business Model Canvas')
-    } else {
-      skipped.push({ section: 'businessModelCanvas', source: 'Business Model Canvas', reason: 'Données insuffisantes' })
-    }
+    // BMC has no matching section in the BP — data is available in the BMC module
+    skipped.push({ section: 'businessModelCanvas', source: 'Business Model Canvas', reason: 'Aucune section correspondante dans le BP' })
   } else {
     skipped.push({ section: 'businessModelCanvas', source: 'Business Model Canvas', reason: 'Simulation non complétée' })
   }
@@ -826,7 +823,8 @@ async function handleSyncSimulators(userId: string) {
     typeof v === 'object' && v !== null && !Array.isArray(v) && Object.keys(v).length > 0 ||
     Array.isArray(v) && (v as unknown[]).length > 0,
   ).length
-  const bpScore = Math.round((filledCount / 22) * 100)
+  const totalSections = 24
+  const bpScore = Math.round((filledCount / totalSections) * 100)
 
   await db.creatorJourney.upsert({
     where: { userId },
@@ -843,12 +841,26 @@ async function handleSyncSimulators(userId: string) {
     },
   })
 
+  // Derive syncedSources from synced array
+  const syncedSources: Record<string, boolean> = {}
+  for (const item of synced) {
+    const source = item.source as string
+    if (source === 'Analyse de marché') syncedSources.marche = true
+    if (source === 'Prévisions financières' || source === 'CreaSim') syncedSources.financier = true
+    if (source === 'Analyse juridique') syncedSources.juridique = true
+    if (source === 'CreaSim') syncedSources.creasim = true
+  }
+  const summary = `${synced.length} sections synchronisées depuis ${[...new Set(synced.map(s => s.source))].join(', ')}`
+
   return success(
     {
       sections: mergedSections,
       synced,
       skipped,
       bpScore,
+      totalSections,
+      syncedSources,
+      summary,
     },
     `Synchronisation terminée : ${synced.length} sections ajoutées, ${skipped.length} ignorées`,
   )

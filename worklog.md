@@ -1,6 +1,29 @@
 # CreaPulse V2 - Worklog
 
 ---
+Task ID: BP-BUGFIX
+Agent: Fullstack Developer
+Task: Fix 8 business plan API and component bugs (BUG-01, BUG-02, BUG-03, BUG-05, BUG-06, BUG-09, BUG-10 + cleanup)
+
+Work Log:
+- **FIX 1 (BUG-02)**: Changed hardcoded `totalSections = 22` to `24` in 3 locations in `/src/app/api/business-plan/route.ts` (lines 171, 530, 826). Frontend now has 24 sections: 5 Présentation + 6 Marché + 6 Finances + 7 Opérations.
+- **FIX 2 (BUG-03)**: Fixed 6 camelCase → kebab-case key mismatches in `handleSyncSimulators` fillSection calls: `etudeMarche`→`etude-marche`, `planFinancier`→`financement`, `compteResultat`→`compte-resultat`, `rentabilite`→`seuil-rentabilite`, `statutJuridique`→`statut-juridique`. Also updated all 10 corresponding `skipped.push()` entries to use kebab-case keys for consistency. Removed `businessModelCanvas` fillSection call entirely — BMC has no matching BP section, data stays in BMC module.
+- **FIX 3 (BUG-05)**: Changed `DEFAULT_SECTIONS` in `/src/components/bureau/modules/business-plan.tsx`: `financement` from 2 pre-filled rows to `[]`, `tresorerie` from 12 month objects to `[]`. Prevents false "filled" count on first load.
+- **FIX 4 (BUG-01)**: Added `syncedSources` (object with boolean flags: marche/financier/juridique/creasim) and `summary` (string) to the `handleSyncSimulators` success response. Derived from the `synced` array by mapping source names to keys.
+- **FIX 5 (BUG-09)**: Fixed SEI label from "SEI (Société en Nom Collectif)" to "SEI (Société d'Exercice Libéral à Responsabilité Limitée)".
+- **FIX 6 (BUG-10)**: Replaced invalid `bg-coral-500/20 text-coral-400 border-coral-500/30` with `bg-amber-500/20 text-amber-400 border-amber-500/30` (coral is not a standard Tailwind color).
+- **FIX 7 (Cleanup)**: Removed unused `AnimatePresence` import, `Card/CardContent/CardHeader/CardTitle/CardDescription` import, `PipelineSource` type alias, `contentRef` useRef, and its JSX `ref={contentRef}` binding. Also removed unused `useRef` from React imports.
+- **FIX 8 (BUG-06)**: Fixed stale closure in `handleGenerateFromParcours` and `handleSyncSimulators`: changed `setSections(merged)` + manual `localStorage.setItem` to functional updater `setSections(prev => { ...return merged })` with localStorage inside. Removed `sections` from dependency arrays.
+
+Stage Summary:
+- 2 files modified: `src/app/api/business-plan/route.ts`, `src/components/bureau/modules/business-plan.tsx`
+- 8 bugs fixed: section count mismatch, key naming, false positive defaults, response format, wrong label, invalid Tailwind class, unused imports, stale closures
+- ESLint: 0 new errors (4 pre-existing in test-db.cjs)
+- All frontend section IDs now consistently use kebab-case
+- API sync response now includes `syncedSources` and `summary` fields expected by frontend
+
+---
+
 Task ID: P0-2-P0-3
 Agent: Main Architect
 Task: P0-2 (300 questions verification + fix) & P0-3 (seed update for SwipeCards + SwipeQuestions)
@@ -1698,3 +1721,27 @@ Stage Summary:
 - page.tsx reduced from 1687 → 398 lines
 - 7 improvement points implemented
 - All lint clean, all sections functional
+
+---
+Task ID: SEC-FIX
+Agent: Security Fix Agent (Fullstack)
+Task: Fix 5 security issues — headers, forum auth, health-detailed auth, JWT in response, middleware x-user headers
+
+Work Log:
+- **FIX 1 (Security Headers)**: Added `headers` config to `next.config.ts` with 5 security headers on all routes:
+  - X-Frame-Options: DENY
+  - X-Content-Type-Options: nosniff
+  - Referrer-Policy: strict-origin-when-cross-origin
+  - Permissions-Policy: camera=(), microphone=(), geolocation=()
+  - X-XSS-Protection: 1; mode=block
+- **FIX 2 (SEC-13 Forum Auth)**: Changed POST handlers in `/src/app/api/forum/route.ts` and `/src/app/api/forum/[id]/route.ts` from optional auth with `db.user.findFirst()` fallback to required auth. Returns 401 if no token or invalid token.
+- **FIX 3 (SEC-14 Health-Detailed Auth)**: Added admin-only JWT auth check at the start of GET handler in `/src/app/api/monitoring/health-detailed/route.ts`. Imported `verifyToken` from `@/lib/auth`. Non-admin users get "Accès restreint". Redacted sensitive fields from response: removed raw memory values, PID, and upload directory path.
+- **FIX 4 (SEC-15 JWT in Response Body)**: Removed `accessToken` from login response body in `/src/app/api/auth/login/route.ts`. Token is only set as httpOnly cookie now.
+- **FIX 5 (SEC-18 Middleware x-user Headers)**: Removed `x-user-id`, `x-user-role`, and `x-tenant-id` header injections from `src/middleware.ts`. Downstream APIs should extract user context from cookie/JWT directly.
+
+- ESLint: 0 new errors (4 pre-existing in test-db.cjs)
+
+Stage Summary:
+- 5 files modified: next.config.ts, forum/route.ts, forum/[id]/route.ts, health-detailed/route.ts, auth/login/route.ts, middleware.ts
+- All 5 security vulnerabilities fixed
+- No new lint errors introduced

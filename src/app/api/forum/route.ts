@@ -112,24 +112,17 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Auth (optional — allow without for now, but prefer authenticated)
+    // Auth required
     let userId: string | undefined
     try {
       const token = getTokenFromHeader(request)
-      if (token) {
-        const payload = await verifyToken(token)
-        userId = payload.userId
+      if (!token) {
+        return Errors.unauthorized('Authentification requise pour publier')
       }
+      const payload = await verifyToken(token)
+      userId = payload.userId
     } catch {
-      // Continue without auth
-    }
-
-    if (!userId) {
-      const firstUser = await db.user.findFirst({ select: { id: true } })
-      if (!firstUser) {
-        return Errors.notFound('Utilisateur')
-      }
-      userId = firstUser.id
+      return Errors.unauthorized('Token invalide ou expiré')
     }
 
     const body = await request.json()
