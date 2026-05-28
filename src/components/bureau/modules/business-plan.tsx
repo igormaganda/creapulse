@@ -52,6 +52,9 @@ import {
   Briefcase,
   Lightbulb,
   ArrowUpRight,
+  Package,
+  UserCheck,
+  Crown,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -59,7 +62,7 @@ import { BusinessPlanPdf } from '@/components/bureau/export/business-plan-pdf'
 
 // ─── Section Definitions ─────────────────────
 
-type SectionType = 'textarea' | 'swot' | 'financing-table' | 'result-table' | 'treasury-table' | 'investments-list' | 'bilan-table' | 'select' | 'timeline'
+type SectionType = 'textarea' | 'swot' | 'financing-table' | 'result-table' | 'treasury-table' | 'investments-list' | 'bilan-table' | 'select' | 'timeline' | 'products-list' | 'associates-list' | 'cogerants-list'
 
 interface SectionDef {
   id: string
@@ -101,7 +104,9 @@ const OPERATIONS_SECTIONS: SectionDef[] = [
   { id: 'statut-juridique', title: 'Statut juridique', description: 'Forme juridique adaptée à votre projet', type: 'select', hasAiSuggestion: false, icon: Shield, color: 'text-[#00838F] bg-[#00838F]/10' },
   { id: 'localisation', title: 'Localisation et implantation', description: "Choix du lieu et justification stratégique", type: 'textarea', hasAiSuggestion: true, icon: MapPin, color: 'text-[#FF6B35] bg-[#FF6B35]/10' },
   { id: 'organisation', title: 'Organisation et moyens humains', description: "Structure organisationnelle et effectifs", type: 'textarea', hasAiSuggestion: true, icon: Users, color: 'text-[#FFB74D] bg-[#FFB74D]/10' },
-  { id: 'production', title: 'Plan de production', description: 'Processus de production et chaîne de valeur', type: 'textarea', hasAiSuggestion: true, icon: Briefcase, color: 'text-purple-600 bg-purple-600/10' },
+  { id: 'production', title: 'Catalogue produits / services', description: 'Produits et services proposés avec prix, quantités et marges', type: 'products-list', hasAiSuggestion: false, icon: Package, color: 'text-purple-600 bg-purple-600/10' },
+  { id: 'associes', title: 'Associés et répartition du capital', description: 'Nombre de parts, capital apporté et répartition', type: 'associates-list', hasAiSuggestion: false, icon: Crown, color: 'text-[#00838F] bg-[#00838F]/10' },
+  { id: 'cogerants', title: 'Co-gérance', description: 'Co-gérants et répartition des responsabilités', type: 'cogerants-list', hasAiSuggestion: false, icon: UserCheck, color: 'text-[#FF6B35] bg-[#FF6B35]/10' },
   { id: 'calendrier', title: 'Calendrier de réalisation', description: 'Jalons clés et planning de lancement', type: 'timeline', hasAiSuggestion: false, icon: CalendarDays, color: 'text-green-600 bg-green-600/10' },
 ]
 
@@ -164,6 +169,35 @@ interface Milestone {
   completed: boolean
 }
 
+interface BpProduct {
+  id: string
+  nom: string
+  description: string
+  prixVente: number
+  coutUnitaire: number
+  quantiteMensuelle: number
+  marge: number
+}
+
+interface Associate {
+  id: string
+  nom: string
+  prenom: string
+  role: string
+  nombreParts: number
+  pourcentage: number
+  apportCapital: number
+}
+
+interface Cogerant {
+  id: string
+  nom: string
+  prenom: string
+  fonction: string
+  email: string
+  telephone: string
+}
+
 interface BpSections {
   [key: string]: unknown
 }
@@ -210,7 +244,9 @@ const DEFAULT_SECTIONS: BpSections = {
   'statut-juridique': '',
   localisation: '',
   organisation: '',
-  production: '',
+  production: [],
+  associes: [],
+  cogerants: [],
   calendrier: [],
 }
 
@@ -341,7 +377,7 @@ export function BusinessPlanModule() {
       })
       const json = await res.json()
       if (json.success) {
-        toast.success(`Business plan sauvegardé — ${completionInfo.filled}/22 sections remplies (${completionInfo.percent}%)`)
+        toast.success(`Business plan sauvegardé — ${completionInfo.filled}/${completionInfo.total} sections remplies (${completionInfo.percent}%)`)
       } else {
         toast.error(json.error?.message || 'Erreur lors de la sauvegarde')
       }
@@ -635,6 +671,15 @@ export function BusinessPlanModule() {
 
       case 'timeline':
         return <TimelineView value={val as Milestone[] || []} onChange={(v) => updateSection(sectionDef.id, v)} />
+
+      case 'products-list':
+        return <ProductsList value={val as BpProduct[] || []} onChange={(v) => updateSection(sectionDef.id, v)} />
+
+      case 'associates-list':
+        return <AssociatesList value={val as Associate[] || []} onChange={(v) => updateSection(sectionDef.id, v)} />
+
+      case 'cogerants-list':
+        return <CogerantsList value={val as Cogerant[] || []} onChange={(v) => updateSection(sectionDef.id, v)} />
 
       default:
         return null
@@ -1078,6 +1123,650 @@ export function BusinessPlanModule() {
 // ═══════════════════════════════════════════════
 // Sub-components for complex section types
 // ═══════════════════════════════════════════════
+
+// ─── Products List (Catalogue produits) ───────
+
+function ProductsList({ value, onChange }: { value: BpProduct[]; onChange: (v: BpProduct[]) => void }) {
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({ nom: '', description: '', prixVente: '', coutUnitaire: '', quantiteMensuelle: '' })
+
+  const resetForm = () => setForm({ nom: '', description: '', prixVente: '', coutUnitaire: '', quantiteMensuelle: '' })
+
+  const add = () => {
+    if (!form.nom.trim() || !form.prixVente) return
+    const prixVente = parseFloat(form.prixVente) || 0
+    const coutUnitaire = parseFloat(form.coutUnitaire) || 0
+    const quantiteMensuelle = parseInt(form.quantiteMensuelle) || 0
+    const marge = prixVente > 0 ? Math.round(((prixVente - coutUnitaire) / prixVente) * 100) : 0
+    onChange([...value, {
+      id: genId(),
+      nom: form.nom.trim(),
+      description: form.description.trim(),
+      prixVente,
+      coutUnitaire,
+      quantiteMensuelle,
+      marge,
+    }])
+    resetForm()
+    setShowForm(false)
+  }
+
+  const remove = (id: string) => onChange(value.filter((p) => p.id !== id))
+  const update = (id: string, field: keyof BpProduct, val: string | number) => {
+    onChange(value.map((p) => {
+      if (p.id !== id) return p
+      const updated = { ...p, [field]: val }
+      if (field === 'prixVente' || field === 'coutUnitaire') {
+        const pv = typeof val === 'number' && field === 'prixVente' ? val : updated.prixVente
+        const cu = typeof val === 'number' && field === 'coutUnitaire' ? val : updated.coutUnitaire
+        updated.marge = pv > 0 ? Math.round(((pv - cu) / pv) * 100) : 0
+      }
+      return updated
+    }))
+  }
+
+  const caMensuel = value.reduce((s, p) => s + (p.prixVente * p.quantiteMensuelle), 0)
+  const margeMoyenne = value.length > 0 ? Math.round(value.reduce((s, p) => s + p.marge, 0) / value.length) : 0
+
+  return (
+    <div className="space-y-4">
+      {/* Summary cards */}
+      {value.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Produits</p>
+            <p className="text-xl font-bold text-foreground">{value.length}</p>
+          </div>
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">CA mensuel</p>
+            <p className="text-xl font-bold text-[#00838F]">{formatCurrency(caMensuel)}</p>
+          </div>
+          <div className="rounded-lg border bg-muted/30 p-3 col-span-2 md:col-span-1">
+            <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Marge moyenne</p>
+            <p className={cn('text-xl font-bold', margeMoyenne >= 50 ? 'text-green-600' : margeMoyenne >= 30 ? 'text-amber-600' : 'text-red-600')}>
+              {margeMoyenne}%
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Products list */}
+      {value.length > 0 && (
+        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+          {value.map((prod) => (
+            <div key={prod.id} className="rounded-lg border p-4 space-y-3 group">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <Input
+                    value={prod.nom}
+                    onChange={(e) => update(prod.id, 'nom', e.target.value)}
+                    className="h-8 text-sm font-semibold border-0 shadow-none focus-visible:ring-0 p-0"
+                    placeholder="Nom du produit..."
+                  />
+                  <Input
+                    value={prod.description}
+                    onChange={(e) => update(prod.id, 'description', e.target.value)}
+                    className="h-6 text-xs text-muted-foreground border-0 shadow-none focus-visible:ring-0 p-0 mt-0.5"
+                    placeholder="Description courte..."
+                  />
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0 h-5', prod.marge >= 50 ? 'border-green-500/30 text-green-600 bg-green-50/50' : prod.marge >= 30 ? 'border-amber-500/30 text-amber-600 bg-amber-50/50' : 'border-red-500/30 text-red-600 bg-red-50/50')}>
+                    Marge {prod.marge}%
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500"
+                    onClick={() => remove(prod.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">Prix de vente unitaire</Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      value={prod.prixVente || ''}
+                      onChange={(e) => update(prod.id, 'prixVente', parseFloat(e.target.value) || 0)}
+                      className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0 text-right pr-7"
+                      placeholder="0"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">Coût unitaire</Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      value={prod.coutUnitaire || ''}
+                      onChange={(e) => update(prod.id, 'coutUnitaire', parseFloat(e.target.value) || 0)}
+                      className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0 text-right pr-7"
+                      placeholder="0"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">Qté mensuelle</Label>
+                  <Input
+                    type="number"
+                    value={prod.quantiteMensuelle || ''}
+                    onChange={(e) => update(prod.id, 'quantiteMensuelle', parseInt(e.target.value) || 0)}
+                    className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0 text-right"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t">
+                <span>CA produit : <span className="font-medium text-foreground">{formatCurrency(prod.prixVente * prod.quantiteMensuelle)}/mois</span></span>
+                <span>Bénéfice unitaire : <span className="font-medium text-green-600">{formatCurrency(prod.prixVente - prod.coutUnitaire)}</span></span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add product button / form */}
+      {!showForm ? (
+        <Button variant="outline" size="sm" className="gap-1.5 w-full border-dashed" onClick={() => setShowForm(true)}>
+          <Plus className="h-3.5 w-3.5" />
+          Ajouter un produit ou service
+        </Button>
+      ) : (
+        <div className="rounded-lg border border-[#00838F]/30 bg-[#00838F]/5 p-4 space-y-3">
+          <p className="text-sm font-semibold text-foreground">Nouveau produit / service</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Nom du produit *</Label>
+              <Input
+                value={form.nom}
+                onChange={(e) => setForm(f => ({ ...f, nom: e.target.value }))}
+                placeholder="Ex: Formation en ligne..."
+                className="h-9 text-sm"
+                autoFocus
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Description</Label>
+              <Input
+                value={form.description}
+                onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
+                placeholder="Description courte..."
+                className="h-9 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Prix de vente unitaire (€) *</Label>
+              <Input
+                type="number"
+                value={form.prixVente}
+                onChange={(e) => setForm(f => ({ ...f, prixVente: e.target.value }))}
+                placeholder="0"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Coût unitaire (€)</Label>
+              <Input
+                type="number"
+                value={form.coutUnitaire}
+                onChange={(e) => setForm(f => ({ ...f, coutUnitaire: e.target.value }))}
+                placeholder="0"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label className="text-xs">Quantité vendue par mois</Label>
+              <Input
+                type="number"
+                value={form.quantiteMensuelle}
+                onChange={(e) => setForm(f => ({ ...f, quantiteMensuelle: e.target.value }))}
+                placeholder="0"
+                className="h-9 text-sm"
+              />
+            </div>
+          </div>
+          {form.prixVente && form.coutUnitaire && parseFloat(form.prixVente) > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Marge estimée : <span className="font-semibold text-foreground">{Math.round(((parseFloat(form.prixVente) - parseFloat(form.coutUnitaire)) / parseFloat(form.prixVente)) * 100)}%</span>
+              {' '}&mdash; Bénéfice unitaire : <span className="font-semibold text-green-600">{formatCurrency(parseFloat(form.prixVente) - parseFloat(form.coutUnitaire))}</span>
+            </p>
+          )}
+          <div className="flex items-center gap-2">
+            <Button size="sm" className="bg-[#00838F] hover:bg-[#00838F]/90 text-white" onClick={add} disabled={!form.nom.trim() || !form.prixVente}>
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Ajouter
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => { setShowForm(false); resetForm() }}>
+              Annuler
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Associates List (Répartition du capital) ──
+
+function AssociatesList({ value, onChange }: { value: Associate[]; onChange: (v: Associate[]) => void }) {
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({ nom: '', prenom: '', role: '', nombreParts: '', pourcentage: '', apportCapital: '' })
+
+  const resetForm = () => setForm({ nom: '', prenom: '', role: '', nombreParts: '', pourcentage: '', apportCapital: '' })
+
+  const totalParts = value.reduce((s, a) => s + a.nombreParts, 0)
+  const totalCapital = value.reduce((s, a) => s + a.apportCapital, 0)
+  const totalPourcentage = value.reduce((s, a) => s + a.pourcentage, 0)
+
+  const add = () => {
+    if (!form.nom.trim() || !form.prenom.trim()) return
+    onChange([...value, {
+      id: genId(),
+      nom: form.nom.trim(),
+      prenom: form.prenom.trim(),
+      role: form.role.trim(),
+      nombreParts: parseInt(form.nombreParts) || 0,
+      pourcentage: parseFloat(form.pourcentage) || 0,
+      apportCapital: parseFloat(form.apportCapital) || 0,
+    }])
+    resetForm()
+    setShowForm(false)
+  }
+
+  const remove = (id: string) => onChange(value.filter((a) => a.id !== id))
+  const update = (id: string, field: keyof Associate, val: string | number) => {
+    onChange(value.map((a) => (a.id === id ? { ...a, [field]: val } : a)))
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Summary */}
+      {value.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Associés</p>
+            <p className="text-xl font-bold text-foreground">{value.length}</p>
+          </div>
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Total parts</p>
+            <p className="text-xl font-bold text-[#00838F]">{totalParts.toLocaleString('fr-FR')}</p>
+          </div>
+          <div className="rounded-lg border bg-muted/30 p-3 col-span-2 md:col-span-1">
+            <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Capital total</p>
+            <p className="text-xl font-bold text-[#00838F]">{formatCurrency(totalCapital)}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Percentage warning */}
+      {value.length > 0 && (totalPourcentage !== 100) && (
+        <p className={cn('text-xs px-3 py-1.5 rounded-md', totalPourcentage > 100 ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-amber-50 text-amber-600 border border-amber-200')}>
+          {totalPourcentage > 100
+            ? `Attention : le total des pourcentages dépasse 100% (${totalPourcentage}%)`
+            : `Répartition incomplète : ${totalPourcentage}% attribué sur 100%`}
+        </p>
+      )}
+
+      {/* Associates list */}
+      {value.length > 0 && (
+        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+          {value.map((assoc, idx) => (
+            <div key={assoc.id} className="rounded-lg border p-4 space-y-3 group">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#00838F]/10 text-[#00838F] text-sm font-bold">
+                    {idx + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        value={assoc.prenom}
+                        onChange={(e) => update(assoc.id, 'prenom', e.target.value)}
+                        className="h-7 text-sm font-semibold border-0 shadow-none focus-visible:ring-0 p-0 w-24"
+                        placeholder="Prénom..."
+                      />
+                      <Input
+                        value={assoc.nom}
+                        onChange={(e) => update(assoc.id, 'nom', e.target.value)}
+                        className="h-7 text-sm font-semibold border-0 shadow-none focus-visible:ring-0 p-0 w-32"
+                        placeholder="Nom..."
+                      />
+                    </div>
+                    <Input
+                      value={assoc.role}
+                      onChange={(e) => update(assoc.id, 'role', e.target.value)}
+                      className="h-6 text-xs text-muted-foreground border-0 shadow-none focus-visible:ring-0 p-0 mt-0.5"
+                      placeholder="Rôle (ex: Gérant, Président...)"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-semibold">
+                    {assoc.pourcentage}%
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500"
+                    onClick={() => remove(assoc.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">Nombre de parts</Label>
+                  <Input
+                    type="number"
+                    value={assoc.nombreParts || ''}
+                    onChange={(e) => update(assoc.id, 'nombreParts', parseInt(e.target.value) || 0)}
+                    className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">Pourcentage (%)</Label>
+                  <Input
+                    type="number"
+                    value={assoc.pourcentage || ''}
+                    onChange={(e) => update(assoc.id, 'pourcentage', parseFloat(e.target.value) || 0)}
+                    className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">Apport en capital</Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      value={assoc.apportCapital || ''}
+                      onChange={(e) => update(assoc.id, 'apportCapital', parseFloat(e.target.value) || 0)}
+                      className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0 text-right pr-7"
+                      placeholder="0"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add associate button / form */}
+      {!showForm ? (
+        <Button variant="outline" size="sm" className="gap-1.5 w-full border-dashed" onClick={() => setShowForm(true)}>
+          <Plus className="h-3.5 w-3.5" />
+          Ajouter un associé
+        </Button>
+      ) : (
+        <div className="rounded-lg border border-[#00838F]/30 bg-[#00838F]/5 p-4 space-y-3">
+          <p className="text-sm font-semibold text-foreground">Nouvel associé</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Prénom *</Label>
+              <Input
+                value={form.prenom}
+                onChange={(e) => setForm(f => ({ ...f, prenom: e.target.value }))}
+                placeholder="Prénom..."
+                className="h-9 text-sm"
+                autoFocus
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Nom *</Label>
+              <Input
+                value={form.nom}
+                onChange={(e) => setForm(f => ({ ...f, nom: e.target.value }))}
+                placeholder="Nom..."
+                className="h-9 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Rôle / Fonction</Label>
+              <Input
+                value={form.role}
+                onChange={(e) => setForm(f => ({ ...f, role: e.target.value }))}
+                placeholder="Ex: Gérant, Président..."
+                className="h-9 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Nombre de parts</Label>
+              <Input
+                type="number"
+                value={form.nombreParts}
+                onChange={(e) => setForm(f => ({ ...f, nombreParts: e.target.value }))}
+                placeholder="0"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Pourcentage (%)</Label>
+              <Input
+                type="number"
+                value={form.pourcentage}
+                onChange={(e) => setForm(f => ({ ...f, pourcentage: e.target.value }))}
+                placeholder="0"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Apport en capital (€)</Label>
+              <Input
+                type="number"
+                value={form.apportCapital}
+                onChange={(e) => setForm(f => ({ ...f, apportCapital: e.target.value }))}
+                placeholder="0"
+                className="h-9 text-sm"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" className="bg-[#00838F] hover:bg-[#00838F]/90 text-white" onClick={add} disabled={!form.nom.trim() || !form.prenom.trim()}>
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Ajouter
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => { setShowForm(false); resetForm() }}>
+              Annuler
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Co-gérants List ──────────────────────────
+
+function CogerantsList({ value, onChange }: { value: Cogerant[]; onChange: (v: Cogerant[]) => void }) {
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({ nom: '', prenom: '', fonction: '', email: '', telephone: '' })
+
+  const resetForm = () => setForm({ nom: '', prenom: '', fonction: '', email: '', telephone: '' })
+
+  const add = () => {
+    if (!form.nom.trim() || !form.prenom.trim()) return
+    onChange([...value, {
+      id: genId(),
+      nom: form.nom.trim(),
+      prenom: form.prenom.trim(),
+      fonction: form.fonction.trim(),
+      email: form.email.trim(),
+      telephone: form.telephone.trim(),
+    }])
+    resetForm()
+    setShowForm(false)
+  }
+
+  const remove = (id: string) => onChange(value.filter((c) => c.id !== id))
+  const update = (id: string, field: keyof Cogerant, val: string) => {
+    onChange(value.map((c) => (c.id === id ? { ...c, [field]: val } : c)))
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Info banner when no co-gérants */}
+      {value.length === 0 && !showForm && (
+        <div className="rounded-lg border bg-muted/30 p-4 text-center space-y-2">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FF6B35]/10 mx-auto">
+            <UserCheck className="h-5 w-5 text-[#FF6B35]" />
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Ajoutez les co-gérants de votre entreprise pour définir leurs rôles et responsabilités.
+          </p>
+        </div>
+      )}
+
+      {/* Co-gérants list */}
+      {value.length > 0 && (
+        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+          {value.map((cog, idx) => (
+            <div key={cog.id} className="rounded-lg border p-4 space-y-3 group">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FF6B35]/10 text-[#FF6B35] text-sm font-bold">
+                    {idx + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        value={cog.prenom}
+                        onChange={(e) => update(cog.id, 'prenom', e.target.value)}
+                        className="h-7 text-sm font-semibold border-0 shadow-none focus-visible:ring-0 p-0 w-24"
+                        placeholder="Prénom..."
+                      />
+                      <Input
+                        value={cog.nom}
+                        onChange={(e) => update(cog.id, 'nom', e.target.value)}
+                        className="h-7 text-sm font-semibold border-0 shadow-none focus-visible:ring-0 p-0 w-32"
+                        placeholder="Nom..."
+                      />
+                    </div>
+                    <Input
+                      value={cog.fonction}
+                      onChange={(e) => update(cog.id, 'fonction', e.target.value)}
+                      className="h-6 text-xs text-muted-foreground border-0 shadow-none focus-visible:ring-0 p-0 mt-0.5"
+                      placeholder="Fonction (ex: Co-gérant, Directeur technique...)"
+                    />
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 shrink-0"
+                  onClick={() => remove(cog.id)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">Email</Label>
+                  <Input
+                    type="email"
+                    value={cog.email}
+                    onChange={(e) => update(cog.id, 'email', e.target.value)}
+                    className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0"
+                    placeholder="email@exemple.com"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-muted-foreground">Téléphone</Label>
+                  <Input
+                    type="tel"
+                    value={cog.telephone}
+                    onChange={(e) => update(cog.id, 'telephone', e.target.value)}
+                    className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0"
+                    placeholder="06 00 00 00 00"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add co-gérant button / form */}
+      {!showForm ? (
+        <Button variant="outline" size="sm" className="gap-1.5 w-full border-dashed" onClick={() => setShowForm(true)}>
+          <Plus className="h-3.5 w-3.5" />
+          Ajouter un co-gérant
+        </Button>
+      ) : (
+        <div className="rounded-lg border border-[#FF6B35]/30 bg-[#FF6B35]/5 p-4 space-y-3">
+          <p className="text-sm font-semibold text-foreground">Nouveau co-gérant</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Prénom *</Label>
+              <Input
+                value={form.prenom}
+                onChange={(e) => setForm(f => ({ ...f, prenom: e.target.value }))}
+                placeholder="Prénom..."
+                className="h-9 text-sm"
+                autoFocus
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Nom *</Label>
+              <Input
+                value={form.nom}
+                onChange={(e) => setForm(f => ({ ...f, nom: e.target.value }))}
+                placeholder="Nom..."
+                className="h-9 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Fonction</Label>
+              <Input
+                value={form.fonction}
+                onChange={(e) => setForm(f => ({ ...f, fonction: e.target.value }))}
+                placeholder="Ex: Co-gérant, Directeur..."
+                className="h-9 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Email</Label>
+              <Input
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm(f => ({ ...f, email: e.target.value }))}
+                placeholder="email@exemple.com"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label className="text-xs">Téléphone</Label>
+              <Input
+                type="tel"
+                value={form.telephone}
+                onChange={(e) => setForm(f => ({ ...f, telephone: e.target.value }))}
+                placeholder="06 00 00 00 00"
+                className="h-9 text-sm"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" className="bg-[#FF6B35] hover:bg-[#FF6B35]/90 text-white" onClick={add} disabled={!form.nom.trim() || !form.prenom.trim()}>
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Ajouter
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => { setShowForm(false); resetForm() }}>
+              Annuler
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ─── Financing Table ──────────────────────────
 
