@@ -95,3 +95,69 @@ Stage Summary:
 - Régression 5 (Horizon Emplois) : CORRIGÉE — dropdown complet desktop + mobile
 - Régression 6 (Autres) : AUCUNE AUTRE RÉGRESSION — bouton S'inscrire masqué
 - Pour le déploiement Vercel : tout fonctionnera avec les env vars correctes
+---
+Task ID: 4-a
+Agent: Backend Agent
+Task: CréaScope P1 — Backend API Routes + 3-Source Kiviat Scoring Algorithm
+
+Work Log:
+- Created `src/lib/kiviat-scoring.ts` — Full CDC formula implementation
+  - 6 dimensions: leadership, stress, communication, resolution, creativity, adaptability
+  - Swipe scoring: 10 cards/dim, kept=1pt, superPepite=1.5pt, max 15pts → 0-100
+  - Question scoring: Scale (1-5→0-100), Choice/Scenario/Behavioral (scoring map→0-100), Ranking/Open → 50
+  - Combined formula: Swipe(40%) + Question(35%) + Scenario(25%) with weight redistribution
+- Created `src/app/api/swipe/route.ts` — Swipe Game Results API
+  - GET: Retrieve swipe results + computed dimension scores
+  - POST: Save batch swipe results, auto-update KiviatResult + ModuleResult('pepites')
+  - DELETE: Reset all swipe results
+  - Zod validation, JWT auth, transactional upserts
+- Created `src/app/api/swipe/questions/route.ts` — Questions/Answers API
+  - GET: Random questions from static SWIPE_QUESTIONS, filtered by type/category/difficulty
+  - POST: Save answers with auto-computed scores, recompute combined Kiviat
+  - Full 3-source recalculation on every question save
+
+Stage Summary:
+- 3 backend files created, lint clean (0 errors)
+- 3-source Kiviat scoring fully implemented per CDC spec
+- Auto-alimentation KiviatResult on every swipe/question save
+- Weight redistribution when sources are missing (proportional)
+
+---
+Task ID: 4-b
+Agent: Frontend Agent
+Task: CréaScope P1+P2 — Pépites Game UI Component (1579 lines)
+
+Work Log:
+- Created `src/components/bureau/modules/pepites-game.tsx` — Complete game with 4 modes
+  - Mode 1: FlashSwipe — Tinder-style 60 cards with Framer Motion drag, 3-card stack, keyboard nav
+  - Mode 2: Questionnaire — 50 adaptive questions, 6 types (scale/choice/scenario/ranking/open/behavioral)
+  - Mode 3: ScenarioChallenge — 10 entrepreneurial scenarios with scoring feedback
+  - Mode 4: BilanComplet — Sequential orchestrator (intro→swipe→results→questionnaire→scenario→summary)
+  - ScoreSummary — Recharts RadarChart, per-dimension breakdown, save to API
+- Integrated into bureau-layout.tsx (dynamic import + routing)
+- Added "Pépites Game" to sidebar navigation under Parcours section
+- Lint: 0 errors
+
+Stage Summary:
+- 1 component file (1579 lines), 3 modified files
+- All 4 CréaScope game modes fully implemented
+- Framer Motion animations for card swipe (useMotionValue + useTransform)
+- Responsive mobile/desktop, dark mode, ARIA accessible
+- Auto-save every 10 cards during FlashSwipe
+
+---
+Task ID: 4-c
+Agent: Main
+Task: CréaScope P2 — Kiviat Module Enhancement + Integration
+
+Work Log:
+- Added Pépites Game CTA card to Kiviat module (amber gradient card with "Jouer" button)
+- Added Zap + Layers icons to Kiviat module imports
+- Added useBureauStore import for cross-module navigation
+- CTA navigates from Kiviat → Pépites Game via store.setModule('pepites')
+
+Stage Summary:
+- Kiviat module now promotes Pépites Game as the recommended way to populate scores
+- Cross-module navigation works via BureauStore
+- Lint: 0 errors
+- All P1+P2 CréaScope tasks completed

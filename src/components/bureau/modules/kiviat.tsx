@@ -28,10 +28,13 @@ import {
   AlertTriangle,
   TrendingUp,
   BarChart3,
+  Zap,
+  Layers,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/zustand/store'
+import { useBureauStore } from '../bureau-store'
 
 // ────────────────────────────────────────────
 // Types
@@ -650,6 +653,40 @@ export function KiviatModule() {
           </Badge>
         </motion.div>
       )}
+
+      {/* Pépites Game CTA */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.7 }}
+      >
+        <Card className="border-none shadow-sm bg-gradient-to-r from-amber-50 to-amber-100/50 dark:from-amber-900/10 dark:to-amber-800/10">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 shrink-0">
+              <Zap className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">Pépites Game — CréaScope</p>
+              <p className="text-xs text-muted-foreground">
+                Identifiez vos soft skills avec le jeu de cartes interactif et alimentez automatiquement ce radar.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 shrink-0 rounded-full"
+              onClick={() => {
+                const store = useBureauStore.getState()
+                store.setSection('parcours')
+                store.setModule('pepites')
+              }}
+            >
+              <Layers className="h-4 w-4" />
+              Jouer
+            </Button>
+          </CardContent>
+        </Card>
+      </motion.div>
     </motion.div>
   )
 }

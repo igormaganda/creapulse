@@ -47,6 +47,7 @@ const Telechargements = dynamic(() => import('./modules/telechargements').then(m
 const BilanIA = dynamic(() => import('./modules/bilan-ia').then(m => ({ default: m.BilanIA })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const MessagesModule = dynamic(() => import('./modules/messages').then(m => ({ default: m.MessagesModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const BmcModule = dynamic(() => import('./modules/bmc').then(m => ({ default: m.BusinessModelCanvasModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const PepitesGame = dynamic(() => import('./modules/pepites-game').then(m => ({ default: m.PepitesGame })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -74,6 +75,7 @@ import {
   Construction,
   LayoutGrid,
   Download,
+  Zap,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -85,6 +87,7 @@ const moduleContent: Record<string, { title: string; description: string; icon: 
   'riasec': { title: 'Test RIASEC', description: 'Découvrez votre profil entrepreneurial grâce au test RIASEC.', icon: FlaskConical, color: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20' },
   'kiviat': { title: 'Test Kiviat', description: 'Évaluez vos compétences clés avec le radar Kiviat.', icon: Pentagon, color: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20' },
   'bilan-ia': { title: 'Bilan IA', description: 'Synthèse intelligente de votre parcours entrepreneurial grâce à l\'IA.', icon: Brain, color: 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20' },
+  'pepites': { title: 'Pépites Game', description: 'Identifiez vos compétences entrepreneuriales à travers 4 modes de jeu interactifs.', icon: Zap, color: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20' },
   'bmc': { title: 'Business Model Canvas', description: 'Construisez votre modèle d\'affaires avec le canevas BMC interactif.', icon: LayoutGrid, color: 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20' },
   'marche': { title: 'Analyse de Marché', description: 'Étudiez votre marché cible, concurrents et positionnement.', icon: Globe, color: 'text-primary bg-primary/10' },
   'juridique': { title: 'Analyse Juridique', description: 'Choisissez le statut juridique adapté à votre projet.', icon: Scale, color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' },
@@ -145,7 +148,7 @@ function SectionOverview({ sectionId }: { sectionId: string }) {
   // Get modules for this section
   const modules = Object.entries(moduleContent).filter(([, v]) => {
     const sectionMap: Record<string, string[]> = {
-      parcours: ['profil-createur', 'mon-projet', 'vision', 'riasec', 'kiviat', 'bilan-ia'],
+      parcours: ['profil-createur', 'mon-projet', 'vision', 'pepites', 'riasec', 'kiviat', 'bilan-ia'],
       strategie: ['marche', 'juridique', 'financier', 'creasim', 'bmc', 'business-plan', 'pitch-deck'],
       ecosysteme: ['annuaire', 'forum', 'messages', 'mentorat'],
       pilotage: ['tremplin', 'passeport', 'certifications', 'telechargements'],
@@ -225,6 +228,7 @@ function BureauContent() {
         {currentModule === 'kiviat' && <KiviatModule />}
         {currentModule === 'bilan-ia' && <BilanIA />}
         {currentModule === 'bmc' && <BmcModule />}
+        {currentModule === 'pepites' && <PepitesGame />}
         {currentModule === 'vision' && <VisionModule />}
         {currentModule === 'tremplin' && <Tremplin />}
         {currentModule === 'passeport' && <Passeport />}
@@ -232,7 +236,7 @@ function BureauContent() {
         {currentModule === 'certifications' && <Certifications />}
         {currentModule === 'telechargements' && <Telechargements />}
         {currentModule === 'messages' && <MessagesModule />}
-        {currentSection !== 'dashboard' && currentModule && currentModule !== 'riasec' && currentModule !== 'mon-projet' && currentModule !== 'creasim' && currentModule !== 'business-plan' && currentModule !== 'annuaire' && currentModule !== 'forum' && currentModule !== 'marche' && currentModule !== 'juridique' && currentModule !== 'financier' && currentModule !== 'pitch-deck' && currentModule !== 'profil-createur' && currentModule !== 'kiviat' && currentModule !== 'vision' && currentModule !== 'tremplin' && currentModule !== 'passeport' && currentModule !== 'mentorat' && currentModule !== 'certifications' && currentModule !== 'messages' && currentModule !== 'bilan-ia' && currentModule !== 'bmc' && currentModule !== 'telechargements' && <ModulePlaceholder moduleId={currentModule} />}
+        {currentSection !== 'dashboard' && currentModule && currentModule !== 'riasec' && currentModule !== 'mon-projet' && currentModule !== 'creasim' && currentModule !== 'business-plan' && currentModule !== 'annuaire' && currentModule !== 'forum' && currentModule !== 'marche' && currentModule !== 'juridique' && currentModule !== 'financier' && currentModule !== 'pitch-deck' && currentModule !== 'profil-createur' && currentModule !== 'kiviat' && currentModule !== 'vision' && currentModule !== 'tremplin' && currentModule !== 'passeport' && currentModule !== 'mentorat' && currentModule !== 'certifications' && currentModule !== 'messages' && currentModule !== 'bilan-ia' && currentModule !== 'bmc' && currentModule !== 'telechargements' && currentModule !== 'pepites' && <ModulePlaceholder moduleId={currentModule} />}
         {currentSection !== 'dashboard' && !currentModule && <SectionOverview sectionId={currentSection} />}
       </motion.div>
     </AnimatePresence>

@@ -44,6 +44,7 @@ import {
   Sparkles,
   LayoutGrid,
   Download,
+  Zap,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -74,6 +75,7 @@ const BASE_NAVIGATION: Omit<NavGroup, 'progress'>[] = [
       { id: 'profil-createur', label: 'Profil créateur', icon: User },
       { id: 'mon-projet', label: 'Mon projet', icon: Lightbulb, badge: 'Nouveau' },
       { id: 'vision', label: 'Vision', icon: Eye },
+      { id: 'pepites', label: 'Pépites Game', icon: Zap, badge: 'Nouveau' },
       { id: 'riasec', label: 'RIASEC', icon: FlaskConical },
       { id: 'kiviat', label: 'Kiviat', icon: Pentagon },
       { id: 'bilan-ia', label: 'Bilan IA', icon: Sparkles, badge: 'IA' },
