@@ -6,6 +6,7 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { callZAI } from '@/lib/zai-helper'
+import { buildFTContext, contextToPrompt } from '@/lib/ft-enrichment'
 
 // ─── Validation Schema ──────────────────────
 
@@ -52,10 +53,30 @@ DOMAINES D'EXPERTISE :
 
 // ─── Module-specific context prompts ─────────
 
+// ─── FT enrichment keywords ─────────────────
+
+const FT_ENRICH_KEYWORDS = [
+  'offre', 'aide', 'formation', 'marché', 'emploi',
+  'recrutement', 'salaire', 'contrat', 'embauche',
+  'subvention', 'financement', 'stage', 'alternance',
+]
+
+function shouldEnrichWithFT(message: string, module?: string): boolean {
+  const lowerMsg = message.toLowerCase()
+  const lowerModule = (module || '').toLowerCase()
+  // Always enrich for creascope module
+  if (lowerModule === 'creascope' || lowerModule === 'pipeline') return true
+  // Enrich if message contains FT-related keywords
+  return FT_ENRICH_KEYWORDS.some(kw => lowerMsg.includes(kw))
+}
+
 function getModuleContext(module?: string): string {
   const contexts: Record<string, string> = {
     creasim: `L'utilisateur utilise actuellement le simulateur financier CreaSim. Aide-le à interpréter ses résultats, optimiser sa rentabilité, comprendre le seuil de rentabilité, et prendre des décisions financières éclairées.`,
     riasec: `L'utilisateur vient de passer le test RIASEC (profil entrepreneurial). Aide-le à interpréter ses résultats, identifier ses forces, et explorer les métiers/types d'entreprises qui correspondent à son profil.`,
+    creascope: `L'utilisateur est dans une session CréaScope (pipeline diagnostique entrepreneurial). Aide-le dans son parcours de création d'entreprise avec des conseils contextualisés.`,
+    pipeline: `L'utilisateur est dans une session CréaScope (pipeline diagnostique entrepreneurial). Aide-le dans son parcours de création d'entreprise avec des conseils contextualisés.`,
+    pepites: `L'utilisateur joue au Pépites Game (évaluation des soft skills). Aide-le à comprendre ses résultats et à identifier ses compétences clés pour la création d'entreprise.`,
     'mon-projet': `L'utilisateur remplit la fiche "Mon Projet". Aide-le à structurer son idée, identifier sa cible, définir son modèle économique, et valider la faisabilité de son projet.`,
     'business-plan': `L'utilisateur rédige son business plan. Aide-le à structurer chaque section, rédiger un contenu convaincant, et présenter son projet de manière professionnelle aux banquiers et investisseurs.`,
     annuaire: `L'utilisateur explore l'annuaire des partenaires GIDEF. Aide-le à identifier les bons interlocuteurs pour son projet et à préparer ses rendez-vous.`,
@@ -121,8 +142,30 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Add current message
-    messages.push({ role: 'user', content: message })
+    // ─── FT enrichment for relevant queries ───
+    if (shouldEnrichWithFT(message, context?.module) && context?.sector) {
+      try {
+        const ftCtx = await buildFTContext({
+          secteur: context.sector,
+          region: '11' /* IDF default */,
+        })
+        const ftText = contextToPrompt(ftCtx)
+        // Append FT data as an assistant-level context note, then re-add user message
+        const ftMessage = `---
+Données France Travail pour enrichir ta réponse (secteur : ${context.sector}) :
+${ftText}
+---
+
+En te basant sur ces données réelles du marché du travail, réponds à la question de l'utilisateur.`
+        messages.push({ role: 'user', content: ftMessage })
+      } catch (ftErr) {
+        console.warn('[IA FT Enrichment] France Travail enrichment failed, continuing without:',
+          ftErr instanceof Error ? ftErr.message : ftErr)
+        messages.push({ role: 'user', content: message })
+      }
+    } else {
+      messages.push({ role: 'user', content: message })
+    }
 
     // Call LLM via shared ZAI helper (never throws)
     const result = await callZAI(messages, { temperature: 0.7, max_tokens: 1000 })

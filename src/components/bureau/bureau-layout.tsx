@@ -49,6 +49,7 @@ const MessagesModule = dynamic(() => import('./modules/messages').then(m => ({ d
 const BmcModule = dynamic(() => import('./modules/bmc').then(m => ({ default: m.BusinessModelCanvasModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const PepitesGame = dynamic(() => import('./modules/pepites-game').then(m => ({ default: m.PepitesGame })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const CreascopePipeline = dynamic(() => import('./modules/creascope-pipeline').then(m => ({ default: m.CreascopePipeline })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const PrivacyDashboard = dynamic(() => import('./modules/privacy-dashboard').then(m => ({ default: m.PrivacyDashboard })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -77,6 +78,7 @@ import {
   LayoutGrid,
   Download,
   Zap,
+  Shield,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -105,6 +107,7 @@ const moduleContent: Record<string, { title: string; description: string; icon: 
   'certifications': { title: 'Certifications', description: 'Consultez et gérez vos certifications obtenues.', icon: BadgeCheck, color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' },
   'telechargements': { title: 'Téléchargements', description: 'Téléchargez tous vos documents de suivi et PDF structurés.', icon: Download, color: 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20' },
   'messages': { title: 'Messages', description: 'Communiquez avec votre conseiller et les autres créateurs.', icon: MessageCircle, color: 'text-teal-500 bg-teal-50 dark:bg-teal-900/20' },
+  'vie-privee': { title: 'Vie Privée & Données', description: 'Gérez vos consentements RGPD, exportez ou supprimez vos données.', icon: Shield, color: 'text-primary bg-primary/10' },
 }
 
 /* ─── Section placeholder content ─── */
@@ -153,7 +156,7 @@ function SectionOverview({ sectionId }: { sectionId: string }) {
       parcours: ['profil-createur', 'mon-projet', 'vision', 'pepites', 'riasec', 'kiviat', 'bilan-ia', 'creascope'],
       strategie: ['marche', 'juridique', 'financier', 'creasim', 'bmc', 'business-plan', 'pitch-deck'],
       ecosysteme: ['annuaire', 'forum', 'messages', 'mentorat'],
-      pilotage: ['tremplin', 'passeport', 'certifications', 'telechargements'],
+      pilotage: ['tremplin', 'passeport', 'certifications', 'telechargements', 'vie-privee'],
     }
     return sectionMap[sectionId]?.includes(Object.keys(moduleContent).find(k => moduleContent[k] === v) || '')
   })
@@ -239,7 +242,8 @@ function BureauContent() {
         {currentModule === 'certifications' && <Certifications />}
         {currentModule === 'telechargements' && <Telechargements />}
         {currentModule === 'messages' && <MessagesModule />}
-        {currentSection !== 'dashboard' && currentModule && currentModule !== 'riasec' && currentModule !== 'mon-projet' && currentModule !== 'creasim' && currentModule !== 'business-plan' && currentModule !== 'annuaire' && currentModule !== 'forum' && currentModule !== 'marche' && currentModule !== 'juridique' && currentModule !== 'financier' && currentModule !== 'pitch-deck' && currentModule !== 'profil-createur' && currentModule !== 'kiviat' && currentModule !== 'vision' && currentModule !== 'tremplin' && currentModule !== 'passeport' && currentModule !== 'mentorat' && currentModule !== 'certifications' && currentModule !== 'messages' && currentModule !== 'bilan-ia' && currentModule !== 'bmc' && currentModule !== 'telechargements' && currentModule !== 'pepites' && currentModule !== 'creascope' && <ModulePlaceholder moduleId={currentModule} />}
+        {currentModule === 'vie-privee' && <PrivacyDashboard />}
+        {currentSection !== 'dashboard' && currentModule && currentModule !== 'riasec' && currentModule !== 'mon-projet' && currentModule !== 'creasim' && currentModule !== 'business-plan' && currentModule !== 'annuaire' && currentModule !== 'forum' && currentModule !== 'marche' && currentModule !== 'juridique' && currentModule !== 'financier' && currentModule !== 'pitch-deck' && currentModule !== 'profil-createur' && currentModule !== 'kiviat' && currentModule !== 'vision' && currentModule !== 'tremplin' && currentModule !== 'passeport' && currentModule !== 'mentorat' && currentModule !== 'certifications' && currentModule !== 'messages' && currentModule !== 'bilan-ia' && currentModule !== 'bmc' && currentModule !== 'telechargements' && currentModule !== 'pepites' && currentModule !== 'creascope' && currentModule !== 'vie-privee' && <ModulePlaceholder moduleId={currentModule} />}
         {currentSection !== 'dashboard' && !currentModule && <SectionOverview sectionId={currentSection} />}
       </motion.div>
     </AnimatePresence>

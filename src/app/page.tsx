@@ -47,6 +47,9 @@ import Link from 'next/link'
 import { LoginDialog } from '@/components/auth/login-dialog'
 import { RegisterDialog } from '@/components/auth/register-dialog'
 
+/* ─── RGPD Cookie Consent ─── */
+import { CookieConsentBanner } from '@/components/rgpd/cookie-consent-banner'
+
 /* ─── Theme Toggle ─── */
 import { ThemeToggle, ThemeToggleMobile } from '@/components/theme-toggle'
 
@@ -506,6 +509,9 @@ export default function Home() {
         {/* CTA Final */}
         <CtaFinalSection onRegisterOpen={() => setLoginOpen(true)} />
       </main>
+
+      {/* RGPD Cookie Consent Banner */}
+      <CookieConsentBanner />
 
       {/* Footer */}
       <FooterSection />

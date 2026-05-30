@@ -316,6 +316,9 @@ model User {
   accessibility       AccessibilitySetting?
   livrables           Livrable[]          @relation("LivrableOwner")
   sentMessages        Message[]           @relation("MessageSender")
+  consents            ConsentLog[]
+  dataExports         DataExportRequest[]
+  dataDeletions       DataDeletionRequest[]
 
   @@unique([tenantId, email])
   @@index([tenantId, role])
@@ -1226,6 +1229,21 @@ model QuizLead {
 // CRÉASCOPE SESSION — Pipeline 3-4h Conseiller
 // ============================================
 
+enum ConsentType {
+  COOKIES
+  CGU
+  DONNEES_PERSONNELLES
+  MARKETING
+  CREASCOPE
+  FRANCE_TRAVAIL
+}
+
+enum ConsentStatus {
+  GRANTED
+  DENIED
+  WITHDRAWN
+}
+
 enum CreascopeStep {
   ACCUEIL
   FLASH_SWIPE
@@ -1282,6 +1300,62 @@ model CreascopeSession {
   @@index([beneficiaryId])
   @@index([counselorId])
   @@index([status, scheduledAt])
+}
+
+// ============================================
+// RGPD CONFORMITÉ
+// ============================================
+
+model ConsentLog {
+  id            String        @id @default(cuid())
+  userId        String
+  consentType   ConsentType
+  status        ConsentStatus @default(GRANTED)
+  ipAddress     String?
+  userAgent     String?
+  source        String        @default("web") // web | mobile | api
+  version       String        @default("1.0")
+  grantedAt     DateTime      @default(now())
+  withdrawnAt   DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, consentType])
+  @@index([userId])
+  @@index([consentType, status])
+}
+
+model DataExportRequest {
+  id            String   @id @default(cuid())
+  userId        String
+  status        String   @default("pending") // pending | processing | ready | expired
+  format        String   @default("json") // json | pdf
+  filePath      String?
+  expiresAt     DateTime?
+  requestedAt   DateTime @default(now())
+  completedAt   DateTime?
+  error         String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+}
+
+model DataDeletionRequest {
+  id            String   @id @default(cuid())
+  userId        String
+  reason        String?
+  status        String   @default("pending") // pending | approved | processed | rejected
+  reviewedBy    String?  // counselor or admin userId
+  reviewedAt    DateTime?
+  processedAt   DateTime?
+  notes         String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
 }
 
 // ============================================

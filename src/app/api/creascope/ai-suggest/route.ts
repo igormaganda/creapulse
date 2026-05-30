@@ -9,6 +9,7 @@ import { db } from '@/lib/db'
 import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
 import { verifyToken, AuthError } from '@/lib/auth'
 import { callZAI, getZAIErrorMessage } from '@/lib/zai-helper'
+import { buildFTContext, contextToPrompt } from '@/lib/ft-enrichment'
 
 // ─── Validation ─────────────────────────
 
@@ -154,6 +155,36 @@ export async function POST(request: NextRequest) {
 
     const stepPrompt = STEP_PROMPTS[step] || STEP_PROMPTS.ACCUEIL
 
+    // ─── FT enrichment for BILAN_IA and PLAN_ACTION ───
+    let ftContextStr = ''
+    if (step === 'BILAN_IA' || step === 'PLAN_ACTION') {
+      try {
+        const journey = await db.creatorJourney.findUnique({
+          where: { userId: session.beneficiary.userId },
+          select: { projectSector: true },
+        })
+        const sector = journey?.projectSector || beneficiaryContext?.project || ''
+        if (sector) {
+          const ftCtx = await buildFTContext({ secteur: sector, region: '11' /* IDF default */ })
+          ftContextStr = contextToPrompt(ftCtx)
+        }
+      } catch (ftErr) {
+        console.warn('[FT Enrichment] France Travail enrichment failed, continuing without:',
+          ftErr instanceof Error ? ftErr.message : ftErr)
+      }
+    }
+
+    const userPromptParts = [
+      `Étape: ${step}`,
+      `Bénéficiaire: ${beneficiaryName}`,
+      projectInfo ? `Projet: ${projectInfo}` : '',
+      riasecInfo ? `Profil RIASEC: ${riasecInfo}` : '',
+      kiviatStr,
+      '',
+      stepPrompt,
+      ftContextStr ? `\n${ftContextStr}` : '',
+    ].filter(Boolean).join('\n')
+
     const result = await callZAI(
       [
         {
@@ -165,13 +196,7 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ou après.`,
         },
         {
           role: 'user',
-          content: `Étape: ${step}
-Bénéficiaire: ${beneficiaryName}
-${projectInfo ? `Projet: ${projectInfo}` : ''}
-${riasecInfo ? `Profil RIASEC: ${riasecInfo}` : ''}
-${kiviatStr}
-
-${stepPrompt}`,
+          content: userPromptParts,
         },
       ],
       { temperature: 0.6, max_tokens: 600 },

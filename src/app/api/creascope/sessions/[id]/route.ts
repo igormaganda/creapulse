@@ -11,6 +11,7 @@ import { db } from '@/lib/db'
 import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
 import { verifyToken, AuthError } from '@/lib/auth'
 import { callZAI, getZAIErrorMessage } from '@/lib/zai-helper'
+import { buildFTContext, contextToPrompt } from '@/lib/ft-enrichment'
 
 // ─── Constants ──────────────────────────
 
@@ -66,36 +67,83 @@ async function verifyAccess(sessionId: string, userId: string, role: string) {
   return { session, error: null }
 }
 
+// ─── Helper: compute weighted globalScore ──
+
+async function computeGlobalScore(
+  beneficiaryUserId: string,
+  stepProgress: Record<string, Record<string, unknown>>
+): Promise<number> {
+  // Step completion (0-100)
+  const completedSteps = Object.entries(stepProgress)
+    .filter(([, v]) => (v as Record<string, unknown>).completedAt)
+    .length
+  const totalSteps = STEP_ORDER.length - 1 // exclude TERMINEE
+  const stepCompletion = (completedSteps / totalSteps) * 100
+
+  // Kiviat average (0-100)
+  const kiviatResults = await db.kiviatResult.findMany({
+    where: { userId: beneficiaryUserId },
+  })
+  const avgKiviat =
+    kiviatResults.length > 0
+      ? kiviatResults.reduce((sum, k) => sum + (k.score / k.maxScore) * 100, 0) /
+        kiviatResults.length
+      : 50 // default 50 if no Kiviat data
+
+  // Weighted: 60% step completion + 40% Kiviat
+  return Math.round(stepCompletion * 0.6 + avgKiviat * 0.4)
+}
+
 // ─── AI insight generation ───────────────
 
 async function generateAIInsights(
   sessionId: string,
   step: string,
   beneficiaryName: string,
-  stepProgress: Record<string, unknown>
+  stepProgress: Record<string, unknown>,
+  sector?: string,
 ) {
+  // ─── FT enrichment for richer insights ───
+  let ftContextStr = ''
+  if (sector) {
+    try {
+      const ftCtx = await buildFTContext({ secteur: sector, region: '11' /* IDF default */ })
+      ftContextStr = contextToPrompt(ftCtx)
+    } catch (ftErr) {
+      console.warn('[FT Enrichment] France Travail enrichment failed in session insights:',
+        ftErr instanceof Error ? ftErr.message : ftErr)
+    }
+  }
+
+  const userContentParts = [
+    `Session CréaScope - Étape: ${step}`,
+    `Bénéficiaire: ${beneficiaryName}`,
+    `Progression des étapes: ${JSON.stringify(stepProgress)}`,
+    '',
+    'Génère un JSON avec la structure suivante :',
+    '{',
+    '  "summary": "Résumé de 2-3 phrases des observations",',
+    '  "strengths": ["force 1", "force 2", "force 3"],',
+    '  "areasToWork": ["point d\'amélioration 1", "point d\'amélioration 2"],',
+    '  "recommendations": ["recommandation 1", "recommandation 2"],',
+    '  "nextStepFocus": "Conseil pour l\'étape suivante"',
+    '}',
+  ftContextStr ? `\n${ftContextStr}` : '',
+  '\nUtilise les données France Travail ci-dessus pour enrichir tes recommandations si elles sont disponibles.',
+  ].filter(Boolean).join('\n')
+
   const result = await callZAI(
     [
       {
         role: 'system',
         content: `Tu es un conseiller entrepreneurial expert dans l'accompagnement de créateurs d'entreprise au sein du GIDEF.
 Tu analyses les résultats des étapes du pipeline CréaScope pour fournir des insights au conseiller.
-Réponds en français de manière concise et actionnable.`,
+Réponds en français de manière concise et actionnable.
+Si des données France Travail sont fournies, utilise-les pour enrichir tes recommandations (offres, formations, aides, métiers).`,
       },
       {
         role: 'user',
-        content: `Session CréaScope - Étape: ${step}
-Bénéficiaire: ${beneficiaryName}
-Progression des étapes: ${JSON.stringify(stepProgress)}
-
-Génère un JSON avec la structure suivante :
-{
-  "summary": "Résumé de 2-3 phrases des observations",
-  "strengths": ["force 1", "force 2", "force 3"],
-  "areasToWork": ["point d'amélioration 1", "point d'amélioration 2"],
-  "recommendations": ["recommandation 1", "recommandation 2"],
-  "nextStepFocus": "Conseil pour l'étape suivante"
-}`,
+        content: userContentParts,
       },
     ],
     { temperature: 0.6, max_tokens: 800 },
@@ -255,11 +303,23 @@ export async function PATCH(
         // Auto-generate AI insights for certain steps
         if (nextStep === 'ANALYSE_INTERMEDIAIRE' || nextStep === 'BILAN_IA') {
           const beneficiaryName = session!.beneficiary.user.firstName || ''
+          // Fetch sector from CreatorJourney for FT enrichment
+          let sector: string | undefined
+          try {
+            const journey = await db.creatorJourney.findUnique({
+              where: { userId: session!.beneficiary.userId },
+              select: { projectSector: true },
+            })
+            sector = journey?.projectSector || undefined
+          } catch {
+            sector = undefined
+          }
           const aiInsights = await generateAIInsights(
             id,
             nextStep,
             beneficiaryName,
-            updatedProgress
+            updatedProgress,
+            sector
           )
           if (aiInsights) {
             updateData.aiInsights = aiInsights
@@ -270,12 +330,11 @@ export async function PATCH(
         if (nextStep === 'TERMINEE') {
           updateData.status = 'TERMINEE'
           updateData.completedAt = now
-          // Compute global score from step progress
-          const completedSteps = Object.entries(updatedProgress)
-            .filter(([, v]) => (v as Record<string, unknown>).completedAt)
-            .length
-          const totalSteps = STEP_ORDER.length - 1 // exclude TERMINEE
-          updateData.globalScore = Math.round((completedSteps / totalSteps) * 100)
+          // Compute global score: 60% step completion + 40% Kiviat average
+          updateData.globalScore = await computeGlobalScore(
+            session!.beneficiary.userId,
+            updatedProgress as Record<string, Record<string, unknown>>
+          )
         }
 
         const updated = await db.creascopeSession.update({
@@ -315,6 +374,11 @@ export async function PATCH(
             completedAt: now.toISOString(),
           },
         }
+        // Compute global score: 60% step completion + 40% Kiviat average
+        const globalScore = await computeGlobalScore(
+          session!.beneficiary.userId,
+          completedProgress as Record<string, Record<string, unknown>>
+        )
         const updated = await db.creascopeSession.update({
           where: { id },
           data: {
@@ -322,7 +386,7 @@ export async function PATCH(
             completedAt: now,
             currentStep: 'TERMINEE',
             stepProgress: completedProgress,
-            globalScore: 100,
+            globalScore,
           },
         })
         return success(updated, 'Session terminée')

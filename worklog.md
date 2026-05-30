@@ -189,3 +189,162 @@ Stage Summary:
 - AI auto-generates insights at key transition points (intermediate analysis + final bilan)
 - Session timer, progress tracking, and counselor notes functionality
 - Session stats dashboard with global score computation
+
+---
+Task ID: p3-7
+Agent: Backend Agent
+Task: Fix /api/assignments route + improve globalScore with Kiviat data
+
+Work Log:
+- Created `src/app/api/assignments/route.ts` — missing GET endpoint that creascope-pipeline.tsx fetches
+  - role=counselor: returns all ACTIVE beneficiaries assigned to the authenticated counselor via CounselorAssignment
+  - role=beneficiary: returns all ACTIVE counselors assigned to the authenticated beneficiary
+  - Auto-infers role from user role if no ?role param provided
+  - Includes user info (firstName, lastName, email, avatarUrl), profile data (employmentStatus, progressScore), organization name, assignment role/status/assignedAt
+  - Nested `user` object within beneficiary/counselor for frontend compatibility with creascope-pipeline.tsx
+- Fixed globalScore computation in `src/app/api/creascope/sessions/[id]/route.ts`
+  - Extracted `computeGlobalScore()` helper function (reused by advance_step and complete actions)
+  - Old formula: `completedSteps / totalSteps × 100` (only step completion)
+  - New formula: `Math.round((stepCompletion × 0.6) + (avgKiviatScore × 0.4))`
+  - Fetches KiviatResult records for the beneficiary, computes avg score per dimension (score/maxScore × 100)
+  - Defaults to 50 when no Kiviat data exists
+  - Applied to both `advance_step` (TERMINEE transition) and `complete` action
+- Lint passes clean (0 errors)
+
+Stage Summary:
+- 1 file created: `src/app/api/assignments/route.ts` (159 lines)
+- 1 file modified: `src/app/api/creascope/sessions/[id]/route.ts` (+28 lines, computeGlobalScore helper)
+- creascope-pipeline.tsx beneficiary selector now works with /api/assignments endpoint
+- globalScore now combines 60% step completion + 40% Kiviat average for richer scoring
+
+---
+Task ID: p3-3 + p3-4
+Agent: Backend Agent
+Task: FT API enrichment in CréaScope AI suggest + session insights + IA assistant
+
+Work Log:
+- Read worklog, ft-enrichment.ts, zai-helper.ts, api-response.ts, auth.ts for full context
+- Verified CreatorJourney model has `projectSector` field in Prisma schema
+- Read all 3 target API route files: ai-suggest, sessions/[id], ia
+- Modified `/api/creascope/ai-suggest/route.ts`:
+  - Added import of `buildFTContext` and `contextToPrompt` from `@/lib/ft-enrichment`
+  - Added FT enrichment block when step is `BILAN_IA` or `PLAN_ACTION`
+  - Fetches `projectSector` from beneficiary's CreatorJourney (fallback to `beneficiaryContext.project`)
+  - Calls `buildFTContext({ secteur, region: '11' })` with IDF default
+  - Appends `contextToPrompt(ftCtx)` to the user prompt after step-specific instructions
+  - try/catch wrapped with console.warn for graceful degradation
+  - Refactored prompt assembly into `userPromptParts` array joined with `.filter(Boolean).join('\n')`
+- Modified `/api/creascope/sessions/[id]/route.ts`:
+  - Added import of `buildFTContext` and `contextToPrompt` from `@/lib/ft-enrichment`
+  - Updated `generateAIInsights` function signature to accept optional `sector?: string` parameter
+  - Added FT enrichment inside `generateAIInsights`: calls `buildFTContext` when sector is available
+  - Updated system prompt to instruct AI to use FT data for recommendations
+  - Updated `advance_step` case in `PATCH` to fetch sector from CreatorJourney before calling `generateAIInsights`
+  - Sector fetch wrapped in try/catch for graceful degradation
+- Modified `/api/ia/route.ts`:
+  - Added import of `buildFTContext` and `contextToPrompt` from `@/lib/ft-enrichment`
+  - Added `FT_ENRICH_KEYWORDS` constant (13 labor-market keywords: offre, aide, formation, marché, emploi, etc.)
+  - Added `shouldEnrichWithFT()` function: returns true for creascope/pipeline modules OR keyword matches
+  - Added module contexts for `creascope`, `pipeline`, and `pepites` in `getModuleContext()`
+  - Added FT enrichment block before LLM call: when conditions met AND `context.sector` available, fetches FT context and injects into user message
+  - try/catch wrapped with console.warn; falls back to original message on failure
+- Ran `bun run lint` — 0 errors
+
+Stage Summary:
+- 3 API route files enriched with France Travail data, all additive (no existing functionality broken)
+- FT enrichment is fully non-blocking: try/catch on every FT call, graceful degradation to no-FT path
+- AI suggestions for BILAN_IA and PLAN_ACTION now include real offres, aides, formations, métiers from FT API
+- Session AI insights at ANALYSE_INTERMEDIAIRE and BILAN_IA transitions enriched with FT market data
+- IA assistant enriches responses when user is in creascope/pipeline module OR asks about offres/aides/formations/etc.
+- Module context registry expanded: creascope, pipeline, pepites added to `getModuleContext()`
+- Lint: 0 errors — all 3 files pass clean
+
+---
+Task ID: p3-1
+Agent: Backend Agent
+Task: RGPD — ConsentLog model + API routes (consent, export, delete-request)
+
+Work Log:
+- Added ConsentType enum (COOKIES, CGU, DONNEES_PERSONNELLES, MARKETING, CREASCOPE, FRANCE_TRAVAIL) to Prisma schema
+- Added ConsentStatus enum (GRANTED, DENIED, WITHDRAWN) to Prisma schema
+- Added ConsentLog model with unique constraint on [userId, consentType], indexes on userId and [consentType, status]
+- Added DataExportRequest model with indexes on userId and status
+- Added DataDeletionRequest model with indexes on userId and status
+- Added 3 relation fields to User model: consents, dataExports, dataDeletions
+- Pushed schema to PostgreSQL via `DATABASE_URL=... bun run db:push` — sync successful
+- Created /api/rgpd/consent/route.ts (GET: list consents, POST: upsert consent, DELETE: withdraw consent)
+- Created /api/rgpd/export/route.ts (GET: list export requests, POST: create export + immediately export all user data as JSON)
+- Created /api/rgpd/delete-request/route.ts (GET: list deletion requests, POST: create request, PATCH: approve/reject for counselors/admins)
+- Export data includes: user profile, beneficiary/counselor profiles, CreatorJourney, Kiviat/Riasec/Motivations, ModuleResults, SwipeResults, SwipeAnswers, CreascopeSessions, FinancialForecast, CreaSim, Juridique, MarketAnalysis, Tremplin, BMC, ZeroDraft, ConsentLog, Networks, PersonalizedPaths, Registrations, Messages, Notifications
+- All routes use Zod validation, JWT auth via getTokenFromHeader+verifyToken, French error messages
+- Lint: 0 errors
+
+Stage Summary:
+- 1 schema file modified: prisma/schema.prisma (+2 enums, +3 models, +3 User relations)
+- 3 API route files created: consent, export, delete-request
+- Full RGPD compliance backend: consent tracking, data portability (export), right to erasure (deletion request)
+- Database schema pushed and synced successfully
+- All ESLint checks pass with zero errors
+
+---
+Task ID: p3-5 + p3-6
+Agent: Backend Agent
+Task: CréaScope PDF Bilan export + Analytics API
+
+Work Log:
+- Read worklog, existing export routes (suivi-kiviat), pdf-utils.ts, api-response.ts, auth.ts, db.ts, zai-helper.ts
+- Read Prisma schema: CreascopeSession, KiviatResult, RiasecResult, CreatorJourney, ModuleResult, Beneficiary models
+- Read existing conseiller/_lib/auth.ts and conseiller/stats/route.ts for counselor auth patterns
+- Created `/api/export/bilan-creascope/route.ts` — POST endpoint for PDF generation
+  - Zod body validation with sessionId
+  - Auth: JWT via cookie/header, access check (counselor/beneficiary/admin)
+  - Fetches session with beneficiary.user, counselor.user relations
+  - Parallel fetch: kiviatResults, riasecResults, creatorJourney, moduleResults
+  - PDF structure: Cover → Synthèse (info KV + steps table) → Kiviat scores + AI insights → RIASEC profile → Parcours Créateur + Modules → Insights IA → Plan d'Action
+  - Footer on all pages except cover
+  - Returns PDF with Content-Disposition attachment header
+- Created `/api/conseiller/creascope-stats/route.ts` — GET endpoint for counselor analytics
+  - Auth: Counselor (own sessions) or Admin (counselorId query param required)
+  - Computes: totalSessions, completedSessions, inProgressSessions, averageDuration, averageGlobalScore, completionRate
+  - sessionsByMonth: last 12 months grouped by YYYY-MM
+  - dimensionAverages: 6 Kiviat dimensions averaged across all beneficiary user IDs
+  - recentSessions: last 10 sessions with beneficiaryName, status, currentStep, globalScore, completedAt
+- Ran `bun run lint` — 0 errors
+
+Stage Summary:
+- 2 API route files created
+- `/api/export/bilan-creascope/route.ts` (~290 lines) — Multi-page PDF bilan with Kiviat, RIASEC, Parcours, AI insights, action plan
+- `/api/conseiller/creascope-stats/route.ts` (~190 lines) — Aggregate CréaScope statistics with monthly trends, dimension averages, completion metrics
+- ESLint: 0 errors
+
+---
+Task ID: p3-2
+Agent: Main
+Task: RGPD — Cookie Consent Banner + Privacy Dashboard bureau module
+
+Work Log:
+- Created `src/components/rgpd/cookie-consent-banner.tsx` — Full cookie consent banner
+  - Animated bottom sheet with Shield icon and RGPD-compliant text
+  - 3 consent categories: Cookies techniques (obligatoires), Analytiques, Marketing
+  - Customizable via expandable details section with Switch toggles
+  - 3 action buttons: Refuser, Accepter sélection, Tout accepter
+  - localStorage persistence (key: creapulse_consent_v1)
+  - Optional API sync to /api/rgpd/consent when user is authenticated
+- Created `src/components/bureau/modules/privacy-dashboard.tsx` — Bureau RGPD dashboard
+  - Consent management: view all consent records with status badges (GRANTED/DENIED/WITHDRAWN)
+  - Withdraw consent button per consent type
+  - Data export: one-click JSON export with auto-download
+  - Data deletion request: submit deletion request (reviewed by counselor before execution)
+  - Export and deletion request history
+  - RGPD rights info section (6 rights: accès, rectification, portabilité, oubli, opposition, limitation)
+  - Loading states, error/success messages
+- Integrated cookie consent banner into `src/app/page.tsx`
+- Integrated privacy dashboard into bureau-layout.tsx (dynamic import + content router)
+- Added 'vie-privee' to sidebar navigation under Pilotage section (Shield icon, RGPD badge)
+- Added 'vie-privee' to section overview and placeholder filter
+
+Stage Summary:
+- 2 new component files: cookie-consent-banner.tsx + privacy-dashboard.tsx
+- 3 modified files: page.tsx, bureau-layout.tsx, sidebar.tsx
+- Full RGPD frontend: cookie consent management + privacy dashboard in bureau
+- ESLint: 0 errors
