@@ -43,6 +43,7 @@ import {
   ChevronRight,
   Sparkles,
   LayoutGrid,
+  Download,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -111,6 +112,7 @@ const BASE_NAVIGATION: Omit<NavGroup, 'progress'>[] = [
       { id: 'tremplin', label: 'Tremplin', icon: Rocket },
       { id: 'passeport', label: 'Passeport', icon: Stamp, badge: 'Nouveau' },
       { id: 'certifications', label: 'Certifications', icon: BadgeCheck },
+      { id: 'telechargements', label: 'Téléchargements', icon: Download, badge: 'PDF' },
     ],
   },
 ]

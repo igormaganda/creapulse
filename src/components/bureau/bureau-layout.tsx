@@ -43,6 +43,7 @@ const Tremplin = dynamic(() => import('./modules/tremplin').then(m => ({ default
 const Passeport = dynamic(() => import('./modules/passeport').then(m => ({ default: m.Passeport })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const Mentorat = dynamic(() => import('./modules/mentorat').then(m => ({ default: m.Mentorat })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const Certifications = dynamic(() => import('./modules/certifications').then(m => ({ default: m.Certifications })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const Telechargements = dynamic(() => import('./modules/telechargements').then(m => ({ default: m.Telechargements })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const BilanIA = dynamic(() => import('./modules/bilan-ia').then(m => ({ default: m.BilanIA })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const MessagesModule = dynamic(() => import('./modules/messages').then(m => ({ default: m.MessagesModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const BmcModule = dynamic(() => import('./modules/bmc').then(m => ({ default: m.BusinessModelCanvasModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
@@ -72,6 +73,7 @@ import {
   ArrowRight,
   Construction,
   LayoutGrid,
+  Download,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -96,6 +98,7 @@ const moduleContent: Record<string, { title: string; description: string; icon: 
   'tremplin': { title: 'Tremplin', description: 'Accédez aux dispositifs d\'aide pour lancer votre activité.', icon: Rocket, color: 'text-primary bg-primary/10' },
   'passeport': { title: 'Passeport Entrepreneurial', description: 'Certifiez votre parcours et valorisez vos compétences.', icon: Stamp, color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' },
   'certifications': { title: 'Certifications', description: 'Consultez et gérez vos certifications obtenues.', icon: BadgeCheck, color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' },
+  'telechargements': { title: 'Téléchargements', description: 'Téléchargez tous vos documents de suivi et PDF structurés.', icon: Download, color: 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20' },
   'messages': { title: 'Messages', description: 'Communiquez avec votre conseiller et les autres créateurs.', icon: MessageCircle, color: 'text-teal-500 bg-teal-50 dark:bg-teal-900/20' },
 }
 
@@ -145,7 +148,7 @@ function SectionOverview({ sectionId }: { sectionId: string }) {
       parcours: ['profil-createur', 'mon-projet', 'vision', 'riasec', 'kiviat', 'bilan-ia'],
       strategie: ['marche', 'juridique', 'financier', 'creasim', 'bmc', 'business-plan', 'pitch-deck'],
       ecosysteme: ['annuaire', 'forum', 'messages', 'mentorat'],
-      pilotage: ['tremplin', 'passeport', 'certifications'],
+      pilotage: ['tremplin', 'passeport', 'certifications', 'telechargements'],
     }
     return sectionMap[sectionId]?.includes(Object.keys(moduleContent).find(k => moduleContent[k] === v) || '')
   })
@@ -227,8 +230,9 @@ function BureauContent() {
         {currentModule === 'passeport' && <Passeport />}
         {currentModule === 'mentorat' && <Mentorat />}
         {currentModule === 'certifications' && <Certifications />}
+        {currentModule === 'telechargements' && <Telechargements />}
         {currentModule === 'messages' && <MessagesModule />}
-        {currentSection !== 'dashboard' && currentModule && currentModule !== 'riasec' && currentModule !== 'mon-projet' && currentModule !== 'creasim' && currentModule !== 'business-plan' && currentModule !== 'annuaire' && currentModule !== 'forum' && currentModule !== 'marche' && currentModule !== 'juridique' && currentModule !== 'financier' && currentModule !== 'pitch-deck' && currentModule !== 'profil-createur' && currentModule !== 'kiviat' && currentModule !== 'vision' && currentModule !== 'tremplin' && currentModule !== 'passeport' && currentModule !== 'mentorat' && currentModule !== 'certifications' && currentModule !== 'messages' && currentModule !== 'bilan-ia' && currentModule !== 'bmc' && <ModulePlaceholder moduleId={currentModule} />}
+        {currentSection !== 'dashboard' && currentModule && currentModule !== 'riasec' && currentModule !== 'mon-projet' && currentModule !== 'creasim' && currentModule !== 'business-plan' && currentModule !== 'annuaire' && currentModule !== 'forum' && currentModule !== 'marche' && currentModule !== 'juridique' && currentModule !== 'financier' && currentModule !== 'pitch-deck' && currentModule !== 'profil-createur' && currentModule !== 'kiviat' && currentModule !== 'vision' && currentModule !== 'tremplin' && currentModule !== 'passeport' && currentModule !== 'mentorat' && currentModule !== 'certifications' && currentModule !== 'messages' && currentModule !== 'bilan-ia' && currentModule !== 'bmc' && currentModule !== 'telechargements' && <ModulePlaceholder moduleId={currentModule} />}
         {currentSection !== 'dashboard' && !currentModule && <SectionOverview sectionId={currentSection} />}
       </motion.div>
     </AnimatePresence>
