@@ -132,3 +132,52 @@ Stage Summary:
 - Both modules have AI analysis integration via existing endpoints
 - Maintained backward compatibility with existing API data shapes
 - Export names preserved: MarcheModule, JuridiqueModule
+
+---
+Task ID: 2-pdf-system
+Agent: general-purpose
+Task: Create server-side PDF generation system with pdfkit
+
+Work Log:
+- Analyzed existing project structure: Prisma schema (40 models), auth system, API response helpers, existing export routes (business-plan, passeport)
+- Created src/lib/pdf-utils.ts with PDFKit wrapper utilities:
+  - generatePdfBuffer() — collects PDF into Buffer using chunk-based approach
+  - Branding: teal #00838F header bar, footer with "CreaPulse V2 — GIDEF Île-de-France — Document confidentiel" + page numbers
+  - drawCoverPage() — branded cover with project title, subtitle, beneficiary name, date
+  - addSectionHeader() — teal left accent bar + bold title
+  - addSubSectionHeader() — dark bold sub-title
+  - addTable() — generic table with header row, alternating row colors, cell borders
+  - addKeyValueBlock() — label-value pairs for profile info
+  - addParagraph() / addBullet() — text wrapping with auto page-break
+  - scoreBar() — text-based visual bar [████░░░░] X/10
+  - addDecisionBadge() — colored badge for GO/NO_GO/GO_CONDITIONNEL/PENDING
+  - formatCurrency() / formatPercent() / formatDate() — French locale formatters
+  - finalizeWithFooters() — post-process all buffered pages to add footers
+  - A4 page size (595.28×841.89), margins 50pt all sides
+- Created /api/export/suivi-kiviat/route.ts:
+  - GET handler with auth (cookie + Bearer)
+  - Fetches KiviatResult + User + CreatorJourney from Prisma
+  - PDF: cover page → profile summary → 8-dimension scores table with visual bars → global average → strengths (score≥7) → areas to improve (score<5) → recommendations
+- Created /api/export/suivi-tremplin/route.ts:
+  - GET handler with auth
+  - Fetches Tremplin + User + CreatorJourney
+  - PDF: cover page → info block → decision badge (GO/NO_GO/PENDING with color) → score → summary → step-by-step responses table (8 steps) → recommendations → next steps
+- Created /api/export/suivi-parcours/route.ts:
+  - GET handler with auth
+  - Fetches comprehensive data: User, CreatorJourney, KiviatResult, RiasecResult, ModuleResult, Tremplin, CreaSimSimulation, BusinessModelCanvas, InterviewSession, InterviewNote
+  - PDF (3-5 pages): cover → profile summary → Kiviat radar table with average → RIASEC profile table → module completion status table (9 modules) → Tremplin status + decision badge → CreaSim financial brief → BMC status → key interview notes → contextual recommendations/actions
+- Created /api/export/suivi-creasim/route.ts:
+  - GET handler with auth
+  - Fetches CreaSimSimulation + User + CreatorJourney
+  - PDF: cover → project info → monthly simulation table (CA, charges variables/fixes/total, marge brute/nette) → margin rates → 3-year projection table (Revenus/Charges/Résultat) → profitability summary → break-even analysis (seuil de rentabilité + viability assessment) → fixed charges detail table → AI synthesis text → recommendations
+- All routes return PDF as NextResponse with Content-Type: application/pdf and Content-Disposition: attachment
+- All routes handle 404 when no data found
+- Ran `bun run lint` → 0 errors
+
+Stage Summary:
+- 4 PDF API routes functional: suivi-kiviat, suivi-tremplin, suivi-parcours, suivi-creasim
+- 1 reusable PDF utility (src/lib/pdf-utils.ts) with branding, tables, sections, bullets
+- All routes require auth (JWT cookie or Bearer header)
+- PDF output with CreaPulse branding (teal #00838F header/footer)
+- A4 format, Helvetica/Helvetica-Bold fonts, French labels throughout
+- 0 lint errors
