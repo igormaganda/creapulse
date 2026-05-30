@@ -370,6 +370,7 @@ model Counselor {
   appointments Appointment[]
   interviews   InterviewSession[]
   livrables    Livrable[]   @relation("CounselorLivrables")
+  creascopeSessions CreascopeSession[]
 
   @@index([organizationId])
 }
@@ -395,6 +396,7 @@ model Beneficiary {
   assignments  CounselorAssignment[]
   appointments Appointment[]
   interviews   InterviewSession[]
+  creascopeSessions CreascopeSession[]
 
   @@index([organizationId])
 }
@@ -1218,6 +1220,68 @@ model QuizLead {
 
   @@index([category])
   @@index([email])
+}
+
+// ============================================
+// CRÉASCOPE SESSION — Pipeline 3-4h Conseiller
+// ============================================
+
+enum CreascopeStep {
+  ACCUEIL
+  FLASH_SWIPE
+  ANALYSE_INTERMEDIAIRE
+  QUESTIONNAIRE
+  CHALLENGE_SCENARIO
+  BILAN_IA
+  PLAN_ACTION
+  TERMINEE
+}
+
+enum CreascopeSessionStatus {
+  PLANIFIEE
+  EN_COURS
+  PAUSEE
+  TERMINEE
+  ANNULEE
+}
+
+model CreascopeSession {
+  id              String                @id @default(cuid())
+  beneficiaryId   String
+  counselorId     String
+  status          CreascopeSessionStatus @default(PLANIFIEE)
+  currentStep     CreascopeStep         @default(ACCUEIL)
+
+  // Timing
+  scheduledAt     DateTime
+  startedAt       DateTime?
+  completedAt     DateTime?
+  estimatedMinutes Int                  @default(240) // 4h default
+
+  // Step progress tracking (JSON: { step: { startedAt, completedAt, durationMinutes, notes, aiInsights } })
+  stepProgress    Json                  @default("{}")
+
+  // Session notes from counselor
+  counselorNotes  String?
+
+  // AI-generated session insights (generated after each step)
+  aiInsights      Json?
+
+  // Action plan from final step
+  actionPlan      Json?
+
+  // Global session score (0-100)
+  globalScore     Int?
+
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  beneficiary     Beneficiary           @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+  counselor       Counselor             @relation(fields: [counselorId], references: [id], onDelete: Cascade)
+
+  @@index([beneficiaryId])
+  @@index([counselorId])
+  @@index([status, scheduledAt])
 }
 
 // ============================================

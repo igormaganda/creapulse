@@ -36,6 +36,8 @@ const greetings: Record<string, string> = {
   'business-plan': "Je peux vous assister dans la rédaction de votre business plan.",
   annuaire: "Je peux vous aider à trouver les bons partenaires pour votre projet.",
   forum: "Je peux vous aider à formuler vos questions ou répondre à d'autres créateurs.",
+  pepites: "Je peux vous aider à interpréter vos résultats Pépites Game et votre profil Kiviat. Que souhaitez-vous savoir ?",
+  creascope: "Je peux vous accompagner dans votre session CréaScope. Posez-moi vos questions sur le pipeline diagnostique !",
 }
 
 const defaultGreeting = "Bonjour ! Je suis l'assistant IA CreaPulse. Comment puis-je vous aider dans votre parcours entrepreneurial ?"
@@ -63,6 +65,16 @@ const suggestions: Record<string, string[]> = {
     "Quelles sections sont essentielles ?",
     "Comment convaincre un banquier ?",
   ],
+  pepites: [
+    "Comment améliorer mes scores Kiviat ?",
+    "Que signifient mes résultats Pépites ?",
+    "Quelles compétences dois-je développer ?",
+  ],
+  creascope: [
+    "Comment préparer ma session CréaScope ?",
+    "Que se passe-t-il pendant le pipeline ?",
+    "Comment utiliser le plan d'action CréaScope ?",
+  ],
   default: [
     "Comment créer mon entreprise ?",
     "Quelles aides sont disponibles ?",
@@ -79,6 +91,8 @@ const moduleNames: Record<string, string> = {
   'business-plan': 'Business Plan',
   annuaire: 'Annuaire',
   forum: 'Forum',
+  pepites: 'Pépites Game',
+  creascope: 'CréaScope',
 }
 
 /* ─── Typing Indicator ─── */

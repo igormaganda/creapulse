@@ -161,3 +161,31 @@ Stage Summary:
 - Cross-module navigation works via BureauStore
 - Lint: 0 errors
 - All P1+P2 CréaScope tasks completed
+
+---
+Task ID: cs-pipeline
+Agent: fullstack-developer
+Task: Implement CréaScope session pipeline + AI advisor support
+
+Work Log:
+- Added CreascopeSession model to Prisma schema with CreascopeStep (8 steps) and CreascopeSessionStatus (5 statuses) enums
+- Added creascopeSessions relation fields to Beneficiary and Counselor models
+- Pushed schema to PostgreSQL database successfully
+- Created /api/creascope/sessions/route.ts (GET: list sessions by role, POST: create session counselor-only)
+- Created /api/creascope/sessions/[id]/route.ts (GET: session detail with beneficiary data, PATCH: start/advance/pause/resume/complete/notes, DELETE: cancel)
+- Implemented auto AI insight generation on ANALYSE_INTERMEDIAIRE and BILAN_IA step transitions
+- Created /api/creascope/ai-suggest/route.ts with step-specific French prompts for counselor guidance
+- Created creascope-pipeline.tsx client component (~700 lines) with session list, orchestrator, step progress bar, AI suggestion panel, timer, notes
+- Updated ia-assistant.tsx with creascope and pepites greetings, suggestions, and module names
+- Registered CreascopePipeline in bureau-layout.tsx dynamic imports, content router, and module content map
+- Added creascope to sidebar navigation under Parcours section with Rocket icon and Pipeline badge
+- Added creascope to section overview section map
+- All ESLint checks pass with zero errors
+
+Stage Summary:
+- Full 3-4h session pipeline implemented with 7 sequential steps + TERMINÉE state
+- AI advisor support integrated with real-time step-specific suggestions via callZAI (Claude Sonnet 4)
+- Counselor can create, manage, advance, pause/resume, and cancel sessions
+- AI auto-generates insights at key transition points (intermediate analysis + final bilan)
+- Session timer, progress tracking, and counselor notes functionality
+- Session stats dashboard with global score computation

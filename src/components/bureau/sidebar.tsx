@@ -79,6 +79,7 @@ const BASE_NAVIGATION: Omit<NavGroup, 'progress'>[] = [
       { id: 'riasec', label: 'RIASEC', icon: FlaskConical },
       { id: 'kiviat', label: 'Kiviat', icon: Pentagon },
       { id: 'bilan-ia', label: 'Bilan IA', icon: Sparkles, badge: 'IA' },
+      { id: 'creascope', label: 'CréaScope', icon: Rocket, badge: 'Pipeline' },
     ],
   },
   {
