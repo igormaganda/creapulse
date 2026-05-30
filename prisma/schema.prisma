@@ -1185,6 +1185,7 @@ model NewsArticle {
   content      String   @default("")
   category     String   @default("Inspiration")
   imageGradient String?
+  imageUrl     String?
   authorName   String   @default("Équipe CreaPulse")
   authorRole   String   @default("GIDEF Île-de-France")
   isPublished  Boolean  @default(true)

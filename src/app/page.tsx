@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 
 /* ─── shadcn/ui components (for Navbar) ─── */
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import {
   Sheet,
@@ -33,7 +34,14 @@ import {
   UserCircle,
   Zap,
   Menu,
+  Sparkles,
+  HardHat,
+  Heart,
+  Monitor,
+  GraduationCap,
+  Brain,
 } from 'lucide-react'
+import Link from 'next/link'
 
 /* ─── Auth dialogs ─── */
 import { LoginDialog } from '@/components/auth/login-dialog'
@@ -120,9 +128,7 @@ function Navbar({
   const navLinks = [
     { label: 'Parcours', href: '#parcours' },
     { label: 'Outils', href: '#outils' },
-    { label: 'Réseau', href: '#reseau' },
     { label: 'Actualités', href: '#actualites' },
-    { label: 'Tarifs', href: '#cta' },
   ]
 
   return (
@@ -135,9 +141,12 @@ function Navbar({
               <Zap className="h-6 w-6 text-primary" />
               <span className="text-xl font-bold text-primary">CreaPulse</span>
             </div>
-            <span className="hidden text-xs text-muted-foreground sm:inline">
-              GIDEF Île-de-France
-            </span>
+            {/* GIDEF Logo */}
+            <img
+              src="https://www.gidef.org/wp-content/uploads/2019/12/logo-gidef-couleur.svg"
+              alt="GIDEF Île-de-France"
+              className="hidden h-7 sm:block"
+            />
           </div>
 
           {/* Center nav links — desktop */}
@@ -163,6 +172,57 @@ function Navbar({
                 <DropdownMenuItem className="gap-2 cursor-pointer">
                   <TrendingUp className="h-4 w-4 text-coral-500" />
                   Je développe mon activité
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Horizon Emplois dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="gap-1 text-sm font-medium">
+                  <Sparkles className="mr-1 h-3.5 w-3.5 text-primary" />
+                  Horizon Emplois
+                  <ChevronRight className="h-3.5 w-3.5 rotate-90" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="w-56">
+                <DropdownMenuItem className="gap-2 cursor-pointer" asChild>
+                  <Link href="/metiers/btp">
+                    <HardHat className="h-4 w-4 text-amber-600" />
+                    Métiers du BTP
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2 cursor-pointer" asChild>
+                  <Link href="/metiers/social">
+                    <Heart className="h-4 w-4 text-pink-500" />
+                    Métiers du Social
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2 cursor-pointer" asChild>
+                  <Link href="/metiers/numerique">
+                    <Monitor className="h-4 w-4 text-primary" />
+                    Métiers du Numérique
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2 cursor-pointer" asChild>
+                  <Link href="/metiers/formation">
+                    <GraduationCap className="h-4 w-4 text-emerald-600" />
+                    Formation & Reconversion
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2 cursor-pointer" asChild>
+                  <Link href="/metiers/entrepreneuriat">
+                    <Rocket className="h-4 w-4 text-orange-500" />
+                    Entrepreneuriat
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="gap-2 cursor-pointer" asChild>
+                  <Link href="/metiers/test-ia">
+                    <Brain className="h-4 w-4 text-violet-500" />
+                    <span className="font-medium">Fais le Test IA</span>
+                    <Badge className="bg-primary text-[9px] px-1 py-0 ml-auto">Nouveau</Badge>
+                  </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -242,7 +302,15 @@ function Navbar({
                   <Zap className="h-5 w-5 text-primary" />
                   CreaPulse
                 </SheetTitle>
-                <SheetDescription>GIDEF Île-de-France</SheetDescription>
+                <SheetDescription>
+                  <span className="flex items-center gap-2">
+                    <img
+                      src="https://www.gidef.org/wp-content/uploads/2019/12/logo-gidef-couleur.svg"
+                      alt="GIDEF"
+                      className="h-5"
+                    />
+                  </span>
+                </SheetDescription>
               </SheetHeader>
               <nav className="flex flex-col gap-1 px-4 pt-2">
                 <a href="#besoin" onClick={() => setMobileOpen(false)}>
@@ -269,6 +337,35 @@ function Navbar({
                     Trouver mon agence GIDEF
                   </Button>
                 </a>
+                <Separator className="my-2" />
+                {/* Horizon Emplois mobile items */}
+                <div className="space-y-1">
+                  <p className="px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <Sparkles className="h-3 w-3 text-primary" />
+                    Horizon Emplois
+                  </p>
+                  {[
+                    { label: 'Métiers du BTP', href: '/metiers/btp', icon: HardHat, color: 'text-amber-600' },
+                    { label: 'Métiers du Social', href: '/metiers/social', icon: Heart, color: 'text-pink-500' },
+                    { label: 'Métiers du Numérique', href: '/metiers/numerique', icon: Monitor, color: 'text-primary' },
+                    { label: 'Formation & Reconversion', href: '/metiers/formation', icon: GraduationCap, color: 'text-emerald-600' },
+                    { label: 'Entrepreneuriat', href: '/metiers/entrepreneuriat', icon: Rocket, color: 'text-orange-500' },
+                  ].map((item) => (
+                    <a key={item.href} href={item.href} onClick={() => setMobileOpen(false)}>
+                      <Button variant="ghost" className="w-full justify-start gap-2">
+                        <item.icon className={`h-4 w-4 ${item.color}`} />
+                        {item.label}
+                      </Button>
+                    </a>
+                  ))}
+                  <a href="/metiers/test-ia" onClick={() => setMobileOpen(false)}>
+                    <Button variant="ghost" className="w-full justify-start gap-2">
+                      <Brain className="h-4 w-4 text-violet-500" />
+                      Fais le Test IA
+                      <Badge className="bg-primary text-[9px] px-1 py-0 ml-auto">Nouveau</Badge>
+                    </Button>
+                  </a>
+                </div>
                 <Separator className="my-2" />
                 {navLinks.map((link) => (
                   <a key={link.href} href={link.href} onClick={() => setMobileOpen(false)}>

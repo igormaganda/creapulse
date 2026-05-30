@@ -1143,17 +1143,53 @@ async function buildBmcPdf(
   })
 }
 
+// ─── Fallback PDF Builder ─────────────────────
+
+/**
+ * Generate a simple fallback PDF when the main PDF builder fails.
+ * Shows a branded cover page with an error message instead of crashing.
+ */
+async function buildFallbackPdf(
+  title: string,
+  message: string,
+  fullName: string,
+): Promise<Buffer> {
+  return generatePdfBuffer((doc) => {
+    drawCoverPage(doc, title, 'CreaPulse V2 — Document de démonstration', fullName)
+
+    let y = addSectionHeader(doc, 'Information')
+    y = addParagraph(doc, message, y, { color: COLORS.warning, fontSize: 11 })
+    addSpacing(doc, 20)
+
+    y = addSectionHeader(doc, 'Que faire ?')
+    y = addBullet(doc, 'Vérifiez que la base de données est accessible et contient les données de démonstration.', y)
+    y = addBullet(doc, 'Relancez le script de peuplement (seed) si nécessaire.', y)
+    y = addBullet(doc, 'Consultez les logs du serveur pour plus de détails.', y)
+    addSpacing(doc, 20)
+
+    y = addSectionHeader(doc, 'Support')
+    y = addParagraph(doc, 'Si le problème persiste, contactez votre conseiller GIDEF Île-de-France.', y)
+
+    finalizeWithFooters(doc)
+  })
+}
+
 // ─── Route Handler ───────────────────────────
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ type: string }> },
 ) {
+  const isDev = process.env.NODE_ENV === 'development'
+
   try {
     const { type } = await params
 
+    console.error(`[DemoPDF] Request received: type=${type}`)
+
     // Validate type
     if (!VALID_TYPES.includes(type as DemoExportType)) {
+      console.error(`[DemoPDF] Invalid type: "${type}"`)
       return NextResponse.json(
         {
           success: false,
@@ -1167,120 +1203,189 @@ export async function GET(
       )
     }
 
-    // Fetch demo user
-    const user = await fetchDemoUser()
+    // ── Step 1: Fetch demo user ──
+    let fullName = 'Bénéficiaire Démo'
+    let email = 'demo@creapulse.fr'
+    let createdAt = new Date()
 
-    // Build PDF based on type
+    try {
+      const user = await fetchDemoUser()
+      fullName = user.fullName
+      email = user.email
+      createdAt = user.createdAt
+      console.error(`[DemoPDF] User fetched: ${fullName} (${email})`)
+    } catch (dbErr) {
+      const errMsg = dbErr instanceof Error ? dbErr.message : String(dbErr)
+      console.error(`[DemoPDF] ❌ Failed to fetch demo user: ${errMsg}`)
+      if (dbErr instanceof Error && dbErr.stack) {
+        console.error(`[DemoPDF] Stack: ${dbErr.stack}`)
+      }
+      // Return fallback PDF — DB is unreachable or user not seeded
+      const fallbackBuffer = await buildFallbackPdf(
+        'Document Indisponible',
+        `Impossible de se connecter à la base de données ou le bénéficiaire de démonstration est introuvable. ${isDev ? `Détail : ${errMsg}` : 'Veuillez réessayer plus tard.'}`,
+        'Bénéficiaire Démo',
+      )
+      return new NextResponse(new Uint8Array(fallbackBuffer), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="demo-${type}-fallback.pdf"`,
+          'Content-Length': fallbackBuffer.length.toString(),
+          'Cache-Control': 'no-store',
+        },
+      })
+    }
+
+    // ── Step 2: Build PDF based on type ──
     let pdfBuffer: Buffer | null = null
     let filename = 'demo.pdf'
 
-    switch (type) {
-      case 'suivi-kiviat': {
-        const result = await buildKiviatPdf(user.fullName, user.email)
-        if (!result) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: {
-                code: 'NO_DATA',
-                message: 'No Kiviat results found for the demo beneficiary.',
+    try {
+      switch (type) {
+        case 'suivi-kiviat': {
+          console.error(`[DemoPDF] Building Kiviat PDF for ${fullName}...`)
+          const result = await buildKiviatPdf(fullName, email)
+          if (!result) {
+            console.error(`[DemoPDF] No Kiviat data found, returning 404`)
+            return NextResponse.json(
+              {
+                success: false,
+                error: {
+                  code: 'NO_DATA',
+                  message: 'No Kiviat results found for the demo beneficiary.',
+                },
+                timestamp: new Date().toISOString(),
               },
-              timestamp: new Date().toISOString(),
-            },
-            { status: 404 },
-          )
+              { status: 404 },
+            )
+          }
+          pdfBuffer = result
+          filename = `demo-suivi-kiviat.pdf`
+          break
         }
-        pdfBuffer = result
-        filename = `demo-suivi-kiviat.pdf`
-        break
+
+        case 'suivi-tremplin': {
+          console.error(`[DemoPDF] Building Tremplin PDF for ${fullName}...`)
+          const result = await buildTremplinPdf(fullName)
+          if (!result) {
+            console.error(`[DemoPDF] No Tremplin data found, returning 404`)
+            return NextResponse.json(
+              {
+                success: false,
+                error: {
+                  code: 'NO_DATA',
+                  message: 'No Tremplin assessment found for the demo beneficiary.',
+                },
+                timestamp: new Date().toISOString(),
+              },
+              { status: 404 },
+            )
+          }
+          pdfBuffer = result
+          filename = `demo-suivi-tremplin.pdf`
+          break
+        }
+
+        case 'suivi-creasim': {
+          console.error(`[DemoPDF] Building CreaSim PDF for ${fullName}...`)
+          const result = await buildCreaSimPdf(fullName)
+          if (!result) {
+            console.error(`[DemoPDF] No CreaSim data found, returning 404`)
+            return NextResponse.json(
+              {
+                success: false,
+                error: {
+                  code: 'NO_DATA',
+                  message: 'No CreaSim simulation found for the demo beneficiary.',
+                },
+                timestamp: new Date().toISOString(),
+              },
+              { status: 404 },
+            )
+          }
+          pdfBuffer = result
+          filename = `demo-suivi-creasim.pdf`
+          break
+        }
+
+        case 'suivi-parcours': {
+          console.error(`[DemoPDF] Building Parcours PDF for ${fullName}...`)
+          pdfBuffer = await buildParcoursPdf(
+            fullName,
+            email,
+            createdAt,
+          )
+          filename = `demo-suivi-parcours.pdf`
+          break
+        }
+
+        case 'bmc': {
+          console.error(`[DemoPDF] Building BMC PDF for ${fullName}...`)
+          const result = await buildBmcPdf(fullName)
+          if (!result) {
+            console.error(`[DemoPDF] No BMC data found, returning 404`)
+            return NextResponse.json(
+              {
+                success: false,
+                error: {
+                  code: 'NO_DATA',
+                  message: 'No Business Model Canvas found for the demo beneficiary.',
+                },
+                timestamp: new Date().toISOString(),
+              },
+              { status: 404 },
+            )
+          }
+          pdfBuffer = result
+          filename = `demo-bmc.pdf`
+          break
+        }
+      }
+    } catch (buildErr) {
+      const errMsg = buildErr instanceof Error ? buildErr.message : String(buildErr)
+      console.error(`[DemoPDF] ❌ PDF build failed for type="${type}": ${errMsg}`)
+      if (buildErr instanceof Error && buildErr.stack) {
+        console.error(`[DemoPDF] Stack: ${buildErr.stack}`)
       }
 
-      case 'suivi-tremplin': {
-        const result = await buildTremplinPdf(user.fullName)
-        if (!result) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: {
-                code: 'NO_DATA',
-                message: 'No Tremplin assessment found for the demo beneficiary.',
-              },
-              timestamp: new Date().toISOString(),
-            },
-            { status: 404 },
-          )
-        }
-        pdfBuffer = result
-        filename = `demo-suivi-tremplin.pdf`
-        break
-      }
-
-      case 'suivi-creasim': {
-        const result = await buildCreaSimPdf(user.fullName)
-        if (!result) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: {
-                code: 'NO_DATA',
-                message: 'No CreaSim simulation found for the demo beneficiary.',
-              },
-              timestamp: new Date().toISOString(),
-            },
-            { status: 404 },
-          )
-        }
-        pdfBuffer = result
-        filename = `demo-suivi-creasim.pdf`
-        break
-      }
-
-      case 'suivi-parcours': {
-        pdfBuffer = await buildParcoursPdf(
-          user.fullName,
-          user.email,
-          user.createdAt,
-        )
-        filename = `demo-suivi-parcours.pdf`
-        break
-      }
-
-      case 'bmc': {
-        const result = await buildBmcPdf(user.fullName)
-        if (!result) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: {
-                code: 'NO_DATA',
-                message: 'No Business Model Canvas found for the demo beneficiary.',
-              },
-              timestamp: new Date().toISOString(),
-            },
-            { status: 404 },
-          )
-        }
-        pdfBuffer = result
-        filename = `demo-bmc.pdf`
-        break
-      }
+      // Return a fallback PDF instead of a JSON error
+      const fallbackBuffer = await buildFallbackPdf(
+        'Erreur de Génération',
+        `La génération du document "${type}" a échoué. ${isDev ? `Cause : ${errMsg}` : 'Veuillez réessayer plus tard ou contacter le support.'}`,
+        fullName,
+      )
+      return new NextResponse(new Uint8Array(fallbackBuffer), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="demo-${type}-error.pdf"`,
+          'Content-Length': fallbackBuffer.length.toString(),
+          'Cache-Control': 'no-store',
+        },
+      })
     }
 
     if (!pdfBuffer) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: 'INTERNAL_ERROR',
-            message: 'Failed to generate PDF.',
-          },
-          timestamp: new Date().toISOString(),
-        },
-        { status: 500 },
+      console.error(`[DemoPDF] ❌ pdfBuffer is null after switch for type="${type}"`)
+      const fallbackBuffer = await buildFallbackPdf(
+        'Document Indisponible',
+        `Aucun contenu PDF n'a pu être généré pour le type "${type}". Les données de démonstration sont peut-être incomplètes.`,
+        fullName,
       )
+      return new NextResponse(new Uint8Array(fallbackBuffer), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="demo-${type}-unavailable.pdf"`,
+          'Content-Length': fallbackBuffer.length.toString(),
+          'Cache-Control': 'no-store',
+        },
+      })
     }
 
-    // Return PDF
+    // ── Step 3: Return PDF ──
+    console.error(`[DemoPDF] ✓ PDF generated successfully: ${filename} (${pdfBuffer.length} bytes)`)
     return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
@@ -1291,6 +1396,12 @@ export async function GET(
       },
     })
   } catch (err) {
+    // Absolute last-resort catch (should rarely reach here now)
+    const errMsg = err instanceof Error ? err.message : String(err)
+    console.error(`[DemoPDF] ❌❌ UNHANDLED error in GET handler: ${errMsg}`)
+    if (err instanceof Error && err.stack) {
+      console.error(`[DemoPDF] Stack: ${err.stack}`)
+    }
     return handleApiError(err)
   }
 }

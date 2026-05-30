@@ -38,6 +38,7 @@ interface Article {
   content: string
   category: string
   imageGradient: string | null
+  imageUrl: string | null
   authorName: string
   authorRole: string
   isFeatured: boolean
@@ -155,10 +156,21 @@ export function ActualitesSection() {
                     className="group h-full cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
                     onClick={() => { setSelectedArticle(article); setArticleOpen(true) }}
                   >
-                    <div
-                      className={`flex h-36 items-center justify-center bg-gradient-to-br ${article.imageGradient || 'from-teal-600 to-teal-400'}`}
-                    >
-                      <BookOpen className="h-14 w-14 text-white/70" />
+                    <div className="relative h-36 w-full overflow-hidden">
+                      {article.imageUrl ? (
+                        <img
+                          src={article.imageUrl}
+                          alt={article.title}
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div
+                          className={`flex h-full w-full items-center justify-center bg-gradient-to-br ${article.imageGradient || 'from-teal-600 to-teal-400'}`}
+                        >
+                          <BookOpen className="h-14 w-14 text-white/70" />
+                        </div>
+                      )}
                     </div>
                     <CardHeader className="pb-2">
                       <div className="flex items-center gap-2">
@@ -225,6 +237,15 @@ export function ActualitesSection() {
                     <p className="mt-2 text-xs text-muted-foreground">Par {selectedArticle.authorName} — {selectedArticle.authorRole}</p>
                   </SheetDescription>
                 </SheetHeader>
+                {selectedArticle.imageUrl && (
+                  <div className="mx-6 mt-2 overflow-hidden rounded-lg">
+                    <img
+                      src={selectedArticle.imageUrl}
+                      alt={selectedArticle.title}
+                      className="h-auto w-full object-cover"
+                    />
+                  </div>
+                )}
                 <div className="px-6 pb-8 prose prose-sm max-w-none [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-6 [&_h2]:mb-3 [&_h2]:text-foreground [&_ul]:list-disc [&_ul]:pl-5 [&_li]:text-muted-foreground [&_p]:text-muted-foreground [&_a]:text-primary [&_a]:underline">
                   <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedArticle.content || '') }} />
                 </div>

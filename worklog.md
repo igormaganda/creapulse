@@ -205,3 +205,82 @@ Stage Summary:
 - PDF showcase section added to landing page with responsive card grid and animated cards
 - All PDFs use PDFKit (not jsPDF) with CreaPulse branding (#00838F teal)
 - Demo accounts: admin@echo-entreprendre.fr/Admin2026!, dupont.jean@gidef-idf.fr/Conseiller2026!, marie.curie@example.fr/Beneficiaire2026!
+
+---
+Task ID: 3
+Agent: general-purpose
+Task: Fix INTERNAL_ERROR on demo PDF export endpoint /api/export/demo/[type]
+
+Work Log:
+- Analyzed route handler in src/app/api/export/demo/[type]/route.ts (1296 lines, 5 PDF builders)
+- Root cause: outer try/catch called handleApiError() which in production returns generic "An unexpected error occurred" with no context
+- No structured logging in the GET handler — errors from DB queries or PDF generation were swallowed
+- No fallback mechanism — any failure (DB unreachable, missing data, PDFKit error) resulted in JSON error instead of PDF
+- Added buildFallbackPdf() function: generates a branded CreaPulse cover page with error message, troubleshooting steps, and support info (all in French)
+- Restructured GET handler into 3 isolated phases:
+  1. Fetch demo user — wrapped in dedicated try/catch with DB error logging
+  2. Build PDF (switch/case) — wrapped in dedicated try/catch with per-type logging
+  3. Null guard — returns fallback PDF if buffer is unexpectedly null
+- Added [DemoPDF] structured console.error logging at every decision point: request received, user fetched, build started, data not found, build failed, success with byte count
+- In development mode (NODE_ENV=development), error messages in fallback PDFs include the actual error cause
+- In production, fallback PDFs show generic "please retry later" messages
+- Last-resort outer catch still calls handleApiError() but now logs full error + stack
+- No changes to Prisma schema, api-response.ts helpers, or pdf-utils.ts
+- Lint passes cleanly on all modified files (0 errors)
+- Pre-existing lint errors in page.tsx (Badge undefined) are unrelated to this change
+
+Stage Summary:
+- Demo PDF endpoint no longer returns INTERNAL_ERROR for recoverable failures
+- DB connection failures → fallback PDF with "Document Indisponible" message
+- PDF build failures → fallback PDF with "Erreur de Génération" message
+- All failures logged with [DemoPDF] prefix, error type, and stack traces
+- Development mode includes actual error details in fallback PDFs for debugging
+- 0 new lint errors introduced
+
+---
+Task ID: 4
+Agent: general-purpose
+Task: Add real images to Actualités entrepreneuriales (schema + seed + frontend)
+
+Work Log:
+- Added `imageUrl String?` field to NewsArticle model in prisma/schema.prisma
+- Ran `bun run db:push` to apply schema change to remote PostgreSQL
+- Added categoryImages map to seed-articles.ts with 3 Unsplash URLs per category (21 unique images)
+- Changed seed from create() to upsert() to update existing 76 articles with imageUrl
+- Ran seed-articles successfully — 76 articles updated with image URLs
+- Updated /api/articles/route.ts to include imageUrl in Prisma select
+- Updated actualites-section.tsx: added imageUrl to Article interface
+- Card thumbnails: real img with object-cover + hover zoom when imageUrl exists, gradient fallback when missing
+- Article reader sheet: hero image at top of sheet when imageUrl exists
+- Maintained backward compatibility with gradient fallback
+- Lint: 0 errors on all modified files
+
+Stage Summary:
+- All 76 articles now have real stock photo URLs from Unsplash
+- Categories have distinct image sets (business, Paris, tech, events, etc.)
+- Frontend shows real images with hover zoom animation, falls back to gradient
+- No migration needed — optional field added with upsert
+---
+Task ID: 5
+Agent: Main Agent
+Task: Fix UI regressions — menus, logo, Horizon Emplois, footer, images
+
+Work Log:
+- Removed "Réseau" and "Tarifs" from navbar navLinks in page.tsx
+- Replaced "GIDEF Île-de-France" text with official GIDEF SVG logo (https://www.gidef.org/wp-content/uploads/2019/2019/12/logo-gidef-couleur.svg) in navbar
+- Added GIDEF logo in mobile SheetDescription too
+- Added "Horizon Emplois" dropdown menu in desktop nav with 6 sub-items (BTP, Social, Numérique, Formation, Entrepreneuriat, Test IA Nouveau)
+- Added "Horizon Emplois" section in mobile nav with all sub-items
+- Replaced "Tarifs" link in footer with "Documents" (#documents)
+- Added Badge import to page.tsx (was missing, causing lint errors)
+- Ran bun run lint → 0 errors
+- Verified dev server running on port 3000
+
+Stage Summary:
+- ✅ Menus "Réseau" and "Tarifs" removed from navbar
+- ✅ GIDEF SVG logo restored in navbar (desktop + mobile)
+- ✅ "Horizon Emplois" dropdown restored with all sub-navigation links
+- ✅ Footer "Tarifs" replaced with "Documents"
+- ✅ Actualités have real images (Unsplash) with gradient fallback
+- ✅ PDF endpoint has fallback error handling (no more INTERNAL_ERROR)
+- ✅ 0 lint errors across all files

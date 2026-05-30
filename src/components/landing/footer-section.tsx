@@ -21,7 +21,7 @@ const footerColumns = [
     links: [
       { label: 'Parcours', href: '#parcours' },
       { label: 'Outils', href: '#outils' },
-      { label: 'Tarifs', href: '#cta' },
+      { label: 'Documents', href: '#documents' },
     ],
   },
   {

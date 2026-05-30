@@ -19,8 +19,51 @@ const gradients = [
   "from-orange-500 to-orange-400",
 ]
 
+// Category-specific Unsplash images (real, stable photo IDs)
+const categoryImages: Record<string, string[]> = {
+  "Financement": [
+    "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&h=400&fit=crop",
+    "https://images.unsplash.com/photo-1554228811-9504917d4e96?w=600&h=400&fit=crop",
+    "https://images.unsplash.com/photo-1553847573-96b3feb46c5f?w=600&h=400&fit=crop",
+  ],
+  "Juridique": [
+    "https://images.unsplash.com/photo-1554228811-9504917d4e96?w=600&h=400&fit=crop",
+    "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=600&h=400&fit=crop",
+    "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600&h=400&fit=crop",
+  ],
+  "Marketing": [
+    "https://images.unsplash.com/photo-1553847573-96b3feb46c5f?w=600&h=400&fit=crop",
+    "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&h=400&fit=crop",
+    "https://images.unsplash.com/photo-1432888622747-4eb9a8efeb07?w=600&h=400&fit=crop",
+  ],
+  "Île-de-France": [
+    "https://images.unsplash.com/photo-1502602898657-3e917605bb28?w=600&h=400&fit=crop",
+    "https://images.unsplash.com/photo-1499856871958-5b9627545d1a?w=600&h=400&fit=crop",
+    "https://images.unsplash.com/photo-1550340499-a6c60fc8287c?w=600&h=400&fit=crop",
+  ],
+  "Inspiration": [
+    "https://images.unsplash.com/photo-1559136755-0692d8f5bf55?w=600&h=400&fit=crop",
+    "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=600&h=400&fit=crop",
+    "https://images.unsplash.com/photo-1522199755839-a2bacb67c546?w=600&h=400&fit=crop",
+  ],
+  "Outils numériques": [
+    "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=600&h=400&fit=crop",
+    "https://images.unsplash.com/photo-1553847573-96b3feb46c5f?w=600&h=400&fit=crop",
+    "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=600&h=400&fit=crop",
+  ],
+  "Événements": [
+    "https://images.unsplash.com/photo-1540575133075-0f5a29db66a4?w=600&h=400&fit=crop",
+    "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=600&h=400&fit=crop",
+    "https://images.unsplash.com/photo-1511578314322-379afb476865?w=600&h=400&fit=crop",
+  ],
+}
+
 function g() { return gradients[Math.floor(Math.random() * gradients.length)] }
 function d(year: number, month: number, day: number) { return new Date(year, month - 1, day) }
+function getImageForCategory(category: string, index: number): string {
+  const urls = categoryImages[category] || categoryImages["Inspiration"]!
+  return urls[index % urls.length]
+}
 
 const articles = [
   // SEPT 2024
@@ -142,19 +185,24 @@ function generateContent(article: { title: string; category: string; excerpt: st
 }
 
 async function main() {
-  console.log(`Seeding ${articles.length} articles...`)
+  console.log(`Seeding ${articles.length} articles with images...`)
   
   let created = 0
-  for (const article of articles) {
+  let updated = 0
+  for (let i = 0; i < articles.length; i++) {
+    const article = articles[i]
+    const imageUrl = getImageForCategory(article.category, i)
     try {
-      await prisma.newsArticle.create({
-        data: {
+      await prisma.newsArticle.upsert({
+        where: { slug: article.slug },
+        create: {
           slug: article.slug,
           title: article.title,
           excerpt: article.excerpt,
           content: generateContent(article),
           category: article.category,
           imageGradient: g(),
+          imageUrl,
           authorName: article.category === "Île-de-France" ? "Rédaction GIDEF" : "Équipe CreaPulse",
           authorRole: "GIDEF Île-de-France",
           isPublished: true,
@@ -162,19 +210,31 @@ async function main() {
           readTime: article.readTime,
           publishedAt: article.publishedAt,
         },
+        update: {
+          imageUrl,
+        },
       })
       created++
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
       if (msg.includes('Unique constraint')) {
-        console.log(`  ⏭  Skipping (duplicate): ${article.slug}`)
+        // Fallback: try updating by slug
+        try {
+          await prisma.newsArticle.update({
+            where: { slug: article.slug },
+            data: { imageUrl },
+          })
+          updated++
+        } catch {
+          console.error(`  ❌ Error updating "${article.slug}":`, msg)
+        }
       } else {
         console.error(`  ❌ Error on "${article.slug}":`, msg)
       }
     }
   }
   
-  console.log(`\n✅ Done! ${created} articles created out of ${articles.length}`)
+  console.log(`\n✅ Done! ${created} upserted, ${updated} updated out of ${articles.length}`)
   await prisma.$disconnect()
 }
 

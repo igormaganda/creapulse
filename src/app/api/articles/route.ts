@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
           content: true,
           category: true,
           imageGradient: true,
+          imageUrl: true,
           authorName: true,
           authorRole: true,
           isFeatured: true,
