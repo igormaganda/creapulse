@@ -67,6 +67,7 @@ import { HeroSection } from '@/components/landing/hero-section'
 import { BesoinSection } from '@/components/landing/besoin-section'
 import { ParcoursSection } from '@/components/landing/parcours-section'
 import { OutilsSection } from '@/components/landing/outils-section'
+import { PDFShowcaseSection } from '@/components/landing/pdf-showcase-section'
 import { TemoignagesSection } from '@/components/landing/temoignages-section'
 import { ReseauGIDEFSection } from '@/components/landing/reseau-section'
 import { ActualitesSection } from '@/components/landing/actualites-section'
@@ -390,6 +391,9 @@ export default function Home() {
 
         {/* Outils Phares */}
         <OutilsSection />
+
+        {/* Documents de Suivi */}
+        <PDFShowcaseSection />
 
         {/* Temoignages */}
         <TemoignagesSection />

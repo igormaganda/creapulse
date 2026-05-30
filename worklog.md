@@ -181,3 +181,27 @@ Stage Summary:
 - PDF output with CreaPulse branding (teal #00838F header/footer)
 - A4 format, Helvetica/Helvetica-Bold fonts, French labels throughout
 - 0 lint errors
+---
+Task ID: 1
+Agent: Main Agent
+Task: Seed database with demo data + create PDF generation for structured follow-up documents + make accessible online
+
+Work Log:
+- Read and analyzed prisma/schema.prisma (40 models, 20 enums)
+- Reviewed existing PDF infrastructure: pdfkit-based pdf-utils.ts, 8 export API routes
+- Verified seed.ts already exists with comprehensive demo data (Marie Laurent / Saveurs d'Ici project)
+- Executed seed script successfully: 20+ data entities created for demo beneficiary
+- Tested PDF generation standalone: PDFKit generates valid %PDF- documents from demo data
+- Created /api/export/demo/[type]/route.ts — public demo PDF endpoint (no auth) supporting 5 types
+- Created /api/export/demo/list/route.ts — JSON listing of available demo exports
+- Created /components/landing/pdf-showcase-section.tsx — responsive card grid with download buttons
+- Updated /src/app/page.tsx — added PDFShowcaseSection between OutilsSection and TemoignagesSection
+- Verified build passes cleanly (0 errors, 0 warnings)
+- Verified lint passes cleanly (0 errors)
+
+Stage Summary:
+- Database seeded with complete demo data for beneficiary `beneficiaire-demo-001`
+- 5 branded PDF types available via public API: suivi-parcours, suivi-kiviat, suivi-tremplin, suivi-creasim, bmc
+- PDF showcase section added to landing page with responsive card grid and animated cards
+- All PDFs use PDFKit (not jsPDF) with CreaPulse branding (#00838F teal)
+- Demo accounts: admin@echo-entreprendre.fr/Admin2026!, dupont.jean@gidef-idf.fr/Conseiller2026!, marie.curie@example.fr/Beneficiaire2026!
