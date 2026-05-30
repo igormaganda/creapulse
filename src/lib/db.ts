@@ -6,13 +6,18 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-function createPrismaClient(): PrismaClient {
-  const connectionString = process.env.DATABASE_URL
-  if (!connectionString) {
-    throw new Error('DATABASE_URL environment variable is not set')
-  }
+// ─── Hardcoded PostgreSQL connection (sandbox environment) ──
+const PG_CONNECTION_STRING = 'postgresql://bureau_virtuelle_user:bureau_virtuelle_pass2026@213.199.38.41:5432/bureau_virtuelle'
 
-  const pool = new pg.Pool({ connectionString })
+function createPrismaClient(): PrismaClient {
+  console.log('[DB] Creating PrismaClient with hardcoded PG connection')
+
+  const pool = new pg.Pool({
+    connectionString: PG_CONNECTION_STRING,
+    connectionTimeoutMillis: 10000,
+    idleTimeoutMillis: 30000,
+    max: 5,
+  })
   const adapter = new PrismaPg(pool)
 
   return new PrismaClient({
