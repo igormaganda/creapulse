@@ -284,3 +284,27 @@ Stage Summary:
 - ✅ Actualités have real images (Unsplash) with gradient fallback
 - ✅ PDF endpoint has fallback error handling (no more INTERNAL_ERROR)
 - ✅ 0 lint errors across all files
+
+---
+Task ID: 6-regression-audit
+Agent: Main Agent
+Task: Full regression audit — scan all project areas for issues
+
+Work Log:
+- Read and analyzed src/app/page.tsx (516 lines) — all 6 previous regressions confirmed fixed in local code
+- Read all 12 landing section components — all imports resolve, no broken references
+- Scanned API routes: demo PDF (5 builders, triple error handling), articles (returns imageUrl), auth (JWT + rate limit)
+- Checked src/lib/db.ts — Prisma + PostgreSQL via pg.Pool, no fallback if DB unreachable (structural, expected)
+- Verified all CSS custom classes in globals.css: glass-card, gradient-hero, text-gradient-teal, animate-float, etc.
+- Verified all package.json dependencies installed: pdfkit, dompurify, framer-motion, recharts, zustand, etc.
+- Verified layout.tsx: complete metadata, OG/Twitter, PWA, accessibility, providers
+- Verified all 6 metiers pages + layout + not-found: QuizEngine, MetiersNavbar, MetiersFooter
+- Ran bun run lint → 0 errors
+- Removed unused import of useAdminCentreStore from page.tsx
+
+Stage Summary:
+- All 6 previously reported regressions confirmed FIXED in local code
+- No additional regressions found
+- 1 minor cleanup: removed dead import (useAdminCentreStore)
+- 1 structural note: db.ts has no fallback if DATABASE_URL unreachable (expected for production)
+- Code quality: 0 lint errors, all components intact

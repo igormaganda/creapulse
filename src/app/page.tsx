@@ -60,7 +60,6 @@ import { useAdminPlateformeStore } from '@/components/admin-plateforme/admin-pla
 
 /* ─── Admin Centre (lazy loaded) ─── */
 const AdminCentreLayout = dynamic(() => import('@/components/admin-centre/admin-centre-layout').then(m => ({ default: m.AdminCentreLayout })), { ssr: false })
-import { useAdminCentreStore } from '@/components/admin-centre/admin-centre-store'
 
 /* ─── Conseiller (lazy loaded) ─── */
 const ConseillerLayout = dynamic(() => import('@/components/conseiller/conseiller-layout').then(m => ({ default: m.ConseillerLayout })), { ssr: false })
