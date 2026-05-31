@@ -158,6 +158,8 @@ export function RegisterDialog({
                   disabled={loading}
                   autoComplete="given-name"
                   autoFocus
+                  required
+                  aria-required="true"
                 />
               </div>
             </div>
@@ -174,6 +176,8 @@ export function RegisterDialog({
                   className="pl-10"
                   disabled={loading}
                   autoComplete="family-name"
+                  required
+                  aria-required="true"
                 />
               </div>
             </div>
@@ -193,6 +197,8 @@ export function RegisterDialog({
                 className="pl-10"
                 disabled={loading}
                 autoComplete="email"
+                required
+                aria-required="true"
               />
             </div>
           </div>
@@ -211,6 +217,8 @@ export function RegisterDialog({
                 className="pl-10 pr-16"
                 disabled={loading}
                 autoComplete="new-password"
+                required
+                aria-required="true"
               />
               <button
                 type="button"
@@ -255,6 +263,8 @@ export function RegisterDialog({
                 className="pl-10"
                 disabled={loading}
                 autoComplete="new-password"
+                required
+                aria-required="true"
               />
               {confirmPassword.length > 0 && password === confirmPassword && (
                 <CheckCircle2 className="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-green-600" />
@@ -265,13 +275,31 @@ export function RegisterDialog({
           {/* Terms */}
           <p className="text-xs leading-relaxed text-muted-foreground">
             En creant un compte, vous acceptez nos{' '}
-            <span className="font-medium text-primary hover:underline cursor-pointer">
+            <a
+              href="#cgu"
+              className="font-medium text-primary hover:underline"
+              aria-label="Consulter les conditions d'utilisation"
+              onClick={(e) => {
+                e.preventDefault()
+                onOpenChange(false)
+                window.location.hash = 'cgu'
+              }}
+            >
               conditions d&apos;utilisation
-            </span>{' '}
+            </a>{' '}
             et notre{' '}
-            <span className="font-medium text-primary hover:underline cursor-pointer">
+            <a
+              href="#privacy"
+              className="font-medium text-primary hover:underline"
+              aria-label="Consulter la politique de confidentialite"
+              onClick={(e) => {
+                e.preventDefault()
+                onOpenChange(false)
+                window.location.hash = 'privacy'
+              }}
+            >
               politique de confidentialite
-            </span>
+            </a>
             .
           </p>
 

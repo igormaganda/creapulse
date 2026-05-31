@@ -283,6 +283,13 @@ function SidebarContent({ collapsed, onNavigate, onCloseMobile }: {
     setModule(itemId)
     onNavigate?.()
     onCloseMobile?.()
+    // Move focus to main content area after navigation
+    requestAnimationFrame(() => {
+      const contentArea = document.getElementById('bureau-main-content')
+      if (contentArea) {
+        contentArea.focus({ preventScroll: true })
+      }
+    })
   }
 
   const handleGroupClick = (groupId: BureauSection) => {
@@ -290,6 +297,13 @@ function SidebarContent({ collapsed, onNavigate, onCloseMobile }: {
     setModule(null)
     onNavigate?.()
     onCloseMobile?.()
+    // Move focus to main content area after navigation
+    requestAnimationFrame(() => {
+      const contentArea = document.getElementById('bureau-main-content')
+      if (contentArea) {
+        contentArea.focus({ preventScroll: true })
+      }
+    })
   }
 
   return (

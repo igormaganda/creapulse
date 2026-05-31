@@ -7,8 +7,8 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
-import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
-import { verifyToken, AuthError } from '@/lib/auth'
+import { success, handleApiError } from '@/lib/api-response'
+import { withAuth } from '@/lib/api-auth'
 
 // ─── Validation schemas ────────────────────
 
@@ -36,10 +36,9 @@ const VisionBody = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const token = getTokenFromHeader(request)
-    if (!token) throw new AuthError('Authentication required', 'UNAUTHORIZED', 401)
-
-    const payload = await verifyToken(token)
+    const auth = await withAuth(request)
+    if (!auth) return
+    const { payload } = auth
 
     const journey = await db.creatorJourney.findUnique({
       where: { userId: payload.userId },
@@ -68,7 +67,6 @@ export async function GET(request: NextRequest) {
       desiredImpact: (visionAnswers.desiredImpact as string) || '',
     })
   } catch (err) {
-    if (err instanceof AuthError) return Errors.unauthorized(err.message)
     return handleApiError(err)
   }
 }
@@ -77,10 +75,9 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const token = getTokenFromHeader(request)
-    if (!token) throw new AuthError('Authentication required', 'UNAUTHORIZED', 401)
-
-    const payload = await verifyToken(token)
+    const auth = await withAuth(request)
+    if (!auth) return
+    const { payload } = auth
 
     const body = await request.json()
     const data = VisionBody.parse(body)
@@ -133,7 +130,6 @@ export async function PUT(request: NextRequest) {
       'Vision sauvegardée avec succès'
     )
   } catch (err) {
-    if (err instanceof AuthError) return Errors.unauthorized(err.message)
     return handleApiError(err)
   }
 }

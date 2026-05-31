@@ -293,12 +293,12 @@ function Navbar({
             <ThemeToggleMobile />
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" aria-expanded={mobileOpen} aria-controls="mobile-nav-menu">
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-80">
+            <SheetContent side="right" className="w-80" id="mobile-nav-menu">
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2">
                   <Zap className="h-5 w-5 text-primary" />

@@ -1,9 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useBureauStore } from './bureau-store'
-import { useNotificationStore, type NotificationItem } from '@/lib/zustand/store'
+import { useNotificationStore, useAuthStore, type NotificationItem } from '@/lib/zustand/store'
+import { useNotifications } from '@/lib/hooks/use-notifications'
+import { NotificationsBadge } from './notifications-badge'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -19,7 +21,6 @@ import {
 import {
   Bell,
   BellOff,
-  Check,
   CheckCheck,
   Trash2,
   Info,
@@ -86,8 +87,6 @@ const TYPE_CONFIG: Record<NotificationType, {
     dot: 'bg-purple-500',
   },
 }
-
-const POLL_INTERVAL = 30_000
 
 // ─── Time Ago Helper ────────────────────────
 
@@ -258,14 +257,11 @@ function NotificationPanelContent({
     removeNotification,
   } = useNotificationStore()
 
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  // ── Fetch notifications ──
+  // ── Fetch notifications (immediate, for panel open) ──
   const fetchNotifications = useCallback(async (showLoading = false) => {
     if (showLoading) setIsLoading(true)
     try {
       const params = new URLSearchParams({ limit: '30' })
-      if (tab === 'unread') params.set('unread', 'true')
       const res = await fetch(`/api/notifications?${params.toString()}`)
       if (res.ok) {
         const json = await res.json()
@@ -274,27 +270,18 @@ function NotificationPanelContent({
         }
       }
     } catch {
-      // Silently fail — use cached data
+      // Silently fail — use cached data from poller
     } finally {
       setIsLoading(false)
     }
-  }, [tab, setNotifications])
+  }, [setNotifications])
 
-  // ── Initial fetch + polling ──
+  // ── Initial fetch when panel opens ──
   useEffect(() => {
     if (isOpen) {
       fetchNotifications(true)
-      pollRef.current = setInterval(() => fetchNotifications(false), POLL_INTERVAL)
-    }
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current)
     }
   }, [isOpen, fetchNotifications])
-
-  // ── Tab change ──
-  useEffect(() => {
-    if (isOpen) fetchNotifications(false)
-  }, [tab, isOpen, fetchNotifications])
 
   // ── Mark as read (API + store) ──
   const handleMarkRead = useCallback(async (id: string) => {
@@ -469,7 +456,11 @@ function NotificationPanelContent({
 export function NotificationsPanel() {
   const [isOpen, setIsOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const user = useAuthStore((s) => s.user)
   const { unreadCount } = useNotificationStore()
+
+  // Start the smart notification poller — updates Zustand store continuously
+  useNotifications(user?.id ?? null)
 
   // Detect mobile
   useEffect(() => {
@@ -495,17 +486,7 @@ export function NotificationsPanel() {
           aria-expanded={isOpen}
         >
           <Bell className="h-4 w-4" />
-          {unreadCountValue > 0 && (
-            <Badge
-              className={cn(
-                'absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[10px]',
-                'flex items-center justify-center border-0 text-white',
-                'bg-coral-500 animate-in zoom-in duration-200',
-              )}
-            >
-              {unreadCountValue > 99 ? '99+' : unreadCountValue}
-            </Badge>
-          )}
+          <NotificationsBadge count={unreadCountValue} />
         </Button>
 
         {/* Dropdown panel */}
@@ -554,17 +535,7 @@ export function NotificationsPanel() {
           aria-label="Notifications"
         >
           <Bell className="h-4 w-4" />
-          {unreadCountValue > 0 && (
-            <Badge
-              className={cn(
-                'absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[10px]',
-                'flex items-center justify-center border-0 text-white',
-                'bg-coral-500',
-              )}
-            >
-              {unreadCountValue > 99 ? '99+' : unreadCountValue}
-            </Badge>
-          )}
+          <NotificationsBadge count={unreadCountValue} />
         </Button>
       </SheetTrigger>
       <SheetContent side="right" className="w-full sm:w-[400px] p-0">

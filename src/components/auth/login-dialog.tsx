@@ -136,6 +136,8 @@ export function LoginDialog({
                 disabled={loading}
                 autoComplete="email"
                 autoFocus
+                required
+                aria-required="true"
               />
             </div>
           </div>
@@ -164,6 +166,8 @@ export function LoginDialog({
                 className="pl-10 pr-16"
                 disabled={loading}
                 autoComplete="current-password"
+                required
+                aria-required="true"
               />
               <button
                 type="button"
@@ -188,6 +192,37 @@ export function LoginDialog({
             )}
           </Button>
         </form>
+
+        {/* Terms notice */}
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          En vous connectant, vous acceptez nos{' '}
+          <a
+            href="#cgu"
+            className="font-medium text-primary hover:underline"
+            aria-label="Consulter les conditions d'utilisation"
+            onClick={(e) => {
+              e.preventDefault()
+              onOpenChange(false)
+              window.location.hash = 'cgu'
+            }}
+          >
+            conditions d&apos;utilisation
+          </a>{' '}
+          et notre{' '}
+          <a
+            href="#privacy"
+            className="font-medium text-primary hover:underline"
+            aria-label="Consulter la politique de confidentialite"
+            onClick={(e) => {
+              e.preventDefault()
+              onOpenChange(false)
+              window.location.hash = 'privacy'
+            }}
+          >
+            politique de confidentialite
+          </a>
+          .
+        </p>
 
         {/* Switch to register — masqué temporairement
         <Separator className="my-2" />

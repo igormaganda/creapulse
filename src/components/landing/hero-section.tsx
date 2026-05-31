@@ -57,11 +57,11 @@ export function HeroSection({ onRegisterOpen }: { onRegisterOpen: () => void }) 
               variants={fadeInUp}
               className="mt-8 flex flex-wrap justify-center gap-3 lg:justify-start"
             >
-              <Button size="lg" className="gap-2 text-base font-semibold" onClick={onRegisterOpen}>
+              <Button size="lg" className="gap-2 text-base font-semibold" onClick={onRegisterOpen} aria-label="Commencer mon parcours entrepreneurial">
                 Commencer mon parcours
                 <ArrowRight className="h-4 w-4" />
               </Button>
-              <Button variant="outline" size="lg" className="gap-2 text-base" onClick={() => document.getElementById('outils')?.scrollIntoView({ behavior: 'smooth' })}>
+              <Button variant="outline" size="lg" className="gap-2 text-base" onClick={() => document.getElementById('outils')?.scrollIntoView({ behavior: 'smooth' })} aria-label="Découvrir les outils du bureau virtuel">
                 Découvrir les outils
                 <Search className="h-4 w-4" />
               </Button>

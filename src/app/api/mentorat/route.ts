@@ -7,8 +7,8 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
-import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
-import { verifyToken, AuthError } from '@/lib/auth'
+import { success, Errors, handleApiError, error } from '@/lib/api-response'
+import { withAuth } from '@/lib/api-auth'
 
 // ─── Validation schemas ────────────────────
 
@@ -22,12 +22,9 @@ const MentorRequestSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const token = getTokenFromHeader(request)
-    if (!token) {
-      throw new AuthError('Authentication required', 'UNAUTHORIZED', 401)
-    }
-
-    const payload = await verifyToken(token)
+    const auth = await withAuth(request, { roles: ['BENEFICIARY', 'COUNSELOR', 'ADMIN'] })
+    if (!auth) return
+    const { payload } = auth
 
     // Fetch all mentors with their user profiles
     const mentors = await db.mentor.findMany({
@@ -105,9 +102,6 @@ export async function GET(request: NextRequest) {
       activeMentorships: activeMentorshipData,
     })
   } catch (err) {
-    if (err instanceof AuthError) {
-      return Errors.unauthorized(err.message)
-    }
     return handleApiError(err)
   }
 }
@@ -116,12 +110,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const token = getTokenFromHeader(request)
-    if (!token) {
-      throw new AuthError('Authentication required', 'UNAUTHORIZED', 401)
-    }
-
-    const payload = await verifyToken(token)
+    const auth = await withAuth(request, { roles: ['BENEFICIARY', 'COUNSELOR', 'ADMIN'] })
+    if (!auth) return
+    const { payload } = auth
 
     const body = await request.json()
     const { mentorId, message, objectives } = MentorRequestSchema.parse(body)
@@ -173,13 +164,6 @@ export async function POST(request: NextRequest) {
       'Demande de mentorat envoyée avec succès'
     )
   } catch (err) {
-    if (err instanceof AuthError) {
-      return Errors.unauthorized(err.message)
-    }
     return handleApiError(err)
   }
-}
-
-function error(code: string, message: string, status: number) {
-  return Errors.validation({ code, message }, message)
 }

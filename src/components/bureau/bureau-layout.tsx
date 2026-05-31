@@ -204,10 +204,59 @@ function SectionOverview({ sectionId }: { sectionId: string }) {
   )
 }
 
+/* ─── Module label map for screen reader announcements ─── */
+const moduleLabels: Record<string, string> = {
+  'profil-createur': 'Profil Créateur',
+  'mon-projet': 'Mon Projet',
+  'vision': 'Vision',
+  'riasec': 'Test RIASEC',
+  'kiviat': 'Test Kiviat',
+  'bilan-ia': 'Bilan IA',
+  'pepites': 'Pépites Game',
+  'creascope': 'CréaScope',
+  'bmc': 'Business Model Canvas',
+  'marche': 'Analyse de Marché',
+  'juridique': 'Analyse Juridique',
+  'financier': 'Plan Financier',
+  'creasim': 'CreaSim',
+  'business-plan': 'Business Plan',
+  'pitch-deck': 'Pitch Deck',
+  'annuaire': 'Annuaire',
+  'forum': 'Forum',
+  'mentorat': 'Mentorat',
+  'tremplin': 'Tremplin',
+  'passeport': 'Passeport Entrepreneurial',
+  'certifications': 'Certifications',
+  'telechargements': 'Téléchargements',
+  'messages': 'Messages',
+  'vie-privee': 'Vie Privée et Données',
+}
+
+const sectionLabels: Record<string, string> = {
+  parcours: 'Parcours',
+  strategie: 'Stratégie',
+  ecosysteme: 'Écosystème',
+  pilotage: 'Pilotage',
+}
+
 /* ─── Main content router ─── */
 function BureauContent() {
   const { currentSection, currentModule } = useBureauStore()
   const contentKey = `${currentSection}-${currentModule || ''}`
+
+  /* Announce module changes to screen readers via aria-live region */
+  useEffect(() => {
+    const liveRegion = document.getElementById('status-live-region')
+    if (liveRegion) {
+      if (currentModule) {
+        const label = moduleLabels[currentModule] || currentModule
+        liveRegion.textContent = `Module "${label}" chargé.`
+      } else if (currentSection !== 'dashboard') {
+        const label = sectionLabels[currentSection] || currentSection
+        liveRegion.textContent = `Section "${label}" affichée.`
+      }
+    }
+  }, [currentSection, currentModule])
 
   return (
     <AnimatePresence mode="wait">
@@ -308,7 +357,8 @@ export function BureauLayout() {
                   <Sidebar />
 
                   {/* Main content */}
-                  <main className="flex-1 overflow-y-auto scrollbar-thin bg-muted/30">
+                  <main id="bureau-main-content" tabIndex={-1} className="flex-1 overflow-y-auto scrollbar-thin bg-muted/30" aria-label="Contenu du module">
+                    <div id="status-live-region" className="sr-only" aria-live="polite" aria-atomic="true" />
                     <ErrorBoundary>
                       <BureauContent />
                     </ErrorBoundary>

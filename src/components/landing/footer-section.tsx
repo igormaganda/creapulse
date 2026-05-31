@@ -42,8 +42,8 @@ const footerColumns = [
   {
     title: 'Legal',
     links: [
-      { label: 'CGU', href: '#' },
-      { label: 'Confidentialite', href: '#' },
+      { label: 'CGU', href: '#cgu' },
+      { label: 'Confidentialite', href: '#privacy' },
       { label: 'Cookies', href: '#' },
     ],
   },
@@ -111,6 +111,7 @@ export function FooterSection() {
                       href={link.href}
                       className="text-sm text-muted-foreground transition-colors hover:text-primary"
                       onClick={link.href === '#' ? (e) => { e.preventDefault(); toast.info('Page en cours de construction') } : undefined}
+                      aria-label={link.label === 'CGU' ? 'Consulter les conditions generales d\'utilisation' : link.label === 'Confidentialite' ? 'Consulter la politique de confidentialite' : link.label}
                     >
                       {link.label}
                     </a>

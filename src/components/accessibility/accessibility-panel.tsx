@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Accessibility, X, Type, Contrast, Eye, BookOpen, Pause } from 'lucide-react'
+import { Accessibility, X, Type, Contrast, Eye, BookOpen, Pause, Crosshair, Activity } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { useAccessibilityStore } from './accessibility-store'
@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 
 // Effects component — applies all accessibility settings as side effects
 export function AccessibilityEffects() {
-  const { textSize, highContrast, readingLine, dyslexicFont, pauseAnimations } = useAccessibilityStore()
+  const { textSize, highContrast, readingLine, dyslexicFont, pauseAnimations, focusVisible, reducedMotion } = useAccessibilityStore()
 
   useTextSize(textSize)
   useHighContrast(highContrast)
@@ -24,7 +24,7 @@ export function AccessibilityEffects() {
 
   // Pause animations via class on <html>
   useEffect(() => {
-    if (pauseAnimations) {
+    if (pauseAnimations || reducedMotion) {
       document.documentElement.classList.add('pause-animations')
     } else {
       document.documentElement.classList.remove('pause-animations')
@@ -32,7 +32,19 @@ export function AccessibilityEffects() {
     return () => {
       document.documentElement.classList.remove('pause-animations')
     }
-  }, [pauseAnimations])
+  }, [pauseAnimations, reducedMotion])
+
+  // Focus visible outline control
+  useEffect(() => {
+    if (focusVisible) {
+      document.documentElement.classList.remove('no-focus-outline')
+    } else {
+      document.documentElement.classList.add('no-focus-outline')
+    }
+    return () => {
+      document.documentElement.classList.remove('no-focus-outline')
+    }
+  }, [focusVisible])
 
   return null
 }
@@ -46,6 +58,21 @@ export function AccessibilityPanel() {
     { value: 120, label: 'Moyen' },
     { value: 140, label: 'Grand' },
   ]
+
+  // Keyboard navigation: Escape to close
+  useEffect(() => {
+    if (!open) return
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setOpen(false)
+        // Return focus to trigger button
+        const trigger = document.querySelector('[aria-controls="a11y-panel"]') as HTMLElement
+        trigger?.focus()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [open])
 
   return (
     <>
@@ -66,14 +93,24 @@ export function AccessibilityPanel() {
       <div
         id="a11y-panel"
         role="dialog"
+        aria-modal={open}
         aria-label="Paramètres d'accessibilité"
         aria-hidden={!open}
+        tabIndex={open ? -1 : undefined}
         className={cn(
           'fixed bottom-20 right-6 z-[9000] w-80 rounded-xl border bg-background p-5 shadow-xl transition-all duration-200',
           open
             ? 'opacity-100 translate-y-0 pointer-events-auto'
             : 'opacity-0 translate-y-4 pointer-events-none'
         )}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            e.stopPropagation()
+            setOpen(false)
+            const trigger = document.querySelector('[aria-controls="a11y-panel"]') as HTMLElement
+            trigger?.focus()
+          }
+        }}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
@@ -141,6 +178,18 @@ export function AccessibilityPanel() {
             label="Pause des animations"
             checked={store.pauseAnimations}
             onCheckedChange={store.setPauseAnimations}
+          />
+          <ToggleRow
+            icon={<Crosshair className="h-3.5 w-3.5" />}
+            label="Indicateur de focus"
+            checked={store.focusVisible}
+            onCheckedChange={store.setFocusVisible}
+          />
+          <ToggleRow
+            icon={<Activity className="h-3.5 w-3.5" />}
+            label="Mouvement réduit"
+            checked={store.reducedMotion}
+            onCheckedChange={store.setReducedMotion}
           />
         </div>
       </div>

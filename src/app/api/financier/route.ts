@@ -8,7 +8,7 @@
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { success, Errors, handleApiError } from '@/lib/api-response'
-import { verifyToken } from '@/lib/auth'
+import { withAuth } from '@/lib/api-auth'
 import { z } from 'zod'
 import { callZAI, getZAIErrorMessage, aiUnavailableResponse } from '@/lib/zai-helper'
 
@@ -52,22 +52,13 @@ const financierSchema = z.object({
   aiSynthesis: z.string().optional(),
 }).passthrough()
 
-// ─── Auth helper ─────────────────────────────
-
-async function authenticate(request: NextRequest) {
-  const cookieToken = request.cookies.get('session')?.value
-  const authHeader = request.headers.get('authorization')
-  const token = cookieToken || (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null)
-  if (!token) return null
-  try { return await verifyToken(token) } catch { return null }
-}
-
 // ─── GET ────────────────────────────────────
 
 export async function GET(request: NextRequest) {
   try {
-    const payload = await authenticate(request)
-    if (!payload) return Errors.unauthorized()
+    const auth = await withAuth(request)
+    if (!auth) return
+    const { payload } = auth
 
     const forecast = await db.financialForecast.findUnique({
       where: { userId: payload.userId },
@@ -77,12 +68,6 @@ export async function GET(request: NextRequest) {
 
     return success(forecast, 'Plan financier chargé')
   } catch (err) {
-    if (err && typeof err === 'object' && 'code' in err) {
-      const authErr = err as { code: string }
-      if (authErr.code === 'TOKEN_EXPIRED' || authErr.code === 'UNAUTHORIZED') {
-        return Errors.unauthorized('Session expirée — veuillez vous reconnecter')
-      }
-    }
     return handleApiError(err)
   }
 }
@@ -91,8 +76,9 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const payload = await authenticate(request)
-    if (!payload) return Errors.unauthorized()
+    const auth = await withAuth(request)
+    if (!auth) return
+    const { payload } = auth
 
     const body = await request.json()
     const parsed = financierSchema.safeParse(body)
@@ -135,12 +121,6 @@ export async function PUT(request: NextRequest) {
 
     return success(forecast, 'Plan financier sauvegardé')
   } catch (err) {
-    if (err && typeof err === 'object' && 'code' in err) {
-      const authErr = err as { code: string }
-      if (authErr.code === 'TOKEN_EXPIRED' || authErr.code === 'UNAUTHORIZED') {
-        return Errors.unauthorized('Session expirée — veuillez vous reconnecter')
-      }
-    }
     return handleApiError(err)
   }
 }
@@ -149,8 +129,9 @@ export async function PUT(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const payload = await authenticate(request)
-    if (!payload) return Errors.unauthorized()
+    const auth = await withAuth(request)
+    if (!auth) return
+    const { payload } = auth
 
     // 1. Fetch all financial data in parallel
     const [financialForecast, creatorJourney, creaSimData] = await Promise.all([
@@ -327,12 +308,6 @@ STRUCTURE DE TA RÉPONSE (en Markdown) :
 
     return success({ suggestions: aiSynthesis }, 'Analyse IA générée avec succès')
   } catch (err) {
-    if (err && typeof err === 'object' && 'code' in err) {
-      const authErr = err as { code: string }
-      if (authErr.code === 'TOKEN_EXPIRED' || authErr.code === 'UNAUTHORIZED') {
-        return Errors.unauthorized('Session expirée — veuillez vous reconnecter')
-      }
-    }
     return handleApiError(err)
   }
 }
