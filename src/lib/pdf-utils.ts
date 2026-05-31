@@ -8,19 +8,28 @@ import fs from 'fs'
 import path from 'path'
 
 // ─── Fix PDFKit font path resolution in Turbopack ──
-// Turbopack resolves pdfkit's __dirname to /ROOT/ (Vercel container)
-// We patch readFileSync to redirect /ROOT/ paths to the actual node_modules
-const _readFileSync = fs.readFileSync.bind(fs)
+// Turbopack resolves pdfkit's __dirname to /ROOT/ (sandbox container)
+// On Vercel paths start with /var/task/ or /opt/ — patch won't trigger.
+// We guard against double-patching in case this module is re-evaluated.
+const _readFileSyncOriginal = fs.readFileSync.bind(fs)
 const _projectRoot = path.dirname(path.dirname(path.dirname(new URL(import.meta.url).pathname)))
 
-function patchedReadFileSync(filePath: string, ...args: unknown[]): Buffer | string {
-  if (typeof filePath === 'string' && filePath.startsWith('/ROOT/')) {
-    const corrected = filePath.replace('/ROOT', _projectRoot)
-    return _readFileSync(corrected, ...args) as Buffer
+const _PDF_UTILS_PATCHED = Symbol.for('creapulse:fs-patch-applied')
+
+if (!(fs as unknown as Record<symbol, boolean>)[_PDF_UTILS_PATCHED]) {
+  (fs as unknown as Record<symbol, boolean>)[_PDF_UTILS_PATCHED] = true
+
+  function patchedReadFileSync(filePath: string, ...args: unknown[]): Buffer | string {
+    if (typeof filePath === 'string' && filePath.startsWith('/ROOT/')) {
+      const corrected = filePath.replace(/^\/ROOT/, _projectRoot)
+      return _readFileSyncOriginal(corrected, ...args) as Buffer
+    }
+    return _readFileSyncOriginal(filePath, ...args) as Buffer
   }
-  return _readFileSync(filePath, ...args) as Buffer
+
+  fs.readFileSync = patchedReadFileSync as typeof fs.readFileSync
+  console.warn('[pdf-utils] Patched fs.readFileSync to redirect /ROOT/ paths to project root')
 }
-fs.readFileSync = patchedReadFileSync as typeof fs.readFileSync
 
 import PDFDocument from 'pdfkit'
 

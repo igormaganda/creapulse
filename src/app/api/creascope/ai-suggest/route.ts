@@ -182,7 +182,9 @@ export async function POST(request: NextRequest) {
       kiviatStr,
       '',
       stepPrompt,
-      ftContextStr ? `\n${ftContextStr}` : '',
+      ftContextStr
+        ? `\n${ftContextStr}`
+        : '\nNote : Données France Travail non disponibles actuellement. Les suggestions sont basées uniquement sur le contexte fourni.',
     ].filter(Boolean).join('\n')
 
     const result = await callZAI(

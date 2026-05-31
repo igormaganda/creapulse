@@ -1,71 +1,29 @@
 // ============================================
 // CreaPulse V2 — Next.js Middleware
-// Protects /bureau, /conseiller, /admin routes
-// Verifies JWT session cookie via jose (Edge-safe)
+// Adds security headers to all matched responses.
+// Auth is handled per-route (JWT in API handlers)
+// and client-side (protected overlays via providers).
 // ============================================
 
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import {
-  getSessionToken,
-  verifyEdgeToken,
-  isProtectedPath,
-  isAuthorizedForPath,
-  getHomePathForRole,
-} from '@/lib/auth-edge'
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
+// ─── Security Headers ──────────────────────
 
-  // Skip non-protected paths and static assets
-  if (!isProtectedPath(pathname)) {
-    return NextResponse.next()
-  }
+const securityHeaders: Record<string, string> = {
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  'X-XSS-Protection': '1; mode=block',
+}
 
-  // Skip API routes (handled by individual route handlers)
-  if (pathname.startsWith('/api/')) {
-    return NextResponse.next()
-  }
-
-  // Skip static files and Next.js internals
-  if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/images') ||
-    pathname.includes('.') // static files
-  ) {
-    return NextResponse.next()
-  }
-
-  // Get session token from cookies
-  const token = getSessionToken(request)
-
-  if (!token) {
-    // No token — redirect to landing page
-    const loginUrl = new URL('/', request.url)
-    loginUrl.searchParams.set('redirect', pathname)
-    return NextResponse.redirect(loginUrl)
-  }
-
-  // Verify token
-  const session = await verifyEdgeToken(token)
-
-  if (!session.valid) {
-    // Token invalid/expired — redirect to landing page
-    const loginUrl = new URL('/', request.url)
-    loginUrl.searchParams.set('redirect', pathname)
-    loginUrl.searchParams.set('reason', session.reason)
-    return NextResponse.redirect(loginUrl)
-  }
-
-  // Check role authorization for path
-  if (!isAuthorizedForPath(session.payload.role, pathname)) {
-    // User doesn't have the right role — redirect to their home
-    const homePath = getHomePathForRole(session.payload.role)
-    return NextResponse.redirect(new URL(homePath, request.url))
-  }
-
-  // User is authenticated and authorized — allow through
+export function middleware(_request: NextRequest) {
   const response = NextResponse.next()
+
+  for (const [key, value] of Object.entries(securityHeaders)) {
+    response.headers.set(key, value)
+  }
 
   return response
 }

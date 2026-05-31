@@ -7,7 +7,7 @@
 import {
   FT_API,
   FT_SCOPES,
-  safeFetchFTAPI,
+  cachedFetchFTAPI,
   buildQueryString,
 } from './france-travail'
 
@@ -329,7 +329,7 @@ export async function buildFTContext(params: FTEnrichmentParams): Promise<FTEnri
   }
   const offreQS = buildQueryString(offreFilters)
   promises.push(
-    safeFetchFTAPI<Record<string, unknown>>(`${FT_API.OFFRES}${offreQS}`, FT_SCOPES.OFFRES, {
+    cachedFetchFTAPI<Record<string, unknown>>(`${FT_API.OFFRES}${offreQS}`, FT_SCOPES.OFFRES, {
       method: 'POST',
     }).then((data) => {
       if (data) context.offres = summarizeOffres(data)
@@ -344,7 +344,7 @@ export async function buildFTContext(params: FTEnrichmentParams): Promise<FTEnri
   }
   const aideQS = buildQueryString(aideFilters)
   promises.push(
-    safeFetchFTAPI<Record<string, unknown>>(`${FT_API.AIDES}${aideQS}`, FT_SCOPES.AIDES).then(
+    cachedFetchFTAPI<Record<string, unknown>>(`${FT_API.AIDES}${aideQS}`, FT_SCOPES.AIDES).then(
       (data) => {
         if (data) context.aides = summarizeAides(data)
       },
@@ -359,7 +359,7 @@ export async function buildFTContext(params: FTEnrichmentParams): Promise<FTEnri
   }
   const formationQS = buildQueryString(formationFilters)
   promises.push(
-    safeFetchFTAPI<Record<string, unknown>>(
+    cachedFetchFTAPI<Record<string, unknown>>(
       `${FT_API.FORMATIONS}${formationQS}`,
       FT_SCOPES.FORMATIONS,
     ).then((data) => {
@@ -375,7 +375,7 @@ export async function buildFTContext(params: FTEnrichmentParams): Promise<FTEnri
   }
   const statQS = buildQueryString(statFilters)
   promises.push(
-    safeFetchFTAPI<Record<string, unknown>>(
+    cachedFetchFTAPI<Record<string, unknown>>(
       `${FT_API.STATISTIQUES}${statQS}`,
       FT_SCOPES.STATISTIQUES,
     ).then((data) => {
@@ -389,7 +389,7 @@ export async function buildFTContext(params: FTEnrichmentParams): Promise<FTEnri
     per_page: '5',
   })
   promises.push(
-    safeFetchFTAPI<Record<string, unknown>>(`${FT_API.METIERS}${metierQS}`, FT_SCOPES.METIERS).then(
+    cachedFetchFTAPI<Record<string, unknown>>(`${FT_API.METIERS}${metierQS}`, FT_SCOPES.METIERS).then(
       (data) => {
         if (data) context.metiers = summarizeMetiers(data)
       },
@@ -404,7 +404,7 @@ export async function buildFTContext(params: FTEnrichmentParams): Promise<FTEnri
       per_page: '5',
     })
     promises.push(
-      safeFetchFTAPI<Record<string, unknown>>(
+      cachedFetchFTAPI<Record<string, unknown>>(
         `${FT_API.EVENEMENTS}${eventQS}`,
         FT_SCOPES.EVENEMENTS,
         {

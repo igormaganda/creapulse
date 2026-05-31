@@ -128,7 +128,9 @@ async function generateAIInsights(
     '  "recommendations": ["recommandation 1", "recommandation 2"],',
     '  "nextStepFocus": "Conseil pour l\'étape suivante"',
     '}',
-  ftContextStr ? `\n${ftContextStr}` : '',
+  ftContextStr
+      ? `\n${ftContextStr}`
+      : '\nNote : Données France Travail non disponibles actuellement. Baser les recommandations uniquement sur le contexte de la session.',
   '\nUtilise les données France Travail ci-dessus pour enrichir tes recommandations si elles sont disponibles.',
   ].filter(Boolean).join('\n')
 

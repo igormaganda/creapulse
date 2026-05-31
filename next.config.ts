@@ -10,18 +10,8 @@ const nextConfig: NextConfig = {
     "https://*.space-z.ai",
     "http://*.space-z.ai",
   ],
-  headers: async () => [
-    {
-      source: '/(.*)',
-      headers: [
-        { key: 'X-Frame-Options', value: 'DENY' },
-        { key: 'X-Content-Type-Options', value: 'nosniff' },
-        { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-        { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-        { key: 'X-XSS-Protection', value: '1; mode=block' },
-      ],
-    },
-  ],
+  // Security headers are set in src/middleware.ts (single source of truth)
+  // to avoid duplication between next.config headers() and middleware.
 };
 
 export default nextConfig;

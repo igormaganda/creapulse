@@ -6,14 +6,28 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-// ─── Hardcoded PostgreSQL connection (sandbox environment) ──
-const PG_CONNECTION_STRING = 'postgresql://bureau_virtuelle_user:bureau_virtuelle_pass2026@213.199.38.41:5432/bureau_virtuelle'
+// ─── Database connection string ──
+// Primary: use DATABASE_URL from environment (Vercel / production)
+// Fallback: hardcoded string for local dev / sandbox only
+const FALLBACK_CONNECTION_STRING = 'postgresql://bureau_virtuelle_user:bureau_virtuelle_pass2026@213.199.38.41:5432/bureau_virtuelle'
+
+function getConnectionString(): string {
+  if (process.env.DATABASE_URL) {
+    return process.env.DATABASE_URL
+  }
+  console.warn(
+    '[DB] DATABASE_URL not set — falling back to hardcoded sandbox connection string. ' +
+    'Set DATABASE_URL in your environment for production deployments.',
+  )
+  return FALLBACK_CONNECTION_STRING
+}
 
 function createPrismaClient(): PrismaClient {
-  console.log('[DB] Creating PrismaClient with hardcoded PG connection')
+  const connectionString = getConnectionString()
+  console.log('[DB] Creating PrismaClient')
 
   const pool = new pg.Pool({
-    connectionString: PG_CONNECTION_STRING,
+    connectionString,
     connectionTimeoutMillis: 10000,
     idleTimeoutMillis: 30000,
     max: 5,

@@ -143,7 +143,10 @@ export function ftHeaders(
 
 /**
  * Generic wrapper to fetch any France Travail API endpoint.
- * Handles token retrieval, header construction, and error logging.
+ * Handles token retrieval, header construction, retry with exponential backoff, and error logging.
+ * - Max 2 retries on network errors or 5xx responses
+ * - Delay: 500ms * 2^attempt (500ms, 1000ms)
+ * - No retry on 4xx (client errors)
  * Returns the parsed JSON response or throws on failure.
  */
 export async function fetchFTAPI<T>(
@@ -151,26 +154,65 @@ export async function fetchFTAPI<T>(
   scope: string,
   options?: RequestInit,
 ): Promise<T> {
-  const token = await getFTToken(scope)
-  const headers = ftHeaders(token, options?.headers as Record<string, string> | undefined)
+  const MAX_RETRIES = 2
+  const BASE_DELAY_MS = 500
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  })
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const token = await getFTToken(scope)
+      const headers = ftHeaders(token, options?.headers as Record<string, string> | undefined)
 
-  if (!response.ok) {
-    const text = await response.text().catch(() => 'Pas de réponse')
-    console.error(`[FT API] Erreur ${response.status} pour ${url} : ${text}`)
-    throw new Error('Erreur lors de la communication avec le service France Travail.')
+      const response = await fetch(url, {
+        ...options,
+        headers,
+      })
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => 'Pas de réponse')
+
+        // Don't retry on 4xx client errors
+        if (response.status >= 400 && response.status < 500) {
+          console.error(`[FT API] Erreur client ${response.status} pour ${url} : ${text}`)
+          throw new Error('Erreur lors de la communication avec le service France Travail.')
+        }
+
+        // Retry on 5xx or network-level issues (response exists but is server error)
+        if (attempt < MAX_RETRIES) {
+          const delay = BASE_DELAY_MS * Math.pow(2, attempt)
+          console.warn(`[FT API] Erreur ${response.status} pour ${url}, tentative ${attempt + 1}/${MAX_RETRIES + 1}, nouvel essai dans ${delay}ms`)
+          await new Promise(resolve => setTimeout(resolve, delay))
+          continue
+        }
+
+        console.error(`[FT API] Erreur ${response.status} pour ${url} après ${MAX_RETRIES + 1} tentatives : ${text}`)
+        throw new Error('Erreur lors de la communication avec le service France Travail.')
+      }
+
+      // Handle 204 No Content
+      if (response.status === 204) {
+        return undefined as T
+      }
+
+      return response.json() as Promise<T>
+    } catch (err) {
+      // Network-level errors (fetch itself failed)
+      const isNetworkError = err instanceof TypeError && !('status' in (err as object))
+      if (isNetworkError && attempt < MAX_RETRIES) {
+        const delay = BASE_DELAY_MS * Math.pow(2, attempt)
+        console.warn(`[FT API] Erreur réseau pour ${url}, tentative ${attempt + 1}/${MAX_RETRIES + 1}, nouvel essai dans ${delay}ms`)
+        await new Promise(resolve => setTimeout(resolve, delay))
+        continue
+      }
+      // Re-throw non-retryable or exhausted errors
+      if (err instanceof Error && err.message.includes('France Travail')) {
+        throw err
+      }
+      throw new Error('Erreur lors de la communication avec le service France Travail.')
+    }
   }
 
-  // Handle 204 No Content
-  if (response.status === 204) {
-    return undefined as T
-  }
-
-  return response.json() as Promise<T>
+  // Should not reach here, but satisfy TypeScript
+  throw new Error('Erreur lors de la communication avec le service France Travail.')
 }
 
 /**
@@ -188,6 +230,65 @@ export async function safeFetchFTAPI<T>(
     console.error(`[FT Safe Fetch] ${url}`, err instanceof Error ? err.message : err)
     return null
   }
+}
+
+// ─── In-memory Response Cache ──────────────
+
+interface CacheEntry<T> {
+  data: T
+  expiresAt: number
+}
+
+const responseCache = new Map<string, CacheEntry<unknown>>()
+
+/**
+ * Clean up expired cache entries. Called lazily before cache reads.
+ */
+function cleanupResponseCache(): void {
+  const now = Date.now()
+  for (const [key, entry] of responseCache) {
+    if (entry.expiresAt <= now) {
+      responseCache.delete(key)
+    }
+  }
+}
+
+/**
+ * Cached version of safeFetchFTAPI.
+ * Caches successful responses in memory with a TTL (default 5 minutes).
+ * Cache key = URL + scope. On cache hit, returns immediately without calling the FT API.
+ * On cache miss or expiration, calls safeFetchFTAPI and stores the result.
+ * Failed calls (null) are NOT cached — they will be retried on next call.
+ */
+export async function cachedFetchFTAPI<T>(
+  url: string,
+  scope: string,
+  options?: RequestInit,
+  ttlMs: number = 300_000,
+): Promise<T | null> {
+  const cacheKey = `${url}|||${scope}`
+
+  // Lazy cleanup of expired entries
+  cleanupResponseCache()
+
+  // Check cache
+  const cached = responseCache.get(cacheKey) as CacheEntry<T> | undefined
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data
+  }
+
+  // Fetch fresh data
+  const result = await safeFetchFTAPI<T>(url, scope, options)
+
+  // Only cache successful responses
+  if (result !== null) {
+    responseCache.set(cacheKey, {
+      data: result,
+      expiresAt: Date.now() + ttlMs,
+    })
+  }
+
+  return result
 }
 
 /**

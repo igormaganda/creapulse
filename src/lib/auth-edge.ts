@@ -2,6 +2,12 @@
 // CreaPulse V2 — Edge-Compatible Auth (Middleware)
 // Uses jose for JWT verification (Edge Runtime safe)
 // No Node.js APIs — safe for Next.js middleware
+//
+// NOTE: Currently UNUSED — all protected areas (/bureau, /conseiller,
+// /admin-centre, /admin-plateforme) are client-side overlays, not
+// file-based routes, so middleware never triggers for them. Auth is
+// handled per-route in API handlers via JWT. Kept for future use if
+// file-based protected routes are added.
 // ============================================
 
 import { jwtVerify } from 'jose'
