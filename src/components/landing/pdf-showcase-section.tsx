@@ -17,6 +17,7 @@ import {
   TrendingUp,
   BarChart3,
   LayoutGrid,
+  BookOpen,
   Download,
   FileDown,
 } from 'lucide-react'
@@ -74,6 +75,14 @@ const DEMO_PDFS: DemoPDF[] = [
       'Canvas stratégique 9 blocs avec partenaires, activités, proposition de valeur et revenus.',
     icon: LayoutGrid,
     format: 'HTML',
+  },
+  {
+    type: 'business-plan',
+    title: 'Business Plan Complet',
+    description:
+      "Plan d'affaires structuré : 22 chapitres couvrant stratégie, marché, finance, juridique, opérationnel et prévisionnel.",
+    icon: BookOpen,
+    format: 'PDF',
   },
 ]
 

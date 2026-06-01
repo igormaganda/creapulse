@@ -6,6 +6,7 @@
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server'
+import PDFDocument from 'pdfkit'
 import { db } from '@/lib/db'
 import { handleApiError } from '@/lib/api-response'
 import {
@@ -40,6 +41,7 @@ const VALID_TYPES = [
   'suivi-creasim',
   'suivi-parcours',
   'bmc',
+  'business-plan',
 ] as const
 
 export type DemoExportType = (typeof VALID_TYPES)[number]
@@ -1143,6 +1145,500 @@ async function buildBmcPdf(
   })
 }
 
+// ─── Business Plan Chapter Labels ─────────────
+
+const BP_CHAPTER_LABELS: { key: string; label: string }[] = [
+  { key: 'resumeOperationnel', label: 'Résumé Opérationnel' },
+  { key: 'presentationPorteur', label: 'Présentation du Porteur' },
+  { key: 'descriptionProjet', label: 'Description du Projet' },
+  { key: 'conceptProposition', label: 'Concept et Proposition de Valeur' },
+  { key: 'clienteleCible', label: 'Clientèle Cible' },
+  { key: 'positionnement', label: 'Positionnement' },
+  { key: 'equipeProjet', label: 'Équipe du Projet' },
+  { key: 'objectifs', label: 'Objectifs' },
+  { key: 'etude-marche', label: 'Étude de Marché' },
+  { key: 'concurrence', label: 'Concurrence' },
+  { key: 'swot', label: 'Analyse SWOT' },
+  { key: 'strategieMarketing', label: 'Stratégie Marketing' },
+  { key: 'strategieCommercial', label: 'Stratégie Commerciale' },
+  { key: 'planCommunication', label: 'Plan de Communication' },
+  { key: 'financement', label: 'Plan de Financement' },
+  { key: 'compte-resultat', label: 'Compte de Résultat' },
+  { key: 'investissements', label: 'Investissements' },
+  { key: 'seuil-rentabilite', label: 'Seuil de Rentabilité' },
+  { key: 'statut-juridique', label: 'Statut Juridique' },
+  { key: 'previsionnel-social', label: 'Prévisionnel Social' },
+  { key: 'structure-organisationnelle', label: 'Structure Organisationnelle' },
+  { key: 'plan-operatoire', label: 'Plan Opératoire' },
+  { key: 'risques', label: 'Analyse des Risques' },
+  { key: 'annexes', label: 'Annexes' },
+]
+
+// Aliases for seed data keys that may differ
+const BP_KEY_ALIASES: Record<string, string> = {
+  resume: 'resumeOperationnel',
+  'resume-operationnel': 'resumeOperationnel',
+  presentation: 'presentationPorteur',
+  'presentation-porteur': 'presentationPorteur',
+  equipe: 'equipeProjet',
+  'equipe-projet': 'equipeProjet',
+  description: 'descriptionProjet',
+  'description-projet': 'descriptionProjet',
+  concept: 'conceptProposition',
+  'concept-proposition': 'conceptProposition',
+  clientele: 'clienteleCible',
+  'clientele-cible': 'clienteleCible',
+  segmentation: 'clienteleCible',
+  objectifs: 'objectifs',
+  'etude-marche': 'etude-marche',
+  'etude_de-marche': 'etude-marche',
+  concurrence: 'concurrence',
+  swot: 'swot',
+  'strategie-marketing': 'strategieMarketing',
+  'strategie-marketing-2': 'strategieMarketing',
+  'strategie-commercial': 'strategieCommercial',
+  'plan-commercial': 'strategieCommercial',
+  'plan-communication': 'planCommunication',
+  financement: 'financement',
+  'compte-resultat': 'compte-resultat',
+  'compte_de-resultat': 'compte-resultat',
+  investissements: 'investissements',
+  'seuil-rentabilite': 'seuil-rentabilite',
+  seuil_rentabilite: 'seuil-rentabilite',
+  'statut-juridique': 'statut-juridique',
+  'statut_juridique': 'statut-juridique',
+  'previsionnel-social': 'previsionnel-social',
+  'structure-organisationnelle': 'structure-organisationnelle',
+  'plan-operatoire': 'plan-operatoire',
+  calendrier: 'plan-operatoire',
+  risques: 'risques',
+  annexes: 'annexes',
+}
+
+/**
+ * Render markdown-like content into PDF paragraphs and bullets.
+ * Handles ## headers, ### sub-headers, **bold**, - bullets, and plain text.
+ */
+function renderMarkdownContent(
+  doc: PDFDocument,
+  content: string,
+  startY: number,
+): number {
+  const lines = content.split('\n')
+  let y = startY
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim()
+    if (!line) continue
+
+    // ### Sub-header
+    if (line.startsWith('###')) {
+      const text = line.replace(/^###\s+/, '').replace(/\*\*/g, '')
+      if (text) {
+        y = addSubSectionHeader(doc, text, y)
+      }
+      continue
+    }
+
+    // ## Section header (within a chapter)
+    if (line.startsWith('##')) {
+      const text = line.replace(/^##\s+/, '').replace(/\*\*/g, '')
+      if (text) {
+        y = addSubSectionHeader(doc, text, y)
+      }
+      continue
+    }
+
+    // Bullet list item
+    if (line.startsWith('- ') || line.startsWith('• ')) {
+      const text = line.replace(/^[-•]\s+/, '').replace(/\*\*/g, '')
+      if (text) {
+        checkNewPage(doc, 40)
+        y = addBullet(doc, text, y)
+      }
+      continue
+    }
+
+    // Plain paragraph (strip ** bold markers)
+    const cleanText = line.replace(/\*\*/g, '')
+    if (cleanText) {
+      checkNewPage(doc, 30)
+      y = addParagraph(doc, cleanText, y)
+    }
+  }
+
+  return y
+}
+
+/**
+ * Render structured data (arrays/objects) from bpSections as PDF content.
+ */
+function renderStructuredContent(
+  doc: PDFDocument,
+  data: unknown,
+  startY: number,
+): number {
+  let y = startY
+
+  if (Array.isArray(data)) {
+    for (const item of data) {
+      if (typeof item === 'string') {
+        checkNewPage(doc, 30)
+        y = addParagraph(doc, item, y)
+      } else if (typeof item === 'object' && item !== null) {
+        const obj = item as Record<string, unknown>
+        // Extract a label and value
+        const parts: string[] = []
+        if (obj.name || obj.title || obj.source) {
+          parts.push(String(obj.name || obj.title || obj.source))
+        }
+        if (obj.amount || obj.montant) {
+          parts.push(formatCurrency(Number(obj.amount || obj.montant)))
+        }
+        if (obj.date || obj.completed !== undefined) {
+          const status = obj.completed === true ? '✓' : '○'
+          parts.push(`${status} ${String(obj.date || '')}`)
+        }
+        if (parts.length > 0) {
+          checkNewPage(doc, 30)
+          y = addBullet(doc, parts.join(' — '), y)
+        }
+      }
+    }
+  } else if (typeof data === 'object' && data !== null) {
+    const obj = data as Record<string, unknown>
+    // SWOT-like object
+    const swotKeys: Record<string, string> = {
+      strengths: 'Forces',
+      weaknesses: 'Faiblesses',
+      opportunities: 'Opportunités',
+      threats: 'Menaces',
+    }
+    const isSwot = Object.keys(obj).some((k) => k in swotKeys)
+    if (isSwot) {
+      for (const [key, label] of Object.entries(swotKeys)) {
+        const value = obj[key]
+        if (value && typeof value === 'string') {
+          checkNewPage(doc, 60)
+          y = addSubSectionHeader(doc, label, y)
+          const items = value.split(',').map((s: string) => s.trim()).filter(Boolean)
+          for (const item of items) {
+            checkNewPage(doc, 30)
+            y = addBullet(doc, item, y)
+          }
+        }
+      }
+    } else {
+      // compte-resultat like object with year1, year2, year3
+      const yearKeys = ['year1', 'year2', 'year3']
+      const hasYears = yearKeys.some((k) => k in obj)
+      if (hasYears) {
+        const columns: TableColumn[] = [
+          { header: 'Indicateur', width: 160, align: 'left' },
+          { header: 'Année 1', width: 90, align: 'right' },
+          { header: 'Année 2', width: 90, align: 'right' },
+          { header: 'Année 3', width: 105, align: 'right' },
+        ]
+        const year1 = obj.year1 as Record<string, unknown> | undefined
+        const year2 = obj.year2 as Record<string, unknown> | undefined
+        const year3 = obj.year3 as Record<string, unknown> | undefined
+        const indicateurKeys = ['ca', 'charges', 'resultat']
+        const labels: Record<string, string> = { ca: 'Chiffre d\'affaires', charges: 'Charges', resultat: 'Résultat net' }
+        const rows: TableRow[] = indicateurKeys
+          .filter((k) => year1?.[k] !== undefined || year2?.[k] !== undefined || year3?.[k] !== undefined)
+          .map((k) => {
+            const v1 = Number(year1?.[k] ?? 0)
+            const v2 = Number(year2?.[k] ?? 0)
+            const v3 = Number(year3?.[k] ?? 0)
+            return {
+              cells: [labels[k], formatCurrency(v1), formatCurrency(v2), formatCurrency(v3)],
+              textColor: k === 'resultat' ? (v1 >= 0 ? COLORS.success : COLORS.danger) : COLORS.dark,
+              fillColor: k === 'resultat' ? '#E8F5E9' : undefined,
+            }
+          })
+        if (rows.length > 0) {
+          y = addTable(doc, columns, rows, y)
+        }
+      } else {
+        // Generic object — render key-value as bullets
+        for (const [k, v] of Object.entries(obj)) {
+          checkNewPage(doc, 30)
+          if (typeof v === 'string') {
+            y = addBullet(doc, `${k} : ${v}`, y)
+          } else {
+            y = addBullet(doc, `${k} : ${JSON.stringify(v)}`, y)
+          }
+        }
+      }
+    }
+  }
+
+  return y
+}
+
+async function buildBusinessPlanPdf(fullName: string) {
+  // ── Fetch journey with bpSections ──
+  const journey = await db.creatorJourney.findUnique({
+    where: { userId: DEMO_USER_ID },
+    select: {
+      bpSections: true,
+      bpStatus: true,
+      bpScore: true,
+      projectTitle: true,
+      projectSector: true,
+    },
+  })
+
+  if (!journey?.bpSections || (typeof journey.bpSections === 'object' && Object.keys(journey.bpSections as object).length === 0)) {
+    return null
+  }
+
+  const bpSections = journey.bpSections as Record<string, unknown>
+
+  // ── Fetch supplementary data ──
+  const financialForecast = await db.financialForecast.findUnique({
+    where: { userId: DEMO_USER_ID },
+  })
+
+  const creasim = await db.creaSimSimulation.findUnique({
+    where: { userId: DEMO_USER_ID },
+    select: {
+      monthlyBreakeven: true,
+      breakevenMonths: true,
+      year1Revenue: true, year1Expenses: true,
+      year2Revenue: true, year2Expenses: true,
+      year3Revenue: true, year3Expenses: true,
+    },
+  })
+
+  const juridique = await db.juridiqueAnalysis.findUnique({
+    where: { userId: DEMO_USER_ID },
+  })
+
+  const riasecResults = await db.riasecResult.findMany({
+    where: { userId: DEMO_USER_ID },
+    orderBy: [{ isDominant: 'desc' }, { score: 'desc' }],
+    take: 3,
+  })
+
+  return generatePdfBuffer((doc) => {
+    // ── Cover Page ──
+    const projectTitle = journey.projectTitle || 'Projet Entrepreneurial'
+    drawCoverPage(
+      doc,
+      'Business Plan Complet',
+      `Plan d\'affaires détaillé — ${projectTitle}`,
+      fullName,
+    )
+
+    // ── Project Summary ──
+    let y = addSectionHeader(doc, 'Résumé du projet')
+    y = addKeyValueBlock(
+      doc,
+      [
+        { key: 'Bénéficiaire :', value: fullName },
+        { key: 'Projet :', value: projectTitle },
+        { key: 'Secteur :', value: journey.projectSector || 'Non défini' },
+        { key: 'Statut BP :', value: journey.bpStatus || 'Non démarré' },
+        {
+          key: 'Score de complétion :',
+          value: journey.bpScore != null ? `${journey.bpScore}/100` : '—',
+        },
+      ],
+      y,
+    )
+
+    if (journey.bpScore != null) {
+      addSpacing(doc, 6)
+      checkNewPage(doc, 60)
+      y = addKeyValueBlock(
+        doc,
+        [{ key: 'Progression :', value: scoreBar(journey.bpScore, 100, 30) }],
+        y,
+      )
+    }
+    addSpacing(doc, 14)
+
+    // ── Team Skills Summary (RIASEC) ──
+    if (riasecResults.length > 0) {
+      checkNewPage(doc, 100)
+      y = addSectionHeader(doc, 'Compétences de l\'équipe (RIASEC)')
+      const dominantProfiles = riasecResults.filter((r) => r.isDominant)
+      if (dominantProfiles.length > 0) {
+        y = addParagraph(
+          doc,
+          `Profil(s) dominant(s) : ${dominantProfiles.map((r) => RIASEC_LABELS[r.profileType] || r.profileType).join(', ')}`,
+          y,
+        )
+      }
+      for (const r of riasecResults) {
+        y = addBullet(
+          doc,
+          `${RIASEC_LABELS[r.profileType] || r.profileType} : ${r.score.toFixed(0)}/10${r.isDominant ? ' ★' : ''}`,
+          y,
+        )
+      }
+      addSpacing(doc, 14)
+    }
+
+    // ── Business Plan Chapters ──
+    // Build a normalized map: canonical key → content
+    const sectionMap = new Map<string, unknown>()
+    for (const [key, value] of Object.entries(bpSections)) {
+      const canonical = BP_KEY_ALIASES[key] || key
+      if (!sectionMap.has(canonical)) {
+        sectionMap.set(canonical, value)
+      }
+    }
+
+    for (const chapter of BP_CHAPTER_LABELS) {
+      const content = sectionMap.get(chapter.key)
+      if (content == null) continue
+
+      checkNewPage(doc, 60)
+      y = addSectionHeader(doc, chapter.label)
+
+      if (typeof content === 'string') {
+        y = renderMarkdownContent(doc, content, y)
+      } else {
+        y = renderStructuredContent(doc, content, y)
+      }
+
+      addSpacing(doc, 10)
+    }
+
+    // ── Legal Status (from juridique analysis) ──
+    if (juridique) {
+      checkNewPage(doc, 100)
+      y = addSectionHeader(doc, 'Détail du Statut Juridique')
+      y = addKeyValueBlock(
+        doc,
+        [
+          {
+            key: 'Forme juridique :',
+            value: juridique.legalStructure || juridique.recommendedStatus || 'Non défini',
+          },
+          { key: 'Régime fiscal :', value: juridique.fiscalRegime || '—' },
+        ],
+        y,
+      )
+      addSpacing(doc, 14)
+    }
+
+    // ── Financial Summary (3-year projection) ──
+    if (financialForecast || creasim) {
+      checkNewPage(doc, 180)
+      y = addSectionHeader(doc, 'Prévisions Financières — Synthèse')
+
+      const y1r = financialForecast?.year1Revenue ?? creasim?.year1Revenue ?? 0
+      const y1e = financialForecast?.year1Expenses ?? creasim?.year1Expenses ?? 0
+      const y2r = financialForecast?.year2Revenue ?? creasim?.year2Revenue ?? 0
+      const y2e = financialForecast?.year2Expenses ?? creasim?.year2Expenses ?? 0
+      const y3r = financialForecast?.year3Revenue ?? creasim?.year3Revenue ?? 0
+      const y3e = financialForecast?.year3Expenses ?? creasim?.year3Expenses ?? 0
+
+      const projectionColumns: TableColumn[] = [
+        { header: 'Indicateur', width: 160, align: 'left' },
+        { header: 'Année 1', width: 90, align: 'right' },
+        { header: 'Année 2', width: 90, align: 'right' },
+        { header: 'Année 3', width: 105, align: 'right' },
+      ]
+
+      const projectionRows: TableRow[] = [
+        {
+          cells: ['Revenus', formatCurrency(y1r), formatCurrency(y2r), formatCurrency(y3r)],
+          textColor: COLORS.dark,
+        },
+        {
+          cells: ['Charges', formatCurrency(y1e), formatCurrency(y2e), formatCurrency(y3e)],
+          textColor: COLORS.danger,
+        },
+        {
+          cells: [
+            'Résultat net',
+            formatCurrency(y1r - y1e),
+            formatCurrency(y2r - y2e),
+            formatCurrency(y3r - y3e),
+          ],
+          textColor: (y1r - y1e) >= 0 ? COLORS.success : COLORS.danger,
+          fillColor: '#E8F5E9',
+        },
+      ]
+
+      y = addTable(doc, projectionColumns, projectionRows, y)
+
+      // Breakeven info
+      const breakeven = financialForecast?.breakevenMonth ?? creasim?.breakevenMonths ?? null
+      const initialInvestment = financialForecast?.initialInvestment ?? null
+      if (breakeven != null || initialInvestment != null) {
+        addSpacing(doc, 10)
+        y = addSubSectionHeader(doc, 'Indicateurs clés', y)
+        const kvs: { key: string; value: string }[] = []
+        if (breakeven != null) {
+          kvs.push({ key: 'Seuil de rentabilité :', value: `Mois ${breakeven}` })
+        }
+        if (initialInvestment != null) {
+          kvs.push({ key: 'Investissement initial :', value: formatCurrency(initialInvestment) })
+        }
+        if (kvs.length > 0) {
+          y = addKeyValueBlock(doc, kvs, y)
+        }
+      }
+      addSpacing(doc, 14)
+    }
+
+    // ── Completion Score ──
+    checkNewPage(doc, 120)
+    y = addSectionHeader(doc, 'Score de Complétion du Business Plan')
+    if (journey.bpScore != null) {
+      y = addKeyValueBlock(
+        doc,
+        [
+          { key: 'Score global :', value: `${journey.bpScore}/100` },
+          { key: 'Barre :', value: scoreBar(journey.bpScore, 100, 30) },
+        ],
+        y,
+      )
+      addSpacing(doc, 6)
+      const totalChapters = BP_CHAPTER_LABELS.length
+      const filledChapters = BP_CHAPTER_LABELS.filter((c) => sectionMap.has(c.key)).length
+      y = addParagraph(
+        doc,
+        `${filledChapters}/${totalChapters} chapitres rédigés (${Math.round((filledChapters / totalChapters) * 100)}%).`,
+        y,
+      )
+    } else {
+      y = addParagraph(doc, 'Score non encore calculé.', y)
+    }
+    addSpacing(doc, 14)
+
+    // ── Recommendations ──
+    checkNewPage(doc, 200)
+    y = addSectionHeader(doc, 'Recommandations')
+    y = addSubSectionHeader(doc, 'Pour finaliser votre Business Plan', y)
+
+    const filledChapters = BP_CHAPTER_LABELS.filter((c) => sectionMap.has(c.key))
+    const missingChapters = BP_CHAPTER_LABELS.filter((c) => !sectionMap.has(c.key))
+
+    if (missingChapters.length > 0) {
+      y = addParagraph(
+        doc,
+        `Il reste ${missingChapters.length} chapitre(s) à compléter : ${missingChapters.map((c) => c.label).join(', ')}.`,
+        y,
+      )
+      addSpacing(doc, 6)
+    }
+
+    y = addBullet(doc, 'Relisez chaque chapitre pour vérifier la cohérence globale du plan.', y)
+    y = addBullet(doc, 'Actualisez les données financières avec les derniers chiffres disponibles.', y)
+    y = addBullet(doc, 'Faites relire votre Business Plan par votre conseiller GIDEF.', y)
+    y = addBullet(doc, 'Préparez une version executive summary pour les investisseurs.', y)
+
+    // ── Footer ──
+    finalizeWithFooters(doc)
+  })
+}
+
 // ─── Fallback PDF Builder ─────────────────────
 
 /**
@@ -1339,6 +1835,13 @@ export async function GET(
           }
           pdfBuffer = result
           filename = `demo-bmc.pdf`
+          break
+        }
+
+        case 'business-plan': {
+          console.error(`[DemoPDF] Building Business Plan PDF for ${fullName}...`)
+          pdfBuffer = await buildBusinessPlanPdf(fullName)
+          filename = `Business_Plan_${fullName.replace(/\s+/g, '_')}.pdf`
           break
         }
       }

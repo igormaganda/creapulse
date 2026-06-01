@@ -50,6 +50,40 @@ Fixes Applied:
 
 Stage Summary:
 - AI integration now works via env vars on Vercel AND via .z-ai-config locally
-- Conseiller logout button properly performs full logout (clears session, closes overlay, reloads page)
-- Two distinct actions in sidebar: "Retour au site" vs "Se déconnecter"
 - Lint passes with no errors
+
+---
+Task ID: 3
+Agent: full-stack-developer
+Task: Add Business Plan demo PDF export to home page showcase
+
+Work Log:
+- Read and analyzed 3 target files: route.ts (1408 lines), pdf-showcase-section.tsx, list/route.ts
+- Studied Prisma schema for CreatorJourney (bpSections Json, bpStatus, bpScore, bpGeneratedAt) and FinancialForecast/JuridiqueAnalysis models
+- Analyzed seed data structure for bpSections keys (resume, equipe, etude-marche, segmentation, concurrence, swot, financement arrays, compte-resultat nested objects, investissements arrays, calendrier arrays)
+
+Changes Applied:
+1. `src/app/api/export/demo/[type]/route.ts`:
+   - Added `'business-plan'` to VALID_TYPES array
+   - Added `import PDFDocument from 'pdfkit'` for type annotations in helper functions
+   - Added `BP_CHAPTER_LABELS` constant: 24 chapter definitions with key → French label mapping
+   - Added `BP_KEY_ALIASES` constant: maps seed data key variants (resume→resumeOperationnel, equipe→equipeProjet, segmentation→clienteleCible, etc.)
+   - Added `renderMarkdownContent()` helper: converts markdown-like strings (##, ###, **bold**, - bullets) to PDF paragraphs/bullets
+   - Added `renderStructuredContent()` helper: renders arrays (financing, investments, calendar) and objects (SWOT, compte-resultat with 3-year table) as PDF content
+   - Added `buildBusinessPlanPdf()` function: fetches journey (bpSections, bpStatus, bpScore, projectTitle, projectSector), financialForecast, creasim, juridiqueAnalysis, RIASEC results; generates comprehensive PDF with cover page, project summary, RIASEC team skills, all 22+ chapters rendered via normalized section map, legal status detail, 3-year financial projection table, completion score with progress bar, and recommendations
+   - Added `case 'business-plan'` in the route handler switch block with fallback to generic PDF if bpSections is empty
+   - Updated file header comment to include 'business-plan' in supported types
+
+2. `src/components/landing/pdf-showcase-section.tsx`:
+   - Added `BookOpen` to lucide-react imports
+   - Added Business Plan card entry to DEMO_PDFS array with type 'business-plan', title, description, icon, format 'PDF'
+
+3. `src/app/api/export/demo/list/route.ts`:
+   - Added Business Plan entry to DEMO_EXPORTS array with type, name, description, category 'Stratégie', download URL, pages '15+'
+
+Stage Summary:
+- Business Plan demo PDF export fully integrated across all 3 required files
+- PDF builder handles both simple string content and complex structured data (arrays, SWOT objects, 3-year financial tables)
+- Key aliasing system ensures seed data with varied key names maps correctly to canonical chapter labels
+- Markdown-like rendering converts headers, bullets, and bold text to proper PDF formatting
+- Lint passes with 0 errors, dev server compiles successfully

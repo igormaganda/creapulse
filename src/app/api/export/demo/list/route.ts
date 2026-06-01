@@ -66,6 +66,15 @@ const DEMO_EXPORTS: DemoExportItem[] = [
     downloadUrl: `${BASE_URL}/api/export/demo/bmc`,
     pages: '3 pages',
   },
+  {
+    type: 'business-plan',
+    name: 'Business Plan Complet',
+    description:
+      'Plan d\'affaires complet : 22 chapitres couvrant résumé opérationnel, présentation du porteur, concept, étude de marché, stratégie marketing, prévisions financières, statut juridique, plan opérationnel et analyse des risques.',
+    category: 'Stratégie',
+    downloadUrl: `${BASE_URL}/api/export/demo/business-plan`,
+    pages: '15+ pages',
+  },
 ]
 
 // ─── Route Handler ───────────────────────────
