@@ -25,7 +25,7 @@ export const scaleIn = {
 /* ═══════════════════════════════════════════════════════════
    Auth user type
    ═══════════════════════════════════════════════════════════ */
-export type AuthUser = { firstName: string; lastName: string; email: string } | null
+export type AuthUser = { firstName: string; lastName: string; email: string; role?: string } | null
 
 /* ═══════════════════════════════════════════════════════════
    Animated counter hook

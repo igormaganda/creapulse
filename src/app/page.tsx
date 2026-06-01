@@ -63,6 +63,7 @@ import { useAdminPlateformeStore } from '@/components/admin-plateforme/admin-pla
 
 /* ─── Admin Centre (lazy loaded) ─── */
 const AdminCentreLayout = dynamic(() => import('@/components/admin-centre/admin-centre-layout').then(m => ({ default: m.AdminCentreLayout })), { ssr: false })
+import { useAdminCentreStore } from '@/components/admin-centre/admin-centre-store'
 
 /* ─── Conseiller (lazy loaded) ─── */
 const ConseillerLayout = dynamic(() => import('@/components/conseiller/conseiller-layout').then(m => ({ default: m.ConseillerLayout })), { ssr: false })
@@ -103,20 +104,35 @@ function Navbar({
   const [authUser, setAuthUser] = useState<AuthUser>(null)
   const { openBureau, setUserName } = useBureauStore()
   const { openAdminPlateforme } = useAdminPlateformeStore()
-  const { openConseiller } = useConseillerStore()
+  const { openConseiller, setConseillerName } = useConseillerStore()
+  const { openAdminCentre } = useAdminCentreStore()
 
-  const handleLoginSuccess = (user: { firstName: string; lastName: string; email: string }) => {
+  const handleLoginSuccess = (user: { firstName: string; lastName: string; email: string; role?: string }) => {
     setAuthUser(user)
     const fullName = `${user.firstName} ${user.lastName}`
     setUserName(fullName)
-    openBureau()
+    const role = user.role?.toUpperCase()
+    if (role === 'COUNSELOR') {
+      setConseillerName(fullName)
+      openConseiller()
+    } else if (role === 'ADMIN') {
+      openAdminPlateforme()
+    } else {
+      openBureau()
+    }
   }
 
-  const handleRegisterSuccess = (user: { firstName: string; lastName: string; email: string }) => {
+  const handleRegisterSuccess = (user: { firstName: string; lastName: string; email: string; role?: string }) => {
     setAuthUser(user)
     const fullName = `${user.firstName} ${user.lastName}`
     setUserName(fullName)
-    openBureau()
+    const role = user.role?.toUpperCase()
+    if (role === 'COUNSELOR') {
+      setConseillerName(fullName)
+      openConseiller()
+    } else {
+      openBureau()
+    }
   }
 
   const handleLogout = async () => {
@@ -125,6 +141,9 @@ function Navbar({
     } catch {}
     setAuthUser(null)
     useBureauStore.getState().closeBureau()
+    useConseillerStore.getState().closeConseiller()
+    useAdminPlateformeStore.getState().closeAdminPlateforme()
+    useAdminCentreStore.getState().closeAdminCentre()
   }
 
   const navLinks = [
