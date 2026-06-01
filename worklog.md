@@ -116,3 +116,21 @@ Stage Summary:
 - Database connection verified working with real data (tenants + users)
 - Vercel deployment compatibility confirmed (no standalone output)
 - Business Plan already integrated in Documents de Suivi showcase
+
+---
+Task ID: 6
+Agent: Main
+Task: Fix ReferenceError 'Cannot access G before initialization' on Business Model Canvas module
+
+Work Log:
+- Analyzed error: `ReferenceError: Cannot access 'G' before initialization` at P(ef0edefa4f31ca96.js) / av(771dedee3f5e1621.js)
+- Root cause: framer-motion library created a circular module initialization in Turbopack chunked output. The BMC module (dynamic chunk) imported framer-motion, and framer-motion's chunk had a circular reference during initialization
+- Fix: Removed `framer-motion` dependency from bmc.tsx (dynamically loaded module). Replaced `motion.div` with CSS `animate-in fade-in-0 slide-in-from-bottom-2 duration-400` (Tailwind CSS animations). Replaced `AnimatePresence` + `motion.div` conditional overlay with simple conditional div + CSS animation
+- Also removed unused imports: `ScrollArea`, `Separator` from `@/components/ui/*`
+- Fixed syntax error: Missing closing `}` in JSX expression `{isGenerating && (...)}` — the original `AnimatePresence` removal accidentally dropped the closing brace along with `</AnimatePresence>`
+- Lint passes cleanly, dev server compiles successfully, GET / returns 200
+
+Stage Summary:
+- BMC module no longer uses framer-motion — avoids Turbopack circular initialization error
+- Animations preserved using Tailwind CSS `animate-in` utilities (fade-in, slide-in-from-bottom)
+- Generating overlay uses conditional render + CSS fade-in instead of AnimatePresence

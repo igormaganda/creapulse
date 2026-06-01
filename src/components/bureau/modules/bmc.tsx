@@ -1,13 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
 import {
   Tooltip,
   TooltipContent,
@@ -372,11 +369,8 @@ export function BusinessModelCanvasModule() {
 
   // ─── Main Render ─────────────────────────
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="flex-1 overflow-y-auto"
+    <div
+      className="flex-1 overflow-y-auto animate-in fade-in-0 slide-in-from-bottom-2 duration-400"
     >
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 md:px-6 border-b bg-[#1A1A2E]">
@@ -451,13 +445,9 @@ export function BusinessModelCanvasModule() {
       </div>
 
       {/* Generating overlay */}
-      <AnimatePresence>
-        {isGenerating && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="flex items-center justify-center py-8"
+      {isGenerating && (
+          <div
+            className="flex items-center justify-center py-8 animate-in fade-in-0 duration-300"
           >
             <div className="flex flex-col items-center gap-3">
               <div className="relative">
@@ -469,9 +459,8 @@ export function BusinessModelCanvasModule() {
                 <p className="text-xs text-neutral-400">L&apos;IA analyse votre Business Plan et remplit les 9 blocs</p>
               </div>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+      )}
 
       {/* BMC Grid */}
       <div className="p-4 md:p-6 space-y-3">
@@ -500,6 +489,6 @@ export function BusinessModelCanvasModule() {
           {renderBlock(blocks[8])}
         </div>
       </div>
-    </motion.div>
+    </div>
   )
 }
