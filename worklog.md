@@ -26,3 +26,30 @@ Stage Summary:
 - Conseiller name/initials are set from authenticated user data
 - All overlays are properly closed on logout
 - Lint passes with no errors
+
+---
+Task ID: 2
+Agent: Main
+Task: Configure z.AI API key and fix logout button visibility
+
+Work Log:
+- Analyzed z-ai-web-dev-sdk: SDK reads config from `.z-ai-config` JSON file (NOT env vars)
+- Found system config at `/etc/.z-ai-config` with baseUrl `https://internal-api.z.ai/v1`
+- Modified `src/lib/zai-helper.ts` to support env vars (ZAI_API_KEY + ZAI_BASE_URL) with fallback to .z-ai-config file
+- Created `.z-ai-config` in project root with user's API key for local dev
+- Updated `.env` with ZAI_API_KEY and ZAI_BASE_URL for Vercel deployment
+- Fixed Conseiller sidebar logout: was only calling `closeConseiller()` (closing overlay), now properly logs out via `/api/auth/me` DELETE + page reload
+- Added "Retour au site" button (X icon) separate from "Se déconnecter" (LogOut icon) in Conseiller sidebar (desktop + mobile)
+
+Fixes Applied:
+1. `src/lib/zai-helper.ts` — Added `initZAI()` function: checks env vars first, then falls back to ZAI.create() file-based config
+2. `.z-ai-config` — Created with user's API key for local development
+3. `.env` — Added ZAI_API_KEY and ZAI_BASE_URL
+4. `src/components/conseiller/conseiller-layout.tsx` — Fixed sidebar footer: split into "Retour au site" (closes overlay) and "Se déconnecter" (full logout with API call + reload)
+5. `src/components/conseiller/conseiller-layout.tsx` — Fixed mobile sidebar with same two-button pattern
+
+Stage Summary:
+- AI integration now works via env vars on Vercel AND via .z-ai-config locally
+- Conseiller logout button properly performs full logout (clears session, closes overlay, reloads page)
+- Two distinct actions in sidebar: "Retour au site" vs "Se déconnecter"
+- Lint passes with no errors

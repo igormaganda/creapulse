@@ -158,7 +158,29 @@ function ConseillerSidebar() {
             <TooltipTrigger asChild>
               <button
                 onClick={closeConseiller}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/50 hover:bg-red-500/20 hover:text-red-300 transition-colors"
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/50 hover:bg-white/8 hover:text-white transition-colors"
+              >
+                <X className="h-4.5 w-4.5 shrink-0" />
+                {sidebarOpen && <span>Retour au site</span>}
+              </button>
+            </TooltipTrigger>
+            {!sidebarOpen && (
+              <TooltipContent side="right">Retour au site</TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
+        <TooltipProvider delayDuration={0}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={async () => {
+                  try {
+                    await fetch('/api/auth/me', { method: 'DELETE', credentials: 'include' })
+                  } catch {}
+                  closeConseiller()
+                  window.location.reload()
+                }}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
               >
                 <LogOut className="h-4.5 w-4.5 shrink-0" />
                 {sidebarOpen && <span>Se deconnecter</span>}
@@ -214,13 +236,27 @@ function MobileConseillerSidebar({ open, onOpenChange }: { open: boolean; onOpen
             )
           })}
         </nav>
-        <div className="absolute bottom-0 left-0 right-0 border-t border-white/10 p-3">
+        <div className="absolute bottom-0 left-0 right-0 border-t border-white/10 p-3 space-y-1">
           <button
             onClick={() => {
               closeConseiller()
               onOpenChange(false)
             }}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/50 hover:bg-red-500/20 hover:text-red-300 transition-colors"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/50 hover:bg-white/8 hover:text-white transition-colors"
+          >
+            <X className="h-4.5 w-4.5" />
+            Retour au site
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                await fetch('/api/auth/me', { method: 'DELETE', credentials: 'include' })
+              } catch {}
+              closeConseiller()
+              onOpenChange(false)
+              window.location.reload()
+            }}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
           >
             <LogOut className="h-4.5 w-4.5" />
             Se deconnecter
