@@ -70,6 +70,16 @@ interface TopBarProps {
 export function TopBar({ onMenuClick }: TopBarProps) {
   const { currentSection, currentModule, userName, userInitials, closeBureau } = useBureauStore()
   const [searchFocused, setSearchFocused] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
+
+  const handleLogout = async () => {
+    setLoggingOut(true)
+    try {
+      await fetch('/api/auth/me', { method: 'DELETE', credentials: 'include' })
+    } catch {}
+    closeBureau()
+    window.location.reload()
+  }
 
   /* Build breadcrumb from current state */
   const breadcrumbs = useMemo(() => {
@@ -204,11 +214,19 @@ export function TopBar({ onMenuClick }: TopBarProps) {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              className="gap-2 cursor-pointer text-destructive focus:text-destructive"
+              className="gap-2 cursor-pointer"
               onClick={closeBureau}
             >
               <LogOut className="h-4 w-4" />
               Retour au site
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="gap-2 cursor-pointer text-destructive focus:text-destructive"
+              onClick={handleLogout}
+              disabled={loggingOut}
+            >
+              <LogOut className="h-4 w-4" />
+              {loggingOut ? 'Deconnexion...' : 'Se deconnecter'}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
