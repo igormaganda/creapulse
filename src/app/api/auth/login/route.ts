@@ -84,6 +84,7 @@ export async function POST(request: Request) {
       success: true,
       data: {
         user: authTokens.user,
+        accessToken: authTokens.accessToken,
       },
     })
 

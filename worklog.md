@@ -134,3 +134,24 @@ Stage Summary:
 - BMC module no longer uses framer-motion — avoids Turbopack circular initialization error
 - Animations preserved using Tailwind CSS `animate-in` utilities (fade-in, slide-in-from-bottom)
 - Generating overlay uses conditional render + CSS fade-in instead of AnimatePresence
+
+---
+Task ID: 7
+Agent: Main
+Task: Fix "Vous devez être connecté(e) pour générer votre bilan" error on Bilan IA module
+
+Work Log:
+- Analyzed error: Frontend component bilan-ia.tsx checks `useAuthStore((s) => s.token)` at line 152, and if falsy, shows error toast
+- Root cause: Login API route (`src/app/api/auth/login/route.ts`) returned `{ success: true, data: { user } }` — the `accessToken` was ONLY set as an httpOnly cookie, NOT included in the JSON response body
+- The login-dialog.tsx read `data.data.accessToken` which was always `undefined`, so `useAuthStore.getState().login(undefined, {...})` stored `undefined` as the token
+- All modules using `useAuthStore((s) => s.token)` would fail because the token was never stored in the Zustand state
+- This affects: bilan-ia, creascope-pipeline, session-list, session-orchestrator, ai-suggest-panel, flash-swipe, score-summary, kiviat, vision, mon-projet (11+ modules)
+
+Fixes Applied:
+1. `src/app/api/auth/login/route.ts` — Added `accessToken: authTokens.accessToken` to the JSON response body so the frontend can store it
+2. `src/components/bureau/modules/bilan-ia.tsx` — Improved header construction with conditional Authorization header (safer pattern)
+
+Stage Summary:
+- Login API now returns accessToken in JSON body in addition to the httpOnly cookie
+- After next login, all modules using useAuthStore token will work correctly
+- User must log out and log back in for the fix to take effect (old sessions have undefined token stored)

@@ -159,8 +159,10 @@ export function BilanIA() {
         return
       }
       try {
+        const headers: Record<string, string> = {}
+        if (token) headers['Authorization'] = `Bearer ${token}`
         const res = await fetch('/api/bilan', {
-          headers: { Authorization: `Bearer ${token}` },
+          headers,
           credentials: 'include',
         })
         if (res.ok) {
@@ -186,12 +188,13 @@ export function BilanIA() {
     }
     setGenerateStatus('loading')
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      if (token) headers['Authorization'] = `Bearer ${token}`
       const res = await fetch('/api/bilan', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
         credentials: 'include',
       })
       if (res.ok) {
