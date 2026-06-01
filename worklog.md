@@ -87,3 +87,32 @@ Stage Summary:
 - Key aliasing system ensures seed data with varied key names maps correctly to canonical chapter labels
 - Markdown-like rendering converts headers, bullets, and bold text to proper PDF formatting
 - Lint passes with 0 errors, dev server compiles successfully
+
+---
+Task ID: 4
+Agent: Main
+Task: Forcer l'usage de PostgreSQL et corriger configuration pour Vercel
+
+Work Log:
+- Analyzed current state: Prisma schema already had `provider = "postgresql"`, db.ts already used pg adapter
+- Found root issue: `.env` had `DATABASE_URL=file:/home/z/my-project/db/custom.db` (SQLite path)
+- Confirmed `next.config.ts` already had `output: "standalone"` commented out (fixed previously)
+- Confirmed Business Plan was already in pdf-showcase-section.tsx (added in Task 3)
+- Updated `.env` to use PostgreSQL connection string: `postgresql://bureau_virtuelle_user:bureau_virtuelle_pass2026@213.199.38.41:5432/bureau_virtuelle`
+- Removed SQLite database files: `db/custom.db`, `db/creapulse.db`
+- Ran `prisma generate` successfully with PrismaClient v6.19.3
+- Ran `prisma db push` — database already in sync with schema
+- Tested connection programmatically: 2 tenants, 3 users found (admin@echo-entreprendre.fr)
+- Dev server started successfully on port 3000, GET / returns 200
+
+Fixes Applied:
+1. `.env` — Changed DATABASE_URL from SQLite file path to PostgreSQL connection string
+2. Removed `db/custom.db` and `db/creapulse.db` (SQLite artifacts)
+3. Confirmed `next.config.ts` — `output: "standalone"` already commented out for Vercel
+4. Confirmed `pdf-showcase-section.tsx` — Business Plan (22 chapitres) already present as 6th card
+
+Stage Summary:
+- PostgreSQL is now the sole database backend — no more SQLite fallback
+- Database connection verified working with real data (tenants + users)
+- Vercel deployment compatibility confirmed (no standalone output)
+- Business Plan already integrated in Documents de Suivi showcase
