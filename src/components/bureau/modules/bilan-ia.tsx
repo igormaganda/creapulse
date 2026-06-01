@@ -154,10 +154,6 @@ export function BilanIA() {
   // ── Load data ──
   useEffect(() => {
     async function loadBilan() {
-      if (!token) {
-        setLoading(false)
-        return
-      }
       try {
         const headers: Record<string, string> = {}
         if (token) headers['Authorization'] = `Bearer ${token}`
@@ -182,10 +178,6 @@ export function BilanIA() {
 
   // ── Generate bilan ──
   const handleGenerate = useCallback(async () => {
-    if (!token) {
-      toast.error('Vous devez être connecté(e) pour générer votre bilan')
-      return
-    }
     setGenerateStatus('loading')
     try {
       const headers: Record<string, string> = {

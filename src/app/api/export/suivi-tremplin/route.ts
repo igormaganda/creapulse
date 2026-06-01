@@ -106,11 +106,11 @@ export async function GET(request: NextRequest) {
         ],
         y,
       )
-      addSpacing(doc, 12)
+      y = addSpacing(doc, 12, y)
 
       // ── Decision Badge ──
-      checkNewPage(doc, 100)
-      y = addSectionHeader(doc, 'Décision')
+      y = checkNewPage(doc, 100, y)
+      y = addSectionHeader(doc, 'Décision', y)
 
       const decisionStr = tremplin.decision || 'PENDING'
       y = addDecisionBadge(doc, decisionStr, y)
@@ -126,15 +126,15 @@ export async function GET(request: NextRequest) {
       }
 
       if (tremplin.summary) {
-        addSpacing(doc, 6)
+        y = addSpacing(doc, 6, y)
         y = addParagraph(doc, tremplin.summary, y)
       }
 
-      addSpacing(doc, 12)
+      y = addSpacing(doc, 12, y)
 
       // ── Step-by-step responses ──
-      checkNewPage(doc, 260)
-      y = addSectionHeader(doc, 'Détail des étapes')
+      y = checkNewPage(doc, 260, y)
+      y = addSectionHeader(doc, 'Détail des étapes', y)
 
       const responses = tremplin.responses as Record<string, unknown> | null
       const stepEntries = responses ? Object.entries(responses) : []
@@ -166,22 +166,22 @@ export async function GET(request: NextRequest) {
         y = addParagraph(doc, 'Aucune réponse détaillée enregistrée pour les étapes.', y)
       }
 
-      addSpacing(doc, 12)
+      y = addSpacing(doc, 12, y)
 
       // ── Recommendations ──
       const recommendations = tremplin.recommendations as string[] | null
       if (recommendations && recommendations.length > 0) {
-        checkNewPage(doc, 60 + recommendations.length * 24)
-        y = addSectionHeader(doc, 'Recommandations')
+        y = checkNewPage(doc, 60 + recommendations.length * 24, y)
+        y = addSectionHeader(doc, 'Recommandations', y)
         for (const rec of recommendations) {
           y = addBullet(doc, rec, y)
         }
-        addSpacing(doc, 10)
+        y = addSpacing(doc, 10, y)
       }
 
       // ── Next steps ──
-      checkNewPage(doc, 80)
-      y = addSectionHeader(doc, 'Prochaines étapes')
+      y = checkNewPage(doc, 80, y)
+      y = addSectionHeader(doc, 'Prochaines étapes', y)
       y = addBullet(doc, 'Revoir les étapes incomplètes avec votre conseiller.', y)
       y = addBullet(doc, 'Préparer les arguments pour le passage en commission.', y)
       y = addBullet(doc, 'Finaliser votre pitch et votre business plan.', y)

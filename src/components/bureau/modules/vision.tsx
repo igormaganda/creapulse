@@ -288,10 +288,6 @@ export function VisionModule() {
 
   // ── Save to API ──
   const handleSave = async () => {
-    if (!token) {
-      toast.error('Vous devez être connecté(e) pour sauvegarder')
-      return
-    }
     setSaveStatus('saving')
     try {
       const res = await fetch('/api/vision', {

@@ -55,6 +55,8 @@ const MARGIN_RIGHT = 50
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT
 const HEADER_HEIGHT = 40
 const FOOTER_HEIGHT = 40
+// Content starts right below the header bar on new pages
+const CONTENT_START_Y = MARGIN_TOP
 
 // ─── PDF Generation Helper ────────────────────
 
@@ -85,6 +87,9 @@ export function generatePdfBuffer(
       // Don't draw header/footer on the very first page (buildFn handles cover)
       if (pageCount > 1) {
         drawPageHeader(doc)
+        // After drawPageHeader, ensure doc.y is at content start
+        // drawPageHeader may corrupt doc.y via text() calls
+        doc.y = CONTENT_START_Y
       }
     })
 
@@ -96,6 +101,8 @@ export function generatePdfBuffer(
 // ─── Page Header / Footer ─────────────────────
 
 function drawPageHeader(doc: PDFDocument): void {
+  // Save current Y so text() calls don't corrupt the cursor
+  const savedY = doc.y
   // Teal bar at top
   doc
     .save()
@@ -109,6 +116,8 @@ function drawPageHeader(doc: PDFDocument): void {
     .text('CreaPulse V2', MARGIN_LEFT, 14, { width: CONTENT_WIDTH, align: 'left' })
 
   doc.restore()
+  // Restore Y cursor — drawPageHeader must not affect page layout
+  doc.y = savedY
 }
 
 export function drawFooter(doc: PDFDocument, pageNum: number): void {
@@ -268,7 +277,8 @@ export function addSubSectionHeader(doc: PDFDocument, title: string, y?: number)
     .fillColor(COLORS.dark)
     .text(title, MARGIN_LEFT, startY)
 
-  return doc.y + 4
+  // Use the maximum of doc.y (after text layout) and startY + fontSize + gap
+  return Math.max(doc.y, startY + 16) + 4
 }
 
 // ─── Simple Table ─────────────────────────────
@@ -465,13 +475,14 @@ export function addBullet(
   text: string,
   y?: number,
 ): number {
-  const startY = y ?? doc.y
+  let startY = y ?? doc.y
 
   if (startY + 18 > PAGE_HEIGHT - MARGIN_BOTTOM) {
     doc.addPage()
+    startY = CONTENT_START_Y
   }
 
-  const bulletY = y ?? doc.y
+  const bulletY = startY
 
   doc
     .font('Helvetica')
@@ -560,14 +571,19 @@ export function addDecisionBadge(doc: PDFDocument, decision: string, y?: number)
 
 // ─── Spacing Helpers ──────────────────────────
 
-export function addSpacing(doc: PDFDocument, points: number): void {
-  doc.y += points
+export function addSpacing(doc: PDFDocument, points: number, currentY?: number): number {
+  const newY = (currentY ?? doc.y) + points
+  doc.y = newY
+  return newY
 }
 
-export function checkNewPage(doc: PDFDocument, neededHeight: number): void {
-  if (doc.y + neededHeight > PAGE_HEIGHT - MARGIN_BOTTOM) {
+export function checkNewPage(doc: PDFDocument, neededHeight: number, currentY?: number): number {
+  const y = currentY ?? doc.y
+  if (y + neededHeight > PAGE_HEIGHT - MARGIN_BOTTOM) {
     doc.addPage()
+    return CONTENT_START_Y
   }
+  return y
 }
 
 // ─── Utility: Format Currency ──────────────────

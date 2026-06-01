@@ -173,11 +173,11 @@ async function buildKiviatPdf(
       ],
       y,
     )
-    addSpacing(doc, 10)
+    y = addSpacing(doc, 10, y)
 
     // ── Kiviat Scores Table ──
-    checkNewPage(doc, 260)
-    y = addSectionHeader(doc, 'Résultats par dimension')
+    y = checkNewPage(doc, 260, y)
+    y = addSectionHeader(doc, 'Résultats par dimension', y)
 
     const scoreColumns: TableColumn[] = [
       { header: 'Dimension', width: 180, align: 'left' },
@@ -200,15 +200,15 @@ async function buildKiviatPdf(
     })
 
     y = addTable(doc, scoreColumns, scoreRows, y)
-    addSpacing(doc, 10)
+    y = addSpacing(doc, 10, y)
 
     // ── Global Average ──
-    checkNewPage(doc, 100)
+    y = checkNewPage(doc, 100, y)
     const totalScore = kiviatResults.reduce((sum, k) => sum + k.score, 0)
     const avgScore = totalScore / kiviatResults.length
     const maxScore = kiviatResults[0]?.maxScore || 10
 
-    y = addSectionHeader(doc, 'Score global moyen')
+    y = addSectionHeader(doc, 'Score global moyen', y)
     y = addKeyValueBlock(
       doc,
       [
@@ -217,7 +217,7 @@ async function buildKiviatPdf(
       ],
       y,
     )
-    addSpacing(doc, 10)
+    y = addSpacing(doc, 10, y)
 
     // ── Strengths ──
     const strengths = kiviatResults
@@ -225,12 +225,12 @@ async function buildKiviatPdf(
       .sort((a, b) => b.score - a.score)
 
     if (strengths.length > 0) {
-      checkNewPage(doc, 60 + strengths.length * 24)
-      y = addSectionHeader(doc, 'Points forts')
+      y = checkNewPage(doc, 60 + strengths.length * 24, y)
+      y = addSectionHeader(doc, 'Points forts', y)
       for (const s of strengths) {
         y = addBullet(doc, `${s.category} : ${s.score.toFixed(1)}/10`, y)
       }
-      addSpacing(doc, 10)
+      y = addSpacing(doc, 10, y)
     }
 
     // ── Areas to improve ──
@@ -239,17 +239,17 @@ async function buildKiviatPdf(
       .sort((a, b) => a.score - b.score)
 
     if (improvements.length > 0) {
-      checkNewPage(doc, 60 + improvements.length * 24)
-      y = addSectionHeader(doc, 'Axes d\'amélioration')
+      y = checkNewPage(doc, 60 + improvements.length * 24, y)
+      y = addSectionHeader(doc, 'Axes d\'amélioration', y)
       for (const imp of improvements) {
         y = addBullet(doc, `${imp.category} : ${imp.score.toFixed(1)}/10 — à renforcer`, y)
       }
-      addSpacing(doc, 10)
+      y = addSpacing(doc, 10, y)
     }
 
     // ── Recommendations ──
-    checkNewPage(doc, 80)
-    y = addSectionHeader(doc, 'Recommandations')
+    y = checkNewPage(doc, 80, y)
+    y = addSectionHeader(doc, 'Recommandations', y)
     y = addSubSectionHeader(doc, 'Actions suggérées', y)
 
     if (improvements.length > 0) {
@@ -321,11 +321,11 @@ async function buildTremplinPdf(
       ],
       y,
     )
-    addSpacing(doc, 12)
+    y = addSpacing(doc, 12, y)
 
     // ── Decision Badge ──
-    checkNewPage(doc, 100)
-    y = addSectionHeader(doc, 'Décision')
+    y = checkNewPage(doc, 100, y)
+    y = addSectionHeader(doc, 'Décision', y)
 
     const decisionStr = tremplin.decision || 'PENDING'
     y = addDecisionBadge(doc, decisionStr, y)
@@ -341,15 +341,15 @@ async function buildTremplinPdf(
     }
 
     if (tremplin.summary) {
-      addSpacing(doc, 6)
+      y = addSpacing(doc, 6, y)
       y = addParagraph(doc, tremplin.summary, y)
     }
 
-    addSpacing(doc, 12)
+    y = addSpacing(doc, 12, y)
 
     // ── Step-by-step responses ──
-    checkNewPage(doc, 260)
-    y = addSectionHeader(doc, 'Détail des étapes')
+    y = checkNewPage(doc, 260, y)
+    y = addSectionHeader(doc, 'Détail des étapes', y)
 
     const responses = tremplin.responses as Record<string, unknown> | null
     const stepEntries = responses ? Object.entries(responses) : []
@@ -381,22 +381,22 @@ async function buildTremplinPdf(
       y = addParagraph(doc, 'Aucune réponse détaillée enregistrée pour les étapes.', y)
     }
 
-    addSpacing(doc, 12)
+    y = addSpacing(doc, 12, y)
 
     // ── Recommendations ──
     const recommendations = tremplin.recommendations as string[] | null
     if (recommendations && recommendations.length > 0) {
-      checkNewPage(doc, 60 + recommendations.length * 24)
-      y = addSectionHeader(doc, 'Recommandations')
+      y = checkNewPage(doc, 60 + recommendations.length * 24, y)
+      y = addSectionHeader(doc, 'Recommandations', y)
       for (const rec of recommendations) {
         y = addBullet(doc, rec, y)
       }
-      addSpacing(doc, 10)
+      y = addSpacing(doc, 10, y)
     }
 
     // ── Next steps ──
-    checkNewPage(doc, 80)
-    y = addSectionHeader(doc, 'Prochaines étapes')
+    y = checkNewPage(doc, 80, y)
+    y = addSectionHeader(doc, 'Prochaines étapes', y)
     y = addBullet(doc, 'Revoir les étapes incomplètes avec votre conseiller.', y)
     y = addBullet(doc, 'Préparer les arguments pour le passage en commission.', y)
     y = addBullet(doc, 'Finaliser votre pitch et votre business plan.', y)
@@ -444,11 +444,11 @@ async function buildCreaSimPdf(
       ],
       y,
     )
-    addSpacing(doc, 12)
+    y = addSpacing(doc, 12, y)
 
     // ── Monthly Simulation Summary ──
-    checkNewPage(doc, 180)
-    y = addSectionHeader(doc, 'Simulation mensuelle')
+    y = checkNewPage(doc, 180, y)
+    y = addSectionHeader(doc, 'Simulation mensuelle', y)
 
     y = addSubSectionHeader(doc, 'Chiffre d\'affaires et charges', y)
 
@@ -499,7 +499,7 @@ async function buildCreaSimPdf(
     ]
 
     y = addTable(doc, monthlyColumns, monthlyRows, y)
-    addSpacing(doc, 10)
+    y = addSpacing(doc, 10, y)
 
     // Margins percentages
     y = addSubSectionHeader(doc, 'Taux de marge', y)
@@ -521,11 +521,11 @@ async function buildCreaSimPdf(
       ],
       y,
     )
-    addSpacing(doc, 12)
+    y = addSpacing(doc, 12, y)
 
     // ── 3-Year Projection ──
-    checkNewPage(doc, 180)
-    y = addSectionHeader(doc, 'Projection sur 3 ans')
+    y = checkNewPage(doc, 180, y)
+    y = addSectionHeader(doc, 'Projection sur 3 ans', y)
 
     const projectionColumns: TableColumn[] = [
       { header: 'Indicateur', width: 160, align: 'left' },
@@ -566,7 +566,7 @@ async function buildCreaSimPdf(
 
     // Profitability summary
     if (creasim.profitability1Y != null || creasim.profitability2Y != null || creasim.profitability3Y != null) {
-      addSpacing(doc, 8)
+      y = addSpacing(doc, 8, y)
       y = addSubSectionHeader(doc, 'Rentabilité cumulée', y)
       y = addKeyValueBlock(
         doc,
@@ -578,11 +578,11 @@ async function buildCreaSimPdf(
         y,
       )
     }
-    addSpacing(doc, 12)
+    y = addSpacing(doc, 12, y)
 
     // ── Break-even Analysis ──
-    checkNewPage(doc, 120)
-    y = addSectionHeader(doc, 'Analyse du seuil de rentabilité')
+    y = checkNewPage(doc, 120, y)
+    y = addSectionHeader(doc, 'Analyse du seuil de rentabilité', y)
 
     y = addKeyValueBlock(
       doc,
@@ -606,7 +606,7 @@ async function buildCreaSimPdf(
     )
 
     if (creasim.monthlyBreakeven != null && creasim.monthlyRevenue != null) {
-      addSpacing(doc, 6)
+      y = addSpacing(doc, 6, y)
       if (creasim.monthlyRevenue >= creasim.monthlyBreakeven) {
         y = addParagraph(
           doc,
@@ -623,12 +623,12 @@ async function buildCreaSimPdf(
         )
       }
     }
-    addSpacing(doc, 12)
+    y = addSpacing(doc, 12, y)
 
     // ── Fixed charges detail ──
     if (fixedChargesArray.length > 0) {
-      checkNewPage(doc, 80 + fixedChargesArray.length * 22)
-      y = addSectionHeader(doc, 'Détail des charges fixes')
+      y = checkNewPage(doc, 80 + fixedChargesArray.length * 22, y)
+      y = addSectionHeader(doc, 'Détail des charges fixes', y)
 
       const chargesColumns: TableColumn[] = [
         { header: 'Poste de charge', width: 280, align: 'left' },
@@ -647,20 +647,20 @@ async function buildCreaSimPdf(
       })
 
       y = addTable(doc, chargesColumns, chargesRows, y)
-      addSpacing(doc, 12)
+      y = addSpacing(doc, 12, y)
     }
 
     // ── AI Synthesis ──
     if (creasim.aiAnalysis) {
-      checkNewPage(doc, 120)
-      y = addSectionHeader(doc, 'Synthèse IA')
+      y = checkNewPage(doc, 120, y)
+      y = addSectionHeader(doc, 'Synthèse IA', y)
       y = addParagraph(doc, creasim.aiAnalysis, y)
-      addSpacing(doc, 12)
+      y = addSpacing(doc, 12, y)
     }
 
     // ── Recommendations ──
-    checkNewPage(doc, 120)
-    y = addSectionHeader(doc, 'Recommandations')
+    y = checkNewPage(doc, 120, y)
+    y = addSectionHeader(doc, 'Recommandations', y)
     y = addBullet(doc, 'Affinez vos prévisions régulièrement avec les données réelles.', y)
     y = addBullet(doc, 'Prévoyez une trésorerie de sécurité de 3 mois minimum.', y)
     y = addBullet(doc, 'Identifiez les leviers d\'augmentation du CA et de réduction des charges.', y)
@@ -777,12 +777,12 @@ async function buildParcoursPdf(
       ],
       y,
     )
-    addSpacing(doc, 14)
+    y = addSpacing(doc, 14, y)
 
     // ── Kiviat Radar Summary ──
     if (kiviatResults.length > 0) {
-      checkNewPage(doc, 260)
-      y = addSectionHeader(doc, 'Compétences Kiviat — Résumé')
+      y = checkNewPage(doc, 260, y)
+      y = addSectionHeader(doc, 'Compétences Kiviat — Résumé', y)
 
       const kiviatColumns: TableColumn[] = [
         { header: 'Dimension', width: 200, align: 'left' },
@@ -806,13 +806,13 @@ async function buildParcoursPdf(
       })
 
       y = addTable(doc, kiviatColumns, kiviatRows, y)
-      addSpacing(doc, 14)
+      y = addSpacing(doc, 14, y)
     }
 
     // ── RIASEC Profile ──
     if (riasecResults.length > 0) {
-      checkNewPage(doc, 180)
-      y = addSectionHeader(doc, 'Profil RIASEC')
+      y = checkNewPage(doc, 180, y)
+      y = addSectionHeader(doc, 'Profil RIASEC', y)
 
       const dominant = riasecResults.filter((r) => r.isDominant)
       if (dominant.length > 0) {
@@ -841,7 +841,7 @@ async function buildParcoursPdf(
       }))
 
       y = addTable(doc, riasecColumns, riasecRows, y)
-      addSpacing(doc, 14)
+      y = addSpacing(doc, 14, y)
     }
 
     // ═══════════════════════════════════════
@@ -849,8 +849,8 @@ async function buildParcoursPdf(
     // ═══════════════════════════════════════
 
     // ── Module Completion Status ──
-    checkNewPage(doc, 260)
-    y = addSectionHeader(doc, 'Avancement des modules')
+    y = checkNewPage(doc, 260, y)
+    y = addSectionHeader(doc, 'Avancement des modules', y)
 
     const moduleColumns: TableColumn[] = [
       { header: 'Module', width: 200, align: 'left' },
@@ -881,11 +881,11 @@ async function buildParcoursPdf(
       `Progression : ${completedCount}/${Object.keys(MODULE_LABELS).length} modules terminés (${Math.round((completedCount / Object.keys(MODULE_LABELS).length) * 100)}%).`,
       y,
     )
-    addSpacing(doc, 14)
+    y = addSpacing(doc, 14, y)
 
     // ── Tremplin Status ──
-    checkNewPage(doc, 120)
-    y = addSectionHeader(doc, 'Statut Tremplin')
+    y = checkNewPage(doc, 120, y)
+    y = addSectionHeader(doc, 'Statut Tremplin', y)
 
     if (tremplin) {
       const decisionStr = tremplin.decision || 'PENDING'
@@ -908,7 +908,7 @@ async function buildParcoursPdf(
     } else {
       y = addParagraph(doc, 'Tremplin non encore commencé.', y)
     }
-    addSpacing(doc, 14)
+    y = addSpacing(doc, 14, y)
 
     // ═══════════════════════════════════════
     // PAGE 4: CreaSim + BMC + Interviews
@@ -916,8 +916,8 @@ async function buildParcoursPdf(
 
     // ── CreaSim Brief ──
     if (creasim) {
-      checkNewPage(doc, 100)
-      y = addSectionHeader(doc, 'Simulation financière (CreaSim)')
+      y = checkNewPage(doc, 100, y)
+      y = addSectionHeader(doc, 'Simulation financière (CreaSim)', y)
       y = addKeyValueBlock(
         doc,
         [
@@ -948,13 +948,13 @@ async function buildParcoursPdf(
         ],
         y,
       )
-      addSpacing(doc, 14)
+      y = addSpacing(doc, 14, y)
     }
 
     // ── BMC Status ──
     if (bmc) {
-      checkNewPage(doc, 80)
-      y = addSectionHeader(doc, 'Business Model Canvas')
+      y = checkNewPage(doc, 80, y)
+      y = addSectionHeader(doc, 'Business Model Canvas', y)
       y = addKeyValueBlock(
         doc,
         [
@@ -966,13 +966,13 @@ async function buildParcoursPdf(
         ],
         y,
       )
-      addSpacing(doc, 14)
+      y = addSpacing(doc, 14, y)
     }
 
     // ── Key Interview Notes ──
     if (interviewNotes.length > 0) {
-      checkNewPage(doc, 80 + interviewNotes.length * 24)
-      y = addSectionHeader(doc, 'Notes clés des entretiens')
+      y = checkNewPage(doc, 80 + interviewNotes.length * 24, y)
+      y = addSectionHeader(doc, 'Notes clés des entretiens', y)
 
       for (const note of interviewNotes) {
         const dateStr = note.interview?.scheduledAt
@@ -985,15 +985,15 @@ async function buildParcoursPdf(
           y,
         )
       }
-      addSpacing(doc, 14)
+      y = addSpacing(doc, 14, y)
     }
 
     // ═══════════════════════════════════════
     // PAGE 5: Recommendations
     // ═══════════════════════════════════════
 
-    checkNewPage(doc, 200)
-    y = addSectionHeader(doc, 'Recommandations et actions')
+    y = checkNewPage(doc, 200, y)
+    y = addSectionHeader(doc, 'Recommandations et actions', y)
 
     y = addSubSectionHeader(doc, 'Actions prioritaires', y)
 
@@ -1034,7 +1034,7 @@ async function buildParcoursPdf(
       )
     }
 
-    addSpacing(doc, 12)
+    y = addSpacing(doc, 12, y)
 
     y = addSubSectionHeader(doc, 'Rappel du contact', y)
     y = addParagraph(
@@ -1090,15 +1090,15 @@ async function buildBmcPdf(
       ],
       y,
     )
-    addSpacing(doc, 14)
+    y = addSpacing(doc, 14, y)
 
     // ── BMC Blocks ──
     const bmcRecord = bmc as unknown as Record<string, string | null | undefined>
 
     for (const block of BMC_BLOCKS) {
       const content = bmcRecord[block.key] || ''
-      checkNewPage(doc, 80)
-      y = addSectionHeader(doc, block.label)
+      y = checkNewPage(doc, 80, y)
+      y = addSectionHeader(doc, block.label, y)
 
       if (content && content.trim().length > 0) {
         // Display content: replace newlines with bullets for readability
@@ -1110,17 +1110,17 @@ async function buildBmcPdf(
       } else {
         y = addParagraph(doc, 'Non renseigné', y, { color: COLORS.gray })
       }
-      addSpacing(doc, 8)
+      y = addSpacing(doc, 8, y)
     }
 
-    addSpacing(doc, 12)
+    y = addSpacing(doc, 12, y)
 
     // ── Completion Summary ──
     const filledCount = BMC_BLOCKS.filter(
       (b) => bmcRecord[b.key] && bmcRecord[b.key]!.trim().length > 0,
     ).length
 
-    y = addSectionHeader(doc, 'Complétion')
+    y = addSectionHeader(doc, 'Complétion', y)
     y = addKeyValueBlock(
       doc,
       [
@@ -1129,11 +1129,11 @@ async function buildBmcPdf(
       ],
       y,
     )
-    addSpacing(doc, 12)
+    y = addSpacing(doc, 12, y)
 
     // ── Recommendations ──
-    checkNewPage(doc, 80)
-    y = addSectionHeader(doc, 'Recommandations')
+    y = checkNewPage(doc, 80, y)
+    y = addSectionHeader(doc, 'Recommandations', y)
     if (filledCount < BMC_BLOCKS.length) {
       y = addBullet(doc, 'Complétez les blocs manquants pour avoir une vision complète de votre modèle.', y)
     }
@@ -1253,7 +1253,7 @@ function renderMarkdownContent(
     if (line.startsWith('- ') || line.startsWith('• ')) {
       const text = line.replace(/^[-•]\s+/, '').replace(/\*\*/g, '')
       if (text) {
-        checkNewPage(doc, 40)
+        y = checkNewPage(doc, 40, y)
         y = addBullet(doc, text, y)
       }
       continue
@@ -1262,7 +1262,7 @@ function renderMarkdownContent(
     // Plain paragraph (strip ** bold markers)
     const cleanText = line.replace(/\*\*/g, '')
     if (cleanText) {
-      checkNewPage(doc, 30)
+      y = checkNewPage(doc, 30, y)
       y = addParagraph(doc, cleanText, y)
     }
   }
@@ -1283,7 +1283,7 @@ function renderStructuredContent(
   if (Array.isArray(data)) {
     for (const item of data) {
       if (typeof item === 'string') {
-        checkNewPage(doc, 30)
+        y = checkNewPage(doc, 30, y)
         y = addParagraph(doc, item, y)
       } else if (typeof item === 'object' && item !== null) {
         const obj = item as Record<string, unknown>
@@ -1300,7 +1300,7 @@ function renderStructuredContent(
           parts.push(`${status} ${String(obj.date || '')}`)
         }
         if (parts.length > 0) {
-          checkNewPage(doc, 30)
+          y = checkNewPage(doc, 30, y)
           y = addBullet(doc, parts.join(' — '), y)
         }
       }
@@ -1319,11 +1319,11 @@ function renderStructuredContent(
       for (const [key, label] of Object.entries(swotKeys)) {
         const value = obj[key]
         if (value && typeof value === 'string') {
-          checkNewPage(doc, 60)
+          y = checkNewPage(doc, 60, y)
           y = addSubSectionHeader(doc, label, y)
           const items = value.split(',').map((s: string) => s.trim()).filter(Boolean)
           for (const item of items) {
-            checkNewPage(doc, 30)
+            y = checkNewPage(doc, 30, y)
             y = addBullet(doc, item, y)
           }
         }
@@ -1362,7 +1362,7 @@ function renderStructuredContent(
       } else {
         // Generic object — render key-value as bullets
         for (const [k, v] of Object.entries(obj)) {
-          checkNewPage(doc, 30)
+          y = checkNewPage(doc, 30, y)
           if (typeof v === 'string') {
             y = addBullet(doc, `${k} : ${v}`, y)
           } else {
@@ -1449,20 +1449,20 @@ async function buildBusinessPlanPdf(fullName: string) {
     )
 
     if (journey.bpScore != null) {
-      addSpacing(doc, 6)
-      checkNewPage(doc, 60)
+      y = addSpacing(doc, 6, y)
+      y = checkNewPage(doc, 60, y)
       y = addKeyValueBlock(
         doc,
         [{ key: 'Progression :', value: scoreBar(journey.bpScore, 100, 30) }],
         y,
       )
     }
-    addSpacing(doc, 14)
+    y = addSpacing(doc, 14, y)
 
     // ── Team Skills Summary (RIASEC) ──
     if (riasecResults.length > 0) {
-      checkNewPage(doc, 100)
-      y = addSectionHeader(doc, 'Compétences de l\'équipe (RIASEC)')
+      y = checkNewPage(doc, 100, y)
+      y = addSectionHeader(doc, 'Compétences de l\'équipe (RIASEC)', y)
       const dominantProfiles = riasecResults.filter((r) => r.isDominant)
       if (dominantProfiles.length > 0) {
         y = addParagraph(
@@ -1478,7 +1478,7 @@ async function buildBusinessPlanPdf(fullName: string) {
           y,
         )
       }
-      addSpacing(doc, 14)
+      y = addSpacing(doc, 14, y)
     }
 
     // ── Business Plan Chapters ──
@@ -1495,8 +1495,8 @@ async function buildBusinessPlanPdf(fullName: string) {
       const content = sectionMap.get(chapter.key)
       if (content == null) continue
 
-      checkNewPage(doc, 60)
-      y = addSectionHeader(doc, chapter.label)
+      y = checkNewPage(doc, 60, y)
+      y = addSectionHeader(doc, chapter.label, y)
 
       if (typeof content === 'string') {
         y = renderMarkdownContent(doc, content, y)
@@ -1504,13 +1504,13 @@ async function buildBusinessPlanPdf(fullName: string) {
         y = renderStructuredContent(doc, content, y)
       }
 
-      addSpacing(doc, 10)
+      y = addSpacing(doc, 10, y)
     }
 
     // ── Legal Status (from juridique analysis) ──
     if (juridique) {
-      checkNewPage(doc, 100)
-      y = addSectionHeader(doc, 'Détail du Statut Juridique')
+      y = checkNewPage(doc, 100, y)
+      y = addSectionHeader(doc, 'Détail du Statut Juridique', y)
       y = addKeyValueBlock(
         doc,
         [
@@ -1522,13 +1522,13 @@ async function buildBusinessPlanPdf(fullName: string) {
         ],
         y,
       )
-      addSpacing(doc, 14)
+      y = addSpacing(doc, 14, y)
     }
 
     // ── Financial Summary (3-year projection) ──
     if (financialForecast || creasim) {
-      checkNewPage(doc, 180)
-      y = addSectionHeader(doc, 'Prévisions Financières — Synthèse')
+      y = checkNewPage(doc, 180, y)
+      y = addSectionHeader(doc, 'Prévisions Financières — Synthèse', y)
 
       const y1r = financialForecast?.year1Revenue ?? creasim?.year1Revenue ?? 0
       const y1e = financialForecast?.year1Expenses ?? creasim?.year1Expenses ?? 0
@@ -1571,7 +1571,7 @@ async function buildBusinessPlanPdf(fullName: string) {
       const breakeven = financialForecast?.breakevenMonth ?? creasim?.breakevenMonths ?? null
       const initialInvestment = financialForecast?.initialInvestment ?? null
       if (breakeven != null || initialInvestment != null) {
-        addSpacing(doc, 10)
+        y = addSpacing(doc, 10, y)
         y = addSubSectionHeader(doc, 'Indicateurs clés', y)
         const kvs: { key: string; value: string }[] = []
         if (breakeven != null) {
@@ -1584,12 +1584,12 @@ async function buildBusinessPlanPdf(fullName: string) {
           y = addKeyValueBlock(doc, kvs, y)
         }
       }
-      addSpacing(doc, 14)
+      y = addSpacing(doc, 14, y)
     }
 
     // ── Completion Score ──
-    checkNewPage(doc, 120)
-    y = addSectionHeader(doc, 'Score de Complétion du Business Plan')
+    y = checkNewPage(doc, 120, y)
+    y = addSectionHeader(doc, 'Score de Complétion du Business Plan', y)
     if (journey.bpScore != null) {
       y = addKeyValueBlock(
         doc,
@@ -1599,7 +1599,7 @@ async function buildBusinessPlanPdf(fullName: string) {
         ],
         y,
       )
-      addSpacing(doc, 6)
+      y = addSpacing(doc, 6, y)
       const totalChapters = BP_CHAPTER_LABELS.length
       const filledChapters = BP_CHAPTER_LABELS.filter((c) => sectionMap.has(c.key)).length
       y = addParagraph(
@@ -1610,11 +1610,11 @@ async function buildBusinessPlanPdf(fullName: string) {
     } else {
       y = addParagraph(doc, 'Score non encore calculé.', y)
     }
-    addSpacing(doc, 14)
+    y = addSpacing(doc, 14, y)
 
     // ── Recommendations ──
-    checkNewPage(doc, 200)
-    y = addSectionHeader(doc, 'Recommandations')
+    y = checkNewPage(doc, 200, y)
+    y = addSectionHeader(doc, 'Recommandations', y)
     y = addSubSectionHeader(doc, 'Pour finaliser votre Business Plan', y)
 
     const filledChapters = BP_CHAPTER_LABELS.filter((c) => sectionMap.has(c.key))
@@ -1626,7 +1626,7 @@ async function buildBusinessPlanPdf(fullName: string) {
         `Il reste ${missingChapters.length} chapitre(s) à compléter : ${missingChapters.map((c) => c.label).join(', ')}.`,
         y,
       )
-      addSpacing(doc, 6)
+      y = addSpacing(doc, 6, y)
     }
 
     y = addBullet(doc, 'Relisez chaque chapitre pour vérifier la cohérence globale du plan.', y)
@@ -1655,15 +1655,15 @@ async function buildFallbackPdf(
 
     let y = addSectionHeader(doc, 'Information')
     y = addParagraph(doc, message, y, { color: COLORS.warning, fontSize: 11 })
-    addSpacing(doc, 20)
+    y = addSpacing(doc, 20, y)
 
-    y = addSectionHeader(doc, 'Que faire ?')
+    y = addSectionHeader(doc, 'Que faire ?', y)
     y = addBullet(doc, 'Vérifiez que la base de données est accessible et contient les données de démonstration.', y)
     y = addBullet(doc, 'Relancez le script de peuplement (seed) si nécessaire.', y)
     y = addBullet(doc, 'Consultez les logs du serveur pour plus de détails.', y)
-    addSpacing(doc, 20)
+    y = addSpacing(doc, 20, y)
 
-    y = addSectionHeader(doc, 'Support')
+    y = addSectionHeader(doc, 'Support', y)
     y = addParagraph(doc, 'Si le problème persiste, contactez votre conseiller GIDEF Île-de-France.', y)
 
     finalizeWithFooters(doc)
