@@ -44,3 +44,21 @@ Kept as `let y = addSectionHeader(doc, 'Title')` since `drawCoverPage` resets `d
 - Grep confirms zero remaining `y = addSectionHeader(doc, '...')` without y param
 - Only the 7 initial `let y = addSectionHeader(doc, ...)` declarations remain (correct per Rule 4)
 - Function signatures and imports were not changed
+
+---
+Task ID: 1
+Agent: Main
+Task: Reset beneficiary passwords + Generate STRATEGIE-PIPELINE.md documentation
+
+Work Log:
+- Queried PostgreSQL for all BENEFICIARY users (5 accounts found)
+- Reset passwords for all 5 beneficiaries using bcrypt hash (Prénom2026! format)
+- Enabled isActive and emailVerified for all accounts
+- Explored entire strategy pipeline: 14 frontend components, 34 API routes, 3 Zustand stores
+- Documented complete data flow: Parcours → Simulateurs → Business Plan → BMC → Pitch Deck
+- Generated comprehensive STRATEGIE-PIPELINE.md (13 sections, ~900 lines) covering architecture, data types, API contracts, sync mechanisms, AI integration, progress calculation, exports
+
+Stage Summary:
+- Passwords reset: sophie.bernard@email.fr, thomas.petit@email.fr, karim.bensaid@email.fr, amina.diallo@email.fr, marie.curie@example.fr
+- Documentation produced: `/home/z/my-project/docs/STRATEGIE-PIPELINE.md`
+- Temporary scripts cleaned up
