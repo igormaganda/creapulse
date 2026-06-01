@@ -10,6 +10,7 @@ config({ path: '.env.local', override: true })
 config({ override: true })
 
 import { PrismaClient } from '@prisma/client'
+import { hashSync } from 'bcryptjs'
 
 const db = new PrismaClient()
 
@@ -554,12 +555,42 @@ async function main() {
   })
   console.log(`  ✓ 3 DiscussionCategories`)
 
-  // Create a second beneficiary user for forum diversity
+  // ─────────────────────────────────────────────
+  // 7.5 SECOND COUNSELOR
+  // ─────────────────────────────────────────────
+
+  const org = await db.organization.findFirst({ where: { tenantId: beneficiaryUser.tenantId } })
+
+  const secondCounselorUser = await seedIfMissing(db.user, { id: 'conseiller-gidef-002' }, {
+    id: 'conseiller-gidef-002',
+    tenantId: beneficiaryUser.tenantId,
+    email: 'amira.benali@gidef-idf.fr',
+    passwordHash: hashSync('Conseiller2026!', 12),
+    firstName: 'Amira',
+    lastName: 'Benali',
+    role: 'COUNSELOR',
+    isActive: true,
+    emailVerified: true,
+    lastLoginAt: daysAgo(2),
+  })
+
+  await seedIfMissing(db.counselor, { userId: secondCounselorUser.id }, {
+    userId: secondCounselorUser.id,
+    organizationId: org!.id,
+    name: 'Amira Benali',
+    specialities: ['Finance', 'Marketing digital', 'Réseaux sociaux', 'E-commerce'],
+    certifications: ['Certifié BGE', 'Expert e-commerce', 'Coach digital'],
+    maxBeneficiaries: 25,
+    isAvailable: true,
+  })
+  console.log('  ✓ Second Counselor: Amira Benali')
+
+  // Assign Thomas Moreau to Amira
   const secondBeneficiaryUser = await seedIfMissing(db.user, { id: 'beneficiaire-demo-002' }, {
     id: 'beneficiaire-demo-002',
     tenantId: beneficiaryUser.tenantId,
     email: 'thomas.moreau@example.fr',
-    passwordHash: '$2a$12$dummyHashForSeed123456789012345678901234',
+    passwordHash: hashSync('Beneficiaire2026!', 12),
     firstName: 'Thomas',
     lastName: 'Moreau',
     role: 'BENEFICIARY',
@@ -577,6 +608,130 @@ async function main() {
     skills: ['Finance', 'Data analysis', 'Project management'],
     progressScore: 40,
   })
+
+  // Thomas Moreau's CreatorJourney
+  await seedIfMissing(db.creatorJourney, { userId: secondBeneficiaryUser.id }, {
+    userId: secondBeneficiaryUser.id,
+    currentPhase: 'PROFILING',
+    progressPercent: 40,
+    projectTitle: 'DataCoach — Cabinet de conseil en data pour TPE/PME',
+    projectDescription: 'Service d\'accompagnement des TPE/PME dans l\'utilisation de leurs données pour optimiser la prise de décision, les processus internes et la croissance.',
+    projectSector: 'Conseil / Services numériques',
+    projectStage: 'Idéation',
+    creationMotivation: 'Valoriser 8 ans d\'expérience en data science au service des petites entreprises qui n\'ont pas les moyens de recruter des data experts.',
+    targetAudience: 'TPE/PME de 5 à 50 salariés, secteurs commerce et services, région Île-de-France',
+    valueProposition: 'Des dashboards simples et des recommandations actionnables pour des dirigeants non-techniques, à un tarif accessible.',
+    estimatedRevenue: '95 000 € / an',
+    estimatedInvestment: '15 000 €',
+    bpStatus: 'NOT_STARTED',
+    status: 'ACTIVE',
+    startedAt: daysAgo(30),
+  })
+
+  // Thomas Moreau's ModuleResults
+  const thomasModuleResults = [
+    { moduleCode: 'profil-createur', score: 70, maxScore: 100, completedAt: daysAgo(28), feedback: 'Profil analytique confirmé' },
+    { moduleCode: 'riasec', score: 65, maxScore: 100, completedAt: daysAgo(25), feedback: 'Profil Investigatif-Entrepreneur' },
+    { moduleCode: 'kiviat', score: 68, maxScore: 100, completedAt: daysAgo(20), feedback: 'Forts en analyse et planification' },
+    { moduleCode: 'mon-projet', score: 75, maxScore: 100, completedAt: daysAgo(15), feedback: 'Projet structuré mais à approfondir' },
+    { moduleCode: 'vision', score: 60, maxScore: 100, completedAt: daysAgo(10), feedback: 'Vision claire, marché à préciser' },
+  ]
+
+  for (const mr of thomasModuleResults) {
+    await seedIfMissing(db.moduleResult, { userId: secondBeneficiaryUser.id, moduleCode: mr.moduleCode }, {
+      userId: secondBeneficiaryUser.id,
+      moduleCode: mr.moduleCode,
+      score: mr.score,
+      maxScore: mr.maxScore,
+      completedAt: mr.completedAt,
+      feedback: mr.feedback,
+      answers: { completed: true },
+    })
+  }
+  console.log(`  ✓ ${thomasModuleResults.length} ModuleResults for Thomas Moreau`)
+
+  // Thomas Moreau's KiviatResults
+  const thomasKiviat = [
+    { category: 'Leadership', score: 6.0 },
+    { category: 'Communication', score: 6.5 },
+    { category: 'Gestion du stress', score: 7.5 },
+    { category: 'Résolution de problèmes', score: 8.8 },
+    { category: 'Créativité', score: 6.0 },
+    { category: 'Adaptabilité', score: 7.5 },
+    { category: 'Gestion financière', score: 8.2 },
+    { category: 'Planification', score: 8.5 },
+  ]
+
+  for (const k of thomasKiviat) {
+    await seedIfMissing(db.kiviatResult, { userId: secondBeneficiaryUser.id, category: k.category }, {
+      userId: secondBeneficiaryUser.id,
+      category: k.category,
+      score: k.score,
+      maxScore: 10,
+    })
+  }
+  console.log(`  ✓ ${thomasKiviat.length} KiviatResults for Thomas Moreau`)
+
+  // Thomas Moreau's RIASEC
+  const thomasRiasec = [
+    { profileType: 'I', score: 8.8, isDominant: true },
+    { profileType: 'E', score: 7.5, isDominant: true },
+    { profileType: 'C', score: 7.0, isDominant: false },
+    { profileType: 'R', score: 5.5, isDominant: false },
+    { profileType: 'A', score: 5.0, isDominant: false },
+    { profileType: 'S', score: 4.5, isDominant: false },
+  ]
+
+  for (const r of thomasRiasec) {
+    await seedIfMissing(db.riasecResult, { userId: secondBeneficiaryUser.id, profileType: r.profileType }, {
+      userId: secondBeneficiaryUser.id,
+      profileType: r.profileType,
+      score: r.score,
+      isDominant: r.isDominant,
+    })
+  }
+  console.log(`  ✓ ${thomasRiasec.length} RiasecResults for Thomas Moreau`)
+
+  // Assign Thomas Moreau to second counselor (Amira)
+  const secondCounselor = await db.counselor.findUnique({ where: { userId: secondCounselorUser.id } })
+  const secondBeneficiary = await db.beneficiary.findUnique({ where: { userId: secondBeneficiaryUser.id } })
+  if (secondCounselor && secondBeneficiary) {
+    await seedIfMissing(db.counselorAssignment, { counselorId: secondCounselor.id, beneficiaryId: secondBeneficiary.id }, {
+      counselorId: secondCounselor.id,
+      beneficiaryId: secondBeneficiary.id,
+      role: 'PRIMARY',
+      status: 'ACTIVE',
+      assignedAt: daysAgo(30),
+    })
+    console.log('  ✓ Assignment: Thomas Moreau → Amira Benali')
+  }
+
+  // Notifications for second counselor
+  const secondCounselorNotifications = [
+    {
+      userId: secondCounselorUser.id,
+      title: 'Nouveau bénéficiaire assigné',
+      content: 'Thomas Moreau a été assigné à votre portefeuille. Prenez rendez-vous pour le premier bilan.',
+      type: 'INFO' as const,
+      link: '/counselor/beneficiaries',
+      isRead: true,
+      createdAt: daysAgo(30),
+    },
+    {
+      userId: secondCounselorUser.id,
+      title: 'Rappel : entretien Thomas Moreau',
+      content: 'Le bilan initial de Thomas Moreau est programmé. Préparez les tests RIASEC et Kiviat.',
+      type: 'ACTION_REQUIRED' as const,
+      link: '/counselor/beneficiaries',
+      isRead: false,
+      createdAt: daysAgo(5),
+    },
+  ]
+
+  for (const n of secondCounselorNotifications) {
+    await db.notification.create({ data: n }).catch(() => {})
+  }
+  console.log(`  ✓ ${secondCounselorNotifications.length} Notifications for Amira Benali`)
 
   // Discussion 1: Comment trouver son premier client ?
   const discussion1 = await seedIfMissing(db.discussion, { id: 'discussion-client-premier' }, {

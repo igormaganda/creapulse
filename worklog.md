@@ -789,3 +789,23 @@ Stage Summary:
 - All existing functionality preserved — pure refactor, zero behavior changes
 - Shared modules (pepites/shared.ts, creascope/shared.ts) eliminate constant duplication
 - Dynamic imports in bureau-layout.tsx continue to work unchanged
+
+---
+Task ID: demo-accounts-update
+Agent: Main Agent
+Task: Identifier et fournir les accès aux comptes démo, corriger le mot de passe Thomas Moreau, créer le second conseiller
+
+Work Log:
+- Analysé prisma/schema.prisma (40 models), prisma/seed.ts et prisma/seed-extended.ts
+- Identifié 3 comptes existants : Admin, 1 Conseiller (Jean Dupont), 1 Bénéficiaire (Marie Laurent)
+- Découvert que Thomas Moreau (beneficiaire-demo-002) avait un hash bcrypt factice
+- Découvert qu'il n'y avait qu'un seul conseiller dans le seed
+- Corrigé seed-extended.ts : import hashSync, remplacé dummy hash par vrai hash bcrypt
+- Ajouté second conseiller : Amira Benali (amira.benali@gidef-idf.fr)
+- Ajouté données pour Thomas Moreau : CreatorJourney, 5 ModuleResults, 8 KiviatResults, 6 RiasecResults
+- Ajouté assignment Thomas Moreau → Amira Benali + notifications
+
+Stage Summary:
+- 4 comptes démo identifiés : 2 bénéficiaires (Marie Laurent 65% données, Thomas Moreau 40%) + 2 conseillers (Jean Dupont, Amira Benali)
+- seed-extended.ts mis à jour avec le second conseiller et les données étendues
+- Action requise : relancer seed en production pour appliquer les changements
