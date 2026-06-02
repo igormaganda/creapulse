@@ -56,7 +56,7 @@ export const STEP_INSTRUCTIONS: Record<string, { title: string; desc: string }> 
   ACCUEIL: { title: 'Phase d\'accueil', desc: 'Accueillez le bénéficiaire, présentez le déroulé de la session CréaScope et recueillez ses attentes.' },
   FLASH_SWIPE: { title: 'Flash Swipe', desc: 'Le bénéficiaire swippe 60 cartes compétences pour identifier ses soft skills. Durée estimée: 5-8 minutes.' },
   ANALYSE_INTERMEDIAIRE: { title: 'Analyse intermédiaire', desc: 'Présentez les résultats du Flash Swipe et analysez les premières tendances avec le bénéficiaire.' },
-  QUESTIONNAIRE: { title: 'Questionnaire approfondi', desc: 'Le bénéficiaire répond à 50 questions adaptatives pour affiner son profil entrepreneurial.' },
+  QUESTIONNAIRE: { title: 'Questionnaire approfondi', desc: 'Le bénéficiaire répond à 15 questions adaptatives pour affiner son profil entrepreneurial.' },
   CHALLENGE_SCENARIO: { title: 'Challenge Scénario', desc: '10 scénarios entrepreneuriaux réalistes pour tester la prise de décision en situation.' },
   BILAN_IA: { title: 'Bilan IA complet', desc: 'Présentation du bilan complet généré par l\'IA avec co-analyse des résultats.' },
   PLAN_ACTION: { title: 'Plan d\'action', desc: 'Co-construction du plan d\'action personnalisé avec le bénéficiaire.' },

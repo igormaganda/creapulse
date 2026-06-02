@@ -7,6 +7,7 @@ import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { callZAI } from '@/lib/zai-helper'
 import { buildFTContext, contextToPrompt } from '@/lib/ft-enrichment'
+import { withAuth } from '@/lib/api-auth'
 
 // ─── Validation Schema ──────────────────────
 
@@ -89,6 +90,9 @@ function getModuleContext(module?: string): string {
 
 export async function POST(request: NextRequest) {
   try {
+    // Optional auth — prefer authenticated use but allow unauthenticated for demo
+    const auth = await withAuth(request).catch(() => null)
+
     const body = await request.json()
     const parsed = chatSchema.safeParse(body)
 
@@ -124,6 +128,11 @@ export async function POST(request: NextRequest) {
     }
     if (context?.sector) {
       systemPrompt += `\nSecteur : ${context.sector}`
+    }
+
+    // If authenticated, add user context to system prompt
+    if (auth) {
+      systemPrompt += `\n\nUtilisateur connecté : ${auth.payload.email} (${auth.payload.role})`
     }
 
     // Build messages array with history

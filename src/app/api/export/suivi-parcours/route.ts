@@ -192,12 +192,12 @@ export async function GET(request: NextRequest) {
         ],
         y,
       )
-      y = addSpacing(doc, 14, y)
+      addSpacing(doc, 14)
 
       // ── Kiviat Radar Summary ──
       if (kiviatResults.length > 0) {
-        y = checkNewPage(doc, 260, y)
-        y = addSectionHeader(doc, 'Compétences Kiviat — Résumé', y)
+        checkNewPage(doc, 260)
+        y = addSectionHeader(doc, 'Compétences Kiviat — Résumé')
 
         const kiviatColumns: TableColumn[] = [
           { header: 'Dimension', width: 200, align: 'left' },
@@ -221,13 +221,13 @@ export async function GET(request: NextRequest) {
         })
 
         y = addTable(doc, kiviatColumns, kiviatRows, y)
-        y = addSpacing(doc, 14, y)
+        addSpacing(doc, 14)
       }
 
       // ── RIASEC Profile ──
       if (riasecResults.length > 0) {
-        y = checkNewPage(doc, 180, y)
-        y = addSectionHeader(doc, 'Profil RIASEC', y)
+        checkNewPage(doc, 180)
+        y = addSectionHeader(doc, 'Profil RIASEC')
 
         const dominant = riasecResults.filter((r) => r.isDominant)
         if (dominant.length > 0) {
@@ -256,7 +256,7 @@ export async function GET(request: NextRequest) {
         }))
 
         y = addTable(doc, riasecColumns, riasecRows, y)
-        y = addSpacing(doc, 14, y)
+        addSpacing(doc, 14)
       }
 
       // ═══════════════════════════════════════
@@ -264,8 +264,8 @@ export async function GET(request: NextRequest) {
       // ═══════════════════════════════════════
 
       // ── Module Completion Status ──
-      y = checkNewPage(doc, 260, y)
-      y = addSectionHeader(doc, 'Avancement des modules', y)
+      checkNewPage(doc, 260)
+      y = addSectionHeader(doc, 'Avancement des modules')
 
       const moduleColumns: TableColumn[] = [
         { header: 'Module', width: 200, align: 'left' },
@@ -296,11 +296,11 @@ export async function GET(request: NextRequest) {
         `Progression : ${completedCount}/${Object.keys(MODULE_LABELS).length} modules terminés (${Math.round((completedCount / Object.keys(MODULE_LABELS).length) * 100)}%).`,
         y,
       )
-      y = addSpacing(doc, 14, y)
+      addSpacing(doc, 14)
 
       // ── Tremplin Status ──
-      y = checkNewPage(doc, 120, y)
-      y = addSectionHeader(doc, 'Statut Tremplin', y)
+      checkNewPage(doc, 120)
+      y = addSectionHeader(doc, 'Statut Tremplin')
 
       if (tremplin) {
         const decisionStr = tremplin.decision || 'PENDING'
@@ -323,7 +323,7 @@ export async function GET(request: NextRequest) {
       } else {
         y = addParagraph(doc, 'Tremplin non encore commencé.', y)
       }
-      y = addSpacing(doc, 14, y)
+      addSpacing(doc, 14)
 
       // ═══════════════════════════════════════
       // PAGE 4: CreaSim + BMC + Interviews
@@ -331,8 +331,8 @@ export async function GET(request: NextRequest) {
 
       // ── CreaSim Brief ──
       if (creasim) {
-        y = checkNewPage(doc, 100, y)
-        y = addSectionHeader(doc, 'Simulation financière (CreaSim)', y)
+        checkNewPage(doc, 100)
+        y = addSectionHeader(doc, 'Simulation financière (CreaSim)')
         y = addKeyValueBlock(
           doc,
           [
@@ -363,13 +363,13 @@ export async function GET(request: NextRequest) {
           ],
           y,
         )
-        y = addSpacing(doc, 14, y)
+        addSpacing(doc, 14)
       }
 
       // ── BMC Status ──
       if (bmc) {
-        y = checkNewPage(doc, 80, y)
-        y = addSectionHeader(doc, 'Business Model Canvas', y)
+        checkNewPage(doc, 80)
+        y = addSectionHeader(doc, 'Business Model Canvas')
         y = addKeyValueBlock(
           doc,
           [
@@ -381,13 +381,13 @@ export async function GET(request: NextRequest) {
           ],
           y,
         )
-        y = addSpacing(doc, 14, y)
+        addSpacing(doc, 14)
       }
 
       // ── Key Interview Notes ──
       if (interviewNotes.length > 0) {
-        y = checkNewPage(doc, 80 + interviewNotes.length * 24, y)
-        y = addSectionHeader(doc, 'Notes clés des entretiens', y)
+        checkNewPage(doc, 80 + interviewNotes.length * 24)
+        y = addSectionHeader(doc, 'Notes clés des entretiens')
 
         for (const note of interviewNotes) {
           const dateStr = note.interview?.scheduledAt
@@ -400,15 +400,15 @@ export async function GET(request: NextRequest) {
             y,
           )
         }
-        y = addSpacing(doc, 14, y)
+        addSpacing(doc, 14)
       }
 
       // ═══════════════════════════════════════
       // PAGE 5: Recommendations
       // ═══════════════════════════════════════
 
-      y = checkNewPage(doc, 200, y)
-      y = addSectionHeader(doc, 'Recommandations et actions', y)
+      checkNewPage(doc, 200)
+      y = addSectionHeader(doc, 'Recommandations et actions')
 
       y = addSubSectionHeader(doc, 'Actions prioritaires', y)
 
@@ -449,7 +449,7 @@ export async function GET(request: NextRequest) {
         )
       }
 
-      y = addSpacing(doc, 12, y)
+      addSpacing(doc, 12)
 
       y = addSubSectionHeader(doc, 'Rappel du contact', y)
       y = addParagraph(

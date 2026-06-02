@@ -71,7 +71,11 @@ export async function POST(request: NextRequest) {
     const payload = await verifyToken(token)
 
     const body = await request.json()
-    const data = SaveTremplinBody.parse(body)
+    const parsed = SaveTremplinBody.safeParse(body)
+    if (!parsed.success) {
+      return Errors.validation(parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })))
+    }
+    const data = parsed.data
 
     // Upsert tremplin data
     const tremplin = await db.tremplin.upsert({

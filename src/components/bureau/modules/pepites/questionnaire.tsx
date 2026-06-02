@@ -264,6 +264,10 @@ function QuestionCard({
 
 // ─── Questionnaire ───────────────────────────────
 
+const QUESTIONNAIRE_COUNT = 15
+const WEAK_QUESTIONNAIRE_COUNT = 7
+const OTHER_QUESTIONNAIRE_COUNT = 8
+
 export function Questionnaire({
   onComplete,
   onBack,
@@ -279,11 +283,11 @@ export function Questionnaire({
     if (weakDimensions && weakDimensions.length > 0) {
       const weakQ = pool.filter((q) => weakDimensions.includes(q.category))
       const otherQ = pool.filter((q) => !weakDimensions.includes(q.category))
-      const extraWeak = shuffleArray(weakQ).slice(0, 25)
-      const extraOther = shuffleArray(otherQ).slice(0, 50 - extraWeak.length)
+      const extraWeak = shuffleArray(weakQ).slice(0, WEAK_QUESTIONNAIRE_COUNT)
+      const extraOther = shuffleArray(otherQ).slice(0, QUESTIONNAIRE_COUNT - extraWeak.length)
       pool = shuffleArray([...extraWeak, ...extraOther])
     } else {
-      pool = pool.slice(0, 50)
+      pool = pool.slice(0, QUESTIONNAIRE_COUNT)
     }
 
     return pool

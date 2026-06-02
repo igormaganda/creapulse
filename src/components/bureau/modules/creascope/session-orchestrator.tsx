@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { useAuthStore } from '@/lib/zustand/store'
+import { authFetch } from '@/lib/auth-fetch'
 import {
   Play,
   Pause,
@@ -103,14 +103,12 @@ export function SessionOrchestrator({ session, onBack, onRefresh }: { session: S
   const stepIdx = getStepIndex(session.currentStep)
   const currentStepConfig = STEPS[stepIdx] || STEPS[0]
   const instructions = STEP_INSTRUCTIONS[session.currentStep] || STEP_INSTRUCTIONS.ACCUEIL
-  const token = useAuthStore((s) => s.token)
 
   const sessionAction = useCallback(async (action: string, extra?: Record<string, unknown>) => {
     setActionLoading(true)
     try {
-      const res = await fetch(`/api/creascope/sessions/${session.id}`, {
+      const res = await authFetch(`/api/creascope/sessions/${session.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ action, ...extra }),
       })
       const data = await res.json()
@@ -126,7 +124,7 @@ export function SessionOrchestrator({ session, onBack, onRefresh }: { session: S
     } finally {
       setActionLoading(false)
     }
-  }, [session.id, token, onRefresh])
+  }, [session.id, onRefresh])
 
   const handleStart = () => sessionAction('start')
   const handleAdvance = () => sessionAction('advance_step', { stepNotes: stepNotes || undefined })

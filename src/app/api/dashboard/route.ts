@@ -1,24 +1,13 @@
 import { db } from '@/lib/db'
 import { NextRequest } from 'next/server'
 import { success, Errors, handleApiError } from '@/lib/api-response'
-import { verifyToken } from '@/lib/auth'
-
-// Helper to get token from cookie or header
-function getToken(request: NextRequest): string | null {
-  const cookie = request.headers.get('cookie') || ''
-  const match = cookie.match(/session=([^;]+)/)
-  if (match) return match[1]
-  const auth = request.headers.get('authorization')
-  if (auth?.startsWith('Bearer ')) return auth.slice(7)
-  return null
-}
+import { withAuth } from '@/lib/api-auth'
 
 export async function GET(request: NextRequest) {
   try {
-    const token = getToken(request)
-    if (!token) return Errors.unauthorized()
-
-    const payload = await verifyToken(token)
+    const auth = await withAuth(request)
+    if (!auth) return
+    const { payload } = auth
     const userId = payload.userId
 
     const [user, journey, moduleResults, unreadNotifs, appointments] = await Promise.all([

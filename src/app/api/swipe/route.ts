@@ -8,8 +8,8 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
-import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
-import { verifyToken, AuthError } from '@/lib/auth'
+import { success, Errors, handleApiError } from '@/lib/api-response'
+import { withAuth } from '@/lib/api-auth'
 import {
   computeSwipeScores,
   toKiviatResults,
@@ -34,10 +34,9 @@ const SaveSwipeBody = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const token = getTokenFromHeader(request)
-    if (!token) throw new AuthError('Authentication required', 'UNAUTHORIZED', 401)
-
-    const payload = await verifyToken(token)
+    const auth = await withAuth(request)
+    if (!auth) return
+    const { payload } = auth
 
     const results = await db.swipeGameResult.findMany({
       where: { userId: payload.userId },
@@ -72,7 +71,6 @@ export async function GET(request: NextRequest) {
       totalCards: results.length,
     })
   } catch (err) {
-    if (err instanceof AuthError) return Errors.unauthorized(err.message)
     return handleApiError(err)
   }
 }
@@ -81,10 +79,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const token = getTokenFromHeader(request)
-    if (!token) throw new AuthError('Authentication required', 'UNAUTHORIZED', 401)
-
-    const payload = await verifyToken(token)
+    const auth = await withAuth(request)
+    if (!auth) return
+    const { payload } = auth
 
     const body = await request.json()
     const { results } = SaveSwipeBody.parse(body)
@@ -215,7 +212,6 @@ export async function POST(request: NextRequest) {
       'Résultats swipe sauvegardés avec succès'
     )
   } catch (err) {
-    if (err instanceof AuthError) return Errors.unauthorized(err.message)
     return handleApiError(err)
   }
 }
@@ -224,10 +220,9 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const token = getTokenFromHeader(request)
-    if (!token) throw new AuthError('Authentication required', 'UNAUTHORIZED', 401)
-
-    const payload = await verifyToken(token)
+    const auth = await withAuth(request)
+    if (!auth) return
+    const { payload } = auth
 
     const { count } = await db.swipeGameResult.deleteMany({
       where: { userId: payload.userId },
@@ -240,7 +235,6 @@ export async function DELETE(request: NextRequest) {
         : 'Aucun résultat swipe à supprimer'
     )
   } catch (err) {
-    if (err instanceof AuthError) return Errors.unauthorized(err.message)
     return handleApiError(err)
   }
 }

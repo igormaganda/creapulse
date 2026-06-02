@@ -240,7 +240,7 @@ const appointments = [
 interface DashboardKpiData {
   progression: number
   modulesCompleted: number
-  modulesTotal: number
+  totalModules: number
   prochainRDV: string | null
   scoreBP: number | null
 }
@@ -269,7 +269,7 @@ interface DashboardApiResponse {
 }
 
 const FALLBACK_DASHBOARD: DashboardApiResponse = {
-  kpis: { progression: 35, modulesCompleted: 7, modulesTotal: 20, prochainRDV: 'Demain', scoreBP: null },
+  kpis: { progression: 35, modulesCompleted: 7, totalModules: 20, prochainRDV: 'Demain', scoreBP: null },
   activities: [
     { id: '1', action: 'Module RIASEC complété', detail: 'Votre profil est disponible dans Parcours > RIASEC', time: 'Il y a 2 heures', icon: 'check', color: 'text-green-500' },
     { id: '2', action: 'Premier brouillon enregistré', detail: 'Mon projet — Boulangerie artisanale', time: 'Hier', icon: 'file', color: 'text-primary' },
@@ -313,16 +313,20 @@ export function Dashboard() {
     return 'Bonsoir'
   }, [])
 
-  // Build dynamic KPIs from API data or fallback
+  // Build dynamic KPIs from API data or fallback (defensive: ensure no undefined leaks to UI)
   const dynamicKpis = useMemo(() => {
-    const k = dashboardData.kpis
+    const k = dashboardData?.kpis
+    if (!k) return FALLBACK_DASHBOARD.kpis
+    const total = typeof k.totalModules === 'number' ? k.totalModules : 20
+    const completed = typeof k.modulesCompleted === 'number' ? k.modulesCompleted : 0
+    const progression = typeof k.progression === 'number' ? k.progression : 0
     return [
-      { label: 'Progression parcours', value: String(k.progression), suffix: '%', icon: TrendingUp, color: 'text-teal-600 dark:text-teal-400', bg: 'bg-teal-50 dark:bg-teal-900/30', progress: k.progression },
-      { label: 'Modules complétés', value: String(k.modulesCompleted), suffix: `/${k.modulesTotal}`, icon: CheckCircle2, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/30', progress: Math.round((k.modulesCompleted / k.modulesTotal) * 100) },
+      { label: 'Progression parcours', value: String(progression), suffix: '%', icon: TrendingUp, color: 'text-teal-600 dark:text-teal-400', bg: 'bg-teal-50 dark:bg-teal-900/30', progress: progression },
+      { label: 'Modules complétés', value: String(completed), suffix: `/${total}`, icon: CheckCircle2, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-900/30', progress: total > 0 ? Math.round((completed / total) * 100) : 0 },
       { label: 'Prochain RDV', value: k.prochainRDV || '--', suffix: '', icon: Calendar, color: 'text-coral-500', bg: 'bg-coral-50 dark:bg-coral-900/20', progress: null },
-      { label: 'Score Business Plan', value: k.scoreBP != null ? String(k.scoreBP) : '--', suffix: k.scoreBP != null ? '%' : '', icon: BarChart3, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/20', progress: k.scoreBP },
+      { label: 'Score Business Plan', value: k.scoreBP != null ? String(k.scoreBP) : '--', suffix: k.scoreBP != null ? '%' : '', icon: BarChart3, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/20', progress: k.scoreBP ?? null },
     ]
-  }, [dashboardData.kpis])
+  }, [dashboardData?.kpis])
 
   if (loading) {
     return (
@@ -372,7 +376,7 @@ export function Dashboard() {
                 {greeting}, {userName} 👋
               </h1>
               <p className="mt-1 text-sm text-white/80 md:text-base">
-                Continuez votre parcours entrepreneurial. Vous avez accompli {dashboardData.kpis.progression}% de votre objectif.
+                Continuez votre parcours entrepreneurial. Vous avez accompli {dashboardData?.kpis?.progression ?? 0}% de votre objectif.
               </p>
             </div>
             <div className="flex gap-2 shrink-0">

@@ -50,6 +50,9 @@ const BmcModule = dynamic(() => import('./modules/bmc').then(m => ({ default: m.
 const PepitesGame = dynamic(() => import('./modules/pepites-game').then(m => ({ default: m.PepitesGame })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const CreascopePipeline = dynamic(() => import('./modules/creascope-pipeline').then(m => ({ default: m.CreascopePipeline })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const PrivacyDashboard = dynamic(() => import('./modules/privacy-dashboard').then(m => ({ default: m.PrivacyDashboard })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const PipelineV3Overview = dynamic(() => import('./modules/pipeline-v3-overview').then(m => ({ default: m.PipelineV3Overview })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+
+/* ─── IA Assistant is rendered once at page.tsx root level (not inside BureauLayout) ─── */
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -293,7 +296,8 @@ function BureauContent() {
         {currentModule === 'messages' && <MessagesModule />}
         {currentModule === 'vie-privee' && <PrivacyDashboard />}
         {currentSection !== 'dashboard' && currentModule && currentModule !== 'riasec' && currentModule !== 'mon-projet' && currentModule !== 'creasim' && currentModule !== 'business-plan' && currentModule !== 'annuaire' && currentModule !== 'forum' && currentModule !== 'marche' && currentModule !== 'juridique' && currentModule !== 'financier' && currentModule !== 'pitch-deck' && currentModule !== 'profil-createur' && currentModule !== 'kiviat' && currentModule !== 'vision' && currentModule !== 'tremplin' && currentModule !== 'passeport' && currentModule !== 'mentorat' && currentModule !== 'certifications' && currentModule !== 'messages' && currentModule !== 'bilan-ia' && currentModule !== 'bmc' && currentModule !== 'telechargements' && currentModule !== 'pepites' && currentModule !== 'creascope' && currentModule !== 'vie-privee' && <ModulePlaceholder moduleId={currentModule} />}
-        {currentSection !== 'dashboard' && !currentModule && <SectionOverview sectionId={currentSection} />}
+        {currentSection === 'strategie' && !currentModule && <PipelineV3Overview />}
+        {currentSection !== 'dashboard' && currentSection !== 'strategie' && !currentModule && <SectionOverview sectionId={currentSection} />}
       </motion.div>
     </AnimatePresence>
   )
@@ -370,6 +374,8 @@ export function BureauLayout() {
 
           {/* Mobile Sidebar */}
           <MobileSidebar open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} />
+
+          {/* IA Assistant FAB + Chat Panel — rendered at page.tsx root, not here */}
         </motion.div>
       )}
     </AnimatePresence>

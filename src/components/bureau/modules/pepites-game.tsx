@@ -33,8 +33,8 @@ const MODE_CONFIG = [
     mode: 'questionnaire' as const,
     icon: '📋',
     title: 'Questionnaire Approfondi',
-    description: '50 questions adaptatives pour affiner votre profil',
-    duration: '15-20 min',
+    description: '15 questions adaptatives pour affiner votre profil',
+    duration: '10-15 min',
     badge: null,
     badgeColor: '',
   },
@@ -43,7 +43,7 @@ const MODE_CONFIG = [
     icon: '🎯',
     title: 'Challenge Scénario',
     description: '10 scénarios entrepreneuriaux réalistes',
-    duration: '10-15 min',
+    duration: '15-20 min',
     badge: null,
     badgeColor: '',
   },
@@ -52,7 +52,7 @@ const MODE_CONFIG = [
     icon: '🏆',
     title: 'Bilan Complet',
     description: 'Les 3 modes séquentiels pour un profil complet',
-    duration: '35-45 min',
+    duration: '15-20 min',
     badge: 'Complet',
     badgeColor: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   },
@@ -168,7 +168,7 @@ function BilanComplet({
             <div className="max-w-md mx-auto space-y-3">
               {[
                 { step: 1, title: 'Flash Swipe', desc: '60 cartes à swipper', icon: '⚡' },
-                { step: 2, title: 'Questionnaire', desc: '50 questions adaptatives', icon: '📋' },
+                { step: 2, title: 'Questionnaire', desc: '15 questions adaptatives', icon: '📋' },
                 { step: 3, title: 'Challenge Scénario', desc: '10 scénarios réalistes', icon: '🎯' },
               ].map((s) => (
                 <div key={s.step} className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">

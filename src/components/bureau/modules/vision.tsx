@@ -164,21 +164,17 @@ export function VisionModule() {
           const parsed = JSON.parse(saved)
           setData({ ...DEFAULT_VISION, ...parsed })
           setLoading(false)
-          if (token) fetchFromApi()
+          fetchFromApi()
           return
         } catch { /* ignore */ }
       }
-      if (token) {
-        await fetchFromApi()
-      } else {
-        setLoading(false)
-      }
+      fetchFromApi()
     }
 
     async function fetchFromApi() {
       try {
         const res = await fetch('/api/vision', {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
           credentials: 'include',
         })
         if (res.ok) {
@@ -288,13 +284,18 @@ export function VisionModule() {
 
   // ── Save to API ──
   const handleSave = async () => {
+    if (!token) {
+      setSaveStatus('error')
+      toast.error('Vous devez être connecté(e)', { description: 'Session non trouvée. Reconnectez-vous.' })
+      return
+    }
     setSaveStatus('saving')
     try {
       const res = await fetch('/api/vision', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         credentials: 'include',
         body: JSON.stringify(data),
@@ -304,13 +305,23 @@ export function VisionModule() {
         setHasChanges(false)
         toast.success('Vision sauvegardée avec succès !')
         setTimeout(() => setSaveStatus('idle'), 3000)
+      } else if (res.status === 401) {
+        setSaveStatus('error')
+        toast.error('Vous devez être connecté(e) pour sauvegarder', {
+          description: 'Votre session a expiré. Veuillez vous reconnecter.',
+        })
       } else {
         setSaveStatus('error')
-        toast.error('Erreur lors de la sauvegarde')
+        const json = await res.json().catch(() => null)
+        toast.error('Erreur lors de la sauvegarde', {
+          description: json?.error?.message || 'Veuillez réessayer.',
+        })
       }
     } catch {
       setSaveStatus('error')
-      toast.error('Erreur réseau')
+      toast.error('Erreur réseau', {
+        description: 'Vérifiez votre connexion et réessayez.',
+      })
     }
   }
 

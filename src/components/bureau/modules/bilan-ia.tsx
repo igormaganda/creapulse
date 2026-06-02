@@ -154,11 +154,13 @@ export function BilanIA() {
   // ── Load data ──
   useEffect(() => {
     async function loadBilan() {
+      if (!token) {
+        setLoading(false)
+        return
+      }
       try {
-        const headers: Record<string, string> = {}
-        if (token) headers['Authorization'] = `Bearer ${token}`
         const res = await fetch('/api/bilan', {
-          headers,
+          headers: { Authorization: `Bearer ${token}` },
           credentials: 'include',
         })
         if (res.ok) {
@@ -178,15 +180,18 @@ export function BilanIA() {
 
   // ── Generate bilan ──
   const handleGenerate = useCallback(async () => {
+    if (!token) {
+      toast.error('Vous devez être connecté(e) pour générer votre bilan')
+      return
+    }
     setGenerateStatus('loading')
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      }
-      if (token) headers['Authorization'] = `Bearer ${token}`
       const res = await fetch('/api/bilan', {
         method: 'POST',
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         credentials: 'include',
       })
       if (res.ok) {

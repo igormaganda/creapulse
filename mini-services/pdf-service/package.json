@@ -1,0 +1,11 @@
+{
+  "name": "pdf-service",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "bun --verbose --hot index.ts"
+  },
+  "dependencies": {
+    "pdfkit": "^0.18.0",
+    "jose": "^6.2.3"
+  }
+}

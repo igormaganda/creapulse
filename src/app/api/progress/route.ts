@@ -5,24 +5,8 @@
 
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
-import { success, Errors, handleApiError } from '@/lib/api-response'
-import { verifyToken } from '@/lib/auth'
-
-// ─── Auth helper ─────────────────────────────
-
-async function authenticate(request: NextRequest) {
-  const cookieToken = request.cookies.get('session')?.value
-  const authHeader = request.headers.get('authorization')
-  const token = cookieToken || (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null)
-
-  if (!token) return null
-
-  try {
-    return await verifyToken(token)
-  } catch {
-    return null
-  }
-}
+import { success, handleApiError } from '@/lib/api-response'
+import { withAuth } from '@/lib/api-auth'
 
 // ─── Progress types ──────────────────────────
 
@@ -41,11 +25,9 @@ interface ProgressData {
 
 export async function GET(request: NextRequest) {
   try {
-    const payload = await authenticate(request)
-    if (!payload) {
-      return Errors.unauthorized()
-    }
-
+    const auth = await withAuth(request)
+    if (!auth) return
+    const { payload } = auth
     const userId = payload.userId
 
     // Fetch all data in parallel for performance
@@ -241,12 +223,6 @@ export async function GET(request: NextRequest) {
 
     return success(data, 'Progression calculée')
   } catch (err) {
-    if (err && typeof err === 'object' && 'code' in err) {
-      const authErr = err as { code: string }
-      if (authErr.code === 'TOKEN_EXPIRED' || authErr.code === 'UNAUTHORIZED') {
-        return Errors.unauthorized('Session expirée')
-      }
-    }
     return handleApiError(err)
   }
 }

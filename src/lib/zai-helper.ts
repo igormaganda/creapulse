@@ -2,13 +2,7 @@
 // CreaPulse V2 — Shared ZAI Helper
 // Wraps z-ai-web-dev-sdk calls with proper error handling
 // All AI API routes should use this instead of direct ZAI.create()
-//
-// CONFIGURATION (priority order):
-//   1. Environment variables: ZAI_API_KEY + ZAI_BASE_URL
-//   2. Config file: .z-ai-config (project root / home / etc)
 // ============================================
-
-import ZAI from 'z-ai-web-dev-sdk'
 
 // ─── Types ──────────────────────────────────
 
@@ -41,27 +35,6 @@ export type ZAIResponse = ZAIResult | ZAIFailure
 
 const DEFAULT_MODEL = 'claude-sonnet-4-20250514'
 
-// ─── SDK Initialization (env vars priority) ────
-
-/**
- * Initialize the ZAI SDK.
- * Priority:
- *   1. ZAI_API_KEY + ZAI_BASE_URL environment variables (for Vercel, Docker, etc.)
- *   2. .z-ai-config file (local dev)
- */
-async function initZAI() {
-  const apiKey = process.env.ZAI_API_KEY
-  const baseUrl = process.env.ZAI_BASE_URL
-
-  // If env vars are set, create SDK directly from them
-  if (apiKey && baseUrl) {
-    return new ZAI({ baseUrl, apiKey } as any)
-  }
-
-  // Otherwise, fallback to ZAI.create() which reads .z-ai-config file
-  return await ZAI.create()
-}
-
 // ─── Main helper ────────────────────────────
 
 /**
@@ -82,17 +55,29 @@ export async function callZAI(
   messages: ZAIMessage[],
   options?: ZAIOptions,
 ): Promise<ZAIResponse> {
-  // Step 1: Initialize SDK
-  let zai: Awaited<ReturnType<typeof ZAI.create>> | null = null
-  try {
-    zai = await initZAI()
-  } catch (sdkErr) {
-    const errMsg = sdkErr instanceof Error ? sdkErr.message : 'Unknown SDK error'
-    console.error('[ZAI Helper] SDK init failed:', errMsg)
-    return {
-      success: false,
-      reason: 'sdk_init',
-      error: errMsg,
+  // Step 1: Initialize SDK (dynamic import to avoid bundling issues) with retry
+  const MAX_SDK_RETRIES = 2
+  const SDK_RETRY_DELAY_MS = 500
+  let zai: Awaited<ReturnType<typeof import('z-ai-web-dev-sdk').default.create>> | null = null
+
+  for (let attempt = 0; attempt <= MAX_SDK_RETRIES; attempt++) {
+    try {
+      const ZAI = await import('z-ai-web-dev-sdk').then((m) => m.default || m)
+      zai = await ZAI.create()
+      break // Success — exit retry loop
+    } catch (sdkErr) {
+      if (attempt < MAX_SDK_RETRIES) {
+        console.warn(`[ZAI Helper] ZAI.create() attempt ${attempt + 1} failed, retrying in ${SDK_RETRY_DELAY_MS}ms...`)
+        await new Promise((resolve) => setTimeout(resolve, SDK_RETRY_DELAY_MS))
+        continue
+      }
+      const errMsg = sdkErr instanceof Error ? sdkErr.message : 'Unknown SDK error'
+      console.error('[ZAI Helper] ZAI.create() failed after', MAX_SDK_RETRIES + 1, 'attempts:', errMsg)
+      return {
+        success: false,
+        reason: 'sdk_init',
+        error: errMsg,
+      }
     }
   }
 

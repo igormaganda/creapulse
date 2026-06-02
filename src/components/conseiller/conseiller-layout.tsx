@@ -24,14 +24,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
   LayoutDashboard,
   Users,
   MessageSquare,
@@ -158,29 +150,7 @@ function ConseillerSidebar() {
             <TooltipTrigger asChild>
               <button
                 onClick={closeConseiller}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/50 hover:bg-white/8 hover:text-white transition-colors"
-              >
-                <X className="h-4.5 w-4.5 shrink-0" />
-                {sidebarOpen && <span>Retour au site</span>}
-              </button>
-            </TooltipTrigger>
-            {!sidebarOpen && (
-              <TooltipContent side="right">Retour au site</TooltipContent>
-            )}
-          </Tooltip>
-        </TooltipProvider>
-        <TooltipProvider delayDuration={0}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={async () => {
-                  try {
-                    await fetch('/api/auth/me', { method: 'DELETE', credentials: 'include' })
-                  } catch {}
-                  closeConseiller()
-                  window.location.reload()
-                }}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/50 hover:bg-red-500/20 hover:text-red-300 transition-colors"
               >
                 <LogOut className="h-4.5 w-4.5 shrink-0" />
                 {sidebarOpen && <span>Se deconnecter</span>}
@@ -236,27 +206,13 @@ function MobileConseillerSidebar({ open, onOpenChange }: { open: boolean; onOpen
             )
           })}
         </nav>
-        <div className="absolute bottom-0 left-0 right-0 border-t border-white/10 p-3 space-y-1">
+        <div className="absolute bottom-0 left-0 right-0 border-t border-white/10 p-3">
           <button
             onClick={() => {
               closeConseiller()
               onOpenChange(false)
             }}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/50 hover:bg-white/8 hover:text-white transition-colors"
-          >
-            <X className="h-4.5 w-4.5" />
-            Retour au site
-          </button>
-          <button
-            onClick={async () => {
-              try {
-                await fetch('/api/auth/me', { method: 'DELETE', credentials: 'include' })
-              } catch {}
-              closeConseiller()
-              onOpenChange(false)
-              window.location.reload()
-            }}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/50 hover:bg-red-500/20 hover:text-red-300 transition-colors"
           >
             <LogOut className="h-4.5 w-4.5" />
             Se deconnecter
@@ -272,14 +228,6 @@ function ConseillerTopBar({ onMenuClick }: { onMenuClick: () => void }) {
   const { currentTab, setTab, selectedBeneficiaryId, selectBeneficiary, conseillerName, conseillerInitials, closeConseiller } = useConseillerStore()
 
   const tabLabel = navItems.find((n) => n.id === currentTab)?.label || ''
-
-  const handleConseillerLogout = async () => {
-    try {
-      await fetch('/api/auth/me', { method: 'DELETE', credentials: 'include' })
-    } catch {}
-    closeConseiller()
-    window.location.reload()
-  }
 
   return (
     <header className="flex items-center justify-between h-16 px-4 md:px-6 border-b border-border bg-background">
@@ -338,44 +286,28 @@ function ConseillerTopBar({ onMenuClick }: { onMenuClick: () => void }) {
           <span className="sr-only">Notifications</span>
         </Button>
 
-        {/* User avatar + dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 gap-2 pl-2 pr-2">
-              <Avatar className="h-8 w-8 border-2 border-primary/30">
-                <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
-                  {conseillerInitials}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-sm font-medium text-foreground hidden lg:inline max-w-[120px] truncate">
-                {conseillerName}
-              </span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel>
-              <div className="flex flex-col gap-0.5">
-                <span className="text-sm font-semibold">{conseillerName}</span>
-                <span className="text-xs text-muted-foreground">Conseiller</span>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="gap-2 cursor-pointer"
-              onClick={closeConseiller}
-            >
-              <X className="h-4 w-4" />
-              Retour au site
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="gap-2 cursor-pointer text-destructive focus:text-destructive"
-              onClick={handleConseillerLogout}
-            >
-              <LogOut className="h-4 w-4" />
-              Se deconnecter
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* User avatar */}
+        <div className="hidden sm:flex items-center gap-2">
+          <Avatar className="h-8 w-8">
+            <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
+              {conseillerInitials}
+            </AvatarFallback>
+          </Avatar>
+          <span className="text-sm font-medium text-foreground hidden lg:inline">
+            {conseillerName}
+          </span>
+        </div>
+
+        {/* Close button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-destructive"
+          onClick={closeConseiller}
+        >
+          <X className="h-4.5 w-4.5" />
+          <span className="sr-only">Fermer</span>
+        </Button>
       </div>
     </header>
   )

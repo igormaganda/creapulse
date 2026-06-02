@@ -10,6 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/zustand/store'
+import { authFetch } from '@/lib/auth-fetch'
 import {
   Play,
   CheckCircle2,
@@ -89,9 +90,7 @@ function CreateSessionForm({ onSuccess, onCancel }: { onSuccess: () => void; onC
   useEffect(() => {
     async function fetchBeneficiaries() {
       try {
-        const res = await fetch('/api/assignments?role=counselor', {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+        const res = await authFetch('/api/assignments?role=counselor')
         const data = await res.json()
         if (data.success && Array.isArray(data.data)) {
           setBeneficiaries(data.data.map((a: { beneficiaryId: string; beneficiary: { user: { firstName: string | null; lastName: string | null } } }) => ({
@@ -108,11 +107,15 @@ function CreateSessionForm({ onSuccess, onCancel }: { onSuccess: () => void; onC
 
   const handleCreate = async () => {
     if (!selected) return
+    const token = useAuthStore.getState().token
+    if (!token) {
+      toast.error('Vous devez être connecté(e) pour créer une session')
+      return
+    }
     setLoading(true)
     try {
-      const res = await fetch('/api/creascope/sessions', {
+      const res = await authFetch('/api/creascope/sessions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ beneficiaryId: selected }),
       })
       const data = await res.json()

@@ -64,6 +64,7 @@ interface NavGroup {
   icon: LucideIcon
   items: NavItem[]
   progress?: number
+  badge?: string
 }
 
 /* ─── Fallback navigation data (used before API loads) ─── */
@@ -96,6 +97,7 @@ const BASE_NAVIGATION: Omit<NavGroup, 'progress'>[] = [
       { id: 'business-plan', label: 'Business Plan', icon: FileText },
       { id: 'pitch-deck', label: 'Pitch Deck', icon: Presentation },
     ],
+    badge: 'V3',
   },
   {
     id: 'ecosysteme',
@@ -307,24 +309,28 @@ function SidebarContent({ collapsed, onNavigate, onCloseMobile }: {
   }
 
   return (
-    <nav className="flex h-full flex-col bg-[#1A1A2E] text-white" aria-label="Navigation Bureau Virtuel">
-      {/* Logo area */}
+    <nav className="flex h-full flex-col min-h-0 bg-[#1A1A2E] text-white" aria-label="Navigation Bureau Virtuel">
+      {/* Logo area — CreaPulse + GIDEF branding */}
       <div className={cn(
-        'flex h-16 items-center border-b border-white/10',
-        collapsed ? 'justify-center px-3' : 'justify-between px-4'
+        'flex items-center border-b border-white/10 py-3',
+        collapsed ? 'justify-center px-3' : 'px-4'
       )}>
         {!collapsed && (
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 px-3 mt-2 mb-1">
-              <img src="/images/logo-creapulse.svg" alt="CreaPulse" className="h-8 w-8 shrink-0" />
-              <img src="/images/logo-gidef.svg" alt="GIDEF" className="h-5 w-auto shrink-0" />
+          <div className="flex items-center gap-3 w-full">
+            <img src="/images/logo-creapulse.svg" alt="CreaPulse" className="h-9 w-9 shrink-0 rounded" />
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-bold text-white leading-tight tracking-tight">CreaPulse</span>
+              <span className="text-[10px] text-neutral-400 leading-tight">par GIDEF</span>
+            </div>
+            <div className="ml-auto">
+              <img src="/images/logo-gidef.svg" alt="GIDEF" className="h-6 w-auto shrink-0 rounded" />
             </div>
           </div>
         )}
         {collapsed && (
-          <div className="flex flex-col items-center gap-1">
-            <img src="/images/logo-creapulse.svg" alt="CreaPulse" className="h-7 w-7 shrink-0" />
-            <img src="/images/logo-gidef.svg" alt="GIDEF" className="h-4 w-auto shrink-0" />
+          <div className="flex flex-col items-center gap-1.5">
+            <img src="/images/logo-creapulse.svg" alt="CreaPulse" className="h-8 w-8 shrink-0 rounded" />
+            <img src="/images/logo-gidef.svg" alt="GIDEF" className="h-5 w-auto shrink-0 rounded" />
           </div>
         )}
       </div>
@@ -342,7 +348,7 @@ function SidebarContent({ collapsed, onNavigate, onCloseMobile }: {
       <Separator className="bg-white/10 mx-3 my-2" />
 
       {/* Nav groups */}
-      <ScrollArea className="flex-1 px-2">
+      <ScrollArea className="flex-1 min-h-0 overflow-y-auto px-2">
         <div className="flex flex-col gap-1 pb-4">
           {navigationGroups.map((group) => {
             const isGroupActive = currentSection === group.id && !currentModule
@@ -369,6 +375,14 @@ function SidebarContent({ collapsed, onNavigate, onCloseMobile }: {
                           <span className="flex-1 text-left">{group.label}</span>
                           {group.progress !== undefined && (
                             <MiniProgress value={group.progress} size={18} />
+                          )}
+                          {group.badge && (
+                            <Badge
+                              variant="secondary"
+                              className="text-[10px] px-1.5 py-0 h-5 font-medium bg-teal-500/20 text-teal-300 border-teal-500/30"
+                            >
+                              {group.badge}
+                            </Badge>
                           )}
                         </>
                       )}

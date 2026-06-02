@@ -30,7 +30,7 @@ interface LoginDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSwitchToRegister: () => void
-  onLoginSuccess: (user: { firstName: string; lastName: string; email: string }) => void
+  onLoginSuccess: (user: { firstName: string; lastName: string; email: string; role?: string }) => void
 }
 
 export function LoginDialog({
@@ -61,6 +61,7 @@ export function LoginDialog({
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email: email.trim(), password }),
       })
 
@@ -85,7 +86,13 @@ export function LoginDialog({
           })
         }
         toast.success(`Bienvenue ${userData.firstName || ''} !`)
-        onLoginSuccess(userData)
+        // Pass role so the caller can route to the correct layout
+        onLoginSuccess({
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          email: userData.email,
+          role: userData.role,
+        })
       } else {
         // Fallback for old API format
         toast.success(`Bienvenue ${data.user.firstName || ''} !`)

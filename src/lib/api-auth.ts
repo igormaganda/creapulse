@@ -43,8 +43,8 @@ export async function withAuth(
   let payload: JwtPayload
   try {
     payload = await verifyToken(token)
-  } catch (err: any) {
-    if (err?.code === 'TOKEN_EXPIRED') {
+  } catch (err: unknown) {
+    if (err && typeof err === 'object' && 'code' in err && err.code === 'TOKEN_EXPIRED') {
       return Errors.unauthorized('Session expirée. Veuillez vous reconnecter.')
     }
     return Errors.unauthorized('Token invalide. Veuillez vous reconnecter.')

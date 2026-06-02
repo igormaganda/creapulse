@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { db } from '@/lib/db'
 import { generateAuthResponse, verifyPassword } from '@/lib/auth'
 import { success, Errors, handleApiError } from '@/lib/api-response'
+
+const loginSchema = z.object({
+  email: z.string().email('Email invalide'),
+  password: z.string().min(1, 'Mot de passe requis'),
+})
 
 // ─── Login rate limiting (in-memory, per-IP) ──
 
@@ -29,11 +35,20 @@ function checkLoginRateLimit(ip: string): { allowed: boolean; retryAfter?: numbe
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { email, password } = body
 
-    if (!email || !password) {
-      return Errors.validation({ email: ['Email requis'], password: ['Mot de passe requis'] }, 'Champs manquants')
+    // Zod validation
+    const parsed = loginSchema.safeParse(body)
+    if (!parsed.success) {
+      const fieldErrors: Record<string, string[]> = {}
+      for (const issue of parsed.error.issues) {
+        const key = String(issue.path[0])
+        if (!fieldErrors[key]) fieldErrors[key] = []
+        fieldErrors[key].push(issue.message)
+      }
+      return Errors.validation(fieldErrors, 'Données de connexion invalides')
     }
+
+    const { email, password } = parsed.data
 
     // Rate limiting by IP
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'

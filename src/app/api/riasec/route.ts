@@ -85,7 +85,11 @@ export async function POST(request: NextRequest) {
 
     // Parse and validate request body
     const body = await request.json()
-    const { results } = SaveRiasecBody.parse(body)
+    const parsed = SaveRiasecBody.safeParse(body)
+    if (!parsed.success) {
+      return Errors.validation(parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })))
+    }
+    const { results } = parsed.data
 
     // Upsert all 6 RIASEC results in a transaction
     await db.$transaction(

@@ -25,7 +25,13 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Info,
 } from 'lucide-react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import type { LucideIcon } from 'lucide-react'
 
 /* ─── Step configurations ─── */
@@ -85,12 +91,42 @@ const parcoursOptions = [
 
 /* ─── Tool options ─── */
 const toolOptions = [
-  { id: 'riasec', icon: User, label: 'Diagnostic RIASEC' },
-  { id: 'creasim', icon: Calculator, label: 'CreaSim' },
-  { id: 'business-plan', icon: FileText, label: 'Business Plan IA' },
-  { id: 'marche', icon: Globe, label: 'Étude de marché' },
-  { id: 'mentorat', icon: GraduationCap, label: 'Mentorat' },
-  { id: 'passeport', icon: Sparkles, label: 'Passeport' },
+  {
+    id: 'riasec',
+    icon: User,
+    label: 'Diagnostic RIASEC',
+    tooltip: 'Identifiez votre profil d\'intérêts professionnels (Réaliste, Investigateur, Artistique, Social, Entrepreneur, Conventionnel) pour mieux cibler votre projet.',
+  },
+  {
+    id: 'creasim',
+    icon: Calculator,
+    label: 'CreaSim',
+    tooltip: 'Simulez votre activité financière : chiffre d\'affaires, charges, marges, seuil de rentabilité et projection sur 3 ans.',
+  },
+  {
+    id: 'business-plan',
+    icon: FileText,
+    label: 'Business Plan IA',
+    tooltip: 'Rédigez votre business plan complet avec l\'aide de l\'intelligence artificielle : résumé, étude de marché, stratégie, finances.',
+  },
+  {
+    id: 'marche',
+    icon: Globe,
+    label: 'Étude de marché',
+    tooltip: 'Analysez votre marché cible, la concurrence, les tendances et les opportunités de votre secteur d\'activité.',
+  },
+  {
+    id: 'mentorat',
+    icon: GraduationCap,
+    label: 'Mentorat',
+    tooltip: 'Bénéficiez de l\'accompagnement personnalisé d\'un conseiller GIDEF pour structurer et lancer votre projet.',
+  },
+  {
+    id: 'passeport',
+    icon: Sparkles,
+    label: 'Passeport',
+    tooltip: 'Obtenez votre Passeport Entrepreneurial certifié : validez vos compétences et modules complétés pour valoriser votre parcours.',
+  },
 ]
 
 /* ─── Animation ─── */
@@ -277,40 +313,59 @@ export function Welcome() {
               {/* Step 3: Tools */}
               {currentStep === 2 && (
                 <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground text-center mb-6">
-                    Sélectionnez les outils que vous souhaitez utiliser en priorité.
-                    Vous pourrez modifier ce choix à tout moment.
-                  </p>
+                  <div className="flex items-center gap-2 justify-center mb-4">
+                    <p className="text-sm text-muted-foreground text-center">
+                      Sélectionnez les outils que vous souhaitez utiliser en priorité.
+                      Vous pourrez modifier ce choix à tout moment.
+                    </p>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button className="text-muted-foreground hover:text-primary transition-colors" aria-label="Aide">
+                          <Info className="h-4 w-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[220px] text-center">
+                        Survolez chaque outil pour voir sa description
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                     {toolOptions.map((tool) => {
                       const isSelected = formData.tools.includes(tool.id)
                       return (
-                        <motion.button
-                          key={tool.id}
-                          whileHover={{ scale: 1.03 }}
-                          whileTap={{ scale: 0.97 }}
-                          onClick={() => toggleTool(tool.id)}
-                          className={cn(
-                            'flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all duration-200 cursor-pointer',
-                            isSelected
-                              ? 'border-primary bg-primary/5 ring-4 ring-primary/20'
-                              : 'border-border hover:border-primary/40 hover:bg-muted/50'
-                          )}
-                        >
-                          <tool.icon className={cn(
-                            'h-6 w-6',
-                            isSelected ? 'text-primary' : 'text-muted-foreground'
-                          )} />
-                          <span className={cn(
-                            'text-xs font-medium text-center',
-                            isSelected ? 'text-primary' : 'text-muted-foreground'
-                          )}>
-                            {tool.label}
-                          </span>
-                          {isSelected && (
-                            <Check className="h-3.5 w-3.5 text-primary" />
-                          )}
-                        </motion.button>
+                        <Tooltip key={tool.id}>
+                          <TooltipTrigger asChild>
+                            <motion.button
+                              whileHover={{ scale: 1.03 }}
+                              whileTap={{ scale: 0.97 }}
+                              onClick={() => toggleTool(tool.id)}
+                              className={cn(
+                                'relative flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all duration-200 cursor-pointer',
+                                isSelected
+                                  ? 'border-primary bg-primary/5 ring-4 ring-primary/20'
+                                  : 'border-border hover:border-primary/40 hover:bg-muted/50'
+                              )}
+                            >
+                              <tool.icon className={cn(
+                                'h-6 w-6',
+                                isSelected ? 'text-primary' : 'text-muted-foreground'
+                              )} />
+                              <span className={cn(
+                                'text-xs font-medium text-center',
+                                isSelected ? 'text-primary' : 'text-muted-foreground'
+                              )}>
+                                {tool.label}
+                              </span>
+                              {isSelected && (
+                                <Check className="absolute top-1.5 right-1.5 h-3.5 w-3.5 text-primary" />
+                              )}
+                            </motion.button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-[260px]">
+                            <p className="font-semibold mb-1">{tool.label}</p>
+                            <p>{tool.tooltip}</p>
+                          </TooltipContent>
+                        </Tooltip>
                       )
                     })}
                   </div>

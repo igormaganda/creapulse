@@ -176,10 +176,10 @@ export async function POST(request: NextRequest) {
         ],
         y,
       )
-      y = addSpacing(doc, 10, y)
+      addSpacing(doc, 10)
 
       // Steps table
-      y = checkNewPage(doc, 200, y)
+      checkNewPage(doc, 200)
       y = addSubSectionHeader(doc, 'Étapes Complétées', y)
 
       const stepsColumns: TableColumn[] = [
@@ -221,12 +221,12 @@ export async function POST(request: NextRequest) {
       }
 
       y = addTable(doc, stepsColumns, stepsRows, y)
-      y = addSpacing(doc, 10, y)
+      addSpacing(doc, 10)
 
       // ── Page 3+: Résultats Kiviat ──
       if (kiviatResults.length > 0) {
-        y = checkNewPage(doc, 200, y)
-        y = addSectionHeader(doc, 'Profil Compétences — Kiviat', y)
+        checkNewPage(doc, 200)
+        y = addSectionHeader(doc, 'Profil Compétences — Kiviat')
 
         const kiviatColumns: TableColumn[] = [
           { header: 'Dimension', width: 140, align: 'left' },
@@ -242,17 +242,17 @@ export async function POST(request: NextRequest) {
         }))
 
         y = addTable(doc, kiviatColumns, kiviatRows, y)
-        y = addSpacing(doc, 10, y)
+        addSpacing(doc, 10)
 
         // Kiviat average
         const avgKiviat = kiviatResults.reduce((s, k) => s + k.score, 0) / kiviatResults.length
-        y = checkNewPage(doc, 60, y)
+        checkNewPage(doc, 60)
         y = addKeyValueBlock(
           doc,
           [{ key: 'Score moyen Kiviat :', value: `${avgKiviat.toFixed(1)} / 10` }],
           y,
         )
-        y = addSpacing(doc, 10, y)
+        addSpacing(doc, 10)
 
         // AI insights — strengths / areas to work
         const aiInsights = session.aiInsights as Record<string, unknown> | null
@@ -261,29 +261,29 @@ export async function POST(request: NextRequest) {
           const areasToWork = aiInsights.areasToWork as string[] | undefined
 
           if (strengths && Array.isArray(strengths) && strengths.length > 0) {
-            y = checkNewPage(doc, 60 + strengths.length * 24, y)
+            checkNewPage(doc, 60 + strengths.length * 24)
             y = addSubSectionHeader(doc, 'Points Forts Identifiés', y)
             for (const s of strengths) {
               y = addBullet(doc, s, y)
             }
-            y = addSpacing(doc, 10, y)
+            addSpacing(doc, 10)
           }
 
           if (areasToWork && Array.isArray(areasToWork) && areasToWork.length > 0) {
-            y = checkNewPage(doc, 60 + areasToWork.length * 24, y)
+            checkNewPage(doc, 60 + areasToWork.length * 24)
             y = addSubSectionHeader(doc, 'Axes d\'Amélioration', y)
             for (const a of areasToWork) {
               y = addBullet(doc, a, y)
             }
-            y = addSpacing(doc, 10, y)
+            addSpacing(doc, 10)
           }
         }
       }
 
       // ── Page: Profil RIASEC ──
       if (riasecResults.length > 0) {
-        y = checkNewPage(doc, 200, y)
-        y = addSectionHeader(doc, 'Profil d\'Intérêts RIASEC', y)
+        checkNewPage(doc, 200)
+        y = addSectionHeader(doc, 'Profil d\'Intérêts RIASEC')
 
         const riasecColumns: TableColumn[] = [
           { header: 'Profil', width: 140, align: 'left' },
@@ -306,8 +306,8 @@ export async function POST(request: NextRequest) {
         // Dominant profiles summary
         const dominantProfiles = riasecResults.filter((r) => r.isDominant)
         if (dominantProfiles.length > 0) {
-          y = addSpacing(doc, 10, y)
-          y = checkNewPage(doc, 60, y)
+          addSpacing(doc, 10)
+          checkNewPage(doc, 60)
           y = addSubSectionHeader(doc, 'Profil(s) Dominant(s)', y)
           y = addParagraph(
             doc,
@@ -315,12 +315,12 @@ export async function POST(request: NextRequest) {
             y,
           )
         }
-        y = addSpacing(doc, 10, y)
+        addSpacing(doc, 10)
       }
 
       // ── Page: Parcours Créateur ──
-      y = checkNewPage(doc, 250, y)
-      y = addSectionHeader(doc, 'Parcours de Création', y)
+      checkNewPage(doc, 250)
+      y = addSectionHeader(doc, 'Parcours de Création')
 
       if (creatorJourney) {
         const phaseLabels: Record<string, string> = {
@@ -355,11 +355,11 @@ export async function POST(request: NextRequest) {
       } else {
         y = addParagraph(doc, 'Aucun parcours créateur disponible pour ce bénéficiaire.', y)
       }
-      y = addSpacing(doc, 10, y)
+      addSpacing(doc, 10)
 
       // Module results table
       if (moduleResults.length > 0) {
-        y = checkNewPage(doc, 200, y)
+        checkNewPage(doc, 200)
         y = addSubSectionHeader(doc, 'Résultats Modules', y)
 
         const moduleColumns: TableColumn[] = [
@@ -378,62 +378,62 @@ export async function POST(request: NextRequest) {
 
         y = addTable(doc, moduleColumns, moduleRows, y)
       }
-      y = addSpacing(doc, 10, y)
+      addSpacing(doc, 10)
 
       // ── Page: Insights IA ──
       const aiInsights = session.aiInsights as Record<string, unknown> | null
       if (aiInsights && typeof aiInsights === 'object' && Object.keys(aiInsights).length > 0) {
-        y = checkNewPage(doc, 200, y)
-        y = addSectionHeader(doc, 'Analyse Intelligente', y)
+        checkNewPage(doc, 200)
+        y = addSectionHeader(doc, 'Analyse Intelligente')
 
         // Summary
         const summary = aiInsights.summary as string | undefined
         if (summary) {
           y = addParagraph(doc, summary, y)
-          y = addSpacing(doc, 6, y)
+          addSpacing(doc, 6)
         }
 
         // Strengths
         const strengths = aiInsights.strengths as string[] | undefined
         if (strengths && Array.isArray(strengths) && strengths.length > 0) {
-          y = checkNewPage(doc, 60 + strengths.length * 24, y)
+          checkNewPage(doc, 60 + strengths.length * 24)
           y = addSubSectionHeader(doc, 'Points Forts', y)
           for (const s of strengths) {
             y = addBullet(doc, s, y)
           }
-          y = addSpacing(doc, 6, y)
+          addSpacing(doc, 6)
         }
 
         // Areas to work
         const areasToWork = aiInsights.areasToWork as string[] | undefined
         if (areasToWork && Array.isArray(areasToWork) && areasToWork.length > 0) {
-          y = checkNewPage(doc, 60 + areasToWork.length * 24, y)
+          checkNewPage(doc, 60 + areasToWork.length * 24)
           y = addSubSectionHeader(doc, 'Axes d\'Amélioration', y)
           for (const a of areasToWork) {
             y = addBullet(doc, a, y)
           }
-          y = addSpacing(doc, 6, y)
+          addSpacing(doc, 6)
         }
 
         // Recommendations
         const recommendations = aiInsights.recommendations as string[] | undefined
         if (recommendations && Array.isArray(recommendations) && recommendations.length > 0) {
-          y = checkNewPage(doc, 60 + recommendations.length * 24, y)
+          checkNewPage(doc, 60 + recommendations.length * 24)
           y = addSubSectionHeader(doc, 'Recommandations', y)
           for (const r of recommendations) {
             y = addBullet(doc, r, y)
           }
-          y = addSpacing(doc, 6, y)
+          addSpacing(doc, 6)
         }
 
         // Next step focus
         const nextStepFocus = aiInsights.nextStepFocus as string | undefined
         if (nextStepFocus) {
-          y = checkNewPage(doc, 60, y)
+          checkNewPage(doc, 60)
           y = addSubSectionHeader(doc, 'Prochaine Étape', y)
           y = addParagraph(doc, nextStepFocus, y)
         }
-        y = addSpacing(doc, 10, y)
+        addSpacing(doc, 10)
       }
 
       // ── Page: Plan d'Action ──
@@ -444,14 +444,14 @@ export async function POST(request: NextRequest) {
         (actionPlan && typeof actionPlan === 'object' && Object.keys(actionPlan).length > 0)
         || hasCounselorNotes
       ) {
-        y = checkNewPage(doc, 200, y)
-        y = addSectionHeader(doc, 'Plan d\'Action Personnalisé', y)
+        checkNewPage(doc, 200)
+        y = addSectionHeader(doc, 'Plan d\'Action Personnalisé')
 
         if (actionPlan && typeof actionPlan === 'object') {
           for (const [key, value] of Object.entries(actionPlan)) {
             if (value == null) continue
 
-            y = checkNewPage(doc, 60, y)
+            checkNewPage(doc, 60)
 
             const label = key
               .replace(/([A-Z])/g, ' $1')
@@ -489,16 +489,16 @@ export async function POST(request: NextRequest) {
                 y = addKeyValueBlock(doc, kvData, y)
               }
             }
-            y = addSpacing(doc, 6, y)
+            addSpacing(doc, 6)
           }
         }
 
         if (hasCounselorNotes) {
-          y = checkNewPage(doc, 80, y)
+          checkNewPage(doc, 80)
           y = addSubSectionHeader(doc, 'Notes du Conseiller', y)
           y = addParagraph(doc, session.counselorNotes!, y)
         }
-        y = addSpacing(doc, 10, y)
+        addSpacing(doc, 10)
       }
 
       // ── Final: Add footers to all pages except cover ──

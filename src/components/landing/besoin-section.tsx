@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { motion } from 'framer-motion'
 import {
   Card,
@@ -24,6 +25,7 @@ const besoinCards = [
     iconBg: 'bg-amber-100 dark:bg-amber-900/30',
     iconColor: 'text-amber-500',
     title: 'Je découvre une idée',
+    href: '/besoin/decouvrir-idee',
     description:
       'Vous avez un projet en tête ? Explorez votre idée, testez sa viabilité et validez votre marché avec nos outils de diagnostic.',
     borderColor: 'hover:border-amber-400',
@@ -33,6 +35,7 @@ const besoinCards = [
     iconBg: 'bg-teal-100 dark:bg-teal-900/40',
     iconColor: 'text-primary',
     title: 'Je crée mon entreprise',
+    href: '/besoin/creer-entreprise',
     description:
       'De la structuration juridique au business plan, suivez chaque étape pour immatriculer votre société en toute sérénité.',
     borderColor: 'hover:border-primary',
@@ -42,6 +45,7 @@ const besoinCards = [
     iconBg: 'bg-coral-50 dark:bg-coral-900/20',
     iconColor: 'text-coral-500',
     title: 'Je développe mon activité',
+    href: '/besoin/developper-activite',
     description:
       'Votre entreprise est lancée ? Accompagnez votre croissance avec nos outils marketing, financier et de réseau.',
     borderColor: 'hover:border-coral-400',
@@ -80,27 +84,29 @@ export function BesoinSection() {
         >
           {besoinCards.map((card) => (
             <motion.div key={card.title} variants={scaleIn}>
-              <Card
-                className={`group cursor-pointer border-2 border-transparent bg-card transition-all duration-300 hover:scale-[1.03] hover:shadow-xl ${card.borderColor}`}
-              >
-                <CardHeader className="pb-3">
-                  <div
-                    className={`mb-2 flex h-14 w-14 items-center justify-center rounded-2xl ${card.iconBg}`}
-                  >
-                    <card.icon className={`h-7 w-7 ${card.iconColor}`} />
-                  </div>
-                  <CardTitle className="text-xl">{card.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="text-sm leading-relaxed">
-                    {card.description}
-                  </CardDescription>
-                  <div className="mt-4 flex items-center text-sm font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
-                    Commencer
-                    <ArrowRight className="ml-1 h-4 w-4" />
-                  </div>
-                </CardContent>
-              </Card>
+              <Link href={card.href}>
+                <Card
+                  className={`group cursor-pointer border-2 border-transparent bg-card transition-all duration-300 hover:scale-[1.03] hover:shadow-xl ${card.borderColor}`}
+                >
+                  <CardHeader className="pb-3">
+                    <div
+                      className={`mb-2 flex h-14 w-14 items-center justify-center rounded-2xl ${card.iconBg}`}
+                    >
+                      <card.icon className={`h-7 w-7 ${card.iconColor}`} />
+                    </div>
+                    <CardTitle className="text-xl">{card.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription className="text-sm leading-relaxed">
+                      {card.description}
+                    </CardDescription>
+                    <div className="mt-4 flex items-center text-sm font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                      Commencer
+                      <ArrowRight className="ml-1 h-4 w-4" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
             </motion.div>
           ))}
         </motion.div>

@@ -84,11 +84,11 @@ export async function GET(request: NextRequest) {
         ],
         y,
       )
-      y = addSpacing(doc, 12, y)
+      addSpacing(doc, 12)
 
       // ── Monthly Simulation Summary ──
-      y = checkNewPage(doc, 180, y)
-      y = addSectionHeader(doc, 'Simulation mensuelle', y)
+      checkNewPage(doc, 180)
+      y = addSectionHeader(doc, 'Simulation mensuelle')
 
       y = addSubSectionHeader(doc, 'Chiffre d\'affaires et charges', y)
 
@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
       ]
 
       y = addTable(doc, monthlyColumns, monthlyRows, y)
-      y = addSpacing(doc, 10, y)
+      addSpacing(doc, 10)
 
       // Margins percentages
       y = addSubSectionHeader(doc, 'Taux de marge', y)
@@ -161,11 +161,11 @@ export async function GET(request: NextRequest) {
         ],
         y,
       )
-      y = addSpacing(doc, 12, y)
+      addSpacing(doc, 12)
 
       // ── 3-Year Projection ──
-      y = checkNewPage(doc, 180, y)
-      y = addSectionHeader(doc, 'Projection sur 3 ans', y)
+      checkNewPage(doc, 180)
+      y = addSectionHeader(doc, 'Projection sur 3 ans')
 
       const projectionColumns: TableColumn[] = [
         { header: 'Indicateur', width: 160, align: 'left' },
@@ -206,7 +206,7 @@ export async function GET(request: NextRequest) {
 
       // Profitability summary
       if (creasim.profitability1Y != null || creasim.profitability2Y != null || creasim.profitability3Y != null) {
-        y = addSpacing(doc, 8, y)
+        addSpacing(doc, 8)
         y = addSubSectionHeader(doc, 'Rentabilité cumulée', y)
         y = addKeyValueBlock(
           doc,
@@ -218,11 +218,11 @@ export async function GET(request: NextRequest) {
           y,
         )
       }
-      y = addSpacing(doc, 12, y)
+      addSpacing(doc, 12)
 
       // ── Break-even Analysis ──
-      y = checkNewPage(doc, 120, y)
-      y = addSectionHeader(doc, 'Analyse du seuil de rentabilité', y)
+      checkNewPage(doc, 120)
+      y = addSectionHeader(doc, 'Analyse du seuil de rentabilité')
 
       y = addKeyValueBlock(
         doc,
@@ -246,7 +246,7 @@ export async function GET(request: NextRequest) {
       )
 
       if (creasim.monthlyBreakeven != null && creasim.monthlyRevenue != null) {
-        y = addSpacing(doc, 6, y)
+        addSpacing(doc, 6)
         if (creasim.monthlyRevenue >= creasim.monthlyBreakeven) {
           y = addParagraph(
             doc,
@@ -263,12 +263,12 @@ export async function GET(request: NextRequest) {
           )
         }
       }
-      y = addSpacing(doc, 12, y)
+      addSpacing(doc, 12)
 
       // ── Fixed charges detail ──
       if (fixedChargesArray.length > 0) {
-        y = checkNewPage(doc, 80 + fixedChargesArray.length * 22, y)
-        y = addSectionHeader(doc, 'Détail des charges fixes', y)
+        checkNewPage(doc, 80 + fixedChargesArray.length * 22)
+        y = addSectionHeader(doc, 'Détail des charges fixes')
 
         const chargesColumns: TableColumn[] = [
           { header: 'Poste de charge', width: 280, align: 'left' },
@@ -287,20 +287,20 @@ export async function GET(request: NextRequest) {
         })
 
         y = addTable(doc, chargesColumns, chargesRows, y)
-        y = addSpacing(doc, 12, y)
+        addSpacing(doc, 12)
       }
 
       // ── AI Synthesis ──
       if (creasim.aiAnalysis) {
-        y = checkNewPage(doc, 120, y)
-        y = addSectionHeader(doc, 'Synthèse IA', y)
+        checkNewPage(doc, 120)
+        y = addSectionHeader(doc, 'Synthèse IA')
         y = addParagraph(doc, creasim.aiAnalysis, y)
-        y = addSpacing(doc, 12, y)
+        addSpacing(doc, 12)
       }
 
       // ── Recommendations ──
-      y = checkNewPage(doc, 120, y)
-      y = addSectionHeader(doc, 'Recommandations', y)
+      checkNewPage(doc, 120)
+      y = addSectionHeader(doc, 'Recommandations')
       y = addBullet(doc, 'Affinez vos prévisions régulièrement avec les données réelles.', y)
       y = addBullet(doc, 'Prévoyez une trésorerie de sécurité de 3 mois minimum.', y)
       y = addBullet(doc, 'Identifiez les leviers d\'augmentation du CA et de réduction des charges.', y)

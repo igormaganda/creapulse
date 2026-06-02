@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress'
 import { motion, AnimatePresence, useMotionValue, useTransform, type PanInfo } from 'framer-motion'
 import { SWIPE_CARDS, KIVIAT_DIMENSIONS } from '@/data/swipe-cards'
 import { useAuthStore } from '@/lib/zustand/store'
+import { authFetch } from '@/lib/auth-fetch'
 import { cn } from '@/lib/utils'
 import type { SwipeResult } from '@/lib/kiviat-scoring'
 import { shuffleArray, DIMENSION_COLORS, type SwipeAction } from './shared'
@@ -21,6 +22,7 @@ export function FlashSwipe({
   onComplete: (results: SwipeResult[]) => void
   onBack: () => void
 }) {
+  // All 60 cards — full deck shuffled each session
   const [deck] = useState(() => shuffleArray(SWIPE_CARDS))
   const [currentIndex, setCurrentIndex] = useState(0)
   const [results, setResults] = useState<SwipeResult[]>([])
@@ -42,10 +44,12 @@ export function FlashSwipe({
   const saveSwipeBatch = useCallback(
     async (batch: SwipeResult[]) => {
       if (batch.length === 0) return
+      const token = useAuthStore.getState().token
+      if (!token) return // Don't send request if not authenticated
       try {
-        await fetch('/api/swipe', {
+        await authFetch('/api/swipe', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${useAuthStore.getState().token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ results: batch }),
         })
       } catch {
@@ -74,7 +78,11 @@ export function FlashSwipe({
       setShowConfidence(false)
 
       if ((newResults.length % 10 === 0) || currentIndex === deck.length - 1) {
-        saveSwipeBatch(newResults.slice(-10))
+        // Only save if authenticated — avoids 401 errors in production
+        const token = useAuthStore.getState().token
+        if (token) {
+          saveSwipeBatch(newResults.slice(-10))
+        }
       }
 
       setTimeout(() => {

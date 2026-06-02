@@ -85,11 +85,11 @@ export async function GET(request: NextRequest) {
         ],
         y,
       )
-      y = addSpacing(doc, 10, y)
+      addSpacing(doc, 10)
 
       // ── Kiviat Scores Table ──
-      y = checkNewPage(doc, 260, y)
-      y = addSectionHeader(doc, 'Résultats par dimension', y)
+      checkNewPage(doc, 260)
+      y = addSectionHeader(doc, 'Résultats par dimension')
 
       const scoreColumns: TableColumn[] = [
         { header: 'Dimension', width: 180, align: 'left' },
@@ -112,15 +112,15 @@ export async function GET(request: NextRequest) {
       })
 
       y = addTable(doc, scoreColumns, scoreRows, y)
-      y = addSpacing(doc, 10, y)
+      addSpacing(doc, 10)
 
       // ── Global Average ──
-      y = checkNewPage(doc, 100, y)
+      checkNewPage(doc, 100)
       const totalScore = kiviatResults.reduce((sum, k) => sum + k.score, 0)
       const avgScore = totalScore / kiviatResults.length
       const maxScore = kiviatResults[0]?.maxScore || 10
 
-      y = addSectionHeader(doc, 'Score global moyen', y)
+      y = addSectionHeader(doc, 'Score global moyen')
       y = addKeyValueBlock(
         doc,
         [
@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
         ],
         y,
       )
-      y = addSpacing(doc, 10, y)
+      addSpacing(doc, 10)
 
       // ── Strengths ──
       const strengths = kiviatResults
@@ -137,12 +137,12 @@ export async function GET(request: NextRequest) {
         .sort((a, b) => b.score - a.score)
 
       if (strengths.length > 0) {
-        y = checkNewPage(doc, 60 + strengths.length * 24, y)
-        y = addSectionHeader(doc, 'Points forts', y)
+        checkNewPage(doc, 60 + strengths.length * 24)
+        y = addSectionHeader(doc, 'Points forts')
         for (const s of strengths) {
           y = addBullet(doc, `${s.category} : ${s.score.toFixed(1)}/10`, y)
         }
-        y = addSpacing(doc, 10, y)
+        addSpacing(doc, 10)
       }
 
       // ── Areas to improve ──
@@ -151,17 +151,17 @@ export async function GET(request: NextRequest) {
         .sort((a, b) => a.score - b.score)
 
       if (improvements.length > 0) {
-        y = checkNewPage(doc, 60 + improvements.length * 24, y)
-        y = addSectionHeader(doc, 'Axes d\'amélioration', y)
+        checkNewPage(doc, 60 + improvements.length * 24)
+        y = addSectionHeader(doc, 'Axes d\'amélioration')
         for (const imp of improvements) {
           y = addBullet(doc, `${imp.category} : ${imp.score.toFixed(1)}/10 — à renforcer`, y)
         }
-        y = addSpacing(doc, 10, y)
+        addSpacing(doc, 10)
       }
 
       // ── Recommendations ──
-      y = checkNewPage(doc, 80, y)
-      y = addSectionHeader(doc, 'Recommandations', y)
+      checkNewPage(doc, 80)
+      y = addSectionHeader(doc, 'Recommandations')
       y = addSubSectionHeader(doc, 'Actions suggérées', y)
 
       if (improvements.length > 0) {

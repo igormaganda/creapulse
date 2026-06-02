@@ -7,8 +7,8 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
-import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
-import { verifyToken, AuthError } from '@/lib/auth'
+import { success, Errors, handleApiError } from '@/lib/api-response'
+import { withAuth } from '@/lib/api-auth'
 
 // ─── Validation schemas ────────────────────
 
@@ -32,10 +32,9 @@ async function getBeneficiaryByUserId(userId: string) {
 
 export async function GET(request: NextRequest) {
   try {
-    const token = getTokenFromHeader(request)
-    if (!token) throw new AuthError('Authentication required', 'UNAUTHORIZED', 401)
-
-    const payload = await verifyToken(token)
+    const auth = await withAuth(request)
+    if (!auth) return
+    const { payload } = auth
     const { searchParams } = new URL(request.url)
     const statusFilter = searchParams.get('status') as string | null
     const beneficiaryIdFilter = searchParams.get('beneficiaryId') as string | null
@@ -75,7 +74,6 @@ export async function GET(request: NextRequest) {
 
     return success(sessions)
   } catch (err) {
-    if (err instanceof AuthError) return Errors.unauthorized(err.message)
     return handleApiError(err)
   }
 }
@@ -84,10 +82,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const token = getTokenFromHeader(request)
-    if (!token) throw new AuthError('Authentication required', 'UNAUTHORIZED', 401)
-
-    const payload = await verifyToken(token)
+    const auth = await withAuth(request)
+    if (!auth) return
+    const { payload } = auth
     if (payload.role !== 'COUNSELOR' && payload.role !== 'ADMIN') {
       return Errors.forbidden('Seuls les conseillers peuvent créer des sessions CréaScope')
     }
@@ -139,7 +136,6 @@ export async function POST(request: NextRequest) {
 
     return success(session, 'Session CréaScope créée avec succès', 201)
   } catch (err) {
-    if (err instanceof AuthError) return Errors.unauthorized(err.message)
     return handleApiError(err)
   }
 }

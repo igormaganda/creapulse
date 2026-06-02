@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { useBureauStore } from './bureau-store'
+import { useBureauStore, type BureauSection } from './bureau-store'
 import { cn } from '@/lib/utils'
 import { NotificationsPanel } from './notifications-panel'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -70,16 +70,6 @@ interface TopBarProps {
 export function TopBar({ onMenuClick }: TopBarProps) {
   const { currentSection, currentModule, userName, userInitials, closeBureau } = useBureauStore()
   const [searchFocused, setSearchFocused] = useState(false)
-  const [loggingOut, setLoggingOut] = useState(false)
-
-  const handleLogout = async () => {
-    setLoggingOut(true)
-    try {
-      await fetch('/api/auth/me', { method: 'DELETE', credentials: 'include' })
-    } catch {}
-    closeBureau()
-    window.location.reload()
-  }
 
   /* Build breadcrumb from current state */
   const breadcrumbs = useMemo(() => {
@@ -132,7 +122,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
                       className="text-sm text-muted-foreground truncate max-w-[150px] cursor-pointer hover:text-foreground transition-colors"
                       onClick={() => {
                         if (crumb.section) {
-                          useBureauStore.getState().setSection(crumb.section as any)
+                          useBureauStore.getState().setSection(crumb.section as BureauSection)
                         }
                       }}
                     >
@@ -214,19 +204,11 @@ export function TopBar({ onMenuClick }: TopBarProps) {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              className="gap-2 cursor-pointer"
+              className="gap-2 cursor-pointer text-destructive focus:text-destructive"
               onClick={closeBureau}
             >
               <LogOut className="h-4 w-4" />
               Retour au site
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="gap-2 cursor-pointer text-destructive focus:text-destructive"
-              onClick={handleLogout}
-              disabled={loggingOut}
-            >
-              <LogOut className="h-4 w-4" />
-              {loggingOut ? 'Deconnexion...' : 'Se deconnecter'}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

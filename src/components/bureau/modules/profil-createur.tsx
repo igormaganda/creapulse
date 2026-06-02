@@ -38,8 +38,13 @@ import {
   Accessibility,
   Timer,
 } from 'lucide-react'
+import dynamic from 'next/dynamic'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { useAuthStore } from '@/lib/zustand/store'
+
+/* ─── Dynamic imports ─── */
+const FileUpload = dynamic(() => import('../file-upload').then(m => ({ default: m.FileUpload })), { ssr: false })
 
 // ────────────────────────────────────────────
 // Types
@@ -167,6 +172,7 @@ export function ProfilCreateur() {
   const [isUploading, setIsUploading] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const token = useAuthStore((s) => s.token)
 
   // ── Load data ──
   useEffect(() => {
@@ -189,7 +195,10 @@ export function ProfilCreateur() {
 
     async function fetchFromApi() {
       try {
+        const authHeaders: Record<string, string> = {}
+        if (token) authHeaders['Authorization'] = `Bearer ${token}`
         const res = await fetch('/api/profil', {
+          headers: authHeaders,
           credentials: 'include',
         })
         if (res.ok) {
@@ -246,7 +255,7 @@ export function ProfilCreateur() {
     setHasChanges(true)
   }, [])
 
-  // ── Save to API (cookie-based auth — session cookie sent automatically) ──
+  // ── Save to API ──
   const handleSave = async () => {
     setSaveStatus('saving')
     try {
@@ -254,6 +263,7 @@ export function ProfilCreateur() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         credentials: 'include',
         body: JSON.stringify(data),
@@ -816,16 +826,22 @@ export function ProfilCreateur() {
                     try {
                       const formData = new FormData()
                       formData.append('file', file)
+                      const uploadHeaders: Record<string, string> = {}
+                      if (token) uploadHeaders['Authorization'] = `Bearer ${token}`
                       const res = await fetch('/api/upload', {
                         method: 'POST',
+                        headers: uploadHeaders,
                         body: formData,
                         credentials: 'include',
                       })
                       if (res.ok) {
                         setCvFile({ name: file.name, size: file.size, uploadedAt: new Date().toLocaleString('fr-FR') })
                         toast.success('CV importé avec succès', { description: `${file.name} a été téléchargé.` })
+                      } else if (res.status === 401) {
+                        toast.error('Vous devez être connecté(e)', { description: 'Votre session a expiré. Reconnectez-vous.' })
                       } else {
-                        toast.error('Erreur lors de l\'import', { description: 'Impossible de télécharger le fichier.' })
+                        const errData = await res.json().catch(() => ({}))
+                        toast.error('Erreur lors de l\'import', { description: errData?.error?.message || 'Impossible de télécharger le fichier.' })
                       }
                     } catch {
                       toast.error('Erreur réseau', { description: 'Vérifiez votre connexion.' })
@@ -903,6 +919,28 @@ export function ProfilCreateur() {
                     </motion.div>
                   )}
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* General document upload (reusable FileUpload component) */}
+            <Card className="border-none shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Upload className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                  Mes documents
+                </CardTitle>
+                <CardDescription>
+                  Importez vos documents complémentaires (lettre de motivation, diplômes, Kbis, etc.)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <FileUpload
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp"
+                  maxSize={10 * 1024 * 1024}
+                  maxFiles={5}
+                  label=""
+                  description=""
+                />
               </CardContent>
             </Card>
 

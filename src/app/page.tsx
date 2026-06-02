@@ -56,6 +56,8 @@ import { ThemeToggle, ThemeToggleMobile } from '@/components/theme-toggle'
 /* ─── Bureau Virtuel (lazy loaded to avoid circular init issues) ─── */
 const BureauLayout = dynamic(() => import('@/components/bureau/bureau-layout').then(m => ({ default: m.BureauLayout })), { ssr: false })
 import { useBureauStore } from '@/components/bureau/bureau-store'
+import { useAuthStore } from '@/lib/zustand/store'
+import { useSessionRestore } from '@/lib/hooks/use-session-restore'
 
 /* ─── Admin Plateforme (lazy loaded) ─── */
 const AdminPlateformeLayout = dynamic(() => import('@/components/admin-plateforme/admin-plateforme-layout').then(m => ({ default: m.AdminPlateformeLayout })), { ssr: false })
@@ -63,7 +65,6 @@ import { useAdminPlateformeStore } from '@/components/admin-plateforme/admin-pla
 
 /* ─── Admin Centre (lazy loaded) ─── */
 const AdminCentreLayout = dynamic(() => import('@/components/admin-centre/admin-centre-layout').then(m => ({ default: m.AdminCentreLayout })), { ssr: false })
-import { useAdminCentreStore } from '@/components/admin-centre/admin-centre-store'
 
 /* ─── Conseiller (lazy loaded) ─── */
 const ConseillerLayout = dynamic(() => import('@/components/conseiller/conseiller-layout').then(m => ({ default: m.ConseillerLayout })), { ssr: false })
@@ -104,52 +105,48 @@ function Navbar({
   const [authUser, setAuthUser] = useState<AuthUser>(null)
   const { openBureau, setUserName } = useBureauStore()
   const { openAdminPlateforme } = useAdminPlateformeStore()
-  const { openConseiller, setConseillerName } = useConseillerStore()
-  const { openAdminCentre } = useAdminCentreStore()
+  const { openConseiller } = useConseillerStore()
 
   const handleLoginSuccess = (user: { firstName: string; lastName: string; email: string; role?: string }) => {
     setAuthUser(user)
     const fullName = `${user.firstName} ${user.lastName}`
-    setUserName(fullName)
-    const role = user.role?.toUpperCase()
+    const role = user.role || useAuthStore.getState().user?.role || 'BENEFICIARY'
+
     if (role === 'COUNSELOR') {
-      setConseillerName(fullName)
-      openConseiller()
+      // Conseiller → open ConseillerLayout
+      useConseillerStore.getState().setConseillerName(fullName)
+      useConseillerStore.getState().openConseiller()
     } else if (role === 'ADMIN') {
-      openAdminPlateforme()
+      // Admin → open AdminPlateformeLayout
+      useAdminPlateformeStore.getState().openAdminPlateforme()
     } else {
+      // Beneficiary / default → open BureauLayout
+      setUserName(fullName)
       openBureau()
     }
   }
 
-  const handleRegisterSuccess = (user: { firstName: string; lastName: string; email: string; role?: string }) => {
+  const handleRegisterSuccess = (user: { firstName: string; lastName: string; email: string }) => {
     setAuthUser(user)
     const fullName = `${user.firstName} ${user.lastName}`
     setUserName(fullName)
-    const role = user.role?.toUpperCase()
-    if (role === 'COUNSELOR') {
-      setConseillerName(fullName)
-      openConseiller()
-    } else {
-      openBureau()
-    }
+    openBureau()
   }
 
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/me', { method: 'DELETE', credentials: 'include' })
     } catch {}
+    // Clear the Zustand auth store so stale tokens don't persist in localStorage
+    useAuthStore.getState().logout()
     setAuthUser(null)
     useBureauStore.getState().closeBureau()
-    useConseillerStore.getState().closeConseiller()
-    useAdminPlateformeStore.getState().closeAdminPlateforme()
-    useAdminCentreStore.getState().closeAdminCentre()
   }
 
   const navLinks = [
     { label: 'Parcours', href: '#parcours' },
     { label: 'Outils', href: '#outils' },
-    { label: 'Actualités', href: '#actualites' },
+    { label: 'Actualités', href: '/actualites' },
   ]
 
   return (
@@ -159,12 +156,12 @@ function Navbar({
           {/* Logo */}
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1">
-              <Zap className="h-6 w-6 text-primary" />
+              <img src="/images/logo-creapulse.svg" alt="CreaPulse" className="h-7 w-7" />
               <span className="text-xl font-bold text-primary">CreaPulse</span>
             </div>
             {/* GIDEF Logo */}
             <img
-              src="https://www.gidef.org/wp-content/uploads/2019/12/logo-gidef-couleur.svg"
+              src="/images/logo-gidef.svg"
               alt="GIDEF Île-de-France"
               className="hidden h-7 sm:block"
             />
@@ -181,18 +178,24 @@ function Navbar({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="center" className="w-52">
-                <DropdownMenuItem className="gap-2 cursor-pointer">
-                  <Lightbulb className="h-4 w-4 text-amber-500" />
-                  Je découvre une idée
+                <DropdownMenuItem className="gap-2 cursor-pointer" asChild>
+                  <Link href="/besoin/decouvrir-idee">
+                    <Lightbulb className="h-4 w-4 text-amber-500" />
+                    Je découvre une idée
+                  </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2 cursor-pointer">
-                  <Rocket className="h-4 w-4 text-primary" />
-                  Je crée mon entreprise
+                <DropdownMenuItem className="gap-2 cursor-pointer" asChild>
+                  <Link href="/besoin/creer-entreprise">
+                    <Rocket className="h-4 w-4 text-primary" />
+                    Je crée mon entreprise
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="gap-2 cursor-pointer">
-                  <TrendingUp className="h-4 w-4 text-coral-500" />
-                  Je développe mon activité
+                <DropdownMenuItem className="gap-2 cursor-pointer" asChild>
+                  <Link href="/besoin/developper-activite">
+                    <TrendingUp className="h-4 w-4 text-coral-500" />
+                    Je développe mon activité
+                  </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -320,13 +323,13 @@ function Navbar({
             <SheetContent side="right" className="w-80" id="mobile-nav-menu">
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-primary" />
+                  <img src="/images/logo-creapulse.svg" alt="CreaPulse" className="h-5 w-5" />
                   CreaPulse
                 </SheetTitle>
                 <SheetDescription>
                   <span className="flex items-center gap-2">
                     <img
-                      src="https://www.gidef.org/wp-content/uploads/2019/12/logo-gidef-couleur.svg"
+                      src="/images/logo-gidef.svg"
                       alt="GIDEF"
                       className="h-5"
                     />
@@ -334,24 +337,24 @@ function Navbar({
                 </SheetDescription>
               </SheetHeader>
               <nav className="flex flex-col gap-1 px-4 pt-2">
-                <a href="#besoin" onClick={() => setMobileOpen(false)}>
+                <Link href="/besoin/decouvrir-idee" onClick={() => setMobileOpen(false)}>
                   <Button variant="ghost" className="w-full justify-start gap-2">
                     <Lightbulb className="h-4 w-4 text-amber-500" />
                     Je découvre une idée
                   </Button>
-                </a>
-                <a href="#besoin" onClick={() => setMobileOpen(false)}>
+                </Link>
+                <Link href="/besoin/creer-entreprise" onClick={() => setMobileOpen(false)}>
                   <Button variant="ghost" className="w-full justify-start gap-2">
                     <Rocket className="h-4 w-4 text-primary" />
                     Je crée mon entreprise
                   </Button>
-                </a>
-                <a href="#besoin" onClick={() => setMobileOpen(false)}>
+                </Link>
+                <Link href="/besoin/developper-activite" onClick={() => setMobileOpen(false)}>
                   <Button variant="ghost" className="w-full justify-start gap-2">
                     <TrendingUp className="h-4 w-4 text-coral-500" />
                     Je développe mon activité
                   </Button>
-                </a>
+                </Link>
                 <a href="#reseau" onClick={() => setMobileOpen(false)}>
                   <Button variant="ghost" className="w-full justify-start gap-2">
                     <MapPin className="h-4 w-4 text-primary" />
@@ -471,6 +474,9 @@ function Navbar({
 export default function Home() {
   const [registerOpen, setRegisterOpen] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
+
+  // Validate persisted auth token on mount — clears stale tokens that cause 401s
+  useSessionRestore()
 
   return (
     <div className="flex min-h-screen flex-col">

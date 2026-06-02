@@ -5,6 +5,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useAuthStore } from '@/lib/zustand/store'
 
 interface UseApiDataOptions<T> {
   /** The URL to fetch from */
@@ -31,6 +32,7 @@ interface UseApiDataResult<T> {
 /**
  * Generic hook to fetch data from API endpoints with graceful fallback.
  * Shows loading state, handles errors, and falls back to mock data.
+ * Uses the auth store token (not a separate localStorage key) for authentication.
  */
 export function useApiData<T>(options: UseApiDataOptions<T>): UseApiDataResult<T> {
   const {
@@ -65,17 +67,15 @@ export function useApiData<T>(options: UseApiDataOptions<T>): UseApiDataResult<T
         setLoading(true)
         setError(null)
 
-        const token =
-          typeof window !== 'undefined'
-            ? localStorage.getItem('creapulse-token')
-            : null
+        // Use the centralized auth store token (same as flash-swipe, creascope, etc.)
+        const token = useAuthStore.getState().token
 
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
         }
         if (token) headers['Authorization'] = `Bearer ${token}`
 
-        const res = await fetch(url, { headers })
+        const res = await fetch(url, { headers, credentials: 'include' })
 
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`)

@@ -11,6 +11,7 @@ import {
 import { toast } from 'sonner'
 import { KIVIAT_DIMENSIONS } from '@/data/swipe-cards'
 import { useAuthStore } from '@/lib/zustand/store'
+import { authFetch } from '@/lib/auth-fetch'
 import {
   computeSwipeScores, computeQuestionScores, computeCombinedKiviat,
   type SwipeResult, type QuestionAnswer,
@@ -94,25 +95,23 @@ export function ScoreSummary({
     setIsSaving(true)
     try {
       const token = useAuthStore.getState().token
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+      if (!token) {
+        toast.error('Vous devez être connecté(e) pour sauvegarder')
+        return
       }
 
       if (swipeResults.length > 0) {
-        await fetch('/api/swipe', { method: 'POST', headers, body: JSON.stringify({ results: swipeResults }) })
+        await authFetch('/api/swipe', { method: 'POST', body: JSON.stringify({ results: swipeResults }) })
       }
       if (questionAnswers.length > 0) {
-        await fetch('/api/swipe/questions', {
+        await authFetch('/api/swipe/questions', {
           method: 'POST',
-          headers,
           body: JSON.stringify({ answers: questionAnswers }),
         })
       }
       if (scenarioAnswers.length > 0) {
-        await fetch('/api/swipe/questions', {
+        await authFetch('/api/swipe/questions', {
           method: 'POST',
-          headers,
           body: JSON.stringify({ answers: scenarioAnswers }),
         })
       }

@@ -62,8 +62,8 @@ Génère un JSON avec:
   "approach": "Méthode de présentation des résultats"
 }`,
 
-  QUESTIONNAIRE: `Le bénéficiaire va passer le Questionnaire Approfondi — 50 questions adaptatives.
-Cette étape dure 15-20 minutes et affine le profil entrepreneurial.
+  QUESTIONNAIRE: `Le bénéficiaire va passer le Questionnaire Approfondi — 15 questions adaptatives.
+Cette étape dure 10-15 minutes et affine le profil entrepreneurial.
 
 Génère un JSON avec:
 {

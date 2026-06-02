@@ -17,9 +17,9 @@ import {
   TrendingUp,
   BarChart3,
   LayoutGrid,
-  BookOpen,
   Download,
   FileDown,
+  BookOpen,
 } from 'lucide-react'
 import { fadeInUp, staggerContainer, scaleIn } from './landing-shared'
 
@@ -32,6 +32,7 @@ interface DemoPDF {
   description: string
   icon: LucideIcon
   format: 'PDF' | 'HTML'
+  featured?: boolean
 }
 
 /* ─── Data ─── */
@@ -80,9 +81,10 @@ const DEMO_PDFS: DemoPDF[] = [
     type: 'business-plan',
     title: 'Business Plan Complet',
     description:
-      "Plan d'affaires structuré : 22 chapitres couvrant stratégie, marché, finance, juridique, opérationnel et prévisionnel.",
+      'Document complet de 22 parties : résumé, équipe, étude de marché, stratégie, finances, SWOT, rétroplanning.',
     icon: BookOpen,
     format: 'PDF',
+    featured: true,
   },
 ]
 
@@ -121,6 +123,39 @@ export function PDFShowcaseSection() {
           variants={staggerContainer}
           className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
         >
+          {/* ── Featured: Business Plan Complet ── */}
+          <motion.div variants={scaleIn} className="sm:col-span-2">
+            <Card className="group flex h-full flex-col overflow-hidden border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-transparent transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/50">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/15">
+                    <BookOpen className="h-6 w-6 text-primary" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-primary text-[10px] uppercase tracking-wider">PDF</Badge>
+                    <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/40 text-[10px] uppercase tracking-wider">22 parties</Badge>
+                  </div>
+                </div>
+                <CardTitle className="mt-3 text-xl">Business Plan Complet</CardTitle>
+                <CardDescription className="leading-relaxed">
+                  Document intégral de 22 parties : résumé opérationnel, équipe fondatrice, étude de marché,
+                  segmentation clientèle, concurrence, stratégie marketing, plan commercial, politique de prix,
+                  plan de financement, compte de résultat prévisionnel, trésorerie, seuil de rentabilité,
+                  investissements, analyse SWOT, statut juridique, organisation, communication et rétroplanning.
+                </CardDescription>
+              </CardHeader>
+              <CardFooter className="mt-auto pt-0">
+                <Button asChild size="sm" className="w-full gap-2">
+                  <a href="/api/export/demo/business-plan" target="_blank" rel="noopener noreferrer">
+                    <Download className="h-4 w-4" />
+                    Télécharger le Business Plan Complet
+                  </a>
+                </Button>
+              </CardFooter>
+            </Card>
+          </motion.div>
+
+          {/* ── Other demo PDFs ── */}
           {DEMO_PDFS.map((pdf) => (
             <motion.div key={pdf.type} variants={scaleIn}>
               <Card className="group flex h-full flex-col overflow-hidden border transition-all duration-300 hover:shadow-xl hover:-translate-y-1">

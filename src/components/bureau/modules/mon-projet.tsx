@@ -39,6 +39,7 @@ import {
   TrendingUp,
   Heart,
   Award,
+  Sparkles,
 } from 'lucide-react'
 import { useAuthStore } from '@/lib/zustand/store'
 
@@ -506,6 +507,49 @@ function StepMarche({ data, errors, onChange }: {
   errors: StepErrors
   onChange: <K extends keyof ProjectFormData>(field: K, value: ProjectFormData[K]) => void
 }) {
+  const token = useAuthStore((s) => s.token)
+
+  const [suggestions, setSuggestions] = useState<{
+    clients: string[]
+    problems: string[]
+    advantages: string[]
+  }>({ clients: [], problems: [], advantages: [] })
+
+  // Fetch AI suggestions when sector changes
+  useEffect(() => {
+    let cancelled = false
+    if (data.projectSector) {
+      fetch('/api/ai/suggestions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: 'include',
+        body: JSON.stringify({ sector: data.projectSector, activity: data.projectTitle, useAI: true }),
+      })
+        .then((r) => r.json())
+        .then((json) => {
+          if (!cancelled && json.success && json.data) setSuggestions(json.data)
+        })
+        .catch(() => {})
+    }
+    return () => { cancelled = true }
+  }, [data.projectSector, data.projectTitle, token])
+
+  // Handler: replace value for single-line, append for multi-line
+  const applySuggestion = (
+    field: 'primaryTarget' | 'problemSolved' | 'competitiveAdvantage',
+    value: string,
+  ) => {
+    if (field === 'primaryTarget') {
+      onChange(field, value)
+    } else {
+      const current = data[field]
+      onChange(field, current.trim() ? `${current.trim()}\n${value}` : value)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -535,6 +579,27 @@ function StepMarche({ data, errors, onChange }: {
           />
           {errors.primaryTarget && (
             <p className="text-xs text-red-500">{errors.primaryTarget}</p>
+          )}
+          {/* AI Suggestion chips — clients */}
+          {suggestions.clients.length > 0 && (
+            <div className="mt-1">
+              <p className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1">
+                <Sparkles className="h-3 w-3 text-primary" />
+                Suggestions IA
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {suggestions.clients.map((s, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className="inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-2.5 py-0.5 text-[11px] text-primary hover:bg-primary/10 transition-colors"
+                    onClick={() => applySuggestion('primaryTarget', s)}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
           <p className="text-xs text-muted-foreground">Qui sont vos principaux clients ?</p>
         </div>
@@ -571,6 +636,27 @@ function StepMarche({ data, errors, onChange }: {
         {errors.problemSolved && (
           <p className="text-xs text-red-500">{errors.problemSolved}</p>
         )}
+        {/* AI Suggestion chips — problems */}
+        {suggestions.problems.length > 0 && (
+          <div className="mt-1">
+            <p className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1">
+              <Sparkles className="h-3 w-3 text-primary" />
+              Suggestions IA
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {suggestions.problems.map((s, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className="inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-2.5 py-0.5 text-[11px] text-primary hover:bg-primary/10 transition-colors"
+                  onClick={() => applySuggestion('problemSolved', s)}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Avantage concurrentiel */}
@@ -587,6 +673,27 @@ function StepMarche({ data, errors, onChange }: {
           onChange={(e) => onChange('competitiveAdvantage', e.target.value)}
           className="resize-none"
         />
+        {/* AI Suggestion chips — advantages */}
+        {suggestions.advantages.length > 0 && (
+          <div className="mt-1">
+            <p className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1">
+              <Sparkles className="h-3 w-3 text-primary" />
+              Suggestions IA
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {suggestions.advantages.map((s, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className="inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-2.5 py-0.5 text-[11px] text-primary hover:bg-primary/10 transition-colors"
+                  onClick={() => applySuggestion('competitiveAdvantage', s)}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Taille du marché */}
@@ -1089,7 +1196,8 @@ export function MonProjet() {
     if (!token) return
     try {
       const res = await fetch('/api/projet', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        credentials: 'include',
       })
       if (res.ok) {
         const json = await res.json()
@@ -1179,6 +1287,10 @@ export function MonProjet() {
   }, [])
 
   const handleSave = useCallback(async () => {
+    if (!token) {
+      toast.error('Vous devez être connecté(e)', { description: 'Session non trouvée. Reconnectez-vous.' })
+      return
+    }
     setIsSaving(true)
     try {
       const payload = {
@@ -1212,6 +1324,7 @@ export function MonProjet() {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        credentials: 'include',
         body: JSON.stringify(payload),
       })
 
@@ -1229,9 +1342,17 @@ export function MonProjet() {
             description: json.error?.message || 'Veuillez réessayer.',
           })
         }
+      } else if (res.status === 401) {
+        toast.error('Vous devez être connecté(e) pour sauvegarder', {
+          description: 'Votre session a expiré. Veuillez vous reconnecter.',
+        })
       } else {
+        const text = await res.text().catch(() => '')
+        console.error('[MonProjet Save] Error:', res.status, text)
+        let json = null
+        try { json = JSON.parse(text) } catch {}
         toast.error('Erreur serveur', {
-          description: 'Impossible de sauvegarder le projet.',
+          description: json?.error?.message || `Erreur ${res.status}. Veuillez réessayer.`,
         })
       }
     } catch {
