@@ -45,10 +45,11 @@ const DeleteObjectiveBody = z.object({
 
 // ─── Helpers ───────────────────────────────
 
-async function getUserActiveProgram(userId: string) {
+async function getUserActiveProgram(userId: string, tenantId: string) {
   return db.paaProgram.findFirst({
     where: {
       userId,
+      tenantId,
       status: { in: ['ACTIVE', 'COMPLETED'] },
     },
     select: { id: true },
@@ -64,7 +65,7 @@ export async function GET(request: NextRequest) {
     if (!auth) return Errors.unauthorized()
     const { payload } = auth
 
-    const program = await getUserActiveProgram(payload.userId)
+    const program = await getUserActiveProgram(payload.userId, payload.tenantId)
     if (!program) {
       return Errors.notFound('Programme PAA')
     }
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const data = CreateObjectiveBody.parse(body)
 
-    const program = await getUserActiveProgram(payload.userId)
+    const program = await getUserActiveProgram(payload.userId, payload.tenantId)
     if (!program) {
       return Errors.notFound('Programme PAA')
     }
@@ -135,7 +136,7 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json()
     const { id, ...updates } = UpdateObjectiveBody.parse(body)
 
-    const program = await getUserActiveProgram(payload.userId)
+    const program = await getUserActiveProgram(payload.userId, payload.tenantId)
     if (!program) {
       return Errors.notFound('Programme PAA')
     }
@@ -193,7 +194,7 @@ export async function DELETE(request: NextRequest) {
     const body = await request.json()
     const { id } = DeleteObjectiveBody.parse(body)
 
-    const program = await getUserActiveProgram(payload.userId)
+    const program = await getUserActiveProgram(payload.userId, payload.tenantId)
     if (!program) {
       return Errors.notFound('Programme PAA')
     }

@@ -19,6 +19,9 @@ const PAA_MODULE_CODES = [
   'gestion-temps',
   'gestion-crise',
   'cloture-rebond',
+  'marketing-commerciale',
+  'mind-map',
+  'satisfaction-feedback',
 ] as const
 
 type PaaModuleCode = (typeof PAA_MODULE_CODES)[number]
@@ -69,6 +72,9 @@ const DEFAULT_PAA_MODULES: Record<PaaModuleCode, boolean> = {
   'gestion-temps': true,
   'gestion-crise': true,
   'cloture-rebond': true,
+  'marketing-commerciale': true,
+  'mind-map': true,
+  'satisfaction-feedback': true,
 }
 
 /* ─── Store ─── */

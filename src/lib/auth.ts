@@ -1,11 +1,13 @@
 // ============================================
 // CreaPulse V2 — Authentication Utilities (Server-side)
 // Uses jose for JWT (edge-compatible) + bcryptjs for password hashing
+// Supports access tokens (7d) + refresh tokens (30d) with JTI blocklist
 // ============================================
 
 import { SignJWT, jwtVerify } from 'jose'
 import bcrypt from 'bcryptjs'
 import type { UserRole } from '@prisma/client'
+import { isRevoked, revokeToken as addToBlocklist } from './token-blocklist'
 
 // ─── Configuration ──────────────────────────
 
@@ -26,13 +28,17 @@ export type JwtPayload = {
   tenantId: string
   email: string
   role: UserRole
+  jti?: string
+  type?: 'access' | 'refresh'
   iat?: number
   exp?: number
 }
 
 export type AuthTokens = {
   accessToken: string
+  refreshToken: string
   expiresIn: number
+  refreshExpiresIn: number
   user: {
     id: string
     email: string
@@ -56,11 +62,12 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 // ─── JWT Token Management ───────────────────
 
 /**
- * Create an access token (signed JWT)
+ * Create an access token (signed JWT) with JTI for revocation support
  */
-export async function createAccessToken(payload: Omit<JwtPayload, 'iat' | 'exp'>): Promise<string> {
+export async function createAccessToken(payload: Omit<JwtPayload, 'iat' | 'exp' | 'jti' | 'type'>): Promise<string> {
   const secretKey = await getSigningKey()
-  return new SignJWT(payload as unknown as JWTPayloadSpec)
+  const jti = crypto.randomUUID()
+  return new SignJWT({ ...payload, jti, type: 'access' } as unknown as JWTPayloadSpec)
     .setProtectedHeader({ alg: JWT_ALGORITHM })
     .setIssuedAt()
     .setExpirationTime(ACCESS_TOKEN_EXPIRY)
@@ -68,7 +75,33 @@ export async function createAccessToken(payload: Omit<JwtPayload, 'iat' | 'exp'>
 }
 
 /**
- * Verify and decode a JWT token
+ * Create a refresh token (signed JWT, 30-day expiry)
+ * Includes type: 'refresh' to distinguish from access tokens.
+ */
+export async function createRefreshToken(payload: Omit<JwtPayload, 'iat' | 'exp' | 'jti' | 'type'>): Promise<string> {
+  const secretKey = await getSigningKey()
+  const jti = crypto.randomUUID()
+  return new SignJWT({ ...payload, jti, type: 'refresh' } as unknown as JWTPayloadSpec)
+    .setProtectedHeader({ alg: JWT_ALGORITHM })
+    .setIssuedAt()
+    .setExpirationTime(REFRESH_TOKEN_EXPIRY)
+    .sign(secretKey)
+}
+
+/**
+ * Verify a refresh token — checks type is 'refresh' and blocklist.
+ */
+export async function verifyRefreshToken(token: string): Promise<JwtPayload> {
+  const payload = await verifyToken(token)
+  if (payload.type !== 'refresh') {
+    throw new AuthError('Invalid refresh token', 'INVALID_TOKEN')
+  }
+  return payload
+}
+
+/**
+ * Verify and decode a JWT token.
+ * Checks blocklist for revoked JTIs.
  */
 export async function verifyToken(token: string): Promise<JwtPayload> {
   const secretKey = await getSigningKey()
@@ -76,21 +109,39 @@ export async function verifyToken(token: string): Promise<JwtPayload> {
     const { payload } = await jwtVerify(token, secretKey, {
       algorithms: [JWT_ALGORITHM],
     })
+
+    const jti = payload.jti as string | undefined
+
+    // Check blocklist if JTI is present
+    if (jti && isRevoked(jti)) {
+      throw new AuthError('Token has been revoked', 'TOKEN_REVOKED')
+    }
+
     return {
       userId: payload.userId as string,
       tenantId: payload.tenantId as string,
       email: payload.email as string,
       role: payload.role as UserRole,
+      jti,
+      type: payload.type as 'access' | 'refresh' | undefined,
       iat: payload.iat,
       exp: payload.exp,
     }
-  } catch {
+  } catch (err) {
+    if (err instanceof AuthError) throw err
     throw new AuthError('Invalid or expired token', 'TOKEN_EXPIRED')
   }
 }
 
 /**
- * Generate a complete auth response (token + user data)
+ * Revoke a token by adding its JTI to the blocklist.
+ */
+export function revokeAccessToken(jti: string, exp: number): void {
+  addToBlocklist(jti, exp)
+}
+
+/**
+ * Generate a complete auth response (access token + refresh token + user data)
  */
 export async function generateAuthResponse(userData: {
   id: string
@@ -101,19 +152,30 @@ export async function generateAuthResponse(userData: {
   role: UserRole
   avatarUrl: string | null
 }): Promise<AuthTokens> {
-  const token = await createAccessToken({
-    userId: userData.id,
-    tenantId: userData.tenantId,
-    email: userData.email,
-    role: userData.role,
-  })
+  const [accessToken, refreshToken] = await Promise.all([
+    createAccessToken({
+      userId: userData.id,
+      tenantId: userData.tenantId,
+      email: userData.email,
+      role: userData.role,
+    }),
+    createRefreshToken({
+      userId: userData.id,
+      tenantId: userData.tenantId,
+      email: userData.email,
+      role: userData.role,
+    }),
+  ])
 
-  // Calculate expiry in seconds (7 days)
+  // Calculate expiry in seconds (7 days for access, 30 days for refresh)
   const expiresIn = 7 * 24 * 60 * 60
+  const refreshExpiresIn = 30 * 24 * 60 * 60
 
   return {
-    accessToken: token,
+    accessToken,
+    refreshToken,
     expiresIn,
+    refreshExpiresIn,
     user: {
       id: userData.id,
       email: userData.email,
@@ -135,10 +197,10 @@ export function createSessionCookie(token: string): string {
 }
 
 /**
- * Create a clear-session cookie header value
+ * Create a clear-session cookie header value (clears both session and refresh)
  */
 export function createClearSessionCookie(): string {
-  return 'session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0'
+  return 'session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0, refresh=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0'
 }
 
 // ─── Role-Based Access Control ──────────────
@@ -198,6 +260,8 @@ interface JWTPayloadSpec {
   tenantId: string
   email: string
   role: UserRole
+  jti?: string
+  type?: 'access' | 'refresh'
   iat?: number
   exp?: number
 }

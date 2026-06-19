@@ -41,7 +41,7 @@ function addDays(date: Date, days: number): Date {
   return result
 }
 
-async function createProgramWithMilestones(userId: string, tenantId: string | null) {
+async function createProgramWithMilestones(userId: string, tenantId: string) {
   const now = new Date()
   const plannedEndAt = addDays(now, 60)
 
@@ -85,6 +85,7 @@ export async function GET(request: NextRequest) {
     let program = await db.paaProgram.findFirst({
       where: {
         userId: payload.userId,
+        tenantId: payload.tenantId,
         status: { in: ['ACTIVE', 'COMPLETED'] },
       },
       include: {
@@ -99,7 +100,7 @@ export async function GET(request: NextRequest) {
     if (!program) {
       program = await createProgramWithMilestones(
         payload.userId,
-        (payload as Record<string, unknown>).tenantId as string | null,
+        payload.tenantId,
       )
       // Re-fetch with includes
       program = await db.paaProgram.findUniqueOrThrow({
@@ -142,6 +143,7 @@ export async function POST(request: NextRequest) {
     const existing = await db.paaProgram.findFirst({
       where: {
         userId,
+        tenantId: payload.tenantId,
         status: 'ACTIVE',
       },
     })
@@ -155,7 +157,7 @@ export async function POST(request: NextRequest) {
 
     const program = await createProgramWithMilestones(
       userId,
-      (payload as Record<string, unknown>).tenantId as string | null,
+      payload.tenantId,
     )
 
     // Fetch with includes
@@ -185,6 +187,7 @@ export async function PATCH(request: NextRequest) {
     const program = await db.paaProgram.findFirst({
       where: {
         userId: payload.userId,
+        tenantId: payload.tenantId,
         status: 'ACTIVE',
       },
     })

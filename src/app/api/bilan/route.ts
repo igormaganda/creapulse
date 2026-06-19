@@ -98,7 +98,7 @@ interface BilanAIGenerated {
 
 // ─── Helper: Build parcours data (resilient) ──
 
-async function collectParcoursData(userId: string): Promise<ParcoursData> {
+async function collectParcoursData(userId: string, tenantId: string): Promise<ParcoursData> {
   // Fetch all data using safe queries — individual failures won't crash the whole thing
   // Each query is wrapped in try/catch so partial data is always returned
   let user: Awaited<ReturnType<typeof db.user.findUnique>> = null
@@ -112,7 +112,7 @@ async function collectParcoursData(userId: string): Promise<ParcoursData> {
   let visionModuleResult: Awaited<ReturnType<typeof db.moduleResult.findUnique>> = null
 
   await Promise.allSettled([
-    db.user.findUnique({ where: { id: userId } }).then(r => { user = r }).catch(() => {}),
+    db.user.findUnique({ where: { id: userId, tenantId: payload.tenantId } }).then(r => { user = r }).catch(() => {}),
     db.beneficiary.findUnique({ where: { userId } }).then(r => { beneficiary = r }).catch(() => {}),
     db.creatorJourney.findUnique({ where: { userId } }).then(r => { journey = r }).catch(() => {}),
     db.riasecResult.findMany({ where: { userId }, orderBy: { profileType: 'asc' } }).then(r => { riasecResults = r }).catch(() => {}),
@@ -439,7 +439,7 @@ export async function GET(request: NextRequest) {
     const { payload } = authResult
 
     // Collect parcours data (resilient — individual query failures won't crash)
-    const parcoursData = await collectParcoursData(payload.userId)
+    const parcoursData = await collectParcoursData(payload.userId, payload.tenantId)
 
     // Check if a bilan already exists in ModuleResult
     let existingBilan: Awaited<ReturnType<typeof db.moduleResult.findUnique>> = null
@@ -517,7 +517,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Collect parcours data (resilient)
-    const parcoursData = await collectParcoursData(payload.userId)
+    const parcoursData = await collectParcoursData(payload.userId, payload.tenantId)
 
     // Check minimum data available
     const hasSomeData =

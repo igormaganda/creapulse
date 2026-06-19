@@ -12,6 +12,9 @@ type Role = 'ADMIN' | 'COUNSELOR' | 'BENEFICIARY'
 export interface AuthResult {
   payload: JwtPayload
   request: NextRequest
+  userId: string
+  tenantId: string
+  role: string
 }
 
 interface WithAuthOptions {
@@ -57,5 +60,5 @@ export async function withAuth(
     }
   }
 
-  return { payload, request }
+  return { payload, request, userId: payload.userId, tenantId: payload.tenantId, role: payload.role }
 }

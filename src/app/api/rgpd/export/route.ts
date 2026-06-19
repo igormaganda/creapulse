@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     })
 
     try {
-      // Récupérer toutes les données de l'utilisateur
+      // Récupérer toutes les données de l'utilisateur en parallèle
       const [
         beneficiary,
         counselor,
@@ -92,7 +92,6 @@ export async function POST(request: NextRequest) {
         moduleResults,
         swipeResults,
         swipeAnswers,
-        creascopeSessions,
         financialForecast,
         creasimSimulation,
         juridiqueAnalysis,
@@ -106,6 +105,12 @@ export async function POST(request: NextRequest) {
         registrations,
         messages,
         notifications,
+        livrables,
+        cvUploads,
+        userFiles,
+        // PAA data
+        paaProgramsWithDetails,
+        satisfactionFeedbacks,
       ] = await Promise.all([
         db.beneficiary.findUnique({
           where: { userId },
@@ -149,25 +154,6 @@ export async function POST(request: NextRequest) {
         db.swipeAnswer.findMany({
           where: { userId },
         }),
-        // @ts-expect-error -- CreascopeSession may exist on beneficiary
-        db.creascopeSession.findMany({
-          where: {
-            OR: [
-              { beneficiaryId: user.id },
-              { counselorId: user.id },
-            ],
-          },
-          select: {
-            id: true,
-            status: true,
-            currentStep: true,
-            scheduledAt: true,
-            startedAt: true,
-            completedAt: true,
-            globalScore: true,
-            createdAt: true,
-          },
-        }).catch(() => []),
         db.financialForecast.findUnique({
           where: { userId },
         }),
@@ -214,6 +200,7 @@ export async function POST(request: NextRequest) {
             content: true,
             isRead: true,
             createdAt: true,
+            conversationId: true,
           },
         }),
         db.notification.findMany({
@@ -227,7 +214,129 @@ export async function POST(request: NextRequest) {
             createdAt: true,
           },
         }),
+        db.livrable.findMany({
+          where: { userId },
+          select: {
+            id: true,
+            type: true,
+            title: true,
+            status: true,
+            generatedAt: true,
+            createdAt: true,
+          },
+        }),
+        db.cvUpload.findMany({
+          where: { userId },
+          select: {
+            id: true,
+            fileName: true,
+            createdAt: true,
+          },
+        }),
+        db.userFile.findMany({
+          where: { userId },
+          select: {
+            id: true,
+            fileName: true,
+            mimeType: true,
+            fileSize: true,
+            category: true,
+            createdAt: true,
+          },
+        }),
+        // PAA program data with nested relations
+        db.paaProgram.findMany({
+          where: { userId },
+          include: {
+            milestones: {
+              select: {
+                id: true,
+                type: true,
+                label: true,
+                plannedDate: true,
+                completedAt: true,
+                status: true,
+                notes: true,
+              },
+            },
+            ateliers: {
+              select: {
+                id: true,
+                atelierCode: true,
+                atelierName: true,
+                completedAt: true,
+                status: true,
+                feedback: true,
+              },
+            },
+            objectives: {
+              select: {
+                id: true,
+                title: true,
+                description: true,
+                specific: true,
+                measurable: true,
+                achievable: true,
+                relevant: true,
+                timeBound: true,
+                progress: true,
+                status: true,
+                completedAt: true,
+              },
+            },
+          },
+        }),
+        db.satisfactionFeedback.findMany({
+          where: { userId },
+          select: {
+            id: true,
+            type: true,
+            rating: true,
+            comment: true,
+            nps: true,
+            createdAt: true,
+          },
+        }),
       ])
+
+      // Récupérer les sessions CréaScope liées au profil
+      const creascopeSessions = await db.creascopeSession.findMany({
+        where: {
+          OR: [
+            { beneficiaryId: user.id },
+            { counselorId: user.id },
+          ],
+        },
+        select: {
+          id: true,
+          status: true,
+          currentStep: true,
+          scheduledAt: true,
+          startedAt: true,
+          completedAt: true,
+          globalScore: true,
+          createdAt: true,
+        },
+      }).catch(() => [])
+
+      // Récupérer les entretiens liés au profil
+      const interviewSessions = await db.interviewSession.findMany({
+        where: {
+          OR: [
+            { beneficiaryId: user.id },
+            { counselorId: user.id },
+          ],
+        },
+        select: {
+          id: true,
+          type: true,
+          status: true,
+          scheduledAt: true,
+          completedAt: true,
+          synthesis: true,
+          createdAt: true,
+        },
+      }).catch(() => [])
 
       // Construire l'export complet
       const exportData = {
@@ -235,7 +344,8 @@ export async function POST(request: NextRequest) {
           demandedAt: new Date().toISOString(),
           userId: user.id,
           format,
-          version: '1.0',
+          version: '2.0',
+          generator: 'CreaPulse V2 RGPD Export',
         },
         profil: {
           prenom: user.firstName,
@@ -258,6 +368,7 @@ export async function POST(request: NextRequest) {
           swipeAnswers,
         },
         creascopeSessions,
+        entretiens: interviewSessions,
         analyses: {
           financier: financialForecast,
           creasim: creasimSimulation,
@@ -268,6 +379,17 @@ export async function POST(request: NextRequest) {
           tremplin,
           businessModelCanvas: bmc,
           zeroDraft,
+          livrables,
+          cvUploads,
+          fichiers: userFiles.map((f) => ({
+            ...f,
+            // Exclude fileData (base64 content) from export for size reasons
+            // User can request file data separately if needed
+          })),
+        },
+        programmeAccompagnementAmorcage: {
+          programmes: paaProgramsWithDetails,
+          retoursSatisfaction: satisfactionFeedbacks,
         },
         consentements: consents,
         reseau: networks,

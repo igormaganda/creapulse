@@ -100,6 +100,15 @@ export async function POST(request: Request) {
       maxAge: authTokens.expiresIn,
     })
 
+    // Set refresh token as httpOnly cookie (30 days)
+    response.cookies.set('refresh', authTokens.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: authTokens.refreshExpiresIn,
+    })
+
     return response
   } catch (err) {
     return handleApiError(err)

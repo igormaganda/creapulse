@@ -27,6 +27,7 @@ import {
   GraduationCap, Stamp, BadgeCheck, Download, Shield,
   LayoutGrid, Brain, Construction,
   Clock, AlertTriangle, RotateCcw,
+  Megaphone, Star, GitBranch,
 } from 'lucide-react'
 
 /* ─── Types ─── */
@@ -46,7 +47,7 @@ export interface ModuleDefinition {
   core: boolean // Core modules are always available, can be hidden but not removed
 }
 
-/* ─── Complete Module Definitions (31 modules) ─── */
+/* ─── Complete Module Definitions (34 modules) ─── */
 export const MODULE_REGISTRY: ModuleDefinition[] = [
   // ═══ PARCOURS (8 modules) ═══
   {
@@ -158,7 +159,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     core: false,
   },
 
-  // ═══ STRATÉGIE (10 modules) ═══
+  // ═══ STRATÉGIE (12 modules) ═══
   {
     code: 'marche',
     label: 'Marché',
@@ -295,6 +296,35 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     core: false,
   },
 
+  {
+    code: 'marketing-commerciale',
+    label: 'Stratégie Marketing',
+    description: 'Planification marketing et commerciale : mix 4P, personas, canaux et KPIs.',
+    section: 'strategie',
+    category: 'STRATEGY',
+    phase: 'STRATEGY',
+    icon: Megaphone,
+    iconName: 'Megaphone',
+    badge: 'PAA',
+    color: 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20',
+    sortOrder: 20,
+    core: false,
+  },
+  {
+    code: 'mind-map',
+    label: 'Carte Mentale',
+    description: 'Organisation visuelle de vos idées avec une carte mentale interactive.',
+    section: 'strategie',
+    category: 'STRATEGY',
+    phase: 'STRATEGY',
+    icon: GitBranch,
+    iconName: 'GitBranch',
+    badge: 'PAA',
+    color: 'text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/20',
+    sortOrder: 21,
+    core: false,
+  },
+
   // ═══ ÉCOSYSTÈME (4 modules) ═══
   {
     code: 'annuaire',
@@ -351,7 +381,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     core: false,
   },
 
-  // ═══ PILOTAGE (7 modules) ═══
+  // ═══ PILOTAGE (8 modules) ═══
   {
     code: 'tremplin',
     label: 'Tremplin',
@@ -432,6 +462,20 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     badge: 'PAA',
     color: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20',
     sortOrder: 36,
+    core: false,
+  },
+  {
+    code: 'satisfaction-feedback',
+    label: 'Satisfaction & Feedback',
+    description: 'Enquêtes de satisfaction NPS et retours sur le programme PAA.',
+    section: 'pilotage',
+    category: 'PILOTAGE',
+    phase: 'LAUNCH',
+    icon: Star,
+    iconName: 'Star',
+    badge: 'PAA',
+    color: 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20',
+    sortOrder: 37,
     core: false,
   },
   {

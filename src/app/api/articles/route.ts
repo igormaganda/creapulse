@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 
 export async function GET(request: NextRequest) {
   try {
+    // Public endpoint — articles are shared across all tenants (no tenantId in schema)
     const { searchParams } = new URL(request.url)
     const category = searchParams.get('category')
     const page = parseInt(searchParams.get('page') || '1', 10)

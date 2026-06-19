@@ -7,8 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
-import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
-import { verifyToken, AuthError } from '@/lib/auth'
+import { success, Errors, handleApiError } from '@/lib/api-response'
 import { withAuth } from '@/lib/api-auth'
 
 // ─── Validation schemas ────────────────────
@@ -48,7 +47,10 @@ export async function GET(request: NextRequest) {
     const validSorts = ['recent', 'popular', 'comments'] as const
     const sort = validSorts.includes(sortParam as typeof validSorts[number]) ? sortParam as typeof validSorts[number] : 'recent'
 
-    const where: Record<string, unknown> = {}
+    // Scope by tenantId via author relation
+    const where: Record<string, unknown> = {
+      author: { tenantId: auth.tenantId },
+    }
 
     if (category) {
       where.category = { slug: category }
@@ -118,17 +120,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Auth required
-    let userId: string | undefined
-    try {
-      const token = getTokenFromHeader(request)
-      if (!token) {
-        return Errors.unauthorized('Authentification requise pour publier')
-      }
-      const payload = await verifyToken(token)
-      userId = payload.userId
-    } catch {
-      return Errors.unauthorized('Token invalide ou expiré')
-    }
+    const session = await withAuth(request)
+    if (!session || session instanceof NextResponse) return session
+    const userId = session.userId
+    const tenantId = session.tenantId
 
     const body = await request.json()
     const { title, content, categoryId, tags } = CreateDiscussionBody.parse(body)
@@ -168,9 +163,6 @@ export async function POST(request: NextRequest) {
       201,
     )
   } catch (err) {
-    if (err instanceof AuthError) {
-      return Errors.unauthorized(err.message)
-    }
     return handleApiError(err)
   }
 }

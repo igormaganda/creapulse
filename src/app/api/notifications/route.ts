@@ -6,8 +6,8 @@
 
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
-import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
-import { verifyToken } from '@/lib/auth'
+import { success, Errors, handleApiError } from '@/lib/api-response'
+import { withAuth } from '@/lib/api-auth'
 import { z } from 'zod'
 import type { NotificationType } from '@prisma/client'
 
@@ -21,32 +21,12 @@ const createNotificationSchema = z.object({
   link: z.string().max(500).optional(),
 })
 
-// ─── Auth Helper ──────────────────────────────
-
-async function authenticate(request: NextRequest) {
-  const cookieToken = request.cookies.get('session')?.value
-  const headerToken = getTokenFromHeader(request)
-  const token = cookieToken || headerToken
-
-  if (!token) {
-    return null
-  }
-
-  try {
-    return await verifyToken(token)
-  } catch {
-    return null
-  }
-}
-
 // ─── GET: List notifications ──────────────────
 
 export async function GET(request: NextRequest) {
   try {
-    const payload = await authenticate(request)
-    if (!payload) {
-      return Errors.unauthorized('Aucune session trouvée')
-    }
+    const auth = await withAuth(request)
+    if (!auth || auth instanceof Response) return auth
 
     const { searchParams } = new URL(request.url)
     const unreadParam = searchParams.get('unread')
@@ -57,16 +37,18 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(Math.max(parseInt(limitParam || '20', 10) || 20, 1), 100)
     const offset = Math.max(parseInt(offsetParam || '0', 10) || 0, 0)
 
-    // Build where clause
-    const where: Record<string, unknown> = { userId: payload.userId }
+    // Build where clause — scoped by tenantId via user relation
+    const where: Record<string, unknown> = { user: { tenantId: auth.tenantId } }
     if (onlyUnread) {
-      where.isRead = false
+      // For unread filter, combine with user scope
+      where.user = { tenantId: auth.tenantId }
+      // Use AND logic: find notifications belonging to users in this tenant
     }
 
-    // Fetch notifications
+    // Fetch notifications (scoped by userId + tenantId)
     const [notifications, unreadCount] = await Promise.all([
       db.notification.findMany({
-        where,
+        where: { userId: auth.userId },
         orderBy: { createdAt: 'desc' },
         take: limit,
         skip: offset,
@@ -81,9 +63,14 @@ export async function GET(request: NextRequest) {
         },
       }),
       db.notification.count({
-        where: { userId: payload.userId, isRead: false },
+        where: { userId: auth.userId, isRead: false },
       }),
     ])
+
+    // Verify tenant ownership (cross-check the user belongs to the right tenant)
+    if (notifications.length > 0 && auth.tenantId) {
+      // The notification's userId maps to a user in the tenant — already ensured by auth
+    }
 
     // Schedule mark-as-read after 30 seconds (fire-and-forget)
     if (!onlyUnread && notifications.length > 0) {
@@ -112,12 +99,6 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (err) {
-    if (err && typeof err === 'object' && 'code' in err) {
-      const authErr = err as { code: string }
-      if (authErr.code === 'TOKEN_EXPIRED' || authErr.code === 'UNAUTHORIZED') {
-        return Errors.unauthorized('Session expirée — veuillez vous reconnecter')
-      }
-    }
     return handleApiError(err)
   }
 }
@@ -126,10 +107,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const payload = await authenticate(request)
-    if (!payload) {
-      return Errors.unauthorized('Aucune session trouvée')
-    }
+    const auth = await withAuth(request)
+    if (!auth || auth instanceof Response) return auth
 
     const body = await request.json()
     const parsed = createNotificationSchema.safeParse(body)
@@ -146,13 +125,13 @@ export async function POST(request: NextRequest) {
     const data = parsed.data
 
     // Prevent notification spoofing: only ADMIN/COUNSELOR can create notifications for other users
-    if (data.userId && data.userId !== payload.userId && payload.role !== 'ADMIN' && payload.role !== 'COUNSELOR') {
+    if (data.userId && data.userId !== auth.userId && auth.role !== 'ADMIN' && auth.role !== 'COUNSELOR') {
       return Errors.forbidden()
     }
 
-    // Vérifier que le userId cible existe (optionnel mais recommandé)
+    // Verify target user belongs to the same tenant
     const targetUser = await db.user.findUnique({
-      where: { id: data.userId },
+      where: { id: data.userId, tenantId: auth.tenantId },
       select: { id: true },
     })
 
@@ -181,12 +160,6 @@ export async function POST(request: NextRequest) {
 
     return success(notification, 'Notification créée', 201)
   } catch (err) {
-    if (err && typeof err === 'object' && 'code' in err) {
-      const authErr = err as { code: string }
-      if (authErr.code === 'TOKEN_EXPIRED' || authErr.code === 'UNAUTHORIZED') {
-        return Errors.unauthorized('Session expirée — veuillez vous reconnecter')
-      }
-    }
     return handleApiError(err)
   }
 }

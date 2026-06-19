@@ -59,6 +59,9 @@ const GestionTempsModule = dynamic(() => import('./modules/gestion-temps').then(
 const GestionCriseModule = dynamic(() => import('./modules/gestion-crise').then(m => ({ default: m.GestionCriseModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const ClotureRebondModule = dynamic(() => import('./modules/cloture-rebond').then(m => ({ default: m.ClotureRebondModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const ParcoursPaaModule = dynamic(() => import('./modules/parcours-paa').then(m => ({ default: m.ParcoursPaaModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const MarketingCommercialeModule = dynamic(() => import('./modules/marketing-commerciale').then(m => ({ default: m.MarketingCommercialeModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const SatisfactionFeedbackModule = dynamic(() => import('./modules/satisfaction-feedback').then(m => ({ default: m.SatisfactionFeedbackModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const MindMapModule = dynamic(() => import('./modules/mind-map').then(m => ({ default: m.MindMapModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 
 /* ─── UI imports (used by SectionOverview and ModulePlaceholder) ─── */
 import { Card, CardContent } from '@/components/ui/card'
@@ -232,6 +235,9 @@ function BureauContent() {
         {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'gestion-crise' && <GestionCriseModule />}
         {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'cloture-rebond' && <ClotureRebondModule />}
         {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'parcours-paa' && <ParcoursPaaModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'marketing-commerciale' && <MarketingCommercialeModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'mind-map' && <MindMapModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'satisfaction-feedback' && <SatisfactionFeedbackModule />}
         {/* Module is disabled — show placeholder */}
         {modulesLoaded && currentModule && !isModuleActive(currentModule) && <ModulePlaceholder moduleId={currentModule} />}
         {currentSection === 'strategie' && !currentModule && <PipelineV3Overview />}

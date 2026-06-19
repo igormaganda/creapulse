@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
     const program = await db.paaProgram.findFirst({
       where: {
         userId: payload.userId,
+        tenantId: payload.tenantId,
         status: { in: ['ACTIVE', 'COMPLETED'] },
       },
       select: { id: true },
@@ -91,6 +92,7 @@ export async function POST(request: NextRequest) {
     const program = await db.paaProgram.findFirst({
       where: {
         userId: payload.userId,
+        tenantId: payload.tenantId,
         status: { in: ['ACTIVE', 'COMPLETED'] },
       },
       select: { id: true },

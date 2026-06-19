@@ -71,6 +71,30 @@ export async function middleware(request: NextRequest) {
     response.headers.set(key, value)
   }
 
+  // ─── CSRF token (double-submit cookie pattern) ─
+  // Generate a csrf_token cookie on GET requests if not already present.
+  // This cookie is non-httpOnly so JavaScript can read it.
+  // The same token is also sent as X-CSRF-Token header for server validation.
+  const method = request.method.toUpperCase()
+  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
+    const existingCsrf = request.cookies.get('csrf_token')?.value
+    if (!existingCsrf) {
+      const csrfToken = crypto.randomUUID()
+      response.cookies.set('csrf_token', csrfToken, {
+        path: '/',
+        httpOnly: false, // Must be readable by JavaScript
+        secure: true,
+        sameSite: 'lax',
+        maxAge: 24 * 60 * 60, // 24 hours
+      })
+      // Also set as response header so the client can pick it up immediately
+      response.headers.set('X-CSRF-Token', csrfToken)
+    } else {
+      // Pass existing token in header for consistency
+      response.headers.set('X-CSRF-Token', existingCsrf)
+    }
+  }
+
   return response
 }
 

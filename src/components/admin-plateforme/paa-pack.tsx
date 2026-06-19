@@ -23,6 +23,8 @@ import {
   ClipboardCheck,
   TrendingUp,
   Activity,
+  Megaphone,
+  GitBranch,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -62,6 +64,9 @@ const PAA_MODULES: PaaModuleConfig[] = [
   { code: 'gestion-temps', label: 'Gestion du Temps', description: 'Outils et méthodes de gestion du temps entrepreneurial', enabled: true },
   { code: 'gestion-crise', label: 'Gestion de Crise', description: 'Protocoles de gestion de crise et résilience', enabled: true },
   { code: 'cloture-rebond', label: 'Clôture & Rebond', description: 'Bilan final et plan de rebond post-accompagnement', enabled: true },
+  { code: 'marketing-commerciale', label: 'Stratégie Marketing', description: 'Planification marketing et commerciale', enabled: true },
+  { code: 'mind-map', label: 'Carte Mentale', description: 'Organisation visuelle des idées', enabled: true },
+  { code: 'satisfaction-feedback', label: 'Satisfaction & Feedback', description: 'Enquêtes de satisfaction et retours', enabled: true },
 ]
 
 const PAA_MODULE_ICONS: Record<string, React.ElementType> = {
@@ -71,6 +76,9 @@ const PAA_MODULE_ICONS: Record<string, React.ElementType> = {
   'gestion-temps': Clock,
   'gestion-crise': AlertTriangle,
   'cloture-rebond': TrendingUp,
+  'marketing-commerciale': Megaphone,
+  'mind-map': GitBranch,
+  'satisfaction-feedback': Star,
 }
 
 const DEFAULT_SETTINGS: PaaSettings = {
