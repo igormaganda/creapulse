@@ -26,6 +26,7 @@ import {
   FileText, Presentation, Globe, MessageSquare, MessageCircle,
   GraduationCap, Stamp, BadgeCheck, Download, Shield,
   LayoutGrid, Brain, Construction,
+  Clock, AlertTriangle, RotateCcw,
 } from 'lucide-react'
 
 /* ─── Types ─── */
@@ -45,7 +46,7 @@ export interface ModuleDefinition {
   core: boolean // Core modules are always available, can be hidden but not removed
 }
 
-/* ─── Complete Module Definitions (26 modules) ─── */
+/* ─── Complete Module Definitions (31 modules) ─── */
 export const MODULE_REGISTRY: ModuleDefinition[] = [
   // ═══ PARCOURS (8 modules) ═══
   {
@@ -157,7 +158,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     core: false,
   },
 
-  // ═══ STRATÉGIE (7 modules) ═══
+  // ═══ STRATÉGIE (10 modules) ═══
   {
     code: 'marche',
     label: 'Marché',
@@ -251,6 +252,48 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     sortOrder: 16,
     core: false,
   },
+  {
+    code: 'swot',
+    label: 'Matrice SWOT',
+    description: 'Analysez vos forces, faiblesses, opportunités et menaces de manière interactive.',
+    section: 'strategie',
+    category: 'STRATEGY',
+    phase: 'STRATEGY',
+    icon: Brain,
+    iconName: 'Brain',
+    badge: 'PAA',
+    color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20',
+    sortOrder: 17,
+    core: false,
+  },
+  {
+    code: 'gestion-temps',
+    label: 'Gestion du Temps',
+    description: 'Optimisez votre organisation et votre productivité entrepreneuriale.',
+    section: 'strategie',
+    category: 'STRATEGY',
+    phase: 'STRATEGY',
+    icon: Clock,
+    iconName: 'Clock',
+    badge: 'PAA',
+    color: 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/20',
+    sortOrder: 18,
+    core: false,
+  },
+  {
+    code: 'gestion-crise',
+    label: 'Gestion de Crise',
+    description: 'Identifiez les risques et préparez un plan de résilience pour votre entreprise.',
+    section: 'strategie',
+    category: 'STRATEGY',
+    phase: 'STRATEGY',
+    icon: AlertTriangle,
+    iconName: 'AlertTriangle',
+    badge: 'PAA',
+    color: 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20',
+    sortOrder: 19,
+    core: false,
+  },
 
   // ═══ ÉCOSYSTÈME (4 modules) ═══
   {
@@ -308,7 +351,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     core: false,
   },
 
-  // ═══ PILOTAGE (5 modules) ═══
+  // ═══ PILOTAGE (7 modules) ═══
   {
     code: 'tremplin',
     label: 'Tremplin',
@@ -361,6 +404,34 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     badge: 'PDF',
     color: 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20',
     sortOrder: 33,
+    core: false,
+  },
+  {
+    code: 'objectifs-smart',
+    label: 'Objectifs SMART',
+    description: 'Définissez et suivez des objectifs Spécifiques, Mesurables, Atteignables, Pertinents et Temporels.',
+    section: 'pilotage',
+    category: 'PILOTAGE',
+    phase: 'LAUNCH',
+    icon: Target,
+    iconName: 'Target',
+    badge: 'PAA',
+    color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20',
+    sortOrder: 35,
+    core: false,
+  },
+  {
+    code: 'cloture-rebond',
+    label: 'Clôture & Rebond',
+    description: "Formalités de fermeture d'entreprise et parcours de rebond professionnel.",
+    section: 'pilotage',
+    category: 'PILOTAGE',
+    phase: 'LAUNCH',
+    icon: RotateCcw,
+    iconName: 'RotateCcw',
+    badge: 'PAA',
+    color: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20',
+    sortOrder: 36,
     core: false,
   },
   {

@@ -102,3 +102,93 @@ Stage Summary:
 - FlashSwipe completion detection works correctly
 - Notification poller properly stops without orphan timers
 - Bilan auth uses centralized helper
+---
+Task ID: paa-wave1-schema-security
+Agent: Schema & Security Agent
+Task: Add PAA Prisma models + fix middleware auth enforcement
+
+Work Log:
+- Added 5 new Prisma models: PaaProgram, PaaMilestone, PaaAtelierSession, SmartObjective, SatisfactionFeedback
+- Added relations to User model (paaPrograms, satisfactionFeedbacks) and Tenant model (paaPrograms)
+- Ran prisma generate successfully (schema validated, client regenerated)
+- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+- Added JWT verification in middleware for protected paths (/bureau, /conseiller, /admin-centre, /admin-plateforme)
+- Middleware redirects unauthenticated users to /?login=1 and expired sessions to /?login=1&expired=1
+- Reviewed login route: lookup by email only is acceptable (tenantId comes from user record, not request)
+- Reviewed register route: tenantId is properly set from tenant upsert (gidef slug)
+- All existing security headers preserved
+
+Stage Summary:
+- PAA data model ready for API routes
+- Protected routes now enforced at middleware level
+- 5 new Prisma models validated and client regenerated
+- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+---
+Task ID: paa-wave1-api-routes
+Agent: PAA API Agent
+Task: Create all PAA API routes
+
+Work Log:
+- Created 6 API route files for PAA program management
+- /api/paa/program - CRUD for PAA programs
+- /api/paa/milestones - Milestone tracking
+- /api/paa/ateliers - Atelier session management
+- /api/paa/objectifs - SMART objectives CRUD
+- /api/paa/satisfaction - Feedback collection
+- /api/paa/dashboard - Conseiller/admin aggregate stats
+
+Stage Summary:
+- All PAA API routes follow existing patterns (withAuth, Zod, api-response)
+- 6 new route files created
+---
+Task ID: paa-wave1-admin-pack
+Agent: Admin Pack Agent
+Task: Create PAA feature pack admin controls
+
+Work Log:
+- Created paa-pack.tsx admin component with master toggle + individual module toggles
+- Added PAA section to admin layout navigation
+- Updated configuration API to support PAA settings
+- Updated module-config-store with PAA pack awareness
+
+Stage Summary:
+- Admin can enable/disable entire PAA pack with one toggle
+- Individual PAA modules can be toggled independently
+- PAA settings configurable (duration, min ateliers, follow-up)
+- Module visibility automatically respects PAA pack status
+---
+Task ID: paa-wave1-timeline-entretiens
+Agent: Timeline & Entretiens Agent
+Task: Create PAA timeline + connect entretiens to real DB
+
+Work Log:
+- Created parcours-paa.tsx with 60-day timeline visualization
+- Connected entretiens.tsx to real API (removed all mock data)
+- Added 'diagnostic' entretien type
+- Updated bureau-layout.tsx with 6 new module imports
+
+Stage Summary:
+- PAA timeline shows J0→J10→J30→J60→J90 milestones
+- Entretiens now fetches from /api/conseiller/entretiens
+- All new modules wired in bureau-layout
+---
+Task ID: paa-wave1-frontend-modules
+Agent: Frontend Modules Agent
+Task: Create 5 new PAA frontend modules + update registry
+
+Work Log:
+- Created gestion-temps.tsx (Eisenhower matrix, weekly planner, productivity tools)
+- Created gestion-crise.tsx (risk identification, probability/impact assessment, mitigation plans, resilience toolkit)
+- Created cloture-rebond.tsx (experience review, transferable skills, closure checklist, rebound paths)
+- Created swot.tsx (4-quadrant interactive matrix with AI generation, clipboard export)
+- Created objectifs-smart.tsx (SMART objectives CRUD with progress bars, auto-attained detection)
+- Updated module-registry.ts with 5 new modules (imports, definitions, section comments)
+
+Stage Summary:
+- 5 new module components created in /src/components/bureau/modules/
+- All modules follow existing patterns ('use client', shadcn/ui, framer-motion, authFetch, localStorage fallback)
+- All marked with 'PAA' badge in registry
+- Module registry updated: 26 → 31 total modules
+- Strategy section: 7 → 10 modules (added swot, gestion-temps, gestion-crise)
+- Pilotage section: 5 → 7 modules (added objectifs-smart, cloture-rebond)
+- Next step: Wire dynamic imports in bureau-layout.tsx to render the new modules

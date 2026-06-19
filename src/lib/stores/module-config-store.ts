@@ -11,6 +11,23 @@ interface ActiveModule {
   config?: Record<string, unknown>
 }
 
+/** PAA module codes — used to identify PAA modules for pack-level filtering */
+const PAA_MODULE_CODES = [
+  'parcours-paa',
+  'swot',
+  'objectifs-smart',
+  'gestion-temps',
+  'gestion-crise',
+  'cloture-rebond',
+] as const
+
+type PaaModuleCode = (typeof PAA_MODULE_CODES)[number]
+
+interface PaaConfig {
+  enabled: boolean
+  modules: Record<PaaModuleCode, boolean>
+}
+
 interface ModuleConfigState {
   /** Map of module code → active status (true = visible/enabled) */
   activeModules: Map<string, boolean>
@@ -21,19 +38,37 @@ interface ModuleConfigState {
   /** Whether admin mode (shows all modules regardless) */
   adminMode: boolean
 
+  /** PAA pack enabled status */
+  isPaaEnabled: boolean
+  /** Individual PAA module enabled status */
+  paaModules: Record<PaaModuleCode, boolean>
+
   // Actions
   fetchActiveModules: () => Promise<void>
   isModuleActive: (code: string) => boolean
+  isPaaModule: (code: string) => boolean
   getActiveModulesForSection: (section: string) => string[]
   getAllActiveCodes: () => string[]
   toggleModule: (code: string, active: boolean) => void
   setAdminMode: (enabled: boolean) => void
+  togglePaaPack: (enabled: boolean) => void
+  togglePaaModule: (code: PaaModuleCode, enabled: boolean) => void
   reset: () => void
 }
 
 /* ─── Default: all modules active ─── */
 function createDefaultMap(): Map<string, boolean> {
   return new Map(MODULE_REGISTRY.map((m) => [m.code, true]))
+}
+
+/* ─── Default PAA state ─── */
+const DEFAULT_PAA_MODULES: Record<PaaModuleCode, boolean> = {
+  'parcours-paa': true,
+  'swot': true,
+  'objectifs-smart': true,
+  'gestion-temps': true,
+  'gestion-crise': true,
+  'cloture-rebond': true,
 }
 
 /* ─── Store ─── */
@@ -43,6 +78,9 @@ export const useModuleConfigStore = create<ModuleConfigState>((set, get) => ({
   loading: false,
   adminMode: false,
 
+  isPaaEnabled: false,
+  paaModules: { ...DEFAULT_PAA_MODULES },
+
   fetchActiveModules: async () => {
     // Don't refetch if already loaded (unless forced)
     if (get().loaded) return
@@ -50,12 +88,13 @@ export const useModuleConfigStore = create<ModuleConfigState>((set, get) => ({
     set({ loading: true })
 
     try {
-      const res = await fetch('/api/modules', { credentials: 'include' })
-      if (res.ok) {
-        const json = await res.json()
-        if (json.success && json.data) {
-          const activeMap = createDefaultMap()
+      // Fetch regular modules
+      const modulesRes = await fetch('/api/modules', { credentials: 'include' })
+      let activeMap = createDefaultMap()
 
+      if (modulesRes.ok) {
+        const json = await modulesRes.json()
+        if (json.success && json.data) {
           // Merge API data: mark inactive modules
           const apiModules: ActiveModule[] = json.data
           for (const mod of apiModules) {
@@ -63,11 +102,30 @@ export const useModuleConfigStore = create<ModuleConfigState>((set, get) => ({
               activeMap.set(mod.code, false)
             }
           }
-
-          set({ activeModules: activeMap, loaded: true })
-          return
         }
       }
+
+      // Fetch PAA config in parallel
+      try {
+        const paaRes = await fetch('/api/admin-plateforme/configuration?section=paa', {
+          credentials: 'include',
+        })
+        if (paaRes.ok) {
+          const paaJson = await paaRes.json()
+          if (paaJson.success && paaJson.data?.paa) {
+            const paa = paaJson.data.paa as PaaConfig
+            set({
+              isPaaEnabled: paa.enabled ?? false,
+              paaModules: { ...DEFAULT_PAA_MODULES, ...paa.modules },
+            })
+          }
+        }
+      } catch {
+        // PAA config unavailable — keep defaults (disabled)
+      }
+
+      set({ activeModules: activeMap, loaded: true, loading: false })
+      return
     } catch {
       // API unavailable — keep defaults (all active)
     }
@@ -80,12 +138,25 @@ export const useModuleConfigStore = create<ModuleConfigState>((set, get) => ({
     const state = get()
     // Admin mode: show all modules
     if (state.adminMode) return true
+
+    // Check if this is a PAA module
+    if (PAA_MODULE_CODES.includes(code as PaaModuleCode)) {
+      // If PAA pack is disabled, all PAA modules are hidden
+      if (!state.isPaaEnabled) return false
+      // Otherwise check individual module status
+      return state.paaModules[code as PaaModuleCode] === true
+    }
+
     const def = getModuleDef(code)
     // Unknown modules are inactive
     if (!def) return false
     // Core modules are always active (unless explicitly disabled)
     if (def.core) return state.activeModules.get(code) !== false
     return state.activeModules.get(code) === true
+  },
+
+  isPaaModule: (code: string) => {
+    return PAA_MODULE_CODES.includes(code as PaaModuleCode)
   },
 
   getActiveModulesForSection: (section: string) => {
@@ -96,9 +167,22 @@ export const useModuleConfigStore = create<ModuleConfigState>((set, get) => ({
   },
 
   getAllActiveCodes: () => {
-    return MODULE_REGISTRY
-      .filter((m) => get().isModuleActive(m.code))
+    const state = get()
+    const registryCodes = MODULE_REGISTRY
+      .filter((m) => state.isModuleActive(m.code))
       .map((m) => m.code)
+
+    // Include active PAA modules
+    const paaCodes: string[] = []
+    if (state.isPaaEnabled) {
+      for (const code of PAA_MODULE_CODES) {
+        if (state.paaModules[code]) {
+          paaCodes.push(code)
+        }
+      }
+    }
+
+    return [...registryCodes, ...paaCodes]
   },
 
   toggleModule: (code: string, active: boolean) => {
@@ -113,7 +197,29 @@ export const useModuleConfigStore = create<ModuleConfigState>((set, get) => ({
     set({ adminMode: enabled })
   },
 
+  togglePaaPack: (enabled: boolean) => {
+    set((state) => ({
+      isPaaEnabled: enabled,
+      // When pack is disabled, disable all individual modules
+      paaModules: enabled
+        ? state.paaModules
+        : { ...DEFAULT_PAA_MODULES } as Record<PaaModuleCode, boolean>,
+    }))
+  },
+
+  togglePaaModule: (code: PaaModuleCode, enabled: boolean) => {
+    set((state) => ({
+      paaModules: { ...state.paaModules, [code]: enabled },
+    }))
+  },
+
   reset: () => {
-    set({ activeModules: createDefaultMap(), loaded: false, loading: false })
+    set({
+      activeModules: createDefaultMap(),
+      loaded: false,
+      loading: false,
+      isPaaEnabled: false,
+      paaModules: { ...DEFAULT_PAA_MODULES },
+    })
   },
 }))

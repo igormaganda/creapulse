@@ -6,6 +6,7 @@ export type AdminPlateformeTab =
   | 'organisations'
   | 'utilisateurs'
   | 'modules'
+  | 'paa-pack'
   | 'contenus'
   | 'facturation'
   | 'analytics'

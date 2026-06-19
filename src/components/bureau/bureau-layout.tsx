@@ -53,6 +53,12 @@ const PepitesGame = dynamic(() => import('./modules/pepites-game').then(m => ({ 
 const CreascopePipeline = dynamic(() => import('./modules/creascope-pipeline').then(m => ({ default: m.CreascopePipeline })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const PrivacyDashboard = dynamic(() => import('./modules/privacy-dashboard').then(m => ({ default: m.PrivacyDashboard })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const PipelineV3Overview = dynamic(() => import('./modules/pipeline-v3-overview').then(m => ({ default: m.PipelineV3Overview })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const SwotModule = dynamic(() => import('./modules/swot').then(m => ({ default: m.SwotModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const ObjectifsSmartModule = dynamic(() => import('./modules/objectifs-smart').then(m => ({ default: m.ObjectifsSmartModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const GestionTempsModule = dynamic(() => import('./modules/gestion-temps').then(m => ({ default: m.GestionTempsModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const GestionCriseModule = dynamic(() => import('./modules/gestion-crise').then(m => ({ default: m.GestionCriseModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const ClotureRebondModule = dynamic(() => import('./modules/cloture-rebond').then(m => ({ default: m.ClotureRebondModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const ParcoursPaaModule = dynamic(() => import('./modules/parcours-paa').then(m => ({ default: m.ParcoursPaaModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 
 /* ─── UI imports (used by SectionOverview and ModulePlaceholder) ─── */
 import { Card, CardContent } from '@/components/ui/card'
@@ -220,6 +226,12 @@ function BureauContent() {
         {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'telechargements' && <Telechargements />}
         {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'messages' && <MessagesModule />}
         {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'vie-privee' && <PrivacyDashboard />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'swot' && <SwotModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'objectifs-smart' && <ObjectifsSmartModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'gestion-temps' && <GestionTempsModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'gestion-crise' && <GestionCriseModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'cloture-rebond' && <ClotureRebondModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'parcours-paa' && <ParcoursPaaModule />}
         {/* Module is disabled — show placeholder */}
         {modulesLoaded && currentModule && !isModuleActive(currentModule) && <ModulePlaceholder moduleId={currentModule} />}
         {currentSection === 'strategie' && !currentModule && <PipelineV3Overview />}

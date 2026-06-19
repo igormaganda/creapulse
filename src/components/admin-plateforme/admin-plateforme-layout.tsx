@@ -11,6 +11,7 @@ import { Contenus } from './contenus'
 import { Facturation } from './facturation'
 import { Analytics } from './analytics'
 import { Configuration } from './configuration'
+import { PaaPack } from './paa-pack'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -44,6 +45,7 @@ import {
   Zap,
   UserCircle,
   LogOut,
+  GraduationCap,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -53,6 +55,7 @@ const navItems: { id: AdminPlateformeTab; label: string; icon: LucideIcon; badge
   { id: 'organisations', label: 'Organisations', icon: Building2, badge: '8' },
   { id: 'utilisateurs', label: 'Utilisateurs', icon: Users, badge: '247' },
   { id: 'modules', label: 'Modules', icon: Puzzle },
+  { id: 'paa-pack', label: 'Pack PAA', icon: GraduationCap },
   { id: 'contenus', label: 'Contenus', icon: FileText },
   { id: 'facturation', label: 'Facturation', icon: CreditCard },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
@@ -294,6 +297,7 @@ function AdminContent() {
         {currentTab === 'organisations' && <Organisations />}
         {currentTab === 'utilisateurs' && <Utilisateurs />}
         {currentTab === 'modules' && <Modules />}
+        {currentTab === 'paa-pack' && <PaaPack />}
         {currentTab === 'contenus' && <Contenus />}
         {currentTab === 'facturation' && <Facturation />}
         {currentTab === 'analytics' && <Analytics />}

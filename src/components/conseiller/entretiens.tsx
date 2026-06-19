@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useConseillerStore } from './conseiller-store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -39,7 +39,7 @@ import {
 } from 'lucide-react'
 
 /* ─── Types ─── */
-type EntretienType = 'bilan' | 'suivi' | 'atelier'
+type EntretienType = 'diagnostic' | 'bilan' | 'suivi' | 'atelier'
 type EntretienStatus = 'planifie' | 'confirme' | 'termine'
 
 interface Entretien {
@@ -57,6 +57,10 @@ interface Entretien {
 
 /* ─── Badge configs ─── */
 const typeConfig: Record<EntretienType, { label: string; color: string }> = {
+  diagnostic: {
+    label: 'Diagnostic',
+    color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+  },
   bilan: {
     label: 'Bilan',
     color: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
@@ -89,119 +93,7 @@ const statusConfig: Record<EntretienStatus, { label: string; color: string; dotC
   },
 }
 
-/* ─── Mock data ─── */
-const mockEntretiens: Entretien[] = [
-  {
-    id: 'e1',
-    date: '2025-02-03',
-    time: '10:00',
-    beneficiaryId: 'b1',
-    beneficiaryName: 'Amadou Diallo',
-    beneficiaryInitials: 'AD',
-    type: 'suivi',
-    status: 'confirme',
-    conseiller: 'Sophie Martin',
-    notes: 'Suivi du business plan. Verifier les hypotheses de prix.',
-  },
-  {
-    id: 'e2',
-    date: '2025-02-03',
-    time: '14:00',
-    beneficiaryId: 'b2',
-    beneficiaryName: 'Lea Fontaine',
-    beneficiaryInitials: 'LF',
-    type: 'bilan',
-    status: 'planifie',
-    conseiller: 'Sophie Martin',
-    notes: 'Bilan trimestriel. Revision du plan financier.',
-  },
-  {
-    id: 'e3',
-    date: '2025-02-04',
-    time: '09:30',
-    beneficiaryId: 'b3',
-    beneficiaryName: 'Marc Renaud',
-    beneficiaryInitials: 'MR',
-    type: 'atelier',
-    status: 'planifie',
-    conseiller: 'Sophie Martin',
-    notes: 'Atelier creation - model Canvas.',
-  },
-  {
-    id: 'e4',
-    date: '2025-02-05',
-    time: '11:00',
-    beneficiaryId: 'b4',
-    beneficiaryName: 'Clara Dubois',
-    beneficiaryInitials: 'CD',
-    type: 'suivi',
-    status: 'confirme',
-    conseiller: 'Sophie Martin',
-    notes: 'Suivi post-lancement. Analyse des premieres ventes.',
-  },
-  {
-    id: 'e5',
-    date: '2025-02-06',
-    time: '15:00',
-    beneficiaryId: 'b7',
-    beneficiaryName: 'Thomas Leroy',
-    beneficiaryInitials: 'TL',
-    type: 'bilan',
-    status: 'planifie',
-    conseiller: 'Sophie Martin',
-    notes: 'Bilan de mi-parcours. Point sur le choix du statut juridique.',
-  },
-  {
-    id: 'e6',
-    date: '2025-02-07',
-    time: '10:30',
-    beneficiaryId: 'b8',
-    beneficiaryName: 'Fatima Hassani',
-    beneficiaryInitials: 'FH',
-    type: 'suivi',
-    status: 'planifie',
-    conseiller: 'Sophie Martin',
-    notes: 'Suivi sur la strategie de communication digitale.',
-  },
-  {
-    id: 'e7',
-    date: '2025-02-10',
-    time: '09:00',
-    beneficiaryId: 'b9',
-    beneficiaryName: 'Hugo Petit',
-    beneficiaryInitials: 'HP',
-    type: 'atelier',
-    status: 'planifie',
-    conseiller: 'Sophie Martin',
-    notes: 'Atelier financement - presentation des aides GIDEF.',
-  },
-  {
-    id: 'e8',
-    date: '2025-01-27',
-    time: '10:00',
-    beneficiaryId: 'b1',
-    beneficiaryName: 'Amadou Diallo',
-    beneficiaryInitials: 'AD',
-    type: 'suivi',
-    status: 'termine',
-    conseiller: 'Sophie Martin',
-    notes: 'Avancement du business plan. Points de vigilance sur la logistique.',
-  },
-]
-
-/* ─── Beneficiary list for select ─── */
-const mockBeneficiairesList = [
-  { id: 'b1', name: 'Amadou Diallo' },
-  { id: 'b2', name: 'Lea Fontaine' },
-  { id: 'b3', name: 'Marc Renaud' },
-  { id: 'b4', name: 'Clara Dubois' },
-  { id: 'b5', name: 'Karim Benali' },
-  { id: 'b6', name: 'Julie Moreau' },
-  { id: 'b7', name: 'Thomas Leroy' },
-  { id: 'b8', name: 'Fatima Hassani' },
-  { id: 'b9', name: 'Hugo Petit' },
-  { id: 'b10', name: 'Nadia Bouzid' },
-]
+/* ─── API data fetched on mount ─── */
 
 /* ─── Helper: format date in French ─── */
 function formatDateFr(dateStr: string): string {
@@ -225,11 +117,14 @@ const ITEMS_PER_PAGE = 6
    Entretiens Component
    ═══════════════════════════════════════════════════════════ */
 export function EntretiensView() {
+  const [entretiens, setEntretiens] = useState<Entretien[]>([])
+  const [beneficiaires, setBeneficiaires] = useState<{ id: string; name: string }[]>([])
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState<string>('')
   const [filterStatus, setFilterStatus] = useState<string>('')
   const [currentPage, setCurrentPage] = useState(1)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   /* ─── New entretien form ─── */
   const [newBeneficiary, setNewBeneficiary] = useState('')
@@ -238,9 +133,22 @@ export function EntretiensView() {
   const [newTime, setNewTime] = useState('')
   const [newNotes, setNewNotes] = useState('')
 
+  /* ─── Fetch data on mount ─── */
+  useEffect(() => {
+    fetch('/api/conseiller/entretiens', { credentials: 'include' })
+      .then(res => res.json())
+      .then(json => { if (json.success) setEntretiens(json.data || []) })
+      .catch(() => {})
+
+    fetch('/api/conseiller/beneficiaires', { credentials: 'include' })
+      .then(res => res.json())
+      .then(json => { if (json.success) setBeneficiaires(json.data || []) })
+      .catch(() => {})
+  }, [])
+
   /* ─── Filter logic ─── */
   const filteredEntretiens = useMemo(() => {
-    return mockEntretiens.filter((e) => {
+    return entretiens.filter((e) => {
       const matchSearch =
         !search ||
         e.beneficiaryName.toLowerCase().includes(search.toLowerCase()) ||
@@ -251,7 +159,7 @@ export function EntretiensView() {
 
       return matchSearch && matchType && matchStatus
     })
-  }, [search, filterType, filterStatus])
+  }, [entretiens, search, filterType, filterStatus])
 
   const totalPages = Math.ceil(filteredEntretiens.length / ITEMS_PER_PAGE)
   const paginatedEntretiens = filteredEntretiens.slice(
@@ -262,8 +170,8 @@ export function EntretiensView() {
   const activeFilterCount = [search, filterType, filterStatus].filter(Boolean).length
 
   /* ─── Stats ─── */
-  const upcomingCount = mockEntretiens.filter((e) => isUpcoming(e.date) && e.status !== 'termine').length
-  const todayCount = mockEntretiens.filter(
+  const upcomingCount = entretiens.filter((e) => isUpcoming(e.date) && e.status !== 'termine').length
+  const todayCount = entretiens.filter(
     (e) => e.date === new Date().toISOString().split('T')[0] && e.status !== 'termine'
   ).length
 
@@ -276,31 +184,34 @@ export function EntretiensView() {
   }
 
   /* ─── Submit new entretien ─── */
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!newBeneficiary || !newType || !newDate || !newTime) return
-    const b = mockBeneficiairesList.find((b) => b.id === newBeneficiary)
-    if (!b) return
-    const initials = `${b.name.split(' ')[0][0]}${b.name.split(' ').slice(-1)[0][0]}`.toUpperCase()
-    const newEntretien: Entretien = {
-      id: `e${mockEntretiens.length + 1}`,
-      date: newDate,
-      time: newTime,
-      beneficiaryId: newBeneficiary,
-      beneficiaryName: b.name,
-      beneficiaryInitials: initials,
-      type: newType as EntretienType,
-      status: 'planifie',
-      conseiller: 'Sophie Martin',
-      notes: newNotes || undefined,
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/conseiller/entretiens', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ beneficiaryId: newBeneficiary, type: newType, date: newDate, time: newTime, notes: newNotes || undefined }),
+      })
+      if (res.ok) {
+        const json = await res.json()
+        if (json.success) {
+          setEntretiens(prev => [json.data, ...prev])
+          setDialogOpen(false)
+          setNewBeneficiary('')
+          setNewType('')
+          setNewDate('')
+          setNewTime('')
+          setNewNotes('')
+          setCurrentPage(1)
+        }
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setSubmitting(false)
     }
-    mockEntretiens.push(newEntretien)
-    setDialogOpen(false)
-    setNewBeneficiary('')
-    setNewType('')
-    setNewDate('')
-    setNewTime('')
-    setNewNotes('')
-    setCurrentPage(1)
   }
 
   return (
@@ -345,7 +256,7 @@ export function EntretiensView() {
                     <SelectValue placeholder="Selectionner un beneficiaire" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockBeneficiairesList.map((b) => (
+                    {beneficiaires.map((b) => (
                       <SelectItem key={b.id} value={b.id}>
                         {b.name}
                       </SelectItem>
@@ -364,6 +275,7 @@ export function EntretiensView() {
                     <SelectValue placeholder="Selectionner le type" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="diagnostic">Diagnostic</SelectItem>
                     <SelectItem value="bilan">Bilan</SelectItem>
                     <SelectItem value="suivi">Suivi</SelectItem>
                     <SelectItem value="atelier">Atelier</SelectItem>
@@ -412,9 +324,9 @@ export function EntretiensView() {
               </Button>
               <Button
                 onClick={handleSubmit}
-                disabled={!newBeneficiary || !newType || !newDate || !newTime}
+                disabled={!newBeneficiary || !newType || !newDate || !newTime || submitting}
               >
-                Planifier
+                {submitting ? 'Enregistrement...' : 'Planifier'}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -426,8 +338,8 @@ export function EntretiensView() {
         {[
           { label: 'A venir', value: upcomingCount, color: 'text-primary', bg: 'bg-primary/10' },
           { label: "Aujourd'hui", value: todayCount, color: 'text-coral-500', bg: 'bg-coral-50' },
-          { label: 'Bilan', value: mockEntretiens.filter((e) => e.type === 'bilan' && e.status !== 'termine').length, color: 'text-teal-600', bg: 'bg-teal-50' },
-          { label: 'Termines', value: mockEntretiens.filter((e) => e.status === 'termine').length, color: 'text-muted-foreground', bg: 'bg-muted' },
+          { label: 'Bilan', value: entretiens.filter((e) => e.type === 'bilan' && e.status !== 'termine').length, color: 'text-teal-600', bg: 'bg-teal-50' },
+          { label: 'Termines', value: entretiens.filter((e) => e.status === 'termine').length, color: 'text-muted-foreground', bg: 'bg-muted' },
         ].map((stat, i) => (
           <motion.div
             key={stat.label}
@@ -484,6 +396,7 @@ export function EntretiensView() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tous les types</SelectItem>
+                <SelectItem value="diagnostic">Diagnostic</SelectItem>
                 <SelectItem value="bilan">Bilan</SelectItem>
                 <SelectItem value="suivi">Suivi</SelectItem>
                 <SelectItem value="atelier">Atelier</SelectItem>
