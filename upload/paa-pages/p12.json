@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "République Française  \nLiberté Égalité Fraternité  \nFrance Travail  \n\nLes locaux pour PAA  \nGidef 14ᵉ : 3 rue Paul Jacquier, 75014 Paris  \nGidef 20ᵉ : 103 rue Villiers Isle Adam, 75020 Paris  \n\nPilotage du projet PAA  \nMme Claire Fouquet  \nDirectrice Adjointe Gidef  \nclaire.fouquet@gidef.fr  \nTel : 06 18 00 01 66  \n\nResponsable développement  \nM Hocine Mankour  \nDirecteur Adjoint Gidef  \nhocine.mankour@gidef.fr  \nTel : 06 26 57 72 24  \n\nGIDEF",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1781884343,
+  "id": "20260619235214efcf7bde25f54bff",
+  "model": "glm-4.6v",
+  "object": "chat.completion",
+  "request_id": "20260619235214efcf7bde25f54bff",
+  "usage": {
+    "completion_tokens": 164,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 5196,
+    "prompt_tokens_details": {
+      "cached_tokens": 4
+    },
+    "total_tokens": 5360
+  }
+}

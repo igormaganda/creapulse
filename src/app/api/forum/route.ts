@@ -4,11 +4,12 @@
 // POST /api/forum          — Create new discussion
 // ============================================
 
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
 import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
 import { verifyToken, AuthError } from '@/lib/auth'
+import { withAuth } from '@/lib/api-auth'
 
 // ─── Validation schemas ────────────────────
 
@@ -33,6 +34,10 @@ function authorShape(user: { firstName: string | null; lastName: string | null; 
 
 export async function GET(request: NextRequest) {
   try {
+    // Auth required for forum access
+    const auth = await withAuth(request)
+    if (!auth || auth instanceof NextResponse) return auth
+
     const { searchParams } = new URL(request.url)
 
     const category = searchParams.get('category') || undefined

@@ -86,12 +86,15 @@ export function FlashSwipe({
       }
 
       setTimeout(() => {
-        setCurrentIndex((prev) => prev + 1)
+        setCurrentIndex((prev) => {
+          const next = prev + 1
+          if (next >= deck.length) {
+            setIsComplete(true)
+          }
+          return next
+        })
         setIsAnimating(false)
         setDirection(null)
-        if (currentIndex + 1 >= deck.length) {
-          setIsComplete(true)
-        }
       }, 350)
     },
     [isAnimating, currentIndex, deck, results, currentConfidence, saveSwipeBatch]

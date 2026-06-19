@@ -494,13 +494,14 @@ export function addBullet(
   text: string,
   y?: number,
 ): number {
-  const startY = y ?? doc.y
+  let startY = y ?? doc.y
 
   if (startY + 18 > PAGE_HEIGHT - MARGIN_BOTTOM) {
     doc.addPage()
+    startY = doc.y
   }
 
-  const bulletY = y ?? doc.y
+  const bulletY = startY
 
   doc
     .font('Helvetica')

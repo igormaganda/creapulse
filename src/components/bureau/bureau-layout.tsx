@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import dynamic from 'next/dynamic'
 import { useBureauStore } from './bureau-store'
+import { useModuleConfigStore } from '@/lib/stores/module-config-store'
+import { MODULE_REGISTRY, SECTION_META, SECTION_LABELS, MODULE_LABELS, getModulesBySection } from '@/lib/module-registry'
 import { Sidebar, MobileSidebar } from './sidebar'
 import { TopBar } from './topbar'
 import { Dashboard } from './dashboard'
@@ -52,68 +54,20 @@ const CreascopePipeline = dynamic(() => import('./modules/creascope-pipeline').t
 const PrivacyDashboard = dynamic(() => import('./modules/privacy-dashboard').then(m => ({ default: m.PrivacyDashboard })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const PipelineV3Overview = dynamic(() => import('./modules/pipeline-v3-overview').then(m => ({ default: m.PipelineV3Overview })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 
-/* ─── IA Assistant is rendered once at page.tsx root level (not inside BureauLayout) ─── */
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import {
-  User,
-  Lightbulb,
-  Eye,
-  FlaskConical,
-  Pentagon,
-  Brain,
-  Target,
-  Scale,
-  Calculator,
-  TrendingUp,
-  FileText,
-  Presentation,
-  Globe,
-  MessageSquare,
-  MessageCircle,
-  GraduationCap,
-  Rocket,
-  Stamp,
-  BadgeCheck,
-  ArrowRight,
-  Construction,
-  LayoutGrid,
-  Download,
-  Zap,
-  Shield,
-} from 'lucide-react'
+/* ─── UI imports (used by SectionOverview and ModulePlaceholder) ─── */
+import { Card, CardContent } from '@/components/ui/card'
+import { ArrowRight, Construction } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-/* ─── Module placeholder content map ─── */
-const moduleContent: Record<string, { title: string; description: string; icon: LucideIcon; color: string }> = {
-  'profil-createur': { title: 'Profil Créateur', description: 'Définissez votre profil entrepreneurial pour un accompagnement personnalisé.', icon: User, color: 'text-primary bg-primary/10' },
-  'mon-projet': { title: 'Mon Projet', description: 'Décrivez votre projet de création d\'entreprise étape par étape.', icon: Lightbulb, color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' },
-  'vision': { title: 'Vision', description: 'Structurez votre vision à long terme et vos objectifs stratégiques.', icon: Eye, color: 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30' },
-  'riasec': { title: 'Test RIASEC', description: 'Découvrez votre profil entrepreneurial grâce au test RIASEC.', icon: FlaskConical, color: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20' },
-  'kiviat': { title: 'Test Kiviat', description: 'Évaluez vos compétences clés avec le radar Kiviat.', icon: Pentagon, color: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20' },
-  'bilan-ia': { title: 'Bilan IA', description: 'Synthèse intelligente de votre parcours entrepreneurial grâce à l\'IA.', icon: Brain, color: 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20' },
-  'pepites': { title: 'Pépites Game', description: 'Identifiez vos compétences entrepreneuriales à travers 4 modes de jeu interactifs.', icon: Zap, color: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20' },
-  'creascope': { title: 'CréaScope', description: 'Pipeline de session diagnostique 3-4h pour un accompagnement personnalisé.', icon: Rocket, color: 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20' },
-  'bmc': { title: 'Business Model Canvas', description: 'Construisez votre modèle d\'affaires avec le canevas BMC interactif.', icon: LayoutGrid, color: 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20' },
-  'marche': { title: 'Analyse de Marché', description: 'Étudiez votre marché cible, concurrents et positionnement.', icon: Globe, color: 'text-primary bg-primary/10' },
-  'juridique': { title: 'Analyse Juridique', description: 'Choisissez le statut juridique adapté à votre projet.', icon: Scale, color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' },
-  'financier': { title: 'Plan Financier', description: 'Structurez votre plan financier prévisionnel.', icon: Calculator, color: 'text-coral-500 bg-coral-50 dark:bg-coral-900/20' },
-  'creasim': { title: 'CreaSim', description: 'Simulateur financier interactif pour estimer votre rentabilité.', icon: TrendingUp, color: 'text-primary bg-primary/10' },
-  'business-plan': { title: 'Business Plan', description: 'Rédigez votre business plan avec l\'assistance de l\'IA.', icon: FileText, color: 'text-coral-500 bg-coral-50 dark:bg-coral-900/20' },
-  'pitch-deck': { title: 'Pitch Deck', description: 'Créez votre présentation pour convaincre investisseurs et partenaires.', icon: Presentation, color: 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30' },
-  'annuaire': { title: 'Annuaire', description: 'Explorez le réseau GIDEF et les acteurs de l\'écosystème entrepreneurial.', icon: Globe, color: 'text-primary bg-primary/10' },
-  'forum': { title: 'Forum', description: 'Échangez avec d\'autres créateurs d\'entreprise.', icon: MessageSquare, color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' },
-  'mentorat': { title: 'Mentorat', description: 'Trouvez un mentor pour vous accompagner dans votre parcours.', icon: GraduationCap, color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' },
-  'tremplin': { title: 'Tremplin', description: 'Accédez aux dispositifs d\'aide pour lancer votre activité.', icon: Rocket, color: 'text-primary bg-primary/10' },
-  'passeport': { title: 'Passeport Entrepreneurial', description: 'Certifiez votre parcours et valorisez vos compétences.', icon: Stamp, color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' },
-  'certifications': { title: 'Certifications', description: 'Consultez et gérez vos certifications obtenues.', icon: BadgeCheck, color: 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20' },
-  'telechargements': { title: 'Téléchargements', description: 'Téléchargez tous vos documents de suivi et PDF structurés.', icon: Download, color: 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20' },
-  'messages': { title: 'Messages', description: 'Communiquez avec votre conseiller et les autres créateurs.', icon: MessageCircle, color: 'text-teal-500 bg-teal-50 dark:bg-teal-900/20' },
-  'vie-privee': { title: 'Vie Privée & Données', description: 'Gérez vos consentements RGPD, exportez ou supprimez vos données.', icon: Shield, color: 'text-primary bg-primary/10' },
-}
+/* ─── Module placeholder content map (derived from MODULE_REGISTRY) ─── */
+const moduleContent: Record<string, { title: string; description: string; icon: LucideIcon; color: string }> = Object.fromEntries(
+  MODULE_REGISTRY.map((m) => [
+    m.code,
+    { title: m.label, description: m.description, icon: m.icon, color: m.color },
+  ])
+)
 
-/* ─── Section placeholder content ─── */
+/* ─── Section placeholder content (derived from SECTION_META) ─── */
 const sectionContent: Record<string, { title: string; description: string }> = {
   parcours: { title: 'Parcours', description: 'Explorez les étapes de votre parcours entrepreneurial.' },
   strategie: { title: 'Stratégie', description: 'Construisez votre stratégie de création d\'entreprise.' },
@@ -147,22 +101,15 @@ function ModulePlaceholder({ moduleId }: { moduleId: string }) {
   )
 }
 
-/* ─── Section overview (when no module selected) ─── */
+/* ─── Section overview (when no module selected, filtered by active modules) ─── */
 function SectionOverview({ sectionId }: { sectionId: string }) {
   const { setSection, setModule } = useBureauStore()
+  const { isModuleActive } = useModuleConfigStore()
   const content = sectionContent[sectionId]
   if (!content) return null
 
-  // Get modules for this section
-  const modules = Object.entries(moduleContent).filter(([, v]) => {
-    const sectionMap: Record<string, string[]> = {
-      parcours: ['profil-createur', 'mon-projet', 'vision', 'pepites', 'riasec', 'kiviat', 'bilan-ia', 'creascope'],
-      strategie: ['marche', 'juridique', 'financier', 'creasim', 'bmc', 'business-plan', 'pitch-deck'],
-      ecosysteme: ['annuaire', 'forum', 'messages', 'mentorat'],
-      pilotage: ['tremplin', 'passeport', 'certifications', 'telechargements', 'vie-privee'],
-    }
-    return sectionMap[sectionId]?.includes(Object.keys(moduleContent).find(k => moduleContent[k] === v) || '')
-  })
+  // Get active modules for this section from registry
+  const modules = getModulesBySection(sectionId).filter((code) => isModuleActive(code))
 
   return (
     <motion.div
@@ -176,25 +123,27 @@ function SectionOverview({ sectionId }: { sectionId: string }) {
         <p className="mt-1 text-muted-foreground">{content.description}</p>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {modules.map(([moduleId, mod]) => {
-          const Icon = mod.icon
+        {modules.map((code) => {
+          const def = MODULE_REGISTRY.find((m) => m.code === code)
+          if (!def) return null
+          const Icon = def.icon
           return (
             <motion.div
-              key={moduleId}
+              key={code}
               whileHover={{ scale: 1.02, y: -2 }}
               whileTap={{ scale: 0.98 }}
             >
               <Card
                 className="group cursor-pointer transition-all duration-200 hover:shadow-md hover:border-primary/30"
-                onClick={() => setModule(moduleId)}
+                onClick={() => setModule(code)}
               >
                 <CardContent className="flex items-center gap-4 p-4">
-                  <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', mod.color)}>
+                  <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', def.color)}>
                     <Icon className="h-5 w-5" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground">{mod.title}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{mod.description}</p>
+                    <p className="text-sm font-semibold text-foreground">{def.label}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{def.description}</p>
                   </div>
                   <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0" />
                 </CardContent>
@@ -207,55 +156,30 @@ function SectionOverview({ sectionId }: { sectionId: string }) {
   )
 }
 
-/* ─── Module label map for screen reader announcements ─── */
-const moduleLabels: Record<string, string> = {
-  'profil-createur': 'Profil Créateur',
-  'mon-projet': 'Mon Projet',
-  'vision': 'Vision',
-  'riasec': 'Test RIASEC',
-  'kiviat': 'Test Kiviat',
-  'bilan-ia': 'Bilan IA',
-  'pepites': 'Pépites Game',
-  'creascope': 'CréaScope',
-  'bmc': 'Business Model Canvas',
-  'marche': 'Analyse de Marché',
-  'juridique': 'Analyse Juridique',
-  'financier': 'Plan Financier',
-  'creasim': 'CreaSim',
-  'business-plan': 'Business Plan',
-  'pitch-deck': 'Pitch Deck',
-  'annuaire': 'Annuaire',
-  'forum': 'Forum',
-  'mentorat': 'Mentorat',
-  'tremplin': 'Tremplin',
-  'passeport': 'Passeport Entrepreneurial',
-  'certifications': 'Certifications',
-  'telechargements': 'Téléchargements',
-  'messages': 'Messages',
-  'vie-privee': 'Vie Privée et Données',
-}
-
-const sectionLabels: Record<string, string> = {
-  parcours: 'Parcours',
-  strategie: 'Stratégie',
-  ecosysteme: 'Écosystème',
-  pilotage: 'Pilotage',
-}
+/* ─── Module/Section label maps are now imported from module-registry ─── */
+// Use MODULE_LABELS and SECTION_LABELS from @/lib/module-registry
 
 /* ─── Main content router ─── */
 function BureauContent() {
   const { currentSection, currentModule } = useBureauStore()
   const contentKey = `${currentSection}-${currentModule || ''}`
 
+  const { isModuleActive, fetchActiveModules, loaded: modulesLoaded } = useModuleConfigStore()
+
+  // Fetch active modules on mount
+  useEffect(() => {
+    fetchActiveModules()
+  }, [fetchActiveModules])
+
   /* Announce module changes to screen readers via aria-live region */
   useEffect(() => {
     const liveRegion = document.getElementById('status-live-region')
     if (liveRegion) {
       if (currentModule) {
-        const label = moduleLabels[currentModule] || currentModule
+        const label = MODULE_LABELS[currentModule] || currentModule
         liveRegion.textContent = `Module "${label}" chargé.`
       } else if (currentSection !== 'dashboard') {
-        const label = sectionLabels[currentSection] || currentSection
+        const label = SECTION_LABELS[currentSection] || currentSection
         liveRegion.textContent = `Section "${label}" affichée.`
       }
     }
@@ -271,31 +195,33 @@ function BureauContent() {
         transition={{ duration: 0.2 }}
       >
         {currentSection === 'dashboard' && <Dashboard />}
-        {currentModule === 'riasec' && <RiasecModule />}
-        {currentModule === 'mon-projet' && <MonProjet />}
-        {currentModule === 'creasim' && <CreaSim />}
-        {currentModule === 'business-plan' && <BusinessPlanModule />}
-        {currentModule === 'annuaire' && <AnnuaireModule />}
-        {currentModule === 'forum' && <ForumModule />}
-        {currentModule === 'marche' && <MarcheModule />}
-        {currentModule === 'juridique' && <JuridiqueModule />}
-        {currentModule === 'financier' && <FinancierModule />}
-        {currentModule === 'pitch-deck' && <PitchDeckModule />}
-        {currentModule === 'profil-createur' && <ProfilCreateur />}
-        {currentModule === 'kiviat' && <KiviatModule />}
-        {currentModule === 'bilan-ia' && <BilanIA />}
-        {currentModule === 'bmc' && <BmcModule />}
-        {currentModule === 'pepites' && <PepitesGame />}
-        {currentModule === 'creascope' && <CreascopePipeline />}
-        {currentModule === 'vision' && <VisionModule />}
-        {currentModule === 'tremplin' && <Tremplin />}
-        {currentModule === 'passeport' && <Passeport />}
-        {currentModule === 'mentorat' && <Mentorat />}
-        {currentModule === 'certifications' && <Certifications />}
-        {currentModule === 'telechargements' && <Telechargements />}
-        {currentModule === 'messages' && <MessagesModule />}
-        {currentModule === 'vie-privee' && <PrivacyDashboard />}
-        {currentSection !== 'dashboard' && currentModule && currentModule !== 'riasec' && currentModule !== 'mon-projet' && currentModule !== 'creasim' && currentModule !== 'business-plan' && currentModule !== 'annuaire' && currentModule !== 'forum' && currentModule !== 'marche' && currentModule !== 'juridique' && currentModule !== 'financier' && currentModule !== 'pitch-deck' && currentModule !== 'profil-createur' && currentModule !== 'kiviat' && currentModule !== 'vision' && currentModule !== 'tremplin' && currentModule !== 'passeport' && currentModule !== 'mentorat' && currentModule !== 'certifications' && currentModule !== 'messages' && currentModule !== 'bilan-ia' && currentModule !== 'bmc' && currentModule !== 'telechargements' && currentModule !== 'pepites' && currentModule !== 'creascope' && currentModule !== 'vie-privee' && <ModulePlaceholder moduleId={currentModule} />}
+        {/* Module rendering — filtered by active module config */}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'riasec' && <RiasecModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'mon-projet' && <MonProjet />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'creasim' && <CreaSim />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'business-plan' && <BusinessPlanModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'annuaire' && <AnnuaireModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'forum' && <ForumModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'marche' && <MarcheModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'juridique' && <JuridiqueModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'financier' && <FinancierModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'pitch-deck' && <PitchDeckModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'profil-createur' && <ProfilCreateur />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'kiviat' && <KiviatModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'bilan-ia' && <BilanIA />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'bmc' && <BmcModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'pepites' && <PepitesGame />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'creascope' && <CreascopePipeline />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'vision' && <VisionModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'tremplin' && <Tremplin />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'passeport' && <Passeport />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'mentorat' && <Mentorat />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'certifications' && <Certifications />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'telechargements' && <Telechargements />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'messages' && <MessagesModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'vie-privee' && <PrivacyDashboard />}
+        {/* Module is disabled — show placeholder */}
+        {modulesLoaded && currentModule && !isModuleActive(currentModule) && <ModulePlaceholder moduleId={currentModule} />}
         {currentSection === 'strategie' && !currentModule && <PipelineV3Overview />}
         {currentSection !== 'dashboard' && currentSection !== 'strategie' && !currentModule && <SectionOverview sectionId={currentSection} />}
       </motion.div>

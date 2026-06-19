@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "RÉPUBLIQUE  \nFRANÇAISE  \nLiberté  \nÉgalité  \nFraternité  \n\nFrance  \nTravail  \nParis  \n\nPROGRAMME D'ACCOMPAGNEMENT À L'AMORÇAGE  \nPAA  \n\nG!DEF  \n\nQUI SOMMES-NOUS?  \n\nNOTRE SITE : HTTPS://WWW.GIDEF.ORG/",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1781884245,
+  "id": "20260619235034b75645301d434ad4",
+  "model": "glm-4.6v",
+  "object": "chat.completion",
+  "request_id": "20260619235034b75645301d434ad4",
+  "usage": {
+    "completion_tokens": 79,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 5196,
+    "prompt_tokens_details": {
+      "cached_tokens": 59
+    },
+    "total_tokens": 5275
+  }
+}

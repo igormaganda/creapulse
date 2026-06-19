@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { callZAI } from '@/lib/zai-helper'
 import { buildFTContext, contextToPrompt } from '@/lib/ft-enrichment'
 import { withAuth } from '@/lib/api-auth'
+import { Errors } from '@/lib/api-response'
 
 // ─── Validation Schema ──────────────────────
 
@@ -90,8 +91,9 @@ function getModuleContext(module?: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    // Optional auth — prefer authenticated use but allow unauthenticated for demo
-    const auth = await withAuth(request).catch(() => null)
+    // Authentication required
+    const auth = await withAuth(request)
+    if (!auth) return Errors.unauthorized()
 
     const body = await request.json()
     const parsed = chatSchema.safeParse(body)
@@ -193,12 +195,11 @@ En te basant sur ces données réelles du marché du travail, réponds à la que
   } catch (err) {
     console.error('[IA Assistant API Error]', err)
 
-    // Fallback response if LLM fails
     return Response.json({
-      success: true,
-      data: {
-        reply: 'Je suis temporairement indisponible. Veuillez réessayer dans quelques instants. En attendant, n\'hésitez pas à consulter les ressources disponibles dans votre Bureau Virtuel ou à contacter votre conseiller GIDEF.',
-        timestamp: new Date().toISOString(),
+      success: false,
+      error: {
+        code: 'AI_UNAVAILABLE',
+        message: 'Le service IA est temporairement indisponible. Veuillez réessayer dans quelques instants.',
       },
     })
   }

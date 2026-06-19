@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "RÉPUBLIQUE  \nFRANÇAISE  \nLiberté  \nEgalité  \nFraternité  \nFrance  \nTravail  \nG!DEF  \n\nPROGRAMME D'ACCOMPAGNEMENT À L'AMORÇAGE  \n\nQUI EST CONCERNÉ PAR L'ACTION ?  \n\nLe programme d’accompagnement à l’amorçage s’adresse aux demandeurs d’emploi qui ont créé depuis peu une entreprise dont l’activité ne permet pas encore de garantir un revenu régulier.",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1781884224,
+  "id": "20260619235014ad3208bdd9bd4ef3",
+  "model": "glm-4.6v",
+  "object": "chat.completion",
+  "request_id": "20260619235014ad3208bdd9bd4ef3",
+  "usage": {
+    "completion_tokens": 111,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 5196,
+    "prompt_tokens_details": {
+      "cached_tokens": 4
+    },
+    "total_tokens": 5307
+  }
+}

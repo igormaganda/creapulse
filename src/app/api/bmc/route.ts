@@ -499,19 +499,29 @@ Réponds en JSON avec exactement ces 9 clés :
     } else if (action === 'ai-suggest-block') {
       // ── Single block suggestion ──
 
-      // Frontend sends blockId (kebab-case), backend expects blockKey (camelCase)
-      const rawBlockId = (body as Record<string, unknown>).blockId as string | undefined
-      const blockKey: BmcBlockKey = rawBlockId
-        ? (blockIdToDbKey[rawBlockId] ?? rawBlockId as BmcBlockKey)
-        : ((body as Record<string, unknown>).blockKey as BmcBlockKey)
-
-      if (!blockKey || !bmcBlocks.includes(blockKey)) {
+      const parsedBlock = aiSuggestBlockSchema.safeParse(body)
+      if (!parsedBlock.success) {
         return Errors.validation(
-          { field: 'blockId', message: `Block invalide: ${rawBlockId || (body as Record<string, unknown>).blockKey}` }
+          parsedBlock.error.issues.map(i => ({
+            field: i.path.join('.'),
+            message: i.message,
+          }))
         )
       }
 
-      const existingContent = (body as Record<string, unknown>).existingContent as string | undefined
+      // Frontend may send blockId (kebab-case), backend expects blockKey (camelCase)
+      const rawBlockId = (body as Record<string, unknown>).blockId as string | undefined
+      const blockKey: BmcBlockKey = rawBlockId
+        ? (blockIdToDbKey[rawBlockId] ?? parsedBlock.data.blockKey)
+        : parsedBlock.data.blockKey
+
+      if (!bmcBlocks.includes(blockKey)) {
+        return Errors.validation(
+          { field: 'blockId', message: `Block invalide: ${rawBlockId || blockKey}` }
+        )
+      }
+
+      const existingContent = parsedBlock.data.existingContent
       const blockLabel = bmcBlockLabels[blockKey]
 
       // Fetch context

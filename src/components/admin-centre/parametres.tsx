@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import { MODULE_REGISTRY } from '@/lib/module-registry'
+import { useModuleConfigStore } from '@/lib/stores/module-config-store'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -67,14 +69,6 @@ type TeamMember = {
   avatar: string
 }
 
-type BureauModule = {
-  id: string
-  name: string
-  description: string
-  active: boolean
-  section: 'Parcours' | 'Stratégie' | 'Écosystème' | 'Pilotage'
-}
-
 type CenterInfo = {
   name: string
   siret: string
@@ -118,29 +112,6 @@ const initialTeam: TeamMember[] = [
   { id: '4', name: 'Philippe Petit', email: 'philippe.petit@lidef.fr', role: 'Conseiller', status: 'Actif', avatar: 'PP' },
   { id: '5', name: 'Amina Roux', email: 'amina.roux@lidef.fr', role: 'LECTURE', status: 'Actif', avatar: 'AR' },
   { id: '6', name: 'Luc Bernard', email: 'luc.bernard@lidef.fr', role: 'Conseiller', status: 'Inactif', avatar: 'LB' },
-]
-
-const initialModules: BureauModule[] = [
-  // Parcours
-  { id: 'mon-projet', name: 'Mon Projet', description: 'Fiche projet structurée avec auto-évaluation', active: true, section: 'Parcours' },
-  { id: 'riasec', name: 'Test RIASEC', description: 'Test de personnalité entrepreneurial', active: true, section: 'Parcours' },
-  { id: 'parcours-steps', name: 'Parcours Guidé', description: 'Étapes du parcours créateur', active: true, section: 'Parcours' },
-  { id: 'tremplin', name: 'Tremplin', description: 'Validation de l&apos;éligibilité au dispositif', active: true, section: 'Parcours' },
-  // Stratégie
-  { id: 'creasim', name: 'CreaSim', description: 'Simulateur financier prévisionnel', active: true, section: 'Stratégie' },
-  { id: 'business-plan', name: 'Business Plan', description: 'Rédaction assistée par IA', active: true, section: 'Stratégie' },
-  { id: 'marche', name: 'Étude de Marché', description: 'Analyse concurrentielle et marché', active: false, section: 'Stratégie' },
-  { id: 'juridique', name: 'Juridique', description: 'Choix du statut et formalités', active: true, section: 'Stratégie' },
-  { id: 'financement', name: 'Financement', description: 'Recherche de financements', active: false, section: 'Stratégie' },
-  { id: 'pitch-deck', name: 'Pitch Deck', description: 'Création de présentation investisseur', active: false, section: 'Stratégie' },
-  // Écosystème
-  { id: 'annuaire', name: 'Annuaire', description: 'Répertoire des acteurs de l&apos;écosystème', active: true, section: 'Écosystème' },
-  { id: 'forum', name: 'Forum', description: 'Communauté et discussions entre créateurs', active: true, section: 'Écosystème' },
-  { id: 'mentorat', name: 'Mentorat', description: 'Mise en relation avec des mentors', active: true, section: 'Écosystème' },
-  // Pilotage
-  { id: 'dashboard', name: 'Tableau de bord', description: 'Vue d&apos;ensemble et KPI', active: true, section: 'Pilotage' },
-  { id: 'planning', name: 'Planning', description: 'Gestion des rendez-vous', active: true, section: 'Pilotage' },
-  { id: 'livrables', name: 'Livrables', description: 'Suivi et validation des livrables', active: true, section: 'Pilotage' },
 ]
 
 const initialPreferences: Preferences = {
@@ -663,39 +634,74 @@ function PreferencesSection() {
   )
 }
 
-/* ─── Section 4: Modules Actifs ─── */
+/* ─── Section 4: Modules Actifs (connected to real API) ─── */
 function ModulesSection() {
-  const [modules, setModules] = useState<BureauModule[]>(initialModules)
+  const { isModuleActive, toggleModule, fetchActiveModules } = useModuleConfigStore()
+  const [saving, setSaving] = useState(false)
 
-  const sections = ['Parcours', 'Stratégie', 'Écosystème', 'Pilotage'] as const
+  useEffect(() => {
+    fetchActiveModules()
+  }, [fetchActiveModules])
+
+  const sections = ['parcours', 'strategie', 'ecosysteme', 'pilotage'] as const
+  const sectionLabels: Record<string, string> = {
+    parcours: 'Parcours',
+    strategie: 'Stratégie',
+    ecosysteme: 'Écosystème',
+    pilotage: 'Pilotage',
+  }
   const sectionColors: Record<string, string> = {
-    'Parcours': 'text-primary',
-    'Stratégie': 'text-amber-500',
-    'Écosystème': 'text-green-500',
-    'Pilotage': 'text-purple-500',
+    parcours: 'text-primary',
+    strategie: 'text-amber-500',
+    ecosysteme: 'text-green-500',
+    pilotage: 'text-purple-500',
   }
   const sectionIcons: Record<string, React.ReactNode> = {
-    'Parcours': <MapPin className="h-4 w-4" />,
-    'Stratégie': <BarChart3 className="h-4 w-4" />,
-    'Écosystème': <Globe className="h-4 w-4" />,
-    'Pilotage': <HardDrive className="h-4 w-4" />,
+    parcours: <MapPin className="h-4 w-4" />,
+    strategie: <BarChart3 className="h-4 w-4" />,
+    ecosysteme: <Globe className="h-4 w-4" />,
+    pilotage: <HardDrive className="h-4 w-4" />,
   }
 
-  const toggleModule = (id: string) => {
-    setModules(modules.map(m => m.id === id ? { ...m, active: !m.active } : m))
+  const toggleModuleAction = (code: string, active: boolean) => {
+    toggleModule(code, active)
+    // Persist via admin API
+    handleBulkSave([{ code, isActive: active }])
+  }
+
+  const handleBulkSave = async (modules: { code: string; isActive: boolean }[]) => {
+    setSaving(true)
+    try {
+      const res = await fetch('/api/admin-plateforme/modules-sync', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modules }),
+      })
+      if (res.ok) {
+        toast.success(`${modules.length} module(s) mis à jour`)
+      }
+    } catch {
+      toast.error('Erreur lors de la sauvegarde')
+    }
+    setSaving(false)
   }
 
   const enableAll = () => {
-    setModules(modules.map(m => ({ ...m, active: true })))
+    const all = MODULE_REGISTRY.map((m) => ({ code: m.code, isActive: true }))
+    all.forEach((m) => toggleModule(m.code, true))
+    handleBulkSave(all)
     toast.success('Tous les modules ont été activés')
   }
 
   const disableAll = () => {
-    setModules(modules.map(m => ({ ...m, active: false })))
-    toast.success('Tous les modules ont été désactivés')
+    const nonCore = MODULE_REGISTRY.filter((m) => !m.core).map((m) => ({ code: m.code, isActive: false }))
+    nonCore.forEach((m) => toggleModule(m.code, false))
+    handleBulkSave(nonCore)
+    toast.success('Modules non-core désactivés (modules core conservés)')
   }
 
-  const activeCount = modules.filter(m => m.active).length
+  const activeCount = MODULE_REGISTRY.filter((m) => isModuleActive(m.code)).length
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
@@ -724,39 +730,56 @@ function ModulesSection() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {sections.map((section) => (
-            <div key={section}>
-              <div className="flex items-center gap-2 mb-3">
-                <span className={sectionColors[section]}>{sectionIcons[section]}</span>
-                <h3 className={`text-sm font-semibold ${sectionColors[section]}`}>{section}</h3>
-                <Badge variant="secondary" className="text-xs ml-auto">
-                  {modules.filter(m => m.section === section && m.active).length}/{modules.filter(m => m.section === section).length}
-                </Badge>
+          {sections.map((section) => {
+            const sectionModules = MODULE_REGISTRY
+              .filter((m) => m.section === section)
+              .sort((a, b) => a.sortOrder - b.sortOrder)
+            const sectionActive = sectionModules.filter((m) => isModuleActive(m.code)).length
+            return (
+              <div key={section}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={sectionColors[section]}>{sectionIcons[section]}</span>
+                  <h3 className={`text-sm font-semibold ${sectionColors[section]}`}>{sectionLabels[section]}</h3>
+                  <Badge variant="secondary" className="text-xs ml-auto">
+                    {sectionActive}/{sectionModules.length}
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {sectionModules.map((mod) => {
+                    const active = isModuleActive(mod.code)
+                    return (
+                      <div
+                        key={mod.code}
+                        className={`flex items-center justify-between gap-3 p-3 rounded-lg border transition-colors ${
+                          active ? 'bg-[#FF6B35]/5 border-[#FF6B35]/20' : 'bg-muted/30 border-transparent'
+                        }`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className={`text-sm font-medium ${active ? 'text-foreground' : 'text-muted-foreground'}`}>
+                              {mod.label}
+                            </p>
+                            {mod.core && (
+                              <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 bg-primary/10 text-primary">
+                                core
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{mod.description}</p>
+                        </div>
+                        <Switch
+                          checked={active}
+                          onCheckedChange={(checked) => toggleModuleAction(mod.code, checked)}
+                          disabled={saving}
+                        />
+                      </div>
+                    )
+                  })}
+                </div>
+                {section !== 'pilotage' && <Separator className="mt-5" />}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {modules.filter(m => m.section === section).map((mod) => (
-                  <div
-                    key={mod.id}
-                    className={`flex items-center justify-between gap-3 p-3 rounded-lg border transition-colors ${
-                      mod.active ? 'bg-[#FF6B35]/5 border-[#FF6B35]/20' : 'bg-muted/30 border-transparent'
-                    }`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium ${mod.active ? 'text-foreground' : 'text-muted-foreground'}`}>
-                        {mod.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{mod.description}</p>
-                    </div>
-                    <Switch
-                      checked={mod.active}
-                      onCheckedChange={() => toggleModule(mod.id)}
-                    />
-                  </div>
-                ))}
-              </div>
-              {section !== 'Pilotage' && <Separator className="mt-5" />}
-            </div>
-          ))}
+            )
+          })}
         </CardContent>
       </Card>
     </motion.div>

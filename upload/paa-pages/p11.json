@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "ARCHITECTURE DE LA PRESTATION  \nLES 9 ATELIERS THÉMATIQUES  \n\nAtelier 1: Trouver son marché et définir son positionnement  \n\nAtelier 2: La gestion financière pour les créateurs d'entreprise  \n\nAtelier 3: Stratégies commerciales et marketing  \n\nAtelier 4: Le financement de son projet entrepreneurial  \n\nAtelier 5: La gestion du temps et la productivité  \n\nAtelier 6: La légalité de l'entreprise et les formalités administratives  \n\nAtelier 7: Développer son réseau professionnel et ses partenariats  \n\nAtelier 8: La gestion de crise et la résilience entrepreneuriale  \n\nAtelier 9 : Clôturer son entreprise : démarches et rebond professionnel",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1781884320,
+  "id": "202606192351538241fe4dbdb543db",
+  "model": "glm-4.6v",
+  "object": "chat.completion",
+  "request_id": "202606192351538241fe4dbdb543db",
+  "usage": {
+    "completion_tokens": 173,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 5196,
+    "prompt_tokens_details": {
+      "cached_tokens": 4
+    },
+    "total_tokens": 5369
+  }
+}

@@ -66,18 +66,8 @@ export async function POST(request: Request) {
       where: { email: normalizedEmail },
     })
 
-    if (!user) {
-      return Errors.invalidCredentials('Aucun compte trouvé avec cet email')
-    }
-
-    if (!user.passwordHash) {
-      return Errors.invalidCredentials('Méthode de connexion invalide')
-    }
-
-    // Verify password
-    const isValid = await verifyPassword(password, user.passwordHash)
-    if (!isValid) {
-      return Errors.invalidCredentials('Mot de passe incorrect')
+    if (!user || !user.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
+      return Errors.invalidCredentials('Identifiants invalides')
     }
 
     // Get tenant ID from user record
@@ -94,12 +84,11 @@ export async function POST(request: Request) {
       avatarUrl: user.avatarUrl,
     })
 
-    // Set session cookie
+    // Set session cookie (token only in httpOnly cookie, never in response body)
     const response = NextResponse.json({
       success: true,
       data: {
         user: authTokens.user,
-        accessToken: authTokens.accessToken,
       },
     })
 

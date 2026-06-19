@@ -145,6 +145,11 @@ export async function POST(request: NextRequest) {
 
     const data = parsed.data
 
+    // Prevent notification spoofing: only ADMIN/COUNSELOR can create notifications for other users
+    if (data.userId && data.userId !== payload.userId && payload.role !== 'ADMIN' && payload.role !== 'COUNSELOR') {
+      return Errors.forbidden()
+    }
+
     // Vérifier que le userId cible existe (optionnel mais recommandé)
     const targetUser = await db.user.findUnique({
       where: { id: data.userId },

@@ -75,7 +75,10 @@ async function computeGlobalScore(
 ): Promise<number> {
   // Step completion (0-100)
   const completedSteps = Object.entries(stepProgress)
-    .filter(([, v]) => (v as Record<string, unknown>).completedAt)
+    .filter(([, v]) => {
+      const completedAt = (v as any).completedAt
+      return !!completedAt && completedAt.length > 0
+    })
     .length
   const totalSteps = STEP_ORDER.length - 1 // exclude TERMINEE
   const stepCompletion = (completedSteps / totalSteps) * 100

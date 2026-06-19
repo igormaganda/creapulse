@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "France Travail  \nGIDEF  \n\nOBJECTIFS DE LA PRESTATION PAA  \n\nObjectifs généraux de la prestation  \n- Identifier les difficultés rencontrées par l’entrepreneur  \n- Renforcer les compétences entrepreneuriales des publics : formation et conseils pratiques sur la gestion  \n- Sécuriser l’entrée sur le marché des jeunes entreprises  \n- Maximiser les chances de succès et la pérennisation de l’activité  \n- Renforcer les Business Models  \n- Créer un réseau avec d’autres entrepreneurs  \n- Accompagner la décision de poursuite, réorientation ou de clôture du projet  \n\nObjectifs spécifiques  \n- Renforcer la confiance et les compétences (gestion, finances, marketing…)  \n- Proposer une démarche structurée et progressive  \n- Faciliter l’accès à des expertises spécialisées (finance, marketing, juridique…)  \n- Réduire le taux de déperdition des nouveaux entrepreneurs  \n- Accompagner la fermeture et le rebond lorsque la viabilité n’est pas atteinte",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1781884267,
+  "id": "202606192350575fbf0e2edfaa494f",
+  "model": "glm-4.6v",
+  "object": "chat.completion",
+  "request_id": "202606192350575fbf0e2edfaa494f",
+  "usage": {
+    "completion_tokens": 226,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 5196,
+    "prompt_tokens_details": {
+      "cached_tokens": 4
+    },
+    "total_tokens": 5422
+  }
+}

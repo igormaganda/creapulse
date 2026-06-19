@@ -13,7 +13,12 @@ const RegisterSchema = z.object({
   firstName: z.string().min(1).max(100),
   lastName: z.string().min(1).max(100),
   email: z.string().email().max(255),
-  password: z.string().min(8).max(128),
+  password: z.string()
+    .min(8, 'Le mot de passe doit contenir au moins 8 caractères')
+    .max(128)
+    .refine(pw => /[A-Z]/.test(pw), 'Le mot de passe doit contenir au moins une majuscule')
+    .refine(pw => /[0-9]/.test(pw), 'Le mot de passe doit contenir au moins un chiffre')
+    .refine(pw => /[^A-Za-z0-9]/.test(pw), 'Le mot de passe doit contenir au moins un caractère spécial'),
 })
 
 // ─── Rate limiting (in-memory, per-IP) ────────

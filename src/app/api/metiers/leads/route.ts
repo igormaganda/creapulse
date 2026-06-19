@@ -8,6 +8,21 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { success, Errors, handleApiError } from '@/lib/api-response'
 
+// ─── Rate limiter (10 per hour per IP) ──────
+
+const leadRateLimit = new Map<string, { count: number; resetAt: number }>()
+function checkLeadRateLimit(ip: string): boolean {
+  const now = Date.now()
+  const entry = leadRateLimit.get(ip)
+  if (!entry || now > entry.resetAt) {
+    leadRateLimit.set(ip, { count: 1, resetAt: now + 3600000 }) // 1 hour
+    return true
+  }
+  if (entry.count >= 10) return false // max 10 per hour per IP
+  entry.count++
+  return true
+}
+
 // ─── Validation schema ─────────────────────
 
 const frenchPhoneRegex = /^0[1-9]\d{8}$/
@@ -45,6 +60,22 @@ const LeadBodySchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    // IP-based rate limiting
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    if (!checkLeadRateLimit(ip)) {
+      return Response.json(
+        {
+          success: false,
+          error: {
+            code: 'RATE_LIMITED',
+            message: 'Trop de requêtes. Veuillez réessayer dans une heure.',
+          },
+          timestamp: new Date().toISOString(),
+        },
+        { status: 429 },
+      )
+    }
+
     const body = await request.json()
     const data = LeadBodySchema.parse(body)
 

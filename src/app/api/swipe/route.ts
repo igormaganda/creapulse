@@ -35,7 +35,7 @@ const SaveSwipeBody = z.object({
 export async function GET(request: NextRequest) {
   try {
     const auth = await withAuth(request)
-    if (!auth) return
+    if (!auth) return Errors.unauthorized()
     const { payload } = auth
 
     const results = await db.swipeGameResult.findMany({
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const auth = await withAuth(request)
-    if (!auth) return
+    if (!auth) return Errors.unauthorized()
     const { payload } = auth
 
     const body = await request.json()
@@ -221,7 +221,7 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const auth = await withAuth(request)
-    if (!auth) return
+    if (!auth) return Errors.unauthorized()
     const { payload } = auth
 
     const { count } = await db.swipeGameResult.deleteMany({

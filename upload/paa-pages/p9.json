@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "ARCHITECTURE DE LA PRESTATION  \nGIDEF  \n\nContacts de suivi  \n\nAteliers thématiques  \nAtelier 2  \nAtelier 1  \nAtelier 4  \nAtelier 3  \n60 jours  \n10 j maxi  \n3 mois  \n\n0  \n1  \n2  \n3  \n\nContact du  \nbénéficiaire  \nEntretien de  \nDiagnostic  \nEntretien de suivi  \nEntretien de  \nBilan  \nSuivi 3 mois  \n\n• Prise de contact avec le  \ndemandeur inscrit  \n• Présentation de la  \nprestation  \n• Prise de rendez-vous et choix  \ndes modalités de RDV  \n• Diagnostic des besoins du créateur  \n• Définition d’un plan d’action  \nindividualisé, d’un parcours  \nd’accès à l’emploi  \n• Engagement dans l’action  \n• Mise en oeuvre du plan d’action  \net des démarches  \n• Suivi et ajustement des  \ndémarches  \n• Bilan du parcours réalisé et des  \ndémarches effectuées  \n• Elaboration d’un plan d’action pour la  \npoursuite des démarches  \n• Perpectives à 6 mois  \n• Observation / valorisation  \ndes résultats  \n• Actions complémentaires",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1781884312,
+  "id": "202606192351430ea9d6a2c32740d1",
+  "model": "glm-4.6v",
+  "object": "chat.completion",
+  "request_id": "202606192351430ea9d6a2c32740d1",
+  "usage": {
+    "completion_tokens": 270,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 5196,
+    "prompt_tokens_details": {
+      "cached_tokens": 4
+    },
+    "total_tokens": 5466
+  }
+}

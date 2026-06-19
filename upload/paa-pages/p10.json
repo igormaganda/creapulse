@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "ARCHITECTURE DE LA PRESTATION : 3 ENTRETIENS  \n\nEntretien de diagnostic (1h à 1h30)  \n• Analyse du profil, du projet, des difficultés rencontrées  \n• Outils : SWOT, carte mentale, plan d’action personnalisé  \n\nEntretien de suivi (1h)  \n• Bilan des actions, difficultés rencontrées, réajustement du plan  \n• Outils : tableau de suivi, objectifs SMART, échelle de satisfaction  \n\nEntretien de conclusion (1h)  \n• Bilan des progrès, perspectives à 6–12 mois  \n• Décision : poursuite, développement, ou clôture et rebond emploi",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1781884327,
+  "id": "2026061923520145468cda79ba4911",
+  "model": "glm-4.6v",
+  "object": "chat.completion",
+  "request_id": "2026061923520145468cda79ba4911",
+  "usage": {
+    "completion_tokens": 153,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 5196,
+    "prompt_tokens_details": {
+      "cached_tokens": 59
+    },
+    "total_tokens": 5349
+  }
+}

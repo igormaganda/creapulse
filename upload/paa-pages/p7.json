@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "GIDEF  \nLes principales  \ndifficultés rencontrées  \nchez les créateurs lors  \nde la phase d’amorçage  \n\n1  \nAbsence de plan  \nd’action solide et  \nde stratégie claire  \n\n2  \nProblèmes de  \nvisibilité et de  \nmarketing  \n\n3  \nManque de  \nfonds et gestion  \nde la trésorerie  \n\n4  \nProblèmes de  \ngestion du temps  \net d’organisation  \n\n5  \nUn produit ou  \nservice mal adapté  \nau marché  \n\n6  \nInexpérience et  \nmanque de  \ncompétences  \nentrepreneuria­les  \n\n7  \nMauvaise gestion  \ndes attentes vis­à­vis des clients  \net des partenaires  \n\n8  \nProblèmes de  \nleadership et de  \ngestion d’équipe  \n\n9  \nSurendettement ou  \ngestion difficile de  \nla dette  \n\n10  \nRéseau limité  \net manque de  \nsoutien externe",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1781884302,
+  "id": "20260619235133e04efabf948449e3",
+  "model": "glm-4.6v",
+  "object": "chat.completion",
+  "request_id": "20260619235133e04efabf948449e3",
+  "usage": {
+    "completion_tokens": 206,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 5196,
+    "prompt_tokens_details": {
+      "cached_tokens": 4
+    },
+    "total_tokens": 5402
+  }
+}

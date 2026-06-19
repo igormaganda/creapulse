@@ -123,30 +123,49 @@ export async function callZAI(
  * Returns null if parsing fails.
  */
 export function parseJSONFromAI<T = unknown>(text: string): T | null {
-  // Try direct parse
-  try {
-    const parsed = JSON.parse(text)
-    if (typeof parsed === 'object' && parsed !== null) return parsed as T
-  } catch {}
+  // Try direct parse first
+  try { return JSON.parse(text) as T } catch {}
 
-  // Try matching JSON block (handles ```json ... ```)
-  const jsonMatch = text.match(/\{[\s\S]*\}/)
-  if (jsonMatch) {
-    try {
-      const parsed = JSON.parse(jsonMatch[0])
-      if (typeof parsed === 'object' && parsed !== null) return parsed as T
-    } catch {}
+  // Find first balanced JSON object
+  const start = text.indexOf('{')
+  if (start !== -1) {
+    const result = extractBalancedJSON(text, start)
+    if (result !== null) {
+      try { return JSON.parse(result) as T } catch {}
+    }
   }
 
-  // Try matching JSON array
-  const arrayMatch = text.match(/\[[\s\S]*\]/)
-  if (arrayMatch) {
-    try {
-      const parsed = JSON.parse(arrayMatch[0])
-      if (Array.isArray(parsed)) return parsed as T
-    } catch {}
+  // Find first balanced JSON array
+  const arrStart = text.indexOf('[')
+  if (arrStart !== -1) {
+    const result = extractBalancedJSON(text, arrStart, '[', ']')
+    if (result !== null) {
+      try {
+        const parsed = JSON.parse(result)
+        if (Array.isArray(parsed)) return parsed as T
+      } catch {}
+    }
   }
 
+  return null
+}
+
+function extractBalancedJSON(text: string, start: number, openChar = '{', closeChar = '}'): string | null {
+  let depth = 0
+  let inString = false
+  let escape = false
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i]
+    if (escape) { escape = false; continue }
+    if (ch === '\\') { escape = true; continue }
+    if (ch === '"') { inString = !inString; continue }
+    if (inString) continue
+    if (ch === openChar) depth++
+    if (ch === closeChar) {
+      depth--
+      if (depth === 0) return text.substring(start, i + 1)
+    }
+  }
   return null
 }
 

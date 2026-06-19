@@ -131,7 +131,26 @@ export function SessionOrchestrator({ session, onBack, onRefresh }: { session: S
   const handlePause = () => sessionAction('pause')
   const handleResume = () => sessionAction('resume')
   const handleComplete = () => sessionAction('complete')
-  const handleCancel = () => sessionAction('cancel')
+  const handleCancel = useCallback(async () => {
+    setActionLoading(true)
+    try {
+      const res = await authFetch(`/api/creascope/sessions/${session.id}`, {
+        method: 'DELETE',
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast.success(data.message || 'Session annulée')
+        onRefresh()
+        setStepNotes('')
+      } else {
+        toast.error(data.error?.message || 'Erreur')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setActionLoading(false)
+    }
+  }, [session.id, onRefresh])
   const handleAddNotes = () => {
     if (!stepNotes.trim()) return
     sessionAction('add_notes', { notes: stepNotes })

@@ -7,19 +7,16 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 // ─── Database connection string ──
-// Primary: use DATABASE_URL from environment (Vercel / production)
-// Fallback: hardcoded string for local dev / sandbox only
-const FALLBACK_CONNECTION_STRING = 'postgresql://bureau_virtuelle_user:bureau_virtuelle_pass2026@213.199.38.41:5432/bureau_virtuelle'
+// DATABASE_URL must be set in the environment (Vercel / production / local .env)
 
 function getConnectionString(): string {
-  if (process.env.DATABASE_URL) {
-    return process.env.DATABASE_URL
+  if (!process.env.DATABASE_URL) {
+    throw new Error(
+      '[DB] DATABASE_URL environment variable is not set. ' +
+      'Please set it in your .env file or deployment environment.',
+    )
   }
-  console.warn(
-    '[DB] DATABASE_URL not set — falling back to hardcoded sandbox connection string. ' +
-    'Set DATABASE_URL in your environment for production deployments.',
-  )
-  return FALLBACK_CONNECTION_STRING
+  return process.env.DATABASE_URL
 }
 
 function createPrismaClient(): PrismaClient {

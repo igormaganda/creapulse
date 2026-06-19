@@ -85,7 +85,7 @@ function computeModules(
   const marcheFilled = marcheSections.filter(s => isFilled(bpSections[s])).length
   modules.marche = {
     id: 'marche', label: 'Analyse de Marché', phase: 'simulateurs',
-    completion: marcheSections.length > 0 ? Math.round((marcheFilled / marcheSections.length) * 100) : 0,
+    completion: marcheSections.length > 0 ? Math.min(100, Math.round((marcheFilled / marcheSections.length) * 100)) : 0,
     hasData: marcheHasData, lastSyncAt: marketAnalysis?.updatedAt?.toISOString() ?? null,
     sectionsFilled: marcheFilled, sectionsTotal: marcheSections.length,
   }
@@ -95,7 +95,7 @@ function computeModules(
   const jurFilled = isFilled(bpSections['statut-juridique']) ? 1 : 0
   modules.juridique = {
     id: 'juridique', label: 'Analyse Juridique', phase: 'simulateurs',
-    completion: Math.round((jurFilled / 1) * 100), hasData: jurHasData,
+    completion: Math.min(100, Math.round((jurFilled / 1) * 100)), hasData: jurHasData,
     lastSyncAt: juridiqueAnalysis?.updatedAt?.toISOString() ?? null,
     sectionsFilled: jurFilled, sectionsTotal: 1,
   }
@@ -106,7 +106,7 @@ function computeModules(
   const finFilled = finSections.filter(s => isFilled(bpSections[s])).length
   modules.financier = {
     id: 'financier', label: 'Prévisions Financières', phase: 'simulateurs',
-    completion: finSections.length > 0 ? Math.round((finFilled / finSections.length) * 100) : 0,
+    completion: finSections.length > 0 ? Math.min(100, Math.round((finFilled / finSections.length) * 100)) : 0,
     hasData: finHasData, lastSyncAt: financialForecast?.updatedAt?.toISOString() ?? null,
     sectionsFilled: finFilled, sectionsTotal: finSections.length,
   }
@@ -116,7 +116,7 @@ function computeModules(
   const csFilled = isFilled(bpSections['seuil-rentabilite']) ? 1 : 0
   modules.creasim = {
     id: 'creasim', label: 'CreaSim', phase: 'simulateurs',
-    completion: Math.round((csFilled / 1) * 100), hasData: csHasData,
+    completion: Math.min(100, Math.round((csFilled / 1) * 100)), hasData: csHasData,
     lastSyncAt: creasimSimulation?.updatedAt?.toISOString() ?? null,
     sectionsFilled: csFilled, sectionsTotal: 1,
   }
@@ -126,7 +126,7 @@ function computeModules(
   const bmcFilled = bmcFields.filter(f => typeof f === 'string' && f.trim().length > 0).length
   modules.bmc = {
     id: 'bmc', label: 'Business Model Canvas', phase: 'hub',
-    completion: Math.round((bmcFilled / 9) * 100),
+    completion: Math.min(100, Math.round((bmcFilled / 9) * 100)),
     hasData: bmcFilled > 0, lastSyncAt: bmc?.updatedAt?.toISOString() ?? null,
     sectionsFilled: bmcFilled, sectionsTotal: 9,
   }
@@ -136,7 +136,7 @@ function computeModules(
   const bpFilled = bpAllSections.filter(s => isFilled(bpSections[s])).length
   modules['business-plan'] = {
     id: 'business-plan', label: 'Business Plan', phase: 'hub',
-    completion: Math.round((bpFilled / 24) * 100),
+    completion: Math.min(100, Math.round((bpFilled / 24) * 100)),
     hasData: bpFilled > 0, lastSyncAt: bpUpdatedAt?.toISOString() ?? null,
     sectionsFilled: bpFilled, sectionsTotal: 24,
   }
@@ -151,7 +151,7 @@ function computeModules(
   } catch { /* ignore */ }
   modules['pitch-deck'] = {
     id: 'pitch-deck', label: 'Pitch Deck', phase: 'livrables',
-    completion: Math.round((pdFilled / 8) * 100),
+    completion: Math.min(100, Math.round((pdFilled / 8) * 100)),
     hasData: pdFilled > 0, lastSyncAt: pitchDeck?.updatedAt?.toISOString() ?? null,
     sectionsFilled: pdFilled, sectionsTotal: 8,
   }
@@ -306,7 +306,7 @@ function computeHealth(
       weightedSum += weight * qualityFactor
     }
   }
-  const weightedProgress = maxWeight > 0 ? Math.round((weightedSum / maxWeight) * 100) : 0
+  const weightedProgress = maxWeight > 0 ? Math.min(100, Math.round((weightedSum / maxWeight) * 100)) : 0
 
   // Overall score: weighted combination of all modules
   const moduleScores = Object.values(modules)
@@ -454,7 +454,7 @@ async function syncSingleModule(userId: string, module: 'marche' | 'juridique' |
       typeof v === 'object' && v !== null && !Array.isArray(v) && Object.keys(v).length > 0 ||
       Array.isArray(v) && v.length > 0,
     ).length
-    const bpScore = Math.round((filledCount / 24) * 100)
+    const bpScore = Math.min(100, Math.round((filledCount / 24) * 100))
 
     await db.creatorJourney.upsert({
       where: { userId },

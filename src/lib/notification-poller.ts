@@ -30,6 +30,7 @@ class NotificationPoller {
   private userId: string | null
   private lastCount = 0
   private config: PollerConfig
+  private stopped = false
 
   constructor(config?: Partial<PollerConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config }
@@ -43,6 +44,7 @@ class NotificationPoller {
   }
 
   start(userId: string, callback: NotificationCallback) {
+    this.stopped = false
     this.userId = userId
     this.callback = callback
     this.resetInterval()
@@ -54,6 +56,7 @@ class NotificationPoller {
   }
 
   stop() {
+    this.stopped = true
     if (this.timer) clearTimeout(this.timer)
     this.timer = null
     this.callback = null
@@ -66,11 +69,13 @@ class NotificationPoller {
   }
 
   private schedule = () => {
+    if (this.stopped) return
     if (this.timer) clearTimeout(this.timer)
 
     const effectiveInterval = this.isVisible ? this.interval : this.maxInterval
 
     this.timer = setTimeout(async () => {
+      if (this.stopped) return
       if (!this.isVisible || !this.userId || !this.callback) {
         // Reschedule without fetching when hidden or not ready
         this.schedule()
@@ -99,6 +104,7 @@ class NotificationPoller {
         // Silent — network error, keep current interval
       }
 
+      if (this.stopped) return
       this.schedule()
     }, effectiveInterval)
   }

@@ -169,7 +169,7 @@ export async function PUT(request: NextRequest) {
         ).length
       : 0
     const totalSections = 24
-    const bpScore = Math.round((filledSections / totalSections) * 100)
+    const bpScore = Math.min(100, Math.round((filledSections / totalSections) * 100))
 
     // Determine status
     let status = (bpStatus ?? 'IN_PROGRESS') as string
@@ -527,7 +527,7 @@ Tu dois répondre UNIQUEMENT avec un objet JSON valide (pas de markdown, pas de 
     typeof v === 'object' && v !== null && !Array.isArray(v) && Object.keys(v).length > 0 ||
     Array.isArray(v) && (v as unknown[]).length > 0,
   ).length
-  const bpScore = Math.round((filledCount / 24) * 100)
+  const bpScore = Math.min(100, Math.round((filledCount / 24) * 100))
 
   // 8. Update CreatorJourney
   await db.creatorJourney.upsert({
@@ -824,7 +824,7 @@ async function handleSyncSimulators(userId: string) {
     Array.isArray(v) && (v as unknown[]).length > 0,
   ).length
   const totalSections = 24
-  const bpScore = Math.round((filledCount / totalSections) * 100)
+  const bpScore = Math.min(100, Math.round((filledCount / totalSections) * 100))
 
   await db.creatorJourney.upsert({
     where: { userId },

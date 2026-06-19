@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useBureauStore, type BureauSection } from './bureau-store'
+import { useModuleConfigStore } from '@/lib/stores/module-config-store'
+import { MODULE_REGISTRY, SECTION_META } from '@/lib/module-registry'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -21,31 +23,8 @@ import {
 } from '@/components/ui/sheet'
 import {
   LayoutDashboard,
-  User,
-  Lightbulb,
-  Eye,
-  FlaskConical,
-  Pentagon,
-  Target,
-  Scale,
-  Calculator,
-  TrendingUp,
-  FileText,
-  Presentation,
-  Globe,
-  MessageSquare,
-  MessageCircle,
-  GraduationCap,
-  Rocket,
-  Stamp,
-  BadgeCheck,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
-  LayoutGrid,
-  Download,
-  Zap,
-  Shield,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -67,62 +46,32 @@ interface NavGroup {
   badge?: string
 }
 
-/* ─── Fallback navigation data (used before API loads) ─── */
-const BASE_NAVIGATION: Omit<NavGroup, 'progress'>[] = [
-  {
-    id: 'parcours',
-    label: 'Parcours',
-    icon: User,
-    items: [
-      { id: 'profil-createur', label: 'Profil créateur', icon: User },
-      { id: 'mon-projet', label: 'Mon projet', icon: Lightbulb, badge: 'Nouveau' },
-      { id: 'vision', label: 'Vision', icon: Eye },
-      { id: 'pepites', label: 'Pépites Game', icon: Zap, badge: 'Nouveau' },
-      { id: 'riasec', label: 'RIASEC', icon: FlaskConical },
-      { id: 'kiviat', label: 'Kiviat', icon: Pentagon },
-      { id: 'bilan-ia', label: 'Bilan IA', icon: Sparkles, badge: 'IA' },
-      { id: 'creascope', label: 'CréaScope', icon: Rocket, badge: 'Pipeline' },
-    ],
-  },
-  {
-    id: 'strategie',
-    label: 'Stratégie',
-    icon: Target,
-    items: [
-      { id: 'marche', label: 'Marché', icon: Globe },
-      { id: 'juridique', label: 'Juridique', icon: Scale },
-      { id: 'financier', label: 'Financier', icon: Calculator },
-      { id: 'creasim', label: 'CreaSim', icon: TrendingUp, badge: 'IA' },
-      { id: 'bmc', label: 'Business Model Canvas', icon: LayoutGrid, badge: 'Nouveau' },
-      { id: 'business-plan', label: 'Business Plan', icon: FileText },
-      { id: 'pitch-deck', label: 'Pitch Deck', icon: Presentation },
-    ],
-    badge: 'V3',
-  },
-  {
-    id: 'ecosysteme',
-    label: 'Écosystème',
-    icon: Globe,
-    items: [
-      { id: 'annuaire', label: 'Annuaire', icon: Globe },
-      { id: 'forum', label: 'Forum', icon: MessageSquare },
-      { id: 'messages', label: 'Messages', icon: MessageCircle, badge: 'Nouveau' },
-      { id: 'mentorat', label: 'Mentorat', icon: GraduationCap, badge: 'Bientôt' },
-    ],
-  },
-  {
-    id: 'pilotage',
-    label: 'Pilotage',
-    icon: Rocket,
-    items: [
-      { id: 'tremplin', label: 'Tremplin', icon: Rocket },
-      { id: 'passeport', label: 'Passeport', icon: Stamp, badge: 'Nouveau' },
-      { id: 'certifications', label: 'Certifications', icon: BadgeCheck },
-      { id: 'telechargements', label: 'Téléchargements', icon: Download, badge: 'PDF' },
-      { id: 'vie-privee', label: 'Vie Privée', icon: Shield, badge: 'RGPD' },
-    ],
-  },
-]
+/* ─── Navigation derived from MODULE_REGISTRY (single source of truth) ─── */
+function buildBaseNavigation(): Omit<NavGroup, 'progress'>[] {
+  const sections: BureauSection[] = ['parcours', 'strategie', 'ecosysteme', 'pilotage']
+  return sections.map((sectionId) => {
+    const meta = SECTION_META[sectionId]
+    const modules = MODULE_REGISTRY
+      .filter((m) => m.section === sectionId)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((m) => ({
+        id: m.code,
+        label: m.label,
+        icon: m.icon,
+        badge: m.badge,
+        badgeVariant: m.badgeVariant,
+      }))
+    return {
+      id: sectionId,
+      label: meta.label,
+      icon: meta.icon,
+      items: modules,
+      ...(sectionId === 'strategie' ? { badge: 'V3' } : {}),
+    }
+  })
+}
+
+const BASE_NAVIGATION = buildBaseNavigation()
 
 /* ─── Progress hook ─── */
 interface ProgressResponse {
@@ -264,19 +213,34 @@ function SidebarContent({ collapsed, onNavigate, onCloseMobile }: {
 }) {
   const { currentSection, currentModule, setSection, setModule, sidebarOpen } = useBureauStore()
   const { data: progressData } = useProgressData()
+  const { isModuleActive, fetchActiveModules, loaded: modulesLoaded } = useModuleConfigStore()
 
-  // Build navigation groups with dynamic progress from API
+  // Fetch active modules on mount
+  useEffect(() => {
+    fetchActiveModules()
+  }, [fetchActiveModules])
+
+  // Build navigation groups with dynamic progress + module filtering
   const navigationGroups: NavGroup[] = useMemo(() => {
-    return BASE_NAVIGATION.map((group) => {
-      let progress: number | undefined
-      if (progressData) {
-        if (group.id === 'parcours') progress = progressData.parcours.progress
-        else if (group.id === 'strategie') progress = progressData.strategie.progress
-        // ecosysteme and pilotage keep no progress indicator
-      }
-      return { ...group, progress }
-    })
-  }, [progressData])
+    return BASE_NAVIGATION
+      .map((group) => {
+        // Filter items to only active modules
+        const activeItems = modulesLoaded
+          ? group.items.filter((item) => isModuleActive(item.id))
+          : group.items // Show all until loaded
+
+        // Skip empty groups (all modules disabled)
+        if (activeItems.length === 0) return null
+
+        let progress: number | undefined
+        if (progressData) {
+          if (group.id === 'parcours') progress = progressData.parcours.progress
+          else if (group.id === 'strategie') progress = progressData.strategie.progress
+        }
+        return { ...group, items: activeItems, progress }
+      })
+      .filter(Boolean) as NavGroup[]
+  }, [progressData, modulesLoaded, isModuleActive])
 
   const globalProgress = progressData?.global ?? FALLBACK_GLOBAL
 

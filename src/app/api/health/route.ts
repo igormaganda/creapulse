@@ -37,8 +37,6 @@ export async function GET(_request: NextRequest) {
     return success(
       {
         status: dbStatus === 'connected' ? 'healthy' : 'degraded',
-        version: '2.0.0',
-        environment: process.env.NODE_ENV || 'development',
         uptime: uptimeFormatted,
         uptimeMs: uptime,
         database: {

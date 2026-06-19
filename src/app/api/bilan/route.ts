@@ -6,9 +6,24 @@
 
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
-import { success, Errors, getTokenFromHeader } from '@/lib/api-response'
-import { verifyToken, AuthError } from '@/lib/auth'
+import { success, Errors } from '@/lib/api-response'
+import { withAuth } from '@/lib/api-auth'
 import { callZAI, parseJSONFromAI, getZAIErrorMessage, aiUnavailableResponse } from '@/lib/zai-helper'
+
+// ─── Rate limiter (5 per hour per user) ──────
+
+const bilanRateLimit = new Map<string, { count: number; resetAt: number }>()
+function checkBilanRateLimit(userId: string): boolean {
+  const now = Date.now()
+  const entry = bilanRateLimit.get(userId)
+  if (!entry || now > entry.resetAt) {
+    bilanRateLimit.set(userId, { count: 1, resetAt: now + 3600000 }) // 1 hour window
+    return true
+  }
+  if (entry.count >= 5) return false // max 5 per hour
+  entry.count++
+  return true
+}
 
 // ─── Types ──────────────────────────────────
 
@@ -79,14 +94,7 @@ interface BilanAIGenerated {
 }
 
 // ─── Helper: Token extraction ──────────────
-
-function getTokenFromRequest(request: NextRequest): string | null {
-  const authHeader = getTokenFromHeader(request)
-  if (authHeader) return authHeader
-  const cookie = request.headers.get('cookie') || ''
-  const match = cookie.match(/session=([^;]+)/)
-  return match ? match[1] : null
-}
+// Uses centralized withAuth from api-auth (no local duplication)
 
 // ─── Helper: Build parcours data (resilient) ──
 
@@ -426,12 +434,9 @@ function getScoreLabel(score: number): string {
 
 export async function GET(request: NextRequest) {
   try {
-    const token = getTokenFromRequest(request)
-    if (!token) {
-      return Errors.unauthorized('Non authentifié')
-    }
-
-    const payload = await verifyToken(token)
+    const authResult = await withAuth(request)
+    if (authResult instanceof Response) return authResult
+    const { payload } = authResult
 
     // Collect parcours data (resilient — individual query failures won't crash)
     const parcoursData = await collectParcoursData(payload.userId)
@@ -471,7 +476,7 @@ export async function GET(request: NextRequest) {
       isStale: false,
     })
   } catch (err) {
-    if (err instanceof AuthError) {
+    if (err instanceof Error && err.message.includes('unauthorized')) {
       return Errors.unauthorized(err.message)
     }
     // Never return 500 — return partial/empty data on unexpected errors
@@ -492,12 +497,24 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const token = getTokenFromRequest(request)
-    if (!token) {
-      return Errors.unauthorized('Non authentifié')
-    }
+    const authResult = await withAuth(request)
+    if (authResult instanceof Response) return authResult
+    const { payload } = authResult
 
-    const payload = await verifyToken(token)
+    // Rate limit: max 5 AI bilan generations per hour per user
+    if (!checkBilanRateLimit(payload.userId)) {
+      return Response.json(
+        {
+          success: false,
+          error: {
+            code: 'RATE_LIMITED',
+            message: 'Trop de requêtes. Veuillez réessayer dans une heure.',
+          },
+          timestamp: new Date().toISOString(),
+        },
+        { status: 429 },
+      )
+    }
 
     // Collect parcours data (resilient)
     const parcoursData = await collectParcoursData(payload.userId)
@@ -578,7 +595,7 @@ export async function POST(request: NextRequest) {
       generatedAt: new Date().toISOString(),
     }, 'Bilan IA généré avec succès')
   } catch (err) {
-    if (err instanceof AuthError) {
+    if (err instanceof Error && err.message.includes('unauthorized')) {
       return Errors.unauthorized(err.message)
     }
     // Never return 500 — return the generated bilan with a warning

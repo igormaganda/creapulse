@@ -7,7 +7,7 @@
 import { NextRequest } from 'next/server'
 import { accessSync, constants } from 'fs'
 import { db } from '@/lib/db'
-import { success, handleApiError } from '@/lib/api-response'
+import { success, handleApiError, Errors } from '@/lib/api-response'
 import { verifyToken } from '@/lib/auth'
 import { createLogger } from '@/lib/logger'
 
@@ -20,13 +20,13 @@ export async function GET(_request: NextRequest) {
     // Auth required (admin only)
     try {
       const token = _request.headers.get('authorization')?.replace('Bearer ', '')
-      if (!token) return success({ status: 'unauthenticated', message: 'Authentification requise' }, 'Non autorisé')
+      if (!token) return Errors.unauthorized('Authentification requise')
       const payload = await verifyToken(token)
       if (payload.role !== 'ADMIN') {
-        return success({ status: 'forbidden', message: 'Accès réservé aux administrateurs' }, 'Accès restreint')
+        return Errors.forbidden('Accès réservé aux administrateurs')
       }
     } catch {
-      return success({ status: 'unauthenticated', message: 'Token invalide' }, 'Non autorisé')
+      return Errors.unauthorized('Token invalide')
     }
 
     // ─── Database Check ──────────────────

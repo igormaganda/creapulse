@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "RÉPUBLIQUE  \nFRANÇAISE  \nLiberté  \nÉgalité  \nFraternité  \n\nFrance  \nTravail  \n\nG!DEF  \n\nCabinet de conseil et  \norganisme de formation  \ncréé en 1994 par M.  \nDaniel GUITTEAUD  \n\n41 sites  \nen Ile-de-France  \net aux Antilles-Guyane  \n\n+ 160 collaborateurs  \nFormateurs – Consultants  \nExperts  \n\nCONSEIL  \nETUDE  \nFORMATION  \nMOBILITÉ  \nRH  \nCOACHING",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1781884233,
+  "id": "2026061923502512ce5e90f9864db6",
+  "model": "glm-4.6v",
+  "object": "chat.completion",
+  "request_id": "2026061923502512ce5e90f9864db6",
+  "usage": {
+    "completion_tokens": 116,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 5196,
+    "prompt_tokens_details": {
+      "cached_tokens": 4
+    },
+    "total_tokens": 5312
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "POURQUOI CETTE ACTION ?  \n\nSTATISTIQUES ET IMPACTS EXISTANTS (RÉFÉRENCES NATIONALES)  \n\n- PLUS DE 20 264 ENTREPRISES ACCOMPAGNÉES / FINANCÉES EN 2024 (INITIATIVE FRANCE)  \n- 57 190 EMPLOIS CRÉÉS OU MAINTENUS.  \n- TAUX DE SURVIE DES STARTUPS ACCOMPAGNÉES : 91 % À 3 ANS, ENVIRON 70 % À 5 ANS (EURATECHNOLOGIES).  \n- EN MOYENNE, SANS ACCOMPAGNEMENT, SEULEMENT 50 % DES ENTREPRISES SURVIVENT 5 ANS.  \n\n[Logos : RÉPUBLIQUE FRANÇAISE, France Travail, GiDEF]",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1781884213,
+  "id": "202606192350067b3655c40f984374",
+  "model": "glm-4.6v",
+  "object": "chat.completion",
+  "request_id": "202606192350067b3655c40f984374",
+  "usage": {
+    "completion_tokens": 193,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 5196,
+    "prompt_tokens_details": {
+      "cached_tokens": 4
+    },
+    "total_tokens": 5389
+  }
+}

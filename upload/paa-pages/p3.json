@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "GIDEF  \nNos principales implantations  \nGidef est présent aussi en Nouvelle Aquitaine, en Franche Comté  \net Région Centre  \n\n971  \n972  \n973  \n95  \n75  \n93  \n78  \n77  \n92  \n91  \n94",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1781884257,
+  "id": "202606192350451da837db55fa4f6c",
+  "model": "glm-4.6v",
+  "object": "chat.completion",
+  "request_id": "202606192350451da837db55fa4f6c",
+  "usage": {
+    "completion_tokens": 60,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 5196,
+    "prompt_tokens_details": {
+      "cached_tokens": 5
+    },
+    "total_tokens": 5256
+  }
+}

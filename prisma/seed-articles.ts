@@ -2,8 +2,12 @@ import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import pg from 'pg'
 
+if (!process.env.DATABASE_URL) {
+  throw new Error('[seed-articles] DATABASE_URL environment variable is not set. Please set it in your .env file.')
+}
+
 const pool = new pg.Pool({
-  connectionString: "postgresql://bureau_virtuelle_user:bureau_virtuelle_pass2026@213.199.38.41:5432/bureau_virtuelle",
+  connectionString: process.env.DATABASE_URL,
 })
 const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })

@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "ARCHITECTURE DE LA PRESTATION  \n☐ 3 entretiens individuels : diagnostic, suivi, conclusion  \n☐ Au minimum 3 ateliers choisis parmi 9 thématiques  \n☐ Contacts de suivi en présentiel ou distanciel, à la demande ou à l’initiative du référent  \n☐ Accompagnement personnalisé sur une période de 60 jours",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1781884333,
+  "id": "202606192352081f30be25d0704764",
+  "model": "glm-4.6v",
+  "object": "chat.completion",
+  "request_id": "202606192352081f30be25d0704764",
+  "usage": {
+    "completion_tokens": 88,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 5196,
+    "prompt_tokens_details": {
+      "cached_tokens": 4
+    },
+    "total_tokens": 5284
+  }
+}
