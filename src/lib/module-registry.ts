@@ -27,7 +27,7 @@ import {
   GraduationCap, Stamp, BadgeCheck, Download, Shield,
   LayoutGrid, Brain, Construction,
   Clock, AlertTriangle, RotateCcw,
-  Megaphone, Star, GitBranch,
+  Megaphone, Star, GitBranch, Trophy,
 } from 'lucide-react'
 
 /* ─── Types ─── */
@@ -47,7 +47,7 @@ export interface ModuleDefinition {
   core: boolean // Core modules are always available, can be hidden but not removed
 }
 
-/* ─── Complete Module Definitions (34 modules) ─── */
+/* ─── Complete Module Definitions (35 modules) ─── */
 export const MODULE_REGISTRY: ModuleDefinition[] = [
   // ═══ PARCOURS (8 modules) ═══
   {
@@ -476,6 +476,20 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     badge: 'PAA',
     color: 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20',
     sortOrder: 37,
+    core: false,
+  },
+  {
+    code: 'gamification',
+    label: 'Gamification',
+    description: 'Progression, classements et défis pour valoriser votre parcours entrepreneurial.',
+    section: 'pilotage',
+    category: 'PILOTAGE',
+    phase: 'LAUNCH',
+    icon: Trophy,
+    iconName: 'Trophy',
+    badge: 'Nouveau',
+    color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20',
+    sortOrder: 38,
     core: false,
   },
   {

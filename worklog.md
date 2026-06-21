@@ -443,3 +443,28 @@ Work Log:
 Stage Summary:
 - Landing page fully functional, no runtime errors
 - All 10 tasks completed across 3 parallel agents + orchestrator fixes
+---
+Task ID: 3
+Agent: Gamification Module Agent
+Task: Create Gamification module (frontend component + API route) and wire into platform
+
+Work Log:
+- Created `src/components/bureau/modules/gamification.tsx` — Full gamification module with 3 tabs:
+  - **Profil**: Animated SVG circle ring showing level progress, 6-tier level system (Débutant → Légende), XP progress bar with exact count, streak tracking, 4 stats cards (Modules complétés, Ateliers PAA, Jours d'activité, Score Global), 12 achievement badges in responsive 2×6 grid with locked/unlocked states, click-to-detail dialog for each badge
+  - **Classement**: Top-3 podium with gold/silver/bronze medals and Crown icon for 1st place, full leaderboard table (18 participants with French names), 3 scope sub-tabs (Mon Centre / Région / Global), "Votre position" highlighted row, Medal icons for top 3 ranks
+  - **Défis**: 4 weekly challenge cards with countdown timers, "Défi accepté!" celebratory animation (PartyPopper + framer-motion spring), progress bars for accepted challenges, XP reward display per challenge, past challenges list (completed/expired), empty state when all done
+- Created `src/app/api/gamification/route.ts` — API route with GET (leaderboard + user stats), POST (accept challenge), PUT (update progress), all using withAuth + api-response helpers
+- Updated `src/lib/module-registry.ts` — Added Trophy import, added gamification module definition (code: 'gamification', section: 'pilotage', sortOrder: 38, badge: 'Nouveau'), module count 34 → 35
+- Updated `src/components/bureau/bureau-layout.tsx` — Added dynamic import for GamificationModule, added rendering line
+- Used localStorage (`creapulse-gamification`) as primary data store with lazy initializer for useState
+- Amber/gold theme throughout (amber-500/600 colors)
+- Streak tracking updates localStorage on mount via useCallback (no setState in effect)
+- Lint: Clean (0 new errors/warnings, only pre-existing test-db.cjs errors)
+- Dev server: GET / 200, compilation successful
+
+Stage Summary:
+- **Files created**: src/components/bureau/modules/gamification.tsx, src/app/api/gamification/route.ts
+- **Files modified**: src/lib/module-registry.ts, src/components/bureau/bureau-layout.tsx
+- **Module registry**: 34 → 35 modules, new 'gamification' in pilotage section
+- **Features**: Level system (6 tiers), 12 achievements, 4 weekly challenges, leaderboard with podium, streak tracking, celebratory animations
+- **Data**: localStorage-based with backward-compatible merging of new fields

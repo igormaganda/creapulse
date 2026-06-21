@@ -62,6 +62,7 @@ const ParcoursPaaModule = dynamic(() => import('./modules/parcours-paa').then(m 
 const MarketingCommercialeModule = dynamic(() => import('./modules/marketing-commerciale').then(m => ({ default: m.MarketingCommercialeModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const SatisfactionFeedbackModule = dynamic(() => import('./modules/satisfaction-feedback').then(m => ({ default: m.SatisfactionFeedbackModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const MindMapModule = dynamic(() => import('./modules/mind-map').then(m => ({ default: m.MindMapModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const GamificationModule = dynamic(() => import('./modules/gamification').then(m => ({ default: m.GamificationModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 
 /* ─── UI imports (used by SectionOverview and ModulePlaceholder) ─── */
 import { Card, CardContent } from '@/components/ui/card'
@@ -238,6 +239,7 @@ function BureauContent() {
         {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'marketing-commerciale' && <MarketingCommercialeModule />}
         {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'mind-map' && <MindMapModule />}
         {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'satisfaction-feedback' && <SatisfactionFeedbackModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'gamification' && <GamificationModule />}
         {/* Module is disabled — show placeholder */}
         {modulesLoaded && currentModule && !isModuleActive(currentModule) && <ModulePlaceholder moduleId={currentModule} />}
         {currentSection === 'strategie' && !currentModule && <PipelineV3Overview />}
