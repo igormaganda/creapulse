@@ -8,6 +8,7 @@ export type ConseillerTab =
   | 'livrables'
   | 'planning'
   | 'rapports'
+  | 'vue360'
 
 export interface ConseillerFilters {
   search: string
@@ -60,7 +61,7 @@ export const useConseillerStore = create<ConseillerState>()(
       /* Navigation */
       currentTab: 'dashboard',
       sidebarOpen: true,
-      setTab: (tab) => set({ currentTab: tab, selectedBeneficiaryId: null }),
+      setTab: (tab) => set({ currentTab: tab, ...(tab !== 'vue360' ? { selectedBeneficiaryId: null } : {}) }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       setSidebarOpen: (open) => set({ sidebarOpen: open }),
 

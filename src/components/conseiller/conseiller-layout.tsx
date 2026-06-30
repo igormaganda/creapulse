@@ -10,6 +10,7 @@ import { EntretiensView } from './entretiens'
 import { LivrablesView } from './livrables'
 import { PlanningView } from './planning'
 import { RapportsView } from './rapports'
+import { Beneficiaire360Sheet } from './beneficiaire-360'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -39,6 +40,7 @@ import {
   Zap,
   X,
   ArrowLeft,
+  Eye,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { ConseillerTab } from './conseiller-store'
@@ -47,6 +49,7 @@ import type { ConseillerTab } from './conseiller-store'
 const navItems: { id: ConseillerTab; label: string; icon: LucideIcon }[] = [
   { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
   { id: 'beneficiaires', label: 'Beneficiaires', icon: Users },
+  { id: 'vue360', label: 'Vue 360\u00b0', icon: Eye },
   { id: 'entretiens', label: 'Entretiens', icon: MessageSquare },
   { id: 'livrables', label: 'Livrables', icon: FileText },
   { id: 'planning', label: 'Planning', icon: Calendar },
@@ -334,6 +337,37 @@ function PlaceholderTab({ title, description }: { title: string; description: st
   )
 }
 
+/* ─── Vue 360° Tab (full-page) ─── */
+function Vue360Tab() {
+  const [sheetOpen, setSheetOpen] = useState(true)
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="flex flex-col items-center justify-center min-h-[60vh] p-8"
+    >
+      <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10">
+        <Eye className="h-10 w-10 text-primary" />
+      </div>
+      <h2 className="mt-6 text-2xl font-bold text-foreground">Vue 360\u00b0 Bénéficiaire</h2>
+      <p className="mt-2 max-w-md text-center text-muted-foreground">
+        Sélectionnez un bénéficiaire pour consulter son parcours complet, ses scores, ses livrables et les insights IA.
+      </p>
+      <Button
+        className="mt-6"
+        size="lg"
+        onClick={() => setSheetOpen(true)}
+      >
+        <Eye className="h-4 w-4 mr-2" />
+        Ouvrir la vue 360\u00b0
+      </Button>
+      <Beneficiaire360Sheet open={sheetOpen} onOpenChange={setSheetOpen} />
+    </motion.div>
+  )
+}
+
 /* ─── Main content router ─── */
 function ConseillerContent() {
   const { currentTab, selectedBeneficiaryId } = useConseillerStore()
@@ -356,6 +390,8 @@ function ConseillerContent() {
             ? <BeneficiaireDetail beneficiaryId={selectedBeneficiaryId} />
             : <BeneficiairesList />
         )}
+
+        {currentTab === 'vue360' && <Vue360Tab />}
 
         {currentTab === 'entretiens' && <EntretiensView />}
 
