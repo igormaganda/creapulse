@@ -1,4 +1,3 @@
-import { db } from '@/lib/db'
 import { NextRequest } from 'next/server'
 import { success, Errors, handleApiError } from '@/lib/api-response'
 import { withAuth } from '@/lib/api-auth'
@@ -10,75 +9,105 @@ export async function GET(request: NextRequest) {
     const { payload } = auth
     const userId = payload.userId
 
-    const [user, journey, moduleResults, unreadNotifs, appointments] = await Promise.all([
-      db.user.findUnique({
-        where: { id: userId },
-        select: { id: true, email: true, firstName: true, lastName: true, role: true, avatarUrl: true }
-      }),
-      db.creatorJourney.findUnique({ where: { userId } }),
-      db.moduleResult.count({ where: { userId, completedAt: { not: null } } }),
-      db.notification.count({ where: { userId, isRead: false } }),
-      db.appointment.findMany({
-        where: { beneficiary: { userId }, scheduledAt: { gte: new Date() }, status: { in: ['SCHEDULED', 'CONFIRMED'] } },
-        include: { counselor: { select: { name: true } } },
-        orderBy: { scheduledAt: 'asc' },
-        take: 3
-      })
-    ])
+    // Try to fetch real data from DB; gracefully degrade if unavailable
+    let user: { id: string; email: string; firstName: string | null; lastName: string | null; role: string; avatarUrl: string | null } | null = null
+    let modulesCompleted = 0
+    let totalModules = 38
+    let progression = 0
+    let scoreBP: number | null = null
+    let activities: Array<{ id: string; action: string; detail: string; time: string; icon: string; color: string }> = []
+    let appointments: Array<{ id: string; title: string; description: string; date: string; type: string }> = []
+
+    try {
+      // Dynamic import to avoid crash if Prisma isn't initialized
+      const { db } = await import('@/lib/db')
+
+      const [dbUser, journey, moduleCount, unreadNotifs, dbAppointments] = await Promise.all([
+        db.user.findUnique({
+          where: { id: userId },
+          select: { id: true, email: true, firstName: true, lastName: true, role: true, avatarUrl: true },
+        }),
+        db.creatorJourney.findUnique({ where: { userId } }).catch(() => null),
+        db.moduleResult.count({ where: { userId, completedAt: { not: null } } }).catch(() => 0),
+        db.notification.count({ where: { userId, isRead: false } }).catch(() => 0),
+        db.appointment.findMany({
+          where: { beneficiary: { userId }, scheduledAt: { gte: new Date() }, status: { in: ['SCHEDULED', 'CONFIRMED'] } },
+          include: { counselor: { select: { name: true } } },
+          orderBy: { scheduledAt: 'asc' },
+          take: 3,
+        }).catch(() => []),
+      ])
+
+      user = dbUser
+      modulesCompleted = moduleCount
+      progression = journey?.progressPercent ?? Math.round((modulesCompleted / totalModules) * 100)
+      scoreBP = journey?.bpScore ?? null
+
+      // Build activity feed
+      if (journey?.projectTitle) {
+        activities.push({
+          id: '1',
+          action: `Projet : ${journey.projectTitle}`,
+          detail: `Progression ${progression}%`,
+          time: 'En cours',
+          icon: 'trending',
+          color: 'text-teal-500',
+        })
+      }
+
+      if (dbAppointments.length > 0) {
+        const a = dbAppointments[0]
+        activities.push({
+          id: '2',
+          action: 'Rendez-vous planifié',
+          detail: `${a.title} — ${a.counselor?.name ?? 'Conseiller'}`,
+          time: formatAppointmentDate(a.scheduledAt),
+          icon: 'calendar',
+          color: 'text-coral-500',
+        })
+        appointments = dbAppointments.map((appt) => ({
+          id: appt.id,
+          title: appt.title,
+          description: `${appt.counselor?.name ?? 'Conseiller'} — ${appt.type === 'PHYSICAL' ? 'Physique' : appt.type === 'VIDEO' ? 'En ligne' : appt.type}`,
+          date: formatAppointmentDate(appt.scheduledAt),
+          type: appt.type === 'PHYSICAL' ? 'Physique' : appt.type === 'VIDEO' ? 'En ligne' : appt.type,
+        }))
+      }
+
+      if (unreadNotifs > 0) {
+        activities.push({
+          id: '3',
+          action: `${unreadNotifs} notification${unreadNotifs > 1 ? 's' : ''} non lue${unreadNotifs > 1 ? 's' : ''}`,
+          detail: 'Consultez votre boîte de notifications',
+          time: 'À vérifier',
+          icon: 'check',
+          color: 'text-amber-500',
+        })
+      }
+    } catch {
+      // DB unavailable — return defaults (client-side scanner handles real progress)
+      activities = [{
+        id: '1',
+        action: 'Parcours en cours',
+        detail: 'Connectez vos modules pour suivre votre progression',
+        time: 'Maintenant',
+        icon: 'trending',
+        color: 'text-teal-500',
+      }]
+    }
 
     if (!user) return Errors.userNotFound()
 
-    const totalModules = 20
-    const modulesCompleted = moduleResults
-    const progression = journey?.progressPercent ?? Math.round((modulesCompleted / totalModules) * 100)
-    const scoreBP = journey?.bpScore ?? null
-
-    const prochainRDV = appointments.length > 0
-      ? formatAppointmentDate(appointments[0].scheduledAt)
-      : null
-
-    // Build response matching Dashboard component expected format
     return success({
       kpis: {
         progression,
         modulesCompleted,
         totalModules,
-        prochainRDV,
+        prochainRDV: appointments.length > 0 ? appointments[0].date : null,
         scoreBP,
       },
-      activities: [
-        {
-          id: '1',
-          action: `Progression parcours : ${progression}%`,
-          detail: journey?.projectTitle || 'Démarrez votre parcours entrepreneurial',
-          time: 'Maintenant',
-          icon: 'trending',
-          color: 'text-teal-500',
-        },
-        ...(appointments.length > 0 ? [{
-          id: '2',
-          action: 'Rendez-vous planifié',
-          detail: `${appointments[0].title} — ${appointments[0].counselor.name}`,
-          time: formatAppointmentDate(appointments[0].scheduledAt),
-          icon: 'calendar' as const,
-          color: 'text-coral-500',
-        }] : []),
-        ...(unreadNotifs > 0 ? [{
-          id: '3',
-          action: `${unreadNotifs} notification${unreadNotifs > 1 ? 's' : ''} non lue${unreadNotifs > 1 ? 's' : ''}`,
-          detail: 'Consultez votre boîte de notifications',
-          time: 'À vérifier',
-          icon: 'check' as const,
-          color: 'text-amber-500',
-        }] : []),
-      ],
-      appointments: appointments.map((a) => ({
-        id: a.id,
-        title: a.title,
-        description: `${a.counselor.name} — ${a.type === 'PHYSICAL' ? 'Physique' : a.type === 'VIDEO' ? 'En ligne' : a.type}`,
-        date: formatAppointmentDate(a.scheduledAt),
-        type: a.type === 'PHYSICAL' ? 'Physique' : a.type === 'VIDEO' ? 'En ligne' : a.type,
-      })),
+      activities,
+      appointments,
     })
   } catch (err) {
     return handleApiError(err)

@@ -25,7 +25,7 @@ import {
   Zap, Rocket, Target, Scale, Calculator, TrendingUp,
   FileText, Presentation, Globe, MessageSquare, MessageCircle,
   GraduationCap, Stamp, BadgeCheck, Download, Shield,
-  LayoutGrid, Brain, Construction,
+  LayoutGrid, Brain,
   Clock, AlertTriangle, RotateCcw,
   Megaphone, Star, GitBranch, Trophy,
   Briefcase, BookOpen, Wallet,
@@ -48,7 +48,7 @@ export interface ModuleDefinition {
   core: boolean // Core modules are always available, can be hidden but not removed
 }
 
-/* ─── Complete Module Definitions (35 modules) ─── */
+/* ─── Complete Module Definitions (38 modules) ─── */
 export const MODULE_REGISTRY: ModuleDefinition[] = [
   // ═══ PARCOURS (8 modules) ═══
   {

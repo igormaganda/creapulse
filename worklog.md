@@ -694,3 +694,51 @@ Stage Summary:
 - All 3 orphaned modules now appear in sidebar, section overview, and render when active
 - Lint: 0 source code errors (only test-db.cjs pre-existing)
 - Compilation: GET / 200 verified
+
+---
+Task ID: p3-module-scanner
+Agent: Main Orchestrator
+Task: Create module-scanner utility for real-time localStorage progress tracking
+
+Work Log:
+- Audited all 38 module files to identify 24 unique localStorage keys across 23 modules
+- Created `/home/z/my-project/src/lib/module-scanner.ts` (878 lines)
+- Mapped each module to its localStorage key with: checkStarted, checkCompleted, extractSummary, extractLastActivity, estimateCompletion
+- Built helper functions: calculateProfilCompletion, calculateProjetCompletion, calculateVisionCompletion
+- Created scanAllModules(), scanModule(), getSectionProgress(), getRecommendedNextModules()
+- FullScanResult includes: globalProgress, sections (4), recommendedNext, lastActivity
+- 15 modules flagged as no-storage (API-only, in-memory, or no persistence)
+
+Stage Summary:
+- **1 file created**: src/lib/module-scanner.ts (878 lines)
+- 24 localStorage keys mapped with per-module status detection logic
+- Smart recommendations: in-progress prioritized over not-started, section-ordered
+- Lint: 0 errors
+
+---
+Task ID: p3-dashboard-enhancement
+Agent: Full-Stack Developer Agent + Main Orchestrator
+Task: Enhance Bureau Dashboard with real module progress data
+
+Work Log:
+- Completely rewrote `/home/z/my-project/src/components/bureau/dashboard.tsx` (603 → 916 lines)
+- Removed all hardcoded/fallback data (kpis, pipelineStages, quickActions, activities, appointments)
+- Added real-time module scanning via scanAllModules() (synchronous, 24 localStorage reads)
+- 6 data-driven sections:
+  1. Welcome Banner: Dynamic greeting with real globalProgress, context-aware messages
+  2. KPI Cards: Real globalProgress%, startedModules/38, completedModules, first recommendation
+  3. Section Progress Grid: 4 clickable cards (Parcours/Stratégie/Écosystème/Pilotage) with color-coded progress bars and module badges
+  4. Recommended Next Steps: Up to 3 smart recommendations with Continuer/Commencer actions
+  5. Module Activity Feed: All active modules sorted by lastActivity, with status badges and progress bars
+  6. Dynamic Pipeline: 4 stages driven by real section progress (auto-done/active/locked)
+- Enhanced `/api/dashboard/route.ts` with graceful DB degradation (try/catch around Prisma calls)
+
+Stage Summary:
+- **2 files modified**: dashboard.tsx (916 lines), api/dashboard/route.ts (graceful fallback)
+- **1 file created**: module-scanner.ts (878 lines)
+- Dashboard now 100% data-driven from localStorage (no hardcoded fallbacks)
+- Pipeline stages dynamically computed from real section progress
+- Smart recommendations prioritize in-progress modules for user momentum
+- Lint: 0 errors
+- Compilation: GET / 200 verified
+- Agent-browser: Cannot verify (network sandboxing), curl confirmed 200

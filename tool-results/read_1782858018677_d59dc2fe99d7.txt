@@ -1,0 +1,1243 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import {
+     6→  RadarChart,
+     7→  PolarGrid,
+     8→  PolarAngleAxis,
+     9→  PolarRadiusAxis,
+    10→  Radar,
+    11→  ResponsiveContainer,
+    12→  Tooltip,
+    13→} from 'recharts'
+    14→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+    15→import { Button } from '@/components/ui/button'
+    16→import { Badge } from '@/components/ui/badge'
+    17→import { Progress } from '@/components/ui/progress'
+    18→import { Separator } from '@/components/ui/separator'
+    19→import {
+    20→  FlaskConical,
+    21→  ArrowLeft,
+    22→  ArrowRight,
+    23→  RotateCcw,
+    24→  Save,
+    25→  CheckCircle2,
+    26→  Wrench,
+    27→  Search,
+    28→  Palette,
+    29→  Users,
+    30→  Rocket,
+    31→  ClipboardList,
+    32→  Star,
+    33→  TrendingUp,
+    34→  AlertCircle,
+    35→  Sparkles,
+    36→  Target,
+    37→  Lightbulb,
+    38→  BookOpen,
+    39→  ChevronRight,
+    40→} from 'lucide-react'
+    41→import { cn } from '@/lib/utils'
+    42→import { toast } from 'sonner'
+    43→
+    44→// ────────────────────────────────────────────
+    45→// Types
+    46→// ────────────────────────────────────────────
+    47→
+    48→type RiasecType = 'R' | 'I' | 'A' | 'S' | 'E' | 'C'
+    49→
+    50→interface Question {
+    51→  id: number
+    52→  text: string
+    53→  type: RiasecType
+    54→}
+    55→
+    56→interface RiasecScores {
+    57→  R: number
+    58→  I: number
+    59→  A: number
+    60→  S: number
+    61→  E: number
+    62→  C: number
+    63→}
+    64→
+    65→type Screen = 'intro' | 'quiz' | 'results'
+    66→
+    67→// ────────────────────────────────────────────
+    68→// Constants
+    69→// ────────────────────────────────────────────
+    70→
+    71→const STORAGE_KEY = 'creapulse-riasec-progress'
+    72→
+    73→const RIASEC_COLORS: Record<RiasecType, { bg: string; text: string; chart: string; fill: string; light: string }> = {
+    74→  R: { bg: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400', chart: '#F59E0B', fill: 'rgba(245,158,11,0.15)', light: 'bg-amber-50 dark:bg-amber-900/20' },
+    75→  I: { bg: 'bg-teal-500', text: 'text-teal-600 dark:text-teal-400', chart: '#00838F', fill: 'rgba(0,131,143,0.15)', light: 'bg-teal-50 dark:bg-teal-900/20' },
+    76→  A: { bg: 'bg-coral-500', text: 'text-coral-600 dark:text-coral-400', chart: '#FF6B35', fill: 'rgba(255,107,53,0.15)', light: 'bg-coral-50 dark:bg-coral-900/20' },
+    77→  S: { bg: 'bg-green-500', text: 'text-green-600 dark:text-green-400', chart: '#22C55E', fill: 'rgba(34,197,94,0.15)', light: 'bg-green-50 dark:bg-green-900/20' },
+    78→  E: { bg: 'bg-blue-500', text: 'text-blue-600 dark:text-blue-400', chart: '#3B82F6', fill: 'rgba(59,130,246,0.15)', light: 'bg-blue-50 dark:bg-blue-900/20' },
+    79→  C: { bg: 'bg-purple-500', text: 'text-purple-600 dark:text-purple-400', chart: '#A855F7', fill: 'rgba(168,85,247,0.15)', light: 'bg-purple-50 dark:bg-purple-900/20' },
+    80→}
+    81→
+    82→const RIASEC_LABELS: Record<RiasecType, string> = {
+    83→  R: 'Réaliste',
+    84→  I: 'Investigateur',
+    85→  A: 'Artistique',
+    86→  S: 'Social',
+    87→  E: 'Entreprenant',
+    88→  C: 'Conventionnel',
+    89→}
+    90→
+    91→const RIASEC_ICONS: Record<RiasecType, typeof Wrench> = {
+    92→  R: Wrench,
+    93→  I: Search,
+    94→  A: Palette,
+    95→  S: Users,
+    96→  E: Rocket,
+    97→  C: ClipboardList,
+    98→}
+    99→
+   100→const LIKERT_LABELS = [
+   101→  'Pas du tout d\'accord',
+   102→  'Pas d\'accord',
+   103→  'Neutre',
+   104→  'D\'accord',
+   105→  'Tout à fait d\'accord',
+   106→]
+   107→
+   108→// 30 questions — 5 per dimension, shuffled order
+   109→const QUESTIONS: Question[] = [
+   110→  // ── Réaliste (R) ──
+   111→  { id: 1, text: 'J\'aime travailler avec des outils ou des machines', type: 'R' },
+   112→  { id: 2, text: 'Je préfère les activités pratiques et concrètes', type: 'R' },
+   113→  { id: 3, text: 'J\'aime construire ou réparer des choses de mes mains', type: 'R' },
+   114→  { id: 4, text: 'Je suis à l\'aise avec les tâches physiques ou manuelles', type: 'R' },
+   115→  { id: 5, text: 'J\'apprécie de voir le résultat tangible de mon travail', type: 'R' },
+   116→  // ── Investigateur (I) ──
+   117→  { id: 6, text: 'J\'aime analyser des données et résoudre des problèmes complexes', type: 'I' },
+   118→  { id: 7, text: 'Je suis curieux(se) et j\'aime comprendre comment les choses fonctionnent', type: 'I' },
+   119→  { id: 8, text: 'J\'apprécie la recherche scientifique ou l\'expérimentation', type: 'I' },
+   120→  { id: 9, text: 'Je préfère observer et réfléchir avant d\'agir', type: 'I' },
+   121→  { id: 10, text: 'J\'aime résoudre des énigmes ou des casse-têtes intellectuels', type: 'I' },
+   122→  // ── Artistique (A) ──
+   123→  { id: 11, text: 'J\'aime créer des choses originales et exprimer ma créativité', type: 'A' },
+   124→  { id: 12, text: 'Je suis attiré(e) par les arts, le design ou la musique', type: 'A' },
+   125→  { id: 13, text: 'J\'apprécie l\'innovation et penser hors des sentiers battus', type: 'A' },
+   126→  { id: 14, text: 'Je préfère un environnement de travail libre et non structuré', type: 'A' },
+   127→  { id: 15, text: 'J\'aime expérimenter de nouvelles idées et approches', type: 'A' },
+   128→  // ── Social (S) ──
+   129→  { id: 16, text: 'J\'aime aider et enseigner aux autres', type: 'S' },
+   130→  { id: 17, text: 'Je suis à l\'aise pour communiquer et écouter les gens', type: 'S' },
+   131→  { id: 18, text: 'J\'apprécie le travail en équipe et la collaboration', type: 'S' },
+   132→  { id: 19, text: 'Je me soucie du bien-être des personnes autour de moi', type: 'S' },
+   133→  { id: 20, text: 'J\'aime conseiller, former ou accompagner des personnes', type: 'S' },
+   134→  // ── Entreprenant (E) ──
+   135→  { id: 21, text: 'J\'aime prendre des décisions et diriger des projets', type: 'E' },
+   136→  { id: 22, text: 'Je suis persuasif(se) et j\'aime convaincre les autres', type: 'E' },
+   137→  { id: 23, text: 'J\'apprécie les défis et je suis ambitieux(se)', type: 'E' },
+   138→  { id: 24, text: 'Je suis à l\'aise pour organiser et motiver une équipe', type: 'E' },
+   139→  { id: 25, text: 'J\'aime prendre des risques calculés pour atteindre mes objectifs', type: 'E' },
+   140→  // ── Conventionnel (C) ──
+   141→  { id: 26, text: 'J\'aime organiser et structurer mon travail avec précision', type: 'C' },
+   142→  { id: 27, text: 'Je suis attentif(ve) aux détails et méthodique', type: 'C' },
+   143→  { id: 28, text: 'J\'apprécie travailler avec des chiffres et des tableaux', type: 'C' },
+   144→  { id: 29, text: 'Je préfère suivre des procédures clairement définies', type: 'C' },
+   145→  { id: 30, text: 'Je suis fière de la qualité et de l\'exactitude de mon travail', type: 'C' },
+   146→]
+   147→
+   148→// ────────────────────────────────────────────
+   149→// Profile descriptions for results
+   150→// ────────────────────────────────────────────
+   151→
+   152→const PROFILE_DESCRIPTIONS: Record<RiasecType, {
+   153→  title: string
+   154→  description: string
+   155→  strengths: string[]
+   156→  areas: string[]
+   157→  careers: string[]
+   158→  businessTypes: string[]
+   159→}> = {
+   160→  R: {
+   161→    title: 'Le Bâtisseur Pratique',
+   162→    description: 'Vous êtes une personne d\'action qui préfère le concret à l\'abstrait. Votre approche entrepreneurial est ancrée dans le réel — vous aimez créer, fabriquer et voir les résultats tangibles de vos efforts. Vous êtes méthodique dans votre exécution et valuez la qualité artisanale.',
+   163→    strengths: [
+   164→      'Excellente capacité d\'exécution et de mise en œuvre',
+   165→      'Sens aigu de la qualité et du travail bien fait',
+   166→      'Autonomie forte dans les tâches techniques',
+   167→      'Approche pragmatique de la résolution de problèmes',
+   168→    ],
+   169→    areas: [
+   170→      'Communication et marketing parfois négligés',
+   171→      'Tendance à vouloir tout faire soi-même',
+   172→      'Peut manquer de vision stratégique à long terme',
+   173→    ],
+   174→    careers: ['Artisan', 'Technicien spécialisé', 'Chef de production', 'Agriculteur', 'Installateur', 'Expert technique'],
+   175→    businessTypes: ['Artisanat', 'Services techniques', 'Production locale', 'Maintenance et réparation', 'Agroalimentaire', 'BTP'],
+   176→  },
+   177→  I: {
+   178→    title: 'L\'Analyste Innovant',
+   179→    description: 'Vous êtes guidé(e) par la curiosité intellectuelle et le besoin de comprendre en profondeur. En tant qu\'entrepreneur, vous excellez dans l\'analyse de marchés, l\'identification d\'opportunités et le développement de solutions innovantes. Votre force réside dans votre capacité à transformer des observations en stratégies.',
+   180→    strengths: [
+   181→      'Capacité d\'analyse approfondie des marchés et tendances',
+   182→      'Esprit d\'innovation et de recherche continue',
+   183→      'Prise de décision basée sur des données concrètes',
+   184→      'Résolution créative de problèmes complexes',
+   185→    ],
+   186→    areas: [
+   187→      'Peut parfois sur-analyser et retarder l\'action',
+   188→      'Difficulté à déléguer des tâches intellectuelles',
+   189→      'Communication parfois trop technique',
+   190→    ],
+   191→    careers: ['Chercheur', 'Consultant stratégique', 'Data scientist', 'Ingénieur R&D', 'Analyste financier', 'Développeur de solutions'],
+   192→    businessTypes: ['Conseil et expertise', 'R&D et innovation', 'EdTech / SaaS', 'Biotechnologie', 'Intelligence artificielle', 'Conseil en stratégie'],
+   193→  },
+   194→  A: {
+   195→    title: 'Le Créatif Visionnaire',
+   196→    description: 'Votre imagination débordante est votre plus grand atout entrepreneurial. Vous voyez le monde différemment et trouvez des solutions que d\'autres ne voient pas. En affaires, cela se traduit par des produits et services uniques, un branding fort et une capacité naturelle à vous démarquer de la concurrence.',
+   197→    strengths: [
+   198→      'Créativité et capacité d\'innovation remarquable',
+   199→      'Sens esthétique et branding naturel',
+   200→      'Capacité à penser hors des sentiers battus',
+   201→      'Adaptabilité et flexibilité face au changement',
+   202→    ],
+   203→    areas: [
+   204→      'Difficulté avec les tâches administratives répétitives',
+   205→      'Structure et rigueur financière à renforcer',
+   206→      'Peut parfois manquer de constance dans l\'exécution',
+   207→    ],
+   208→    careers: ['Designer', 'Directeur artistique', 'Photographe', 'Architecte d\'intérieur', 'Créateur de contenu', 'Réalisateur'],
+   209→    businessTypes: ['Agence de création', 'Studio de design', 'Mode et textile', 'Arts et culture', 'Événementiel', 'Communication visuelle'],
+   210→  },
+   211→  S: {
+   212→    title: 'Le Facilitateur Bienveillant',
+   213→    description: 'Vous êtes naturellement orienté(e) vers les autres et vous tirez votre énergie des relations humaines. En entrepreneuriat, cela vous rend exceptionnel dans les services, la formation, le coaching et tout ce qui implique un contact humain de qualité. Vous construisez des relations solides avec vos clients et partenaires.',
+   214→    strengths: [
+   215→      'Excellente intelligence relationnelle et empathie',
+   216→      'Leadership participatif et bienveillant',
+   217→      'Fidélisation naturelle de la clientèle',
+   218→      'Capacité à créer un climat de confiance',
+   219→    ],
+   220→    areas: [
+   221→      'Peut éviter les confrontations nécessaires',
+   222→      'Difficulté à prendre des décisions impopulaires',
+   223→      'Risque de sur-investissement émotionnel',
+   224→    ],
+   225→    careers: ['Formateur', 'Coach professionnel', 'Conseiller', 'Professeur', 'Travailleur social', 'Médiateur'],
+   226→    businessTypes: ['Formation et coaching', 'Services à la personne', 'Santé et bien-être', 'Éducation', 'RH et recrutement', 'Tourisme solidaire'],
+   227→  },
+   228→  E: {
+   229→    title: 'Le Leader Stratégique',
+   230→    description: 'Vous êtes un(e) né(e) leader avec une forte capacité à prendre des décisions, convaincre et mobiliser. En entrepreneuriat, vous excellez dans la direction d\'entreprise, le développement commercial et la levée de fonds. Votre ambition et votre énergie sont contagieuses.',
+   231→    strengths: [
+   232→      'Leadership naturel et capacité de persuasion',
+   233→      'Vision stratégique et sens des affaires',
+   234→      'Prise de décision rapide et assumée',
+   235→      'Réseau et relations institutionnelles solides',
+   236→    ],
+   237→    areas: [
+   238→      'Risque de burnout par sur-implication',
+   239→      'Peut parfois négliger les détails opérationnels',
+   240→      'Tendance à vouloir tout contrôler',
+   241→    ],
+   242→    careers: ['Directeur général', 'Commercial', 'Responsable développement', 'Investisseur', 'Manager de transition', 'Consultant en management'],
+   243→    businessTypes: ['Startup tech', 'Franchise', 'Commerce', 'Import-export', 'Agence immobilière', 'Conseil en management'],
+   244→  },
+   245→  C: {
+   246→    title: 'L\'Organisateur Méticuleux',
+   247→    description: 'Vous excellez dans la structuration, la planification et le respect des procédures. En entrepreneuriat, vous êtes la colonne vertébrale opérationnelle — vous assurez que tout fonctionne de manière fluide, efficace et conforme. Votre fiabilité est votre marque de fabrique.',
+   248→    strengths: [
+   249→      'Organisation et rigueur exemplaires',
+   250→      'Fiabilité et respect des engagements',
+   251→      'Gestion administrative et financière maîtrisée',
+   252→      'Capacité à créer des processus reproductibles',
+   253→    ],
+   254→    areas: [
+   255→      'Peut manquer de flexibilité face à l\'imprévu',
+   256→      'Innovation et prise de risque parfois limitées',
+   257→      'Communication parfois perçue comme rigide',
+   258→    ],
+   259→    careers: ['Comptable', 'Gestionnaire', 'Contrôleur de gestion', 'Administrateur', 'Responsable qualité', 'Expert-comptable'],
+   260→    businessTypes: ['Expertise comptable', 'Conseil en gestion', 'Services administratifs', 'Immobilier', 'Assurance', 'Logistique'],
+   261→  },
+   262→}
+   263→
+   264→// ────────────────────────────────────────────
+   265→// Slide animation variants
+   266→// ────────────────────────────────────────────
+   267→
+   268→const slideVariants = {
+   269→  enter: (direction: number) => ({
+   270→    x: direction > 0 ? 300 : -300,
+   271→    opacity: 0,
+   272→  }),
+   273→  center: {
+   274→    x: 0,
+   275→    opacity: 1,
+   276→  },
+   277→  exit: (direction: number) => ({
+   278→    x: direction > 0 ? -300 : 300,
+   279→    opacity: 0,
+   280→  }),
+   281→}
+   282→
+   283→const fadeVariants = {
+   284→  initial: { opacity: 0, y: 20 },
+   285→  animate: { opacity: 1, y: 0 },
+   286→  exit: { opacity: 0, y: -20 },
+   287→}
+   288→
+   289→// ────────────────────────────────────────────
+   290→// Helpers
+   291→// ────────────────────────────────────────────
+   292→
+   293→function calculateScores(answers: Record<number, number>): RiasecScores {
+   294→  const scores: RiasecScores = { R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 }
+   295→  for (const q of QUESTIONS) {
+   296→    const answer = answers[q.id]
+   297→    if (answer) {
+   298→      scores[q.type] += answer
+   299→    }
+   300→  }
+   301→  return scores
+   302→}
+   303→
+   304→function getDominantTypes(scores: RiasecScores): [RiasecType, RiasecType] {
+   305→  const sorted = (Object.entries(scores) as [RiasecType, number][])
+   306→    .sort(([, a], [, b]) => b - a)
+   307→  return [sorted[0][0], sorted[1][0]]
+   308→}
+   309→
+   310→function getPercentage(scores: RiasecScores): Record<RiasecType, number> {
+   311→  const maxPerType = 25 // 5 questions × 5 max
+   312→  const result = {} as Record<RiasecType, number>
+   313→  for (const key of Object.keys(scores) as RiasecType[]) {
+   314→    result[key] = Math.round((scores[key] / maxPerType) * 100)
+   315→  }
+   316→  return result
+   317→}
+   318→
+   319→// ────────────────────────────────────────────
+   320→// Custom Tooltip for RadarChart
+   321→// ────────────────────────────────────────────
+   322→
+   323→function CustomRadarTooltip({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number; payload: { fullMark: number } }> }) {
+   324→  if (!active || !payload || !payload.length) return null
+   325→  const data = payload[0]
+   326→  return (
+   327→    <div className="rounded-lg border bg-background p-3 shadow-lg">
+   328→      <p className="text-sm font-semibold text-foreground">{data.name}</p>
+   329→      <p className="text-xs text-muted-foreground">{data.value} / {data.payload.fullMark}</p>
+   330→    </div>
+   331→  )
+   332→}
+   333→
+   334→// ────────────────────────────────────────────
+   335→// Intro Screen
+   336→// ────────────────────────────────────────────
+   337→
+   338→function IntroScreen({ onStart }: { onStart: () => void }) {
+   339→  const riasecTypes: RiasecType[] = ['R', 'I', 'A', 'S', 'E', 'C']
+   340→
+   341→  return (
+   342→    <motion.div
+   343→      key="intro"
+   344→      variants={fadeVariants}
+   345→      initial="initial"
+   346→      animate="animate"
+   347→      exit="exit"
+   348→      transition={{ duration: 0.5 }}
+   349→      className="flex flex-col items-center justify-center min-h-[70vh] px-4 py-8"
+   350→    >
+   351→      {/* Header */}
+   352→      <motion.div
+   353→        initial={{ scale: 0.8, opacity: 0 }}
+   354→        animate={{ scale: 1, opacity: 1 }}
+   355→        transition={{ duration: 0.5, delay: 0.1 }}
+   356→        className="flex flex-col items-center text-center max-w-2xl mx-auto"
+   357→      >
+   358→        <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/60 shadow-lg mb-6">
+   359→          <FlaskConical className="h-10 w-10 text-white" />
+   360→        </div>
+   361→        <h1 className="text-3xl md:text-4xl font-bold text-foreground">
+   362→          Test RIASEC
+   363→        </h1>
+   364→        <p className="mt-3 text-lg text-muted-foreground max-w-lg">
+   365→          Découvrez votre profil entrepreneurial grâce au modèle Holland
+   366→        </p>
+   367→      </motion.div>
+   368→
+   369→      {/* Description card */}
+   370→      <motion.div
+   371→        initial={{ y: 20, opacity: 0 }}
+   372→        animate={{ y: 0, opacity: 1 }}
+   373→        transition={{ duration: 0.5, delay: 0.2 }}
+   374→        className="mt-8 w-full max-w-2xl"
+   375→      >
+   376→        <Card className="border-none shadow-sm bg-muted/30">
+   377→          <CardContent className="p-6 space-y-4">
+   378→            <p className="text-sm text-muted-foreground leading-relaxed">
+   379→              Le modèle RIASEC, développé par John Holland, identifie <strong className="text-foreground">6 dimensions de personnalité</strong> qui influencent vos préférences professionnelles et votre style entrepreneurial.
+   380→              Ce test vous aidera à mieux comprendre vos forces, vos motivations et les types d&apos;activités qui vous correspondent le mieux.
+   381→            </p>
+   382→            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
+   383→              {riasecTypes.map((type, i) => {
+   384→                const Icon = RIASEC_ICONS[type]
+   385→                const colors = RIASEC_COLORS[type]
+   386→                return (
+   387→                  <motion.div
+   388→                    key={type}
+   389→                    initial={{ y: 10, opacity: 0 }}
+   390→                    animate={{ y: 0, opacity: 1 }}
+   391→                    transition={{ duration: 0.3, delay: 0.3 + i * 0.08 }}
+   392→                    className={cn(
+   393→                      'flex items-center gap-2.5 rounded-xl p-3',
+   394→                      colors.light
+   395→                    )}
+   396→                  >
+   397→                    <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg', colors.bg, 'bg-opacity-10')}>
+   398→                      <Icon className={cn('h-4 w-4', colors.text)} />
+   399→                    </div>
+   400→                    <div>
+   401→                      <p className="text-sm font-semibold text-foreground">{type}</p>
+   402→                      <p className="text-xs text-muted-foreground">{RIASEC_LABELS[type]}</p>
+   403→                    </div>
+   404→                  </motion.div>
+   405→                )
+   406→              })}
+   407→            </div>
+   408→          </CardContent>
+   409→        </Card>
+   410→      </motion.div>
+   411→
+   412→      {/* Info badges */}
+   413→      <motion.div
+   414→        initial={{ y: 10, opacity: 0 }}
+   415→        animate={{ y: 0, opacity: 1 }}
+   416→        transition={{ duration: 0.4, delay: 0.5 }}
+   417→        className="mt-6 flex flex-wrap items-center justify-center gap-3"
+   418→      >
+   419→        <Badge variant="secondary" className="gap-1.5 text-xs">
+   420→          <BookOpen className="h-3 w-3" />
+   421→          30 questions
+   422→        </Badge>
+   423→        <Badge variant="secondary" className="gap-1.5 text-xs">
+   424→          <Target className="h-3 w-3" />
+   425→          6 dimensions
+   426→        </Badge>
+   427→        <Badge variant="secondary" className="gap-1.5 text-xs">
+   428→          <Sparkles className="h-3 w-3" />
+   429→          ~5 minutes
+   430→        </Badge>
+   431→        <Badge variant="secondary" className="gap-1.5 text-xs">
+   432→          <Save className="h-3 w-3" />
+   433→          Auto-sauvegarde
+   434→        </Badge>
+   435→      </motion.div>
+   436→
+   437→      {/* CTA */}
+   438→      <motion.div
+   439→        initial={{ y: 10, opacity: 0 }}
+   440→        animate={{ y: 0, opacity: 1 }}
+   441→        transition={{ duration: 0.4, delay: 0.6 }}
+   442→        className="mt-8"
+   443→      >
+   444→        <Button
+   445→          size="lg"
+   446→          onClick={onStart}
+   447→          className="gap-2 rounded-full px-8 shadow-md hover:shadow-lg transition-all"
+   448→        >
+   449→          Commencer le test
+   450→          <ArrowRight className="h-4 w-4" />
+   451→        </Button>
+   452→      </motion.div>
+   453→    </motion.div>
+   454→  )
+   455→}
+   456→
+   457→// ────────────────────────────────────────────
+   458→// Quiz Screen
+   459→// ────────────────────────────────────────────
+   460→
+   461→function QuizScreen({
+   462→  answers,
+   463→  currentQuestion,
+   464→  direction,
+   465→  onAnswer,
+   466→  onPrev,
+   467→  onNext,
+   468→  onFinish,
+   469→}: {
+   470→  answers: Record<number, number>
+   471→  currentQuestion: number
+   472→  direction: number
+   473→  onAnswer: (questionId: number, value: number) => void
+   474→  onPrev: () => void
+   475→  onNext: () => void
+   476→  onFinish: () => void
+   477→}) {
+   478→  const question = QUESTIONS[currentQuestion]
+   479→  const progress = ((currentQuestion + 1) / QUESTIONS.length) * 100
+   480→  const selectedValue = answers[question.id]
+   481→  const colors = RIASEC_COLORS[question.type]
+   482→  const isLastQuestion = currentQuestion === QUESTIONS.length - 1
+   483→  const canContinue = selectedValue !== undefined
+   484→
+   485→  return (
+   486→    <div className="flex flex-col min-h-[70vh] px-4 py-6 md:px-8 md:py-8 max-w-2xl mx-auto w-full">
+   487→      {/* Progress header */}
+   488→      <div className="space-y-3 mb-6" role="status" aria-live="polite">
+   489→        <div className="flex items-center justify-between text-sm">
+   490→          <span className="font-medium text-muted-foreground">
+   491→            Question {currentQuestion + 1} sur {QUESTIONS.length}
+   492→          </span>
+   493→          <Badge variant="outline" className={cn('gap-1.5 text-xs border-current/20', colors.text, 'bg-transparent')}>
+   494→            {RIASEC_LABELS[question.type]}
+   495→          </Badge>
+   496→        </div>
+   497→        <Progress value={progress} className="h-2" aria-hidden="true" />
+   498→        <span className="sr-only">Progression : {Math.round(progress)}%</span>
+   499→      </div>
+   500→
+   501→      {/* Question content */}
+   502→      <AnimatePresence mode="wait" custom={direction}>
+   503→        <motion.div
+   504→          key={question.id}
+   505→          custom={direction}
+   506→          variants={slideVariants}
+   507→          initial="enter"
+   508→          animate="center"
+   509→          exit="exit"
+   510→          transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+   511→          className="flex-1 flex flex-col"
+   512→        >
+   513→          {/* Question card */}
+   514→          <Card className="border-none shadow-sm bg-muted/30 flex-1">
+   515→            <CardContent className="p-6 md:p-8 flex flex-col h-full">
+   516→              {/* Dimension color bar */}
+   517→              <div className={cn('h-1 w-16 rounded-full mb-6', colors.bg)} />
+   518→
+   519→              {/* Question text */}
+   520→              <p className="text-lg md:text-xl font-medium text-foreground leading-relaxed flex-1" id={`riasec-question-${question.id}`}>
+   521→                {question.text}
+   522→              </p>
+   523→
+   524→              {/* Likert scale */}
+   525→              <div className="mt-8 space-y-3" role="radiogroup" aria-labelledby={`riasec-question-${question.id}`} aria-label="Niveau d'accord">
+   526→                {LIKERT_LABELS.map((label, idx) => {
+   527→                  const value = idx + 1
+   528→                  const isSelected = selectedValue === value
+   529→                  return (
+   530→                    <motion.button
+   531→                      key={value}
+   532→                      whileHover={{ scale: 1.01 }}
+   533→                      whileTap={{ scale: 0.99 }}
+   534→                      onClick={() => onAnswer(question.id, value)}
+   535→                      role="radio"
+   536→                      aria-checked={isSelected}
+   537→                      aria-label={`${label}, note ${value} sur 5`}
+   538→                      className={cn(
+   539→                        'w-full flex items-center gap-4 rounded-xl p-3.5 text-left transition-all duration-200 border-2 cursor-pointer',
+   540→                        isSelected
+   541→                          ? cn(colors.light, 'border-current/30 shadow-sm', colors.text)
+   542→                          : 'border-transparent hover:bg-muted/60 text-muted-foreground'
+   543→                      )}
+   544→                    >
+   545→                      {/* Rating circles */}
+   546→                      <div className="flex items-center gap-1.5">
+   547→                        {[1, 2, 3, 4, 5].map((v) => (
+   548→                          <div
+   549→                            key={v}
+   550→                            className={cn(
+   551→                              'h-2.5 w-2.5 rounded-full transition-all',
+   552→                              v <= value
+   553→                                ? isSelected ? colors.bg : 'bg-muted-foreground/30'
+   554→                                : 'bg-muted-foreground/10'
+   555→                            )}
+   556→                          />
+   557→                        ))}
+   558→                      </div>
+   559→                      <span className={cn(
+   560→                        'text-sm font-medium transition-colors',
+   561→                        isSelected ? 'text-foreground' : 'text-muted-foreground'
+   562→                      )}>
+   563→                        {label}
+   564→                      </span>
+   565→                      {isSelected && (
+   566→                        <CheckCircle2 className={cn('h-4 w-4 ml-auto shrink-0', colors.text)} />
+   567→                      )}
+   568→                    </motion.button>
+   569→                  )
+   570→                })}
+   571→              </div>
+   572→            </CardContent>
+   573→          </Card>
+   574→        </motion.div>
+   575→      </AnimatePresence>
+   576→
+   577→      {/* Navigation buttons */}
+   578→      <div className="flex items-center justify-between mt-6">
+   579→        <Button
+   580→          variant="ghost"
+   581→          size="sm"
+   582→          onClick={onPrev}
+   583→          disabled={currentQuestion === 0}
+   584→          className="gap-1.5"
+   585→        >
+   586→          <ArrowLeft className="h-4 w-4" />
+   587→          Précédent
+   588→        </Button>
+   589→
+   590→        <div className="flex items-center gap-1.5" aria-hidden="true">
+   591→          {QUESTIONS.map((_, idx) => (
+   592→            <div
+   593→              key={idx}
+   594→              className={cn(
+   595→                'h-1.5 rounded-full transition-all duration-200',
+   596→                idx === currentQuestion
+   597→                  ? 'w-6 bg-primary'
+   598→                  : idx < currentQuestion
+   599→                    ? 'w-1.5 bg-primary/60'
+   600→                    : 'w-1.5 bg-muted-foreground/20'
+   601→              )}
+   602→            />
+   603→          ))}
+   604→        </div>
+   605→
+   606→        {isLastQuestion ? (
+   607→          <Button
+   608→            size="sm"
+   609→            onClick={onFinish}
+   610→            disabled={!canContinue}
+   611→            className="gap-1.5 rounded-full"
+   612→          >
+   613→            Voir les résultats
+   614→            <Sparkles className="h-4 w-4" />
+   615→          </Button>
+   616→        ) : (
+   617→          <Button
+   618→            size="sm"
+   619→            onClick={onNext}
+   620→            disabled={!canContinue}
+   621→            className="gap-1.5"
+   622→          >
+   623→            Suivant
+   624→            <ArrowRight className="h-4 w-4" />
+   625→          </Button>
+   626→        )}
+   627→      </div>
+   628→    </div>
+   629→  )
+   630→}
+   631→
+   632→// ────────────────────────────────────────────
+   633→// Results Screen
+   634→// ────────────────────────────────────────────
+   635→
+   636→function ResultsScreen({
+   637→  scores,
+   638→  onRestart,
+   639→  onSave,
+   640→}: {
+   641→  scores: RiasecScores
+   642→  onRestart: () => void
+   643→  onSave: () => void
+   644→}) {
+   645→  const [dominant1, dominant2] = getDominantTypes(scores)
+   646→  const percentages = getPercentage(scores)
+   647→  const profile1 = PROFILE_DESCRIPTIONS[dominant1]
+   648→  const profile2 = PROFILE_DESCRIPTIONS[dominant2]
+   649→
+   650→  // Radar chart data
+   651→  const chartData = (Object.entries(RIASEC_LABELS) as [RiasecType, string][])
+   652→    .map(([type, label]) => ({
+   653→      dimension: label,
+   654→      score: scores[type],
+   655→      fullMark: 25,
+   656→      type,
+   657→    }))
+   658→
+   659→  return (
+   660→    <motion.div
+   661→      key="results"
+   662→      variants={fadeVariants}
+   663→      initial="initial"
+   664→      animate="animate"
+   665→      exit="exit"
+   666→      transition={{ duration: 0.5 }}
+   667→      className="px-4 py-6 md:px-8 md:py-8 max-w-4xl mx-auto w-full space-y-8"
+   668→    >
+   669→      {/* Header */}
+   670→      <div className="text-center">
+   671→        <motion.div
+   672→          initial={{ scale: 0 }}
+   673→          animate={{ scale: 1 }}
+   674→          transition={{ type: 'spring', stiffness: 200, delay: 0.2 }}
+   675→          className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/60 shadow-lg mb-4"
+   676→        >
+   677→          <Sparkles className="h-8 w-8 text-white" />
+   678→        </motion.div>
+   679→        <h2 className="text-2xl md:text-3xl font-bold text-foreground">
+   680→          Votre profil entrepreneurial
+   681→        </h2>
+   682→        <p className="mt-2 text-muted-foreground">
+   683→          Basé sur vos réponses au test RIASEC
+   684→        </p>
+   685→      </div>
+   686→
+   687→      {/* Dominant profile banner */}
+   688→      <motion.div
+   689→        initial={{ y: 20, opacity: 0 }}
+   690→        animate={{ y: 0, opacity: 1 }}
+   691→        transition={{ delay: 0.3 }}
+   692→      >
+   693→        <Card className="border-none shadow-md overflow-hidden">
+   694→          <div className={cn(
+   695→            'h-1.5',
+   696→            RIASEC_COLORS[dominant1].bg
+   697→          )} />
+   698→          <CardContent className="p-6 md:p-8">
+   699→            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+   700→              <div className="flex items-center gap-3">
+   701→                <div className={cn(
+   702→                  'flex h-12 w-12 items-center justify-center rounded-xl',
+   703→                  RIASEC_COLORS[dominant1].light
+   704→                )}>
+   705→                  {(() => {
+   706→                    const Icon1 = RIASEC_ICONS[dominant1]
+   707→                    return <Icon1 className={cn('h-6 w-6', RIASEC_COLORS[dominant1].text)} />
+   708→                  })()}
+   709→                </div>
+   710→                <div className={cn(
+   711→                  'flex h-12 w-12 items-center justify-center rounded-xl -ml-3 border-2 border-background',
+   712→                  RIASEC_COLORS[dominant2].light
+   713→                )}>
+   714→                  {(() => {
+   715→                    const Icon2 = RIASEC_ICONS[dominant2]
+   716→                    return <Icon2 className={cn('h-6 w-6', RIASEC_COLORS[dominant2].text)} />
+   717→                  })()}
+   718→                </div>
+   719→              </div>
+   720→              <div>
+   721→                <p className="text-sm text-muted-foreground">Profil dominant</p>
+   722→                <h3 className="text-xl font-bold text-foreground">
+   723→                  {profile1.title}
+   724→                </h3>
+   725→                <p className="text-sm text-muted-foreground mt-0.5">
+   726→                  {RIASEC_LABELS[dominant1]} — {RIASEC_LABELS[dominant2]} ({percentages[dominant1]}% — {percentages[dominant2]}%)
+   727→                </p>
+   728→              </div>
+   729→            </div>
+   730→          </CardContent>
+   731→        </Card>
+   732→      </motion.div>
+   733→
+   734→      {/* Radar Chart + Score bars */}
+   735→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   736→        {/* Radar Chart */}
+   737→        <motion.div
+   738→          initial={{ y: 20, opacity: 0 }}
+   739→          animate={{ y: 0, opacity: 1 }}
+   740→          transition={{ delay: 0.4 }}
+   741→        >
+   742→          <Card className="border-none shadow-sm h-full">
+   743→            <CardHeader className="pb-2">
+   744→              <CardTitle className="text-base">Radar des compétences</CardTitle>
+   745→            </CardHeader>
+   746→            <CardContent className="pt-0">
+   747→              <div className="w-full aspect-square max-w-[350px] mx-auto">
+   748→                <ResponsiveContainer width="100%" height="100%">
+   749→                  <RadarChart data={chartData} cx="50%" cy="50%" outerRadius="70%">
+   750→                    <PolarGrid stroke="hsl(var(--border))" />
+   751→                    <PolarAngleAxis
+   752→                      dataKey="dimension"
+   753→                      tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+   754→                    />
+   755→                    <PolarRadiusAxis
+   756→                      angle={90}
+   757→                      domain={[0, 25]}
+   758→                      tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+   759→                      tickCount={6}
+   760→                    />
+   761→                    {chartData.map((entry, idx) => {
+   762→                      const type = entry.type as RiasecType
+   763→                      // Single radar polygon with all points
+   764→                      if (idx > 0) return null
+   765→                      return (
+   766→                        <Radar
+   767→                          key="main-radar"
+   768→                          name="Score"
+   769→                          dataKey="score"
+   770→                          stroke="hsl(var(--primary))"
+   771→                          fill="hsl(var(--primary))"
+   772→                          fillOpacity={0.15}
+   773→                          strokeWidth={2}
+   774→                        />
+   775→                      )
+   776→                    })}
+   777→                    <Tooltip content={<CustomRadarTooltip />} />
+   778→                  </RadarChart>
+   779→                </ResponsiveContainer>
+   780→              </div>
+   781→            </CardContent>
+   782→          </Card>
+   783→        </motion.div>
+   784→
+   785→        {/* Score breakdown */}
+   786→        <motion.div
+   787→          initial={{ y: 20, opacity: 0 }}
+   788→          animate={{ y: 0, opacity: 1 }}
+   789→          transition={{ delay: 0.5 }}
+   790→        >
+   791→          <Card className="border-none shadow-sm h-full">
+   792→            <CardHeader className="pb-2">
+   793→              <CardTitle className="text-base">Détail par dimension</CardTitle>
+   794→            </CardHeader>
+   795→            <CardContent className="pt-0 space-y-4">
+   796→              {(Object.entries(RIASEC_LABELS) as [RiasecType, string][])
+   797→                .sort(([, a], [, b]) => scores[b as RiasecType] - scores[a as RiasecType])
+   798→                .map(([type, label], idx) => {
+   799→                  const pct = percentages[type]
+   800→                  const isDominant = type === dominant1 || type === dominant2
+   801→                  return (
+   802→                    <div key={type} className="space-y-2">
+   803→                      <div className="flex items-center justify-between">
+   804→                        <div className="flex items-center gap-2">
+   805→                          <div className={cn(
+   806→                            'flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold',
+   807→                            isDominant ? RIASEC_COLORS[type].bg : 'bg-muted',
+   808→                            isDominant ? 'text-white' : 'text-muted-foreground'
+   809→                          )}>
+   810→                            {idx + 1}
+   811→                          </div>
+   812→                          <span className={cn(
+   813→                            'text-sm font-medium',
+   814→                            isDominant ? 'text-foreground' : 'text-muted-foreground'
+   815→                          )}>
+   816→                            {label}
+   817→                          </span>
+   818→                          {isDominant && (
+   819→                            <Star className={cn('h-3 w-3', RIASEC_COLORS[type].text)} />
+   820→                          )}
+   821→                        </div>
+   822→                        <span className={cn(
+   823→                          'text-sm font-semibold',
+   824→                          RIASEC_COLORS[type].text
+   825→                        )}>
+   826→                          {scores[type]}/25
+   827→                        </span>
+   828→                      </div>
+   829→                      <div className="h-2 rounded-full bg-muted overflow-hidden">
+   830→                        <motion.div
+   831→                          initial={{ width: 0 }}
+   832→                          animate={{ width: `${pct}%` }}
+   833→                          transition={{ duration: 0.8, delay: 0.6 + idx * 0.1, ease: 'easeOut' }}
+   834→                          className={cn('h-full rounded-full', RIASEC_COLORS[type].bg)}
+   835→                        />
+   836→                      </div>
+   837→                    </div>
+   838→                  )
+   839→                })}
+   840→            </CardContent>
+   841→          </Card>
+   842→        </motion.div>
+   843→      </div>
+   844→
+   845→      {/* Profile descriptions */}
+   846→      <motion.div
+   847→        initial={{ y: 20, opacity: 0 }}
+   848→        animate={{ y: 0, opacity: 1 }}
+   849→        transition={{ delay: 0.6 }}
+   850→        className="space-y-6"
+   851→      >
+   852→        {/* Primary profile */}
+   853→        <ProfileCard type={dominant1} profile={profile1} primary />
+   854→        {/* Secondary profile */}
+   855→        <ProfileCard type={dominant2} profile={profile2} primary={false} />
+   856→      </motion.div>
+   857→
+   858→      {/* Combined recommendations */}
+   859→      <motion.div
+   860→        initial={{ y: 20, opacity: 0 }}
+   861→        animate={{ y: 0, opacity: 1 }}
+   862→        transition={{ delay: 0.7 }}
+   863→      >
+   864→        <Card className="border-none shadow-sm">
+   865→          <CardHeader>
+   866→            <CardTitle className="text-base flex items-center gap-2">
+   867→              <Lightbulb className="h-5 w-5 text-amber-500" />
+   868→              Pistes entrepreneuriales recommandées
+   869→            </CardTitle>
+   870→          </CardHeader>
+   871→          <CardContent className="space-y-6">
+   872→            {/* Recommended business types */}
+   873→            <div>
+   874→              <h4 className="text-sm font-semibold text-foreground mb-3">Types d&apos;entreprises</h4>
+   875→              <div className="flex flex-wrap gap-2">
+   876→                {[...new Set([...profile1.businessTypes.slice(0, 3), ...profile2.businessTypes.slice(0, 3)])]
+   877→                  .map((bt, i) => (
+   878→                    <Badge key={i} variant="secondary" className="text-xs">
+   879→                      {bt}
+   880→                    </Badge>
+   881→                  ))}
+   882→              </div>
+   883→            </div>
+   884→            {/* Recommended careers */}
+   885→            <div>
+   886→              <h4 className="text-sm font-semibold text-foreground mb-3">Métiers compatibles</h4>
+   887→              <div className="flex flex-wrap gap-2">
+   888→                {[...new Set([...profile1.careers.slice(0, 3), ...profile2.careers.slice(0, 3)])]
+   889→                  .map((c, i) => (
+   890→                    <Badge key={i} variant="outline" className="text-xs">
+   891→                      {c}
+   892→                    </Badge>
+   893→                  ))}
+   894→              </div>
+   895→            </div>
+   896→          </CardContent>
+   897→        </Card>
+   898→      </motion.div>
+   899→
+   900→      {/* Action buttons */}
+   901→      <motion.div
+   902→        initial={{ y: 10, opacity: 0 }}
+   903→        animate={{ y: 0, opacity: 1 }}
+   904→        transition={{ delay: 0.8 }}
+   905→        className="flex flex-col sm:flex-row items-center justify-center gap-3 pb-4"
+   906→      >
+   907→        <Button
+   908→          variant="outline"
+   909→          onClick={onRestart}
+   910→          className="gap-2 rounded-full"
+   911→        >
+   912→          <RotateCcw className="h-4 w-4" />
+   913→          Recommencer
+   914→        </Button>
+   915→        <Button
+   916→          onClick={onSave}
+   917→          className="gap-2 rounded-full"
+   918→        >
+   919→          <Save className="h-4 w-4" />
+   920→          Sauvegarder mes résultats
+   921→        </Button>
+   922→      </motion.div>
+   923→    </motion.div>
+   924→  )
+   925→}
+   926→
+   927→// ────────────────────────────────────────────
+   928→// Profile Card sub-component
+   929→// ────────────────────────────────────────────
+   930→
+   931→function ProfileCard({
+   932→  type,
+   933→  profile,
+   934→  primary,
+   935→}: {
+   936→  type: RiasecType
+   937→  profile: typeof PROFILE_DESCRIPTIONS[RiasecType]
+   938→  primary: boolean
+   939→}) {
+   940→  const colors = RIASEC_COLORS[type]
+   941→  const Icon = RIASEC_ICONS[type]
+   942→  const [expanded, setExpanded] = useState(primary)
+   943→
+   944→  return (
+   945→    <Card className={cn('border-none shadow-sm overflow-hidden', !primary && 'opacity-90')}>
+   946→      <div className={cn('h-1', colors.bg, !primary && 'opacity-50')} />
+   947→      <CardContent className="p-6">
+   948→        <button
+   949→          onClick={() => setExpanded(!expanded)}
+   950→          className="w-full flex items-center justify-between text-left"
+   951→        >
+   952→          <div className="flex items-center gap-3">
+   953→            <div className={cn(
+   954→              'flex h-10 w-10 items-center justify-center rounded-xl',
+   955→              colors.light
+   956→            )}>
+   957→              <Icon className={cn('h-5 w-5', colors.text)} />
+   958→            </div>
+   959→            <div>
+   960→              <div className="flex items-center gap-2">
+   961→                <h4 className={cn('font-semibold', primary ? 'text-lg' : 'text-base', 'text-foreground')}>
+   962→                  {RIASEC_LABELS[type]} — {profile.title}
+   963→                </h4>
+   964→                {primary && (
+   965→                  <Badge className="text-[10px] px-1.5 py-0" variant="default">Principal</Badge>
+   966→                )}
+   967→              </div>
+   968→              <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1">
+   969→                {profile.description.slice(0, 100)}...
+   970→              </p>
+   971→            </div>
+   972→          </div>
+   973→          <ChevronRight className={cn(
+   974→            'h-4 w-4 text-muted-foreground transition-transform shrink-0',
+   975→            expanded && 'rotate-90'
+   976→          )} />
+   977→        </button>
+   978→
+   979→        <AnimatePresence>
+   980→          {expanded && (
+   981→            <motion.div
+   982→              initial={{ height: 0, opacity: 0 }}
+   983→              animate={{ height: 'auto', opacity: 1 }}
+   984→              exit={{ height: 0, opacity: 0 }}
+   985→              transition={{ duration: 0.3 }}
+   986→              className="overflow-hidden"
+   987→            >
+   988→              <div className="mt-5 space-y-5">
+   989→                <p className="text-sm text-muted-foreground leading-relaxed">
+   990→                  {profile.description}
+   991→                </p>
+   992→
+   993→                <Separator />
+   994→
+   995→                {/* Strengths */}
+   996→                <div>
+   997→                  <h5 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
+   998→                    <TrendingUp className="h-4 w-4 text-green-500" />
+   999→                    Points forts
+  1000→                  </h5>
+  1001→                  <ul className="space-y-2">
+  1002→                    {profile.strengths.map((s, i) => (
+  1003→                      <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+  1004→                        <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
+  1005→                        {s}
+  1006→                      </li>
+  1007→                    ))}
+  1008→                  </ul>
+  1009→                </div>
+  1010→
+  1011→                {/* Areas to develop */}
+  1012→                <div>
+  1013→                  <h5 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
+  1014→                    <AlertCircle className="h-4 w-4 text-amber-500" />
+  1015→                    Axes de développement
+  1016→                  </h5>
+  1017→                  <ul className="space-y-2">
+  1018→                    {profile.areas.map((a, i) => (
+  1019→                      <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+  1020→                        <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+  1021→                        {a}
+  1022→                      </li>
+  1023→                    ))}
+  1024→                  </ul>
+  1025→                </div>
+  1026→
+  1027→                {/* Careers */}
+  1028→                <div>
+  1029→                  <h5 className="text-sm font-semibold text-foreground mb-3">
+  1030→                    Métiers associés
+  1031→                  </h5>
+  1032→                  <div className="flex flex-wrap gap-2">
+  1033→                    {profile.careers.map((c, i) => (
+  1034→                      <Badge key={i} variant="secondary" className="text-xs">
+  1035→                        {c}
+  1036→                      </Badge>
+  1037→                    ))}
+  1038→                  </div>
+  1039→                </div>
+  1040→
+  1041→                {/* Business types */}
+  1042→                <div>
+  1043→                  <h5 className="text-sm font-semibold text-foreground mb-3">
+  1044→                    Types d&apos;entreprises
+  1045→                  </h5>
+  1046→                  <div className="flex flex-wrap gap-2">
+  1047→                    {profile.businessTypes.map((b, i) => (
+  1048→                      <Badge key={i} variant="outline" className="text-xs">
+  1049→                        {b}
+  1050→                      </Badge>
+  1051→                    ))}
+  1052→                  </div>
+  1053→                </div>
+  1054→              </div>
+  1055→            </motion.div>
+  1056→          )}
+  1057→        </AnimatePresence>
+  1058→      </CardContent>
+  1059→    </Card>
+  1060→  )
+  1061→}
+  1062→
+  1063→// ────────────────────────────────────────────
+  1064→// Main RIASEC Component
+  1065→// ────────────────────────────────────────────
+  1066→
+  1067→export function RiasecModule() {
+  1068→  const [screen, setScreen] = useState<Screen>('intro')
+  1069→  const [currentQuestion, setCurrentQuestion] = useState(0)
+  1070→  const [direction, setDirection] = useState(1)
+  1071→  const [answers, setAnswers] = useState<Record<number, number>>({})
+  1072→  const [isSaving, setIsSaving] = useState(false)
+  1073→  const [savedScores, setSavedScores] = useState<RiasecScores | null>(null)
+  1074→
+  1075→  // Load saved progress from localStorage on mount
+  1076→  useEffect(() => {
+  1077→    try {
+  1078→      const saved = localStorage.getItem(STORAGE_KEY)
+  1079→      if (saved) {
+  1080→        const data = JSON.parse(saved)
+  1081→        if (data.answers && Object.keys(data.answers).length > 0) {
+  1082→          // If all questions answered, go straight to results
+  1083→          if (Object.keys(data.answers).length === QUESTIONS.length) {
+  1084→            setAnswers(data.answers)
+  1085→            setSavedScores(calculateScores(data.answers))
+  1086→            setScreen('results')
+  1087→          } else {
+  1088→            setAnswers(data.answers)
+  1089→            setCurrentQuestion(Math.min(data.currentQuestion || 0, QUESTIONS.length - 1))
+  1090→          }
+  1091→        }
+  1092→      }
+  1093→    } catch {
+  1094→      // Ignore localStorage errors
+  1095→    }
+  1096→  }, [])
+  1097→
+  1098→  // Auto-save progress to localStorage
+  1099→  const saveProgress = useCallback((currentAnswers: Record<number, number>, questionIdx: number) => {
+  1100→    try {
+  1101→      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+  1102→        answers: currentAnswers,
+  1103→        currentQuestion: questionIdx,
+  1104→        updatedAt: new Date().toISOString(),
+  1105→      }))
+  1106→    } catch {
+  1107→      // Ignore localStorage errors
+  1108→    }
+  1109→  }, [])
+  1110→
+  1111→  // Handle answer selection
+  1112→  const handleAnswer = useCallback((questionId: number, value: number) => {
+  1113→    setAnswers((prev) => {
+  1114→      const updated = { ...prev, [questionId]: value }
+  1115→      saveProgress(updated, currentQuestion)
+  1116→      return updated
+  1117→    })
+  1118→  }, [currentQuestion, saveProgress])
+  1119→
+  1120→  // Navigate to next question
+  1121→  const handleNext = useCallback(() => {
+  1122→    if (currentQuestion < QUESTIONS.length - 1) {
+  1123→      setDirection(1)
+  1124→      setCurrentQuestion((prev) => prev + 1)
+  1125→    }
+  1126→  }, [currentQuestion])
+  1127→
+  1128→  // Navigate to previous question
+  1129→  const handlePrev = useCallback(() => {
+  1130→    if (currentQuestion > 0) {
+  1131→      setDirection(-1)
+  1132→      setCurrentQuestion((prev) => prev - 1)
+  1133→    }
+  1134→  }, [currentQuestion])
+  1135→
+  1136→  // Finish quiz — show results
+  1137→  const handleFinish = useCallback(() => {
+  1138→    const finalScores = calculateScores(answers)
+  1139→    setSavedScores(finalScores)
+  1140→    setScreen('results')
+  1141→  }, [answers])
+  1142→
+  1143→  // Restart quiz
+  1144→  const handleRestart = useCallback(() => {
+  1145→    try {
+  1146→      localStorage.removeItem(STORAGE_KEY)
+  1147→    } catch {
+  1148→      // Ignore
+  1149→    }
+  1150→    setAnswers({})
+  1151→    setCurrentQuestion(0)
+  1152→    setDirection(1)
+  1153→    setSavedScores(null)
+  1154→    setScreen('intro')
+  1155→  }, [])
+  1156→
+  1157→  // Save results to API (cookie-based auth — session cookie is sent automatically)
+  1158→  const handleSave = useCallback(async () => {
+  1159→    if (!savedScores) return
+  1160→    setIsSaving(true)
+  1161→    try {
+  1162→      const types: RiasecType[] = ['R', 'I', 'A', 'S', 'E', 'C']
+  1163→      const results = types.map(type => ({
+  1164→        profileType: type,
+  1165→        score: savedScores[type],
+  1166→        isDominant: type === getDominantTypes(savedScores)[0] || type === getDominantTypes(savedScores)[1],
+  1167→      }))
+  1168→
+  1169→      const res = await fetch('/api/riasec', {
+  1170→        method: 'POST',
+  1171→        headers: {
+  1172→          'Content-Type': 'application/json',
+  1173→        },
+  1174→        credentials: 'include',
+  1175→        body: JSON.stringify({ results }),
+  1176→      })
+  1177→
+  1178→      const data = await res.json()
+  1179→      if (data.success) {
+  1180→        toast.success('Résultats sauvegardés', {
+  1181→          description: 'Vos résultats RIASEC ont été enregistrés dans votre profil.',
+  1182→        })
+  1183→      } else {
+  1184→        toast.error('Erreur de sauvegarde', {
+  1185→          description: data.error?.message || 'Impossible de sauvegarder vos résultats. Êtes-vous connecté(e) ?',
+  1186→        })
+  1187→      }
+  1188→    } catch {
+  1189→      toast.error('Erreur réseau', {
+  1190→        description: 'Vérifiez votre connexion et réessayez.',
+  1191→      })
+  1192→    } finally {
+  1193→      setIsSaving(false)
+  1194→    }
+  1195→  }, [savedScores])
+  1196→
+  1197→  return (
+  1198→    <div className="relative">
+  1199→      <AnimatePresence mode="wait">
+  1200→        {screen === 'intro' && (
+  1201→          <IntroScreen
+  1202→            key="intro"
+  1203→            onStart={() => {
+  1204→              setDirection(1)
+  1205→              setScreen('quiz')
+  1206→            }}
+  1207→          />
+  1208→        )}
+  1209→        {screen === 'quiz' && (
+  1210→          <QuizScreen
+  1211→            key={`quiz-${currentQuestion}`}
+  1212→            answers={answers}
+  1213→            currentQuestion={currentQuestion}
+  1214→            direction={direction}
+  1215→            onAnswer={handleAnswer}
+  1216→            onPrev={handlePrev}
+  1217→            onNext={handleNext}
+  1218→            onFinish={handleFinish}
+  1219→          />
+  1220→        )}
+  1221→        {screen === 'results' && savedScores && (
+  1222→          <ResultsScreen
+  1223→            key="results"
+  1224→            scores={savedScores}
+  1225→            onRestart={handleRestart}
+  1226→            onSave={handleSave}
+  1227→          />
+  1228→        )}
+  1229→      </AnimatePresence>
+  1230→
+  1231→      {/* Save loading overlay */}
+  1232→      {isSaving && (
+  1233→        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg">
+  1234→          <div className="flex items-center gap-3 rounded-xl bg-background px-6 py-4 shadow-lg border">
+  1235→            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+  1236→            <span className="text-sm font-medium text-foreground">Sauvegarde en cours...</span>
+  1237→          </div>
+  1238→        </div>
+  1239→      )}
+  1240→    </div>
+  1241→  )
+  1242→}
+  1243→

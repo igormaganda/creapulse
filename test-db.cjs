@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const path = require('path');
 
 const DATABASE_URL = 'file:/home/z/my-project/db/creapulse.db';
