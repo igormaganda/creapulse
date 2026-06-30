@@ -1,0 +1,252 @@
+/home/z/my-project/docs/STRATEGIE-PIPELINE.md:91:| **Pilotage** | `Gauge` | tremplin, passeport, certifications, téléchargements, vie privée | Piloter et certifier |
+/home/z/my-project/docs/STRATEGIE-PIPELINE.md:1029:| Suivi Tremplin | PDF | `GET /api/export/suivi-tremplin` | PDFKit |
+/home/z/my-project/docs/STRATEGIE-PIPELINE.md:1043:| `suivi-tremplin` | Évaluation Tremplin | ~5 |
+/home/z/my-project/docs/STRATEGIE-PIPELINE.md:1089:| `creapulse-tremplin` | Tremplin |
+/home/z/my-project/docs/STRATEGIE-PIPELINE.md:1110:│  tremplinStatus   │
+/home/z/my-project/docs/STRATEGIE-PIPELINE.md:1111:│  tremplinScore    │
+/home/z/my-project/docs/STRATEGIE-PIPELINE.md:1159:enum TremplinStatus {
+/home/z/my-project/docs/STRATEGIE-PIPELINE.md:1163:enum TremplinDecision {
+/home/z/my-project/docs/STRATEGIE-PIPELINE.md:1195:| `src/components/bureau/modules/tremplin.tsx` | 799 | `Tremplin` | Pilotage |
+/home/z/my-project/docs/STRATEGIE-PIPELINE.md:1210:| `/api/tremplin` | GET, POST | `api/tremplin/route.ts` | 149 |
+/home/z/my-project/docs/STRATEGIE-PIPELINE.md:1226:| `/api/export/suivi-tremplin` | GET | `api/export/suivi-tremplin/route.ts` |
+/home/z/my-project/deploy-files/schema.prisma:80:enum TremplinStatus {
+/home/z/my-project/deploy-files/schema.prisma:88:enum TremplinDecision {
+/home/z/my-project/deploy-files/schema.prisma:300:  tremplin            Tremplin?
+/home/z/my-project/deploy-files/schema.prisma:443:  tremplinStatus      TremplinStatus   @default(NOT_STARTED)
+/home/z/my-project/deploy-files/schema.prisma:444:  tremplinScore       Int?
+/home/z/my-project/deploy-files/schema.prisma:612:model Tremplin {
+/home/z/my-project/deploy-files/schema.prisma:620:  decision        TremplinDecision?
+/home/z/my-project/download/STRATEGIE-PIPELINE.md:91:| **Pilotage** | `Gauge` | tremplin, passeport, certifications, téléchargements, vie privée | Piloter et certifier |
+/home/z/my-project/download/STRATEGIE-PIPELINE.md:1029:| Suivi Tremplin | PDF | `GET /api/export/suivi-tremplin` | PDFKit |
+/home/z/my-project/download/STRATEGIE-PIPELINE.md:1043:| `suivi-tremplin` | Évaluation Tremplin | ~5 |
+/home/z/my-project/download/STRATEGIE-PIPELINE.md:1089:| `creapulse-tremplin` | Tremplin |
+/home/z/my-project/download/STRATEGIE-PIPELINE.md:1110:│  tremplinStatus   │
+/home/z/my-project/download/STRATEGIE-PIPELINE.md:1111:│  tremplinScore    │
+/home/z/my-project/download/STRATEGIE-PIPELINE.md:1159:enum TremplinStatus {
+/home/z/my-project/download/STRATEGIE-PIPELINE.md:1163:enum TremplinDecision {
+/home/z/my-project/download/STRATEGIE-PIPELINE.md:1195:| `src/components/bureau/modules/tremplin.tsx` | 799 | `Tremplin` | Pilotage |
+/home/z/my-project/download/STRATEGIE-PIPELINE.md:1210:| `/api/tremplin` | GET, POST | `api/tremplin/route.ts` | 149 |
+/home/z/my-project/download/STRATEGIE-PIPELINE.md:1226:| `/api/export/suivi-tremplin` | GET | `api/export/suivi-tremplin/route.ts` |
+/home/z/my-project/src/data/swipe-cards.ts:205:      "Rebondir après un échec ou un coup dur, plus fort qu'avant. La résilience n'est pas l'absence de chocs — c'est la capacité à transformer l'adversité en tremplin.",
+/home/z/my-project/mini-services/pdf-service/index.ts:524:      tremplin: true,
+/home/z/my-project/mini-services/pdf-service/index.ts:688:  // ─── Page 5: Tremplin ──────────────────
+/home/z/my-project/mini-services/pdf-service/index.ts:690:  drawHeader(doc, 'Tremplin — D\u00e9cision GO / NO GO', 'Analyse de faisabilit\u00e9 du projet')
+/home/z/my-project/mini-services/pdf-service/index.ts:693:  const tremplin = user.tremplin
+/home/z/my-project/mini-services/pdf-service/index.ts:694:  if (tremplin) {
+/home/z/my-project/mini-services/pdf-service/index.ts:696:    const decisionStr = tremplin.decision || 'PENDING'
+/home/z/my-project/mini-services/pdf-service/index.ts:701:    bodyText(doc, `Score global : ${tremplin.score ?? '\u2014'} / 100`)
+/home/z/my-project/mini-services/pdf-service/index.ts:702:    bodyText(doc, `\u00c9tape actuelle : ${tremplin.currentStep || 0}`)
+/home/z/my-project/mini-services/pdf-service/index.ts:703:    bodyText(doc, `Compl\u00e9t\u00e9 : ${tremplin.isCompleted ? 'Oui' : 'Non'}`)
+/home/z/my-project/mini-services/pdf-service/index.ts:704:    bodyText(doc, `Date de compl\u00e9tion : ${formatDate(tremplin.completedAt)}`)
+/home/z/my-project/mini-services/pdf-service/index.ts:706:    if (tremplin.summary) {
+/home/z/my-project/mini-services/pdf-service/index.ts:709:      bodyText(doc, tremplin.summary)
+/home/z/my-project/mini-services/pdf-service/index.ts:713:    const recs = parseJson<string[]>(tremplin.recommendations, [])
+/home/z/my-project/mini-services/pdf-service/index.ts:720:    infoBox(doc, 'Le questionnaire Tremplin n\'a pas encore \u00e9t\u00e9 compl\u00e9t\u00e9.', 'info')
+/home/z/my-project/mini-services/pdf-service/index.ts:847:  // Gather action items from tremplin and creascope
+/home/z/my-project/mini-services/pdf-service/index.ts:850:  if (tremplin) {
+/home/z/my-project/mini-services/pdf-service/index.ts:851:    const recs = parseJson<string[]>(tremplin.recommendations, [])
+/home/z/my-project/mini-services/pdf-service/index.ts:875:    'Finaliser le questionnaire Tremplin',
+/home/z/my-project/mini-services/pdf-service/index.ts:1027:// ─── PDF Generation: Tremplin ───────────────
+/home/z/my-project/mini-services/pdf-service/index.ts:1029:async function generateTremplinPDF(beneficiaryId: string): Promise<{ doc: PDFDocument; stream: PassThrough }> {
+/home/z/my-project/mini-services/pdf-service/index.ts:1030:  const { doc, stream } = createPDFDoc('Tremplin — GO / NO GO')
+/home/z/my-project/mini-services/pdf-service/index.ts:1036:      tremplin: true,
+/home/z/my-project/mini-services/pdf-service/index.ts:1049:  drawCoverPage(doc, 'Tremplin', 'D\u00e9cision de faisabilit\u00e9 du projet', name, today)
+/home/z/my-project/mini-services/pdf-service/index.ts:1053:  drawHeader(doc, 'D\u00e9cision Tremplin', 'R\u00e9sultat de l\'analyse de faisabilit\u00e9')
+/home/z/my-project/mini-services/pdf-service/index.ts:1056:  const tremplin = user.tremplin
+/home/z/my-project/mini-services/pdf-service/index.ts:1057:  if (!tremplin) {
+/home/z/my-project/mini-services/pdf-service/index.ts:1058:    infoBox(doc, 'Le questionnaire Tremplin n\'a pas encore \u00e9t\u00e9 compl\u00e9t\u00e9. Veuillez r\u00e9pondre aux 6 \u00e9tapes pour obtenir la d\u00e9cision.', 'warning')
+/home/z/my-project/mini-services/pdf-service/index.ts:1064:  const decisionStr = tremplin.decision || 'PENDING'
+/home/z/my-project/mini-services/pdf-service/index.ts:1078:  const score = tremplin.score || 0
+/home/z/my-project/mini-services/pdf-service/index.ts:1079:  progressBar(doc, 'Score Tremplin', score, 100, 60, doc.y + 12, doc.page.width - 120)
+/home/z/my-project/mini-services/pdf-service/index.ts:1081:  bodyText(doc, `Score : ${score} / 100 — \u00c9tape ${tremplin.currentStep || 0} / 6`)
+/home/z/my-project/mini-services/pdf-service/index.ts:1086:  const responses = parseJson<Record<string, unknown>>(tremplin.responses, {})
+/home/z/my-project/mini-services/pdf-service/index.ts:1107:    doc.rect(50, stepY, 4, 30).fill(idx < tremplin.currentStep ? COLORS.success : COLORS.border)
+/home/z/my-project/mini-services/pdf-service/index.ts:1121:  if (tremplin.summary) {
+/home/z/my-project/mini-services/pdf-service/index.ts:1124:    bodyText(doc, tremplin.summary)
+/home/z/my-project/mini-services/pdf-service/index.ts:1130:  const recs = parseJson<string[]>(tremplin.recommendations, [])
+/home/z/my-project/mini-services/pdf-service/index.ts:1236:  // Tremplin decision from session
+/home/z/my-project/mini-services/pdf-service/index.ts:1237:  if (session.tremplinDecision) {
+/home/z/my-project/mini-services/pdf-service/index.ts:1239:    sectionHeader(doc, 'D\u00e9cision Tremplin')
+/home/z/my-project/mini-services/pdf-service/index.ts:1240:    decisionBadge(doc, session.tremplinDecision, 50, doc.y)
+/home/z/my-project/mini-services/pdf-service/index.ts:1608:    // ─── Tremplin PDF ─────────────────────
+/home/z/my-project/mini-services/pdf-service/index.ts:1609:    if (url.startsWith('/pdf/tremplin')) {
+/home/z/my-project/mini-services/pdf-service/index.ts:1611:      const { doc, stream } = await generateTremplinPDF(beneficiaryId)
+/home/z/my-project/mini-services/pdf-service/index.ts:1612:      await sendPDF(res, doc, stream, `tremplin-${beneficiaryId}.pdf`)
+/home/z/my-project/mini-services/pdf-service/index.ts:1663:  console.log(`  GET /pdf/tremplin?token=<jwt>&beneficiaryId=<id>`)
+/home/z/my-project/mini-services/pdf-service/TASK_SUMMARY.md:21:| `GET /pdf/tremplin?token=&beneficiaryId=` | GO/NO GO decision PDF |
+/home/z/my-project/mini-services/pdf-service/TASK_SUMMARY.md:41:5. Tremplin: decision badge, score, recommendations
+/home/z/my-project/mini-services/pdf-service/TASK_SUMMARY.md:54:### Tremplin PDF
+/home/z/my-project/mini-services/pdf-service/TASK_SUMMARY.md:70:- ✅ Tremplin PDF: HTTP 200
+/home/z/my-project/worklog.md:211:  - Phase 7: Delete analysis/document data (CreatorJourney, FinancialForecast, CreaSimSimulation, JuridiqueAnalysis, MarketAnalysis, Tremplin, BusinessModelCanvas, ZeroDraft, Livrable)
+/home/z/my-project/tool-results/read_1782858633552_e30d7193a7d6.txt:432:   432→  tremplin: {
+/home/z/my-project/tool-results/read_1782858633552_e30d7193a7d6.txt:433:   433→    key: 'creapulse-tremplin',
+/home/z/my-project/src/lib/module-scanner.ts:432:  tremplin: {
+/home/z/my-project/src/lib/module-scanner.ts:433:    key: 'creapulse-tremplin',
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:211:   211→  - Phase 7: Delete analysis/document data (CreatorJourney, FinancialForecast, CreaSimSimulation, JuridiqueAnalysis, MarketAnalysis, Tremplin, BusinessModelCanvas, ZeroDraft, Livrable)
+/home/z/my-project/src/lib/module-registry.ts:417:    code: 'tremplin',
+/home/z/my-project/src/lib/module-registry.ts:418:    label: 'Tremplin',
+/home/z/my-project/tool-results/grep_1782861499398_93ae3e4d8d44.txt:77:/home/z/my-project/src/app/besoin/developper-activite/layout.tsx:10:      'Passez à la vitesse supérieure grâce aux outils de pilotage, au réseau GIDEF et au programme Tremplin de CreaPulse.',
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:211:   211→  - Phase 7: Delete analysis/document data (CreatorJourney, FinancialForecast, CreaSimSimulation, JuridiqueAnalysis, MarketAnalysis, Tremplin, BusinessModelCanvas, ZeroDraft, Livrable)
+/home/z/my-project/tool-results/read_1782858643586_a61694e36d56.txt:432:   432→   432→  tremplin: {
+/home/z/my-project/tool-results/read_1782858643586_a61694e36d56.txt:433:   433→   433→    key: 'creapulse-tremplin',
+/home/z/my-project/tool-results/read_1782835881930_9103facb9fa6.txt:211:   211→  - Phase 7: Delete analysis/document data (CreatorJourney, FinancialForecast, CreaSimSimulation, JuridiqueAnalysis, MarketAnalysis, Tremplin, BusinessModelCanvas, ZeroDraft, Livrable)
+/home/z/my-project/tool-results/read_1782835587880_f20d11436cad.txt:211:   211→   211→  - Phase 7: Delete analysis/document data (CreatorJourney, FinancialForecast, CreaSimSimulation, JuridiqueAnalysis, MarketAnalysis, Tremplin, BusinessModelCanvas, ZeroDraft, Livrable)
+/home/z/my-project/src/components/admin-plateforme/analytics.tsx:35:  { etape: 'Tremplin', count: 78, pct: 25 },
+/home/z/my-project/src/components/admin-plateforme/contenus.tsx:29:  { id: '2', title: 'Programme Tremplin : 50 places supplementaires', excerpt: 'Le programme Tremplin s\'etend avec 50 nouvelles places pour les porteurs de projet...', publishedAt: '2024-12-10', status: 'publie', author: 'Sophie Martin' },
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:211:   211→  - Phase 7: Delete analysis/document data (CreatorJourney, FinancialForecast, CreaSimSimulation, JuridiqueAnalysis, MarketAnalysis, Tremplin, BusinessModelCanvas, ZeroDraft, Livrable)
+/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:81:    81→    81→enum TremplinStatus {
+/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:89:    89→    89→enum TremplinDecision {
+/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:302:   302→   302→  tremplin            Tremplin?
+/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:454:   454→   454→  tremplinStatus      TremplinStatus   @default(NOT_STARTED)
+/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:455:   455→   455→  tremplinScore       Int?
+/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:623:   623→   623→model Tremplin {
+/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:631:   631→   631→  decision        TremplinDecision?
+/home/z/my-project/tool-results/read_1782835890207_9103facb9fa6.txt:211:   211→  - Phase 7: Delete analysis/document data (CreatorJourney, FinancialForecast, CreaSimSimulation, JuridiqueAnalysis, MarketAnalysis, Tremplin, BusinessModelCanvas, ZeroDraft, Livrable)
+/home/z/my-project/tool-results/read_1782044738220_bc3642103a43.txt:81:    81→enum TremplinStatus {
+/home/z/my-project/tool-results/read_1782044738220_bc3642103a43.txt:89:    89→enum TremplinDecision {
+/home/z/my-project/tool-results/read_1782044738220_bc3642103a43.txt:302:   302→  tremplin            Tremplin?
+/home/z/my-project/tool-results/read_1782044738220_bc3642103a43.txt:454:   454→  tremplinStatus      TremplinStatus   @default(NOT_STARTED)
+/home/z/my-project/tool-results/read_1782044738220_bc3642103a43.txt:455:   455→  tremplinScore       Int?
+/home/z/my-project/tool-results/read_1782044738220_bc3642103a43.txt:623:   623→model Tremplin {
+/home/z/my-project/tool-results/read_1782044738220_bc3642103a43.txt:631:   631→  decision        TremplinDecision?
+/home/z/my-project/tool-results/read_1782044721633_bc3642103a43.txt:81:    81→enum TremplinStatus {
+/home/z/my-project/tool-results/read_1782044721633_bc3642103a43.txt:89:    89→enum TremplinDecision {
+/home/z/my-project/tool-results/read_1782044721633_bc3642103a43.txt:302:   302→  tremplin            Tremplin?
+/home/z/my-project/tool-results/read_1782044721633_bc3642103a43.txt:454:   454→  tremplinStatus      TremplinStatus   @default(NOT_STARTED)
+/home/z/my-project/tool-results/read_1782044721633_bc3642103a43.txt:455:   455→  tremplinScore       Int?
+/home/z/my-project/tool-results/read_1782044721633_bc3642103a43.txt:623:   623→model Tremplin {
+/home/z/my-project/tool-results/read_1782044721633_bc3642103a43.txt:631:   631→  decision        TremplinDecision?
+/home/z/my-project/src/components/bureau/topbar.tsx:60:  'tremplin': 'Tremplin',
+/home/z/my-project/src/components/bureau/bureau-layout.tsx:44:const Tremplin = dynamic(() => import('./modules/tremplin').then(m => ({ default: m.Tremplin })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+/home/z/my-project/src/components/bureau/bureau-layout.tsx:229:        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'tremplin' && <Tremplin />}
+/home/z/my-project/src/components/bureau/dashboard.tsx:314:    const pilotageTasks = ['Tremplin', 'Passeport', 'Certifications']
+/home/z/my-project/src/components/bureau/ia-assistant.tsx:55:  'tremplin': 'creapulse-tremplin',
+/home/z/my-project/src/components/bureau/ia-assistant.tsx:100:  'tremplin': "Je peux vous aider à identifier les aides et financements disponibles pour votre projet. Que recherchez-vous ?",
+/home/z/my-project/src/components/bureau/ia-assistant.tsx:243:  'tremplin': [
+/home/z/my-project/src/components/bureau/ia-assistant.tsx:320:  const pilotageModules = ['tremplin', 'passeport', 'certifications', 'objectifs-smart', 'cloture-rebond', 'satisfaction-feedback', 'gamification', 'pipeline-v3-overview', 'parcours-paa']
+/home/z/my-project/src/components/admin-centre/statistiques.tsx:185:                <p className="text-sm text-muted-foreground">Taux de reussite tremplin</p>
+/home/z/my-project/src/components/admin-centre/dashboard.tsx:64:  { id: 4, action: 'Tremplin depose', user: 'Aide creation — Sophie M.', time: 'Il y a 3h', icon: Trophy, color: 'text-[#FF6B35] bg-[#FF6B35]/10' },
+/home/z/my-project/src/components/landing/pdf-exports-section.tsx:45:    details: 'Vue d\'ensemble complète : Kiviat, RIASEC, Tremplin, financiers, motivation, plan d\'action.',
+/home/z/my-project/src/components/landing/pdf-exports-section.tsx:63:    title: 'Analyse Tremplin',
+/home/z/my-project/src/components/landing/pdf-exports-section.tsx:66:    endpoint: '/api/export/tremplin-pdf',
+/home/z/my-project/src/components/landing/pdf-exports-section.tsx:67:    filename: 'analyse-tremplin.pdf',
+/home/z/my-project/src/components/landing/pdf-showcase-section.tsx:44:      "Bilan global du parcours créateur : profil, Kiviat, RIASEC, modules, Tremplin, et recommandations.",
+/home/z/my-project/src/components/landing/pdf-showcase-section.tsx:57:    type: 'suivi-tremplin',
+/home/z/my-project/src/components/landing/pdf-showcase-section.tsx:58:    title: 'Évaluation Tremplin',
+/home/z/my-project/src/components/bureau/modules/passeport.tsx:87:  'tremplin': Rocket,
+/home/z/my-project/src/components/bureau/modules/passeport.tsx:108:    { code: 'tremplin', label: 'Tremplin', category: 'Pilotage', status: 'not_started', score: 0, maxScore: 100, completedAt: null },
+/home/z/my-project/src/components/bureau/modules/creascope/creascope-store.ts:79:      { code: '4.3', label: 'Tremplin Go/No-Go', recommendedMinutes: 10, status: 'pending' },
+/home/z/my-project/src/components/bureau/modules/creascope/creascope-store.ts:80:      { code: '4.4', label: 'Discussion Tremplin', recommendedMinutes: 5, status: 'pending' },
+/home/z/my-project/src/components/bureau/modules/creascope/creascope-store.ts:104:export type TremplinDecision = 'GO' | 'GO_CONDITIONNEL' | 'NO_GO'
+/home/z/my-project/src/components/bureau/modules/creascope/creascope-store.ts:143:  tremplinDecision: TremplinDecision | null
+/home/z/my-project/src/components/bureau/modules/creascope/creascope-store.ts:144:  tremplinDiscussion: string
+/home/z/my-project/src/components/bureau/modules/creascope/creascope-store.ts:217:  setTremplinDecision: (decision: TremplinDecision | null) => void
+/home/z/my-project/src/components/bureau/modules/creascope/creascope-store.ts:218:  setTremplinDiscussion: (text: string) => void
+/home/z/my-project/src/components/bureau/modules/creascope/creascope-store.ts:256:  tremplinDecision: null,
+/home/z/my-project/src/components/bureau/modules/creascope/creascope-store.ts:257:  tremplinDiscussion: '',
+/home/z/my-project/src/components/bureau/modules/creascope/creascope-store.ts:486:      setTremplinDecision: (decision) =>
+/home/z/my-project/src/components/bureau/modules/creascope/creascope-store.ts:487:        set((s) => ({ synthese: { ...s.synthese, tremplinDecision: decision } })),
+/home/z/my-project/src/components/bureau/modules/creascope/creascope-store.ts:489:      setTremplinDiscussion: (text) =>
+/home/z/my-project/src/components/bureau/modules/creascope/creascope-store.ts:490:        set((s) => ({ synthese: { ...s.synthese, tremplinDiscussion: text } })),
+/home/z/my-project/src/app/besoin/developper-activite/page.tsx:79:    title: 'Tremplin',
+/home/z/my-project/src/app/besoin/developper-activite/page.tsx:156:const tremplinSteps = [
+/home/z/my-project/src/app/besoin/developper-activite/page.tsx:361:      {/* ─── PROGRAMME TREMPLIN ─── */}
+/home/z/my-project/src/app/besoin/developper-activite/page.tsx:385:                    <h2 className="mb-4 text-3xl font-bold">Programme Tremplin</h2>
+/home/z/my-project/src/app/besoin/developper-activite/page.tsx:387:                      Le programme Tremplin est conçu pour les entrepreneurs qui veulent passer
+/home/z/my-project/src/app/besoin/developper-activite/page.tsx:398:                      Découvrir le programme Tremplin
+/home/z/my-project/src/app/besoin/developper-activite/page.tsx:409:                      {tremplinSteps.map((step, index) => (
+/home/z/my-project/src/app/besoin/developper-activite/layout.tsx:6:    'Accélérez la croissance de votre entreprise avec CreaPulse : pilotage stratégique, programme Tremplin, certifications, réseautage et mentorat pour passer à l\'échelle.',
+/home/z/my-project/src/app/besoin/developper-activite/layout.tsx:10:      'Passez à la vitesse supérieure grâce aux outils de pilotage, au réseau GIDEF et au programme Tremplin de CreaPulse.',
+/home/z/my-project/src/app/api/admin-plateforme/modules-sync/route.ts:64:  { code: 'tremplin', name: 'Tremplin', description: "Dispositifs d'aide au lancement", category: 'PILOTAGE', phase: 'LAUNCH', sortOrder: 30 },
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:17:import { useCreaScopeStore, type TremplinDecision } from '../creascope-store'
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:20:// ─── Tremplin decision config ─────────────────
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:22:const TREMPLIN_OPTIONS: {
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:23:  value: TremplinDecision
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:56:    setTremplinDecision,
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:57:    setTremplinDiscussion,
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:142:      {/* 4.3 — Tremplin Go/No-Go */}
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:151:              Tremplin Go/No-Go
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:157:            Ouvrez l'outil Tremplin pour évaluer la préparation du porteur sur les 8
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:164:            onClick={() => openModule('tremplin')}
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:168:            Ouvrir Tremplin
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:173:      {/* 4.4 — Tremplin decision */}
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:182:              Discussion Tremplin — Décision
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:188:            {TREMPLIN_OPTIONS.map((opt) => (
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:193:                  setTremplinDecision(
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:194:                    synthese.tremplinDecision === opt.value ? null : opt.value
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:198:                  synthese.tremplinDecision === opt.value
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:209:          {synthese.tremplinDecision && (
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:216:                  synthese.tremplinDecision === 'GO'
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:218:                    : synthese.tremplinDecision === 'GO_CONDITIONNEL'
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:223:                {synthese.tremplinDecision === 'GO_CONDITIONNEL'
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:225:                  : synthese.tremplinDecision}
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:231:            placeholder="Commentaires sur la décision Tremplin..."
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:232:            value={synthese.tremplinDiscussion}
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:233:            onChange={(e) => setTremplinDiscussion(e.target.value)}
+/home/z/my-project/src/components/bureau/modules/certifications.tsx:155:        { moduleCode: 'tremplin', moduleLabel: 'Tremplin (évaluation GO)', completed: false },
+/home/z/my-project/src/components/bureau/modules/tremplin.tsx:59:const STORAGE_KEY = 'creapulse-tremplin'
+/home/z/my-project/src/components/bureau/modules/tremplin.tsx:264:export function Tremplin() {
+/home/z/my-project/src/components/bureau/modules/tremplin.tsx:337:      await fetch('/api/tremplin', {
+/home/z/my-project/src/components/bureau/modules/tremplin.tsx:350:      toast.success('Évaluation Tremplin sauvegardée !')
+/home/z/my-project/src/components/bureau/modules/tremplin.tsx:391:          <h2 className="text-2xl font-bold text-foreground">Tremplin — Évaluation de Préparation</h2>
+/home/z/my-project/src/components/bureau/modules/telechargements.tsx:54:    description: 'Bilan global de votre parcours créateur avec Kiviat, RIASEC, modules, Tremplin et recommandations.',
+/home/z/my-project/src/components/bureau/modules/telechargements.tsx:88:    id: 'suivi-tremplin',
+/home/z/my-project/src/components/bureau/modules/telechargements.tsx:89:    label: 'Suivi — Évaluation Tremplin',
+/home/z/my-project/src/components/bureau/modules/telechargements.tsx:90:    description: 'Bilan Tremplin avec décision GO/NO_GO, score, détail des étapes et recommandations.',
+/home/z/my-project/src/components/bureau/modules/telechargements.tsx:91:    endpoint: '/api/export/suivi-tremplin',
+/home/z/my-project/src/components/bureau/modules/telechargements.tsx:92:    fileName: 'suivi-tremplin',
+/home/z/my-project/src/app/api/passeport/route.ts:22:  { code: 'tremplin', label: 'Tremplin', category: 'Pilotage' },
+/home/z/my-project/src/app/api/passeport/route.ts:80:      'tremplin': ['Évaluation de préparation', 'Analyse de risques'],
+/home/z/my-project/src/app/api/rgpd/delete-request/route.ts:219:    const tremplinDel = await tx.tremplin.deleteMany({ where: { userId: targetUserId } })
+/home/z/my-project/src/app/api/rgpd/delete-request/route.ts:220:    if (tremplinDel.count > 0) auditLog.push({ step: 'documents', model: 'Tremplin', count: tremplinDel.count })
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:5:// Supported types: suivi-kiviat, suivi-tremplin, suivi-creasim, suivi-parcours, bmc
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:39:  'suivi-tremplin',
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:58:  tremplin: 'Tremplin',
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:84:// ─── Tremplin step labels ────────────────────
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:86:const TREMPLIN_STEPS: Record<string, string> = {
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:98:  return TREMPLIN_STEPS[stepKey] || stepKey
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:277:async function buildTremplinPdf(
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:286:  // Fetch Tremplin
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:287:  const tremplin = await db.tremplin.findUnique({
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:291:  if (!tremplin) {
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:299:      'Suivi — Évaluation Tremplin',
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:311:        { key: 'Étape courante :', value: `${tremplin.currentStep + 1}/8` },
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:312:        { key: 'Complétée :', value: tremplin.isCompleted ? 'Oui' : 'Non' },
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:315:          value: tremplin.completedAt
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:316:            ? tremplin.completedAt.toLocaleDateString('fr-FR')
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:328:    const decisionStr = tremplin.decision || 'PENDING'
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:331:    if (tremplin.score != null) {
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:335:          { key: 'Score global :', value: `${tremplin.score}/100` },
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:341:    if (tremplin.summary) {
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:343:      y = addParagraph(doc, tremplin.summary, y)
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:352:    const responses = tremplin.responses as Record<string, unknown> | null
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:385:    const recommendations = tremplin.recommendations as string[] | null
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:700:  // Fetch Tremplin
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:701:  const tremplin = await db.tremplin.findUnique({
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:846:    // PAGE 3: Module Completion + Tremplin
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:884:    // ── Tremplin Status ──
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:886:    y = addSectionHeader(doc, 'Statut Tremplin')
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:888:    if (tremplin) {
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:889:      const decisionStr = tremplin.decision || 'PENDING'
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:892:      if (tremplin.score != null) {
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:896:            { key: 'Score :', value: `${tremplin.score}/100` },
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:897:            { key: 'Complété :', value: tremplin.isCompleted ? 'Oui' : 'Non' },
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:900:              value: tremplin.completedAt ? formatDate(tremplin.completedAt) : '—',
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:907:      y = addParagraph(doc, 'Tremplin non encore commencé.', y)
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:1019:    if (tremplin && !tremplin.isCompleted) {
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:1020:      y = addBullet(doc, 'Finaliser l\'évaluation Tremplin pour valider le projet.', y)
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:1268:        case 'suivi-tremplin': {
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:1269:          console.error(`[DemoPDF] Building Tremplin PDF for ${fullName}...`)
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:1270:          const result = await buildTremplinPdf(fullName)
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:1272:            console.error(`[DemoPDF] No Tremplin data found, returning 404`)
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:1278:                  message: 'No Tremplin assessment found for the demo beneficiary.',
+/home/z/my-project/src/app/api/export/demo/[type]/route.ts:1286:          filename = `demo-suivi-tremplin.pdf`
+/home/z/my-project/src/app/api/export/demo/list/route.ts:28:      'Bilan global du parcours créateur : profil, compétences Kiviat, RIASEC, avancement des modules, Tremplin, CreaSim, BMC, et recommandations personnalisées.',
+/home/z/my-project/src/app/api/export/demo/list/route.ts:43:    type: 'suivi-tremplin',
+/home/z/my-project/src/app/api/export/demo/list/route.ts:44:    name: 'Suivi — Évaluation Tremplin',
+/home/z/my-project/src/app/api/export/demo/list/route.ts:48:    downloadUrl: `${BASE_URL}/api/export/demo/suivi-tremplin`,
+/home/z/my-project/src/app/api/rgpd/export/route.ts:99:        tremplin,
+/home/z/my-project/src/app/api/rgpd/export/route.ts:169:        db.tremplin.findUnique({
+/home/z/my-project/src/app/api/rgpd/export/route.ts:379:          tremplin,
+
+[Showing results with pagination = limit: 250]

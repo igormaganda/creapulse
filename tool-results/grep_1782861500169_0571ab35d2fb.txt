@@ -1,0 +1,252 @@
+/home/z/my-project/tool-results/read_1782858633552_e30d7193a7d6.txt:553:   553→  'parcours-paa',      // API
+/home/z/my-project/bun.lock:596:    "@radix-ui/react-checkbox": ["@radix-ui/react-checkbox@1.3.3", "https://registry.npmjs.com/@radix-ui/react-checkbox/-/react-checkbox-1.3.3.tgz", { "dependencies": { "@radix-ui/primitive": "1.1.3", "@radix-ui/react-compose-refs": "1.1.2", "@radix-ui/react-context": "1.1.2", "@radix-ui/react-presence": "1.1.5", "@radix-ui/react-primitive": "2.1.3", "@radix-ui/react-use-controllable-state": "1.2.2", "@radix-ui/react-use-previous": "1.1.1", "@radix-ui/react-use-size": "1.1.1" }, "peerDependencies": { "@types/react": "*", "@types/react-dom": "*", "react": "^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc", "react-dom": "^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc" }, "optionalPeers": ["@types/react", "@types/react-dom"] }, "sha512-wBbpv+NQftHDdG86Qc0pIyXk5IR3tM8Vd0nWLKDcX8nNn4nXFOFwsKuqw2okA/1D/mpaAkmuyndrPJTYDNZtFw=="],
+/home/z/my-project/bun.lock:888:    "@typescript-eslint/typescript-estree": ["@typescript-eslint/typescript-estree@8.53.0", "https://registry.npmjs.com/@typescript-eslint/typescript-estree/-/typescript-estree-8.53.0.tgz", { "dependencies": { "@typescript-eslint/project-service": "8.53.0", "@typescript-eslint/tsconfig-utils": "8.53.0", "@typescript-eslint/types": "8.53.0", "@typescript-eslint/visitor-keys": "8.53.0", "debug": "^4.4.3", "minimatch": "^9.0.5", "semver": "^7.7.3", "tinyglobby": "^0.2.15", "ts-api-utils": "^2.4.0" }, "peerDependencies": { "typescript": ">=4.8.4 <6.0.0" } }, "sha512-pw0c0Gdo7Z4xOG987u3nJ8akL9093yEEKv8QTJ+Bhkghj1xyj8cgPaavlr9rq8h7+s6plUJ4QJYw2gCZodqmGw=="],
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:106:   106→Task ID: paa-wave1-schema-security
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:108:   108→Task: Add PAA Prisma models + fix middleware auth enforcement
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:111:   111→- Added 5 new Prisma models: PaaProgram, PaaMilestone, PaaAtelierSession, SmartObjective, SatisfactionFeedback
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:112:   112→- Added relations to User model (paaPrograms, satisfactionFeedbacks) and Tenant model (paaPrograms)
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:122:   122→- PAA data model ready for API routes
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:127:   127→Task ID: paa-wave1-api-routes
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:128:   128→Agent: PAA API Agent
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:129:   129→Task: Create all PAA API routes
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:132:   132→- Created 6 API route files for PAA program management
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:133:   133→- /api/paa/program - CRUD for PAA programs
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:134:   134→- /api/paa/milestones - Milestone tracking
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:135:   135→- /api/paa/ateliers - Atelier session management
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:136:   136→- /api/paa/objectifs - SMART objectives CRUD
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:137:   137→- /api/paa/satisfaction - Feedback collection
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:138:   138→- /api/paa/dashboard - Conseiller/admin aggregate stats
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:141:   141→- All PAA API routes follow existing patterns (withAuth, Zod, api-response)
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:144:   144→Task ID: paa-wave1-admin-pack
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:146:   146→Task: Create PAA feature pack admin controls
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:149:   149→- Created paa-pack.tsx admin component with master toggle + individual module toggles
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:150:   150→- Added PAA section to admin layout navigation
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:151:   151→- Updated configuration API to support PAA settings
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:152:   152→- Updated module-config-store with PAA pack awareness
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:155:   155→- Admin can enable/disable entire PAA pack with one toggle
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:156:   156→- Individual PAA modules can be toggled independently
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:157:   157→- PAA settings configurable (duration, min ateliers, follow-up)
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:158:   158→- Module visibility automatically respects PAA pack status
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:160:   160→Task ID: paa-wave1-timeline-entretiens
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:162:   162→Task: Create PAA timeline + connect entretiens to real DB
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:165:   165→- Created parcours-paa.tsx with 60-day timeline visualization
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:171:   171→- PAA timeline shows J0→J10→J30→J60→J90 milestones
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:175:   175→Task ID: paa-wave1-frontend-modules
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:177:   177→Task: Create 5 new PAA frontend modules + update registry
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:190:   190→- All marked with 'PAA' badge in registry
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:203:   203→- Identified PAA models (PaaProgram, PaaMilestone, PaaAtelierSession, SmartObjective, SatisfactionFeedback) have no cascade from User
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:208:   208→  - Phase 4: Delete PAA data (SatisfactionFeedback, then PaaPrograms which cascade to milestones/ateliers/objectives)
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:220:   220→- Enhanced export endpoint: added PAA data (programs with milestones/ateliers/objectives), interview sessions, livrables, CV uploads, user files (without base64 data), satisfaction feedbacks
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:285:   285→  - PAA Program: All queries scoped by tenantId (GET, POST, PATCH)
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:286:   286→  - PAA Milestones: Program lookup scoped by tenantId
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:287:   287→  - PAA Objectifs: Helper updated to accept + scope by tenantId
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:288:   288→  - PAA Satisfaction: Program lookup scoped by tenantId
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:289:   289→  - PAA Ateliers: Program lookup scoped by tenantId
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:296:   296→- **Files modified**: auth.ts, auth-fetch.ts, middleware.ts, api-auth.ts, login/route.ts, forum/route.ts, notifications/route.ts, articles/route.ts, bilan/route.ts, paa/program/route.ts, paa/milestones/route.ts, paa/objectifs/route.ts, paa/satisfaction/route.ts, paa/ateliers/route.ts
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:303:   303→Task ID: wave2-paa-modules
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:304:   304→Agent: PAA Wave 2 Modules Agent
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:305:   305→Task: Create 3 new PAA frontend modules + wire into platform
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:322:   322→  - Submit feedback button calling POST /api/paa/satisfaction (via authFetch)
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:323:   323→  - Past feedback history from GET /api/paa/satisfaction
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:343:   343→  - marketing-commerciale: section 'strategie', sortOrder 20, orange theme, badge 'PAA'
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:344:   344→  - mind-map: section 'strategie', sortOrder 21, violet theme, badge 'PAA'
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:345:   345→  - satisfaction-feedback: section 'pilotage', sortOrder 37, rose theme, badge 'PAA'
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:349:   349→  - Added 3 rendering lines in BureauContent (after ParcoursPaaModule)
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:351:   351→  - Added 3 new codes to PAA_MODULE_CODES array (marketing-commerciale, mind-map, satisfaction-feedback)
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:352:   352→  - Added 3 new entries to DEFAULT_PAA_MODULES record
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:353:   353→- Updated `paa-pack.tsx`:
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:355:   355→  - Added 3 new entries to PAA_MODULES array
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:356:   356→  - Added 3 new icon mappings to PAA_MODULE_ICONS
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:364:   364→- **Files modified**: module-registry.ts, bureau-layout.tsx, module-config-store.ts, paa-pack.tsx
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:366:   366→- **3 new PAA modules**: Marketing Strategy, Mind Map, Satisfaction & Feedback
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:368:   368→- All modules registered as 'PAA' badge, gated by PAA pack enable/disable
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:386:   386→- Added tenantId scoping to 8 API routes (forum, notifications, articles, bilan, paa/*)
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:391:   391→- Multi-tenant: all PAA + key data routes now scoped by tenantId
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:401:   401→  - 13 phases: resolve profiles → conversations → PAA → diagnostics → documents → mentorships → infra → anonymize User
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:404:   404→- Enhanced src/app/api/rgpd/export/route.ts — v2.0 with PAA data, interviews, livrables, CV uploads, user files, satisfaction feedbacks
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:409:   409→- Data export v2.0 includes all PAA program data
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:412:   412→Task ID: wave2-paa-modules
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:413:   413→Agent: PAA Modules Agent
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:414:   414→Task: 3 new PAA modules + registry + bureau-layout + pack integration
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:422:   422→- Updated src/lib/stores/module-config-store.ts — PAA module codes and default config
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:423:   423→- Updated src/components/admin-plateforme/paa-pack.tsx — 3 new entries in PAA_MODULES and PAA_MODULE_ICONS
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:426:   426→- 3 new interactive PAA modules: Marketing/Commercial, Satisfaction/Feedback, Mind Map
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:430:   430→- All registered in PAA Pack admin with individual toggles
+/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:453:   453→  - **Profil**: Animated SVG circle ring showing level progress, 6-tier level system (Débutant → Légende), XP progress bar with exact count, streak tracking, 4 stats cards (Modules complétés, Ateliers PAA, Jours d'activité, Score Global), 12 achievement badges in responsive 2×6 grid with locked/unlocked states, click-to-detail dialog for each badge
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:106:   106→Task ID: paa-wave1-schema-security
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:108:   108→Task: Add PAA Prisma models + fix middleware auth enforcement
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:111:   111→- Added 5 new Prisma models: PaaProgram, PaaMilestone, PaaAtelierSession, SmartObjective, SatisfactionFeedback
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:112:   112→- Added relations to User model (paaPrograms, satisfactionFeedbacks) and Tenant model (paaPrograms)
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:122:   122→- PAA data model ready for API routes
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:127:   127→Task ID: paa-wave1-api-routes
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:128:   128→Agent: PAA API Agent
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:129:   129→Task: Create all PAA API routes
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:132:   132→- Created 6 API route files for PAA program management
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:133:   133→- /api/paa/program - CRUD for PAA programs
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:134:   134→- /api/paa/milestones - Milestone tracking
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:135:   135→- /api/paa/ateliers - Atelier session management
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:136:   136→- /api/paa/objectifs - SMART objectives CRUD
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:137:   137→- /api/paa/satisfaction - Feedback collection
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:138:   138→- /api/paa/dashboard - Conseiller/admin aggregate stats
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:141:   141→- All PAA API routes follow existing patterns (withAuth, Zod, api-response)
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:144:   144→Task ID: paa-wave1-admin-pack
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:146:   146→Task: Create PAA feature pack admin controls
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:149:   149→- Created paa-pack.tsx admin component with master toggle + individual module toggles
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:150:   150→- Added PAA section to admin layout navigation
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:151:   151→- Updated configuration API to support PAA settings
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:152:   152→- Updated module-config-store with PAA pack awareness
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:155:   155→- Admin can enable/disable entire PAA pack with one toggle
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:156:   156→- Individual PAA modules can be toggled independently
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:157:   157→- PAA settings configurable (duration, min ateliers, follow-up)
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:158:   158→- Module visibility automatically respects PAA pack status
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:160:   160→Task ID: paa-wave1-timeline-entretiens
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:162:   162→Task: Create PAA timeline + connect entretiens to real DB
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:165:   165→- Created parcours-paa.tsx with 60-day timeline visualization
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:171:   171→- PAA timeline shows J0→J10→J30→J60→J90 milestones
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:175:   175→Task ID: paa-wave1-frontend-modules
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:177:   177→Task: Create 5 new PAA frontend modules + update registry
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:190:   190→- All marked with 'PAA' badge in registry
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:203:   203→- Identified PAA models (PaaProgram, PaaMilestone, PaaAtelierSession, SmartObjective, SatisfactionFeedback) have no cascade from User
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:208:   208→  - Phase 4: Delete PAA data (SatisfactionFeedback, then PaaPrograms which cascade to milestones/ateliers/objectives)
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:220:   220→- Enhanced export endpoint: added PAA data (programs with milestones/ateliers/objectives), interview sessions, livrables, CV uploads, user files (without base64 data), satisfaction feedbacks
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:285:   285→  - PAA Program: All queries scoped by tenantId (GET, POST, PATCH)
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:286:   286→  - PAA Milestones: Program lookup scoped by tenantId
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:287:   287→  - PAA Objectifs: Helper updated to accept + scope by tenantId
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:288:   288→  - PAA Satisfaction: Program lookup scoped by tenantId
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:289:   289→  - PAA Ateliers: Program lookup scoped by tenantId
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:296:   296→- **Files modified**: auth.ts, auth-fetch.ts, middleware.ts, api-auth.ts, login/route.ts, forum/route.ts, notifications/route.ts, articles/route.ts, bilan/route.ts, paa/program/route.ts, paa/milestones/route.ts, paa/objectifs/route.ts, paa/satisfaction/route.ts, paa/ateliers/route.ts
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:303:   303→Task ID: wave2-paa-modules
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:304:   304→Agent: PAA Wave 2 Modules Agent
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:305:   305→Task: Create 3 new PAA frontend modules + wire into platform
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:322:   322→  - Submit feedback button calling POST /api/paa/satisfaction (via authFetch)
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:323:   323→  - Past feedback history from GET /api/paa/satisfaction
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:343:   343→  - marketing-commerciale: section 'strategie', sortOrder 20, orange theme, badge 'PAA'
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:344:   344→  - mind-map: section 'strategie', sortOrder 21, violet theme, badge 'PAA'
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:345:   345→  - satisfaction-feedback: section 'pilotage', sortOrder 37, rose theme, badge 'PAA'
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:349:   349→  - Added 3 rendering lines in BureauContent (after ParcoursPaaModule)
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:351:   351→  - Added 3 new codes to PAA_MODULE_CODES array (marketing-commerciale, mind-map, satisfaction-feedback)
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:352:   352→  - Added 3 new entries to DEFAULT_PAA_MODULES record
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:353:   353→- Updated `paa-pack.tsx`:
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:355:   355→  - Added 3 new entries to PAA_MODULES array
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:356:   356→  - Added 3 new icon mappings to PAA_MODULE_ICONS
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:364:   364→- **Files modified**: module-registry.ts, bureau-layout.tsx, module-config-store.ts, paa-pack.tsx
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:366:   366→- **3 new PAA modules**: Marketing Strategy, Mind Map, Satisfaction & Feedback
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:368:   368→- All modules registered as 'PAA' badge, gated by PAA pack enable/disable
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:386:   386→- Added tenantId scoping to 8 API routes (forum, notifications, articles, bilan, paa/*)
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:391:   391→- Multi-tenant: all PAA + key data routes now scoped by tenantId
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:401:   401→  - 13 phases: resolve profiles → conversations → PAA → diagnostics → documents → mentorships → infra → anonymize User
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:404:   404→- Enhanced src/app/api/rgpd/export/route.ts — v2.0 with PAA data, interviews, livrables, CV uploads, user files, satisfaction feedbacks
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:409:   409→- Data export v2.0 includes all PAA program data
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:412:   412→Task ID: wave2-paa-modules
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:413:   413→Agent: PAA Modules Agent
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:414:   414→Task: 3 new PAA modules + registry + bureau-layout + pack integration
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:422:   422→- Updated src/lib/stores/module-config-store.ts — PAA module codes and default config
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:423:   423→- Updated src/components/admin-plateforme/paa-pack.tsx — 3 new entries in PAA_MODULES and PAA_MODULE_ICONS
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:426:   426→- 3 new interactive PAA modules: Marketing/Commercial, Satisfaction/Feedback, Mind Map
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:430:   430→- All registered in PAA Pack admin with individual toggles
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:453:   453→  - **Profil**: Animated SVG circle ring showing level progress, 6-tier level system (Débutant → Légende), XP progress bar with exact count, streak tracking, 4 stats cards (Modules complétés, Ateliers PAA, Jours d'activité, Score Global), 12 achievement badges in responsive 2×6 grid with locked/unlocked states, click-to-detail dialog for each badge
+/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:239:   239→   239→  paaPrograms   PaaProgram[]
+/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:324:   324→   324→  paaPrograms         PaaProgram[]
+/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:1386:  1386→  1386→// ═══ PAA PROGRAMME D'ACCOMPAGNEMENT À L'AMORÇAGE ═══
+/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:1388:  1388→  1388→model PaaProgram {
+/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:1404:  1404→  1404→  milestones  PaaMilestone[]
+/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:1405:  1405→  1405→  ateliers    PaaAtelierSession[]
+/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:1414:  1414→  1414→model PaaMilestone {
+/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:1426:  1426→  1426→  program PaaProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:1432:  1432→  1432→model PaaAtelierSession {
+/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:1443:  1443→  1443→  program PaaProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:1465:  1465→  1465→  program PaaProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:1481:  1481→  1481→  program PaaProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+/home/z/my-project/tool-results/read_1782044769289_13e2b7aa1f18.txt:560:   560→                      <li>Programme d&apos;accompagnement à l&apos;amorçage (PAA)</li>
+/home/z/my-project/tool-results/read_1782044738220_bc3642103a43.txt:239:   239→  paaPrograms   PaaProgram[]
+/home/z/my-project/tool-results/read_1782044738220_bc3642103a43.txt:324:   324→  paaPrograms         PaaProgram[]
+/home/z/my-project/tool-results/read_1782044738220_bc3642103a43.txt:1386:  1386→// ═══ PAA PROGRAMME D'ACCOMPAGNEMENT À L'AMORÇAGE ═══
+/home/z/my-project/tool-results/read_1782044738220_bc3642103a43.txt:1388:  1388→model PaaProgram {
+/home/z/my-project/tool-results/read_1782044738220_bc3642103a43.txt:1404:  1404→  milestones  PaaMilestone[]
+/home/z/my-project/tool-results/read_1782044738220_bc3642103a43.txt:1405:  1405→  ateliers    PaaAtelierSession[]
+/home/z/my-project/tool-results/read_1782044738220_bc3642103a43.txt:1414:  1414→model PaaMilestone {
+/home/z/my-project/tool-results/read_1782044738220_bc3642103a43.txt:1426:  1426→  program PaaProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+/home/z/my-project/tool-results/read_1782044738220_bc3642103a43.txt:1432:  1432→model PaaAtelierSession {
+/home/z/my-project/tool-results/read_1782044738220_bc3642103a43.txt:1443:  1443→  program PaaProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+/home/z/my-project/tool-results/read_1782044738220_bc3642103a43.txt:1465:  1465→  program PaaProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+/home/z/my-project/tool-results/read_1782044738220_bc3642103a43.txt:1481:  1481→  program PaaProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:106:   106→Task ID: paa-wave1-schema-security
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:108:   108→Task: Add PAA Prisma models + fix middleware auth enforcement
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:111:   111→- Added 5 new Prisma models: PaaProgram, PaaMilestone, PaaAtelierSession, SmartObjective, SatisfactionFeedback
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:112:   112→- Added relations to User model (paaPrograms, satisfactionFeedbacks) and Tenant model (paaPrograms)
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:122:   122→- PAA data model ready for API routes
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:127:   127→Task ID: paa-wave1-api-routes
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:128:   128→Agent: PAA API Agent
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:129:   129→Task: Create all PAA API routes
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:132:   132→- Created 6 API route files for PAA program management
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:133:   133→- /api/paa/program - CRUD for PAA programs
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:134:   134→- /api/paa/milestones - Milestone tracking
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:135:   135→- /api/paa/ateliers - Atelier session management
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:136:   136→- /api/paa/objectifs - SMART objectives CRUD
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:137:   137→- /api/paa/satisfaction - Feedback collection
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:138:   138→- /api/paa/dashboard - Conseiller/admin aggregate stats
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:141:   141→- All PAA API routes follow existing patterns (withAuth, Zod, api-response)
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:144:   144→Task ID: paa-wave1-admin-pack
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:146:   146→Task: Create PAA feature pack admin controls
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:149:   149→- Created paa-pack.tsx admin component with master toggle + individual module toggles
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:150:   150→- Added PAA section to admin layout navigation
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:151:   151→- Updated configuration API to support PAA settings
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:152:   152→- Updated module-config-store with PAA pack awareness
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:155:   155→- Admin can enable/disable entire PAA pack with one toggle
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:156:   156→- Individual PAA modules can be toggled independently
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:157:   157→- PAA settings configurable (duration, min ateliers, follow-up)
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:158:   158→- Module visibility automatically respects PAA pack status
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:160:   160→Task ID: paa-wave1-timeline-entretiens
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:162:   162→Task: Create PAA timeline + connect entretiens to real DB
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:165:   165→- Created parcours-paa.tsx with 60-day timeline visualization
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:171:   171→- PAA timeline shows J0→J10→J30→J60→J90 milestones
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:175:   175→Task ID: paa-wave1-frontend-modules
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:177:   177→Task: Create 5 new PAA frontend modules + update registry
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:190:   190→- All marked with 'PAA' badge in registry
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:203:   203→- Identified PAA models (PaaProgram, PaaMilestone, PaaAtelierSession, SmartObjective, SatisfactionFeedback) have no cascade from User
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:208:   208→  - Phase 4: Delete PAA data (SatisfactionFeedback, then PaaPrograms which cascade to milestones/ateliers/objectives)
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:220:   220→- Enhanced export endpoint: added PAA data (programs with milestones/ateliers/objectives), interview sessions, livrables, CV uploads, user files (without base64 data), satisfaction feedbacks
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:285:   285→  - PAA Program: All queries scoped by tenantId (GET, POST, PATCH)
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:286:   286→  - PAA Milestones: Program lookup scoped by tenantId
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:287:   287→  - PAA Objectifs: Helper updated to accept + scope by tenantId
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:288:   288→  - PAA Satisfaction: Program lookup scoped by tenantId
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:289:   289→  - PAA Ateliers: Program lookup scoped by tenantId
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:296:   296→- **Files modified**: auth.ts, auth-fetch.ts, middleware.ts, api-auth.ts, login/route.ts, forum/route.ts, notifications/route.ts, articles/route.ts, bilan/route.ts, paa/program/route.ts, paa/milestones/route.ts, paa/objectifs/route.ts, paa/satisfaction/route.ts, paa/ateliers/route.ts
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:303:   303→Task ID: wave2-paa-modules
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:304:   304→Agent: PAA Wave 2 Modules Agent
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:305:   305→Task: Create 3 new PAA frontend modules + wire into platform
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:322:   322→  - Submit feedback button calling POST /api/paa/satisfaction (via authFetch)
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:323:   323→  - Past feedback history from GET /api/paa/satisfaction
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:343:   343→  - marketing-commerciale: section 'strategie', sortOrder 20, orange theme, badge 'PAA'
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:344:   344→  - mind-map: section 'strategie', sortOrder 21, violet theme, badge 'PAA'
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:345:   345→  - satisfaction-feedback: section 'pilotage', sortOrder 37, rose theme, badge 'PAA'
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:349:   349→  - Added 3 rendering lines in BureauContent (after ParcoursPaaModule)
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:351:   351→  - Added 3 new codes to PAA_MODULE_CODES array (marketing-commerciale, mind-map, satisfaction-feedback)
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:352:   352→  - Added 3 new entries to DEFAULT_PAA_MODULES record
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:353:   353→- Updated `paa-pack.tsx`:
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:355:   355→  - Added 3 new entries to PAA_MODULES array
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:356:   356→  - Added 3 new icon mappings to PAA_MODULE_ICONS
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:364:   364→- **Files modified**: module-registry.ts, bureau-layout.tsx, module-config-store.ts, paa-pack.tsx
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:366:   366→- **3 new PAA modules**: Marketing Strategy, Mind Map, Satisfaction & Feedback
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:368:   368→- All modules registered as 'PAA' badge, gated by PAA pack enable/disable
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:386:   386→- Added tenantId scoping to 8 API routes (forum, notifications, articles, bilan, paa/*)
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:391:   391→- Multi-tenant: all PAA + key data routes now scoped by tenantId
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:401:   401→  - 13 phases: resolve profiles → conversations → PAA → diagnostics → documents → mentorships → infra → anonymize User
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:404:   404→- Enhanced src/app/api/rgpd/export/route.ts — v2.0 with PAA data, interviews, livrables, CV uploads, user files, satisfaction feedbacks
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:409:   409→- Data export v2.0 includes all PAA program data
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:412:   412→Task ID: wave2-paa-modules
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:413:   413→Agent: PAA Modules Agent
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:414:   414→Task: 3 new PAA modules + registry + bureau-layout + pack integration
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:422:   422→- Updated src/lib/stores/module-config-store.ts — PAA module codes and default config
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:423:   423→- Updated src/components/admin-plateforme/paa-pack.tsx — 3 new entries in PAA_MODULES and PAA_MODULE_ICONS
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:426:   426→- 3 new interactive PAA modules: Marketing/Commercial, Satisfaction/Feedback, Mind Map
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:430:   430→- All registered in PAA Pack admin with individual toggles
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:453:   453→  - **Profil**: Animated SVG circle ring showing level progress, 6-tier level system (Débutant → Légende), XP progress bar with exact count, streak tracking, 4 stats cards (Modules complétés, Ateliers PAA, Jours d'activité, Score Global), 12 achievement badges in responsive 2×6 grid with locked/unlocked states, click-to-detail dialog for each badge
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:516:   516→- Expanded `getModuleContext()` from 8 entries to 35 (all modules in registry: parcours, strategie, ecosysteme, pilotage + pipeline-v3-overview, parcours-paa)
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:525:   525→- Expanded greetings from 8 to 35 modules + pipeline-v3-overview + parcours-paa (37 total)
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:552:   552→  - Tab 1 (Profil): Avatar, email, inscription date, last activity, sector, PAA program progress bar, 6 module completion cards with progress indicators
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:558:   558→  - KPI cards: bénéficiaires actifs, entretiens prevus, livrables en attente, progression moyenne PAA — all from API with trend info
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:562:   562→  - NEW PAA Program Overview section: 3 mini-KPIs (avg progress, atelier rate, satisfaction), animated horizontal bar chart showing beneficiary repartition per journey phase
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:576:   576→- PAA Overview section with animated CSS bar chart for phase repartition
+
+[Showing results with pagination = limit: 250]

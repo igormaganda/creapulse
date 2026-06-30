@@ -1,0 +1,252 @@
+/home/z/my-project/docs/STRATEGIE-PIPELINE.md:130:| 3. Économie | revenueSources[], revenueYear1/2/3, initialInvestment, financingNeed | `financement`, `compte-resultat` |
+/home/z/my-project/docs/STRATEGIE-PIPELINE.md:304:- `financement` ← Plan de financement (sources + montants)
+/home/z/my-project/docs/STRATEGIE-PIPELINE.md:488:| `financement` | Plan de financement initial | `financing-table` | ❌ | Financier |
+/home/z/my-project/docs/STRATEGIE-PIPELINE.md:584:- **Champs Ask** : Montant de financement + Utilisation des fonds
+/home/z/my-project/docs/STRATEGIE-PIPELINE.md:707:| `financement` | Financier | Manuel |
+/home/z/my-project/docs/STRATEGIE-PIPELINE.md:747:  "financement": [
+/home/z/my-project/deploy-files/seed-articles.ts:27:  { title: "Rentrée 2024 : les nouvelles aides à la création d'entreprise en Île-de-France", slug: "rentree-2024-aides-creation-ile-de-france", category: "Financement", excerpt: "Découvrez les dispositifs mis en place pour soutenir les créateurs d'entreprise en Île-de-France pour cette rentrée 2024.", publishedAt: d(2024,9,3), readTime: 6, isFeatured: true },
+/home/z/my-project/deploy-files/seed-articles.ts:31:  { title: "France Travail : les accompagnements spécifiques pour les créateurs", slug: "france-travail-accompagnement-createurs", category: "Financement", excerpt: "France Travail propose plusieurs dispositifs pour les porteurs de projet. Tour d'horizon complet.", publishedAt: d(2024,9,12), readTime: 5 },
+/home/z/my-project/deploy-files/seed-articles.ts:39:  { title: "BPI France : le prêt d'amorçage décrypté", slug: "bpi-france-pret-amorcage-decrypte", category: "Financement", excerpt: "Le prêt d'amorçage de BPI France est un outil essentiel pour les jeunes entreprises. Comment l'obtenir ?", publishedAt: d(2024,10,8), readTime: 7 },
+/home/z/my-project/deploy-files/seed-articles.ts:49:  { title: "Le crowdfunding : financer son projet autrement", slug: "crowdfunding-financer-projet", category: "Financement", excerpt: "Plateformes de don, prêt participatif ou investissement : le panorama du crowdfunding en France.", publishedAt: d(2024,11,4), readTime: 7, isFeatured: true },
+/home/z/my-project/deploy-files/seed-articles.ts:55:  { title: "ARE France Travail : maintenir ses revenus durant la création", slug: "are-france-travail-maintenir-revenus", category: "Financement", excerpt: "L'ARE permet de cumuler allocation chômage et revenus de la nouvelle activité. Les conditions.", publishedAt: d(2024,11,22), readTime: 6 },
+/home/z/my-project/deploy-files/seed-articles.ts:62:  { title: "Les subventions régionales Île-de-France pour 2025", slug: "subventions-regionales-ile-de-france-2025", category: "Financement", excerpt: "La Région Île-de-France propose plusieurs aides. Tour d'horizon des dispositifs.", publishedAt: d(2024,12,10), readTime: 6 },
+/home/z/my-project/deploy-files/seed-articles.ts:70:  { title: "Nouvelles aides à la création 2025 : le guide complet", slug: "nouvelles-aides-creation-2025-guide-complet", category: "Financement", excerpt: "L'État a annoncé de nouvelles mesures pour soutenir la création d'entreprise en 2025. Décryptage.", publishedAt: d(2025,1,3), readTime: 7, isFeatured: true },
+/home/z/my-project/deploy-files/seed-articles.ts:77:  { title: "Le NACRE : l'aide à la reprise et à la création d'entreprise", slug: "nacre-aide-reprise-creation-entreprise", category: "Financement", excerpt: "Le dispositif NACRE offre un prêt à taux zéro pour les créateurs. Conditions et démarches.", publishedAt: d(2025,1,24), readTime: 6 },
+/home/z/my-project/deploy-files/seed-articles.ts:85:  { title: "Les aides de la Région Île-de-France aux jeunes entrepreneurs", slug: "aides-region-ile-de-france-jeunes-entrepreneurs", category: "Financement", excerpt: "La Région propose des aides spécifiques pour les moins de 30 ans. Détails et conditions.", publishedAt: d(2025,2,16), readTime: 6 },
+/home/z/my-project/deploy-files/seed-articles.ts:94:  { title: "Les plateformes de financement participatif en France", slug: "plateformes-financement-participatif-france", category: "Financement", excerpt: "Ulule, Lendopolis, KissKissBankBank : comparatif des principales plateformes.", publishedAt: d(2025,3,13), readTime: 7 },
+/home/z/my-project/deploy-files/seed-articles.ts:100:  { title: "Préparer sa demande de prêt bancaire : le dossier parfait", slug: "preparer-demande-pret-bancaire-dossier-parfait", category: "Financement", excerpt: "Un dossier bien préparé maximise vos chances d'obtenir un prêt. Nos conseils.", publishedAt: d(2025,4,1), readTime: 7, isFeatured: true },
+/home/z/my-project/deploy-files/seed-articles.ts:107:  { title: "Les aides à l'embauche pour les jeunes entreprises", slug: "aides-embauche-jeunes-entreprises", category: "Financement", excerpt: "Embaucher quand on débute est un défi. Découvrez les aides existantes.", publishedAt: d(2025,4,22), readTime: 6 },
+/home/z/my-project/deploy-files/seed-articles.ts:115:  { title: "Trouver un local commercial en Île-de-France : les astuces", slug: "trouver-local-commercial-ile-de-france-astuces", category: "Financement", excerpt: "Trouver un local à un prix raisonnable en Île-de-France est un défi. Nos conseils.", publishedAt: d(2025,5,16), readTime: 5 },
+/home/z/my-project/deploy-files/seed-articles.ts:118:  { title: "Le business model canvas : outil incontournable pour structurer son projet", slug: "business-model-canvas-outil-incontournable", category: "Financement", excerpt: "Le BMC permet de visualiser votre modèle économique en une seule page. Mode d'emploi.", publishedAt: d(2025,5,23), readTime: 6, isFeatured: true },
+/home/z/my-project/deploy-files/seed-articles.ts:123:    "Financement": "Le financement est souvent le premier obstacle des créateurs d'entreprise. Entre les prêts bancaires, les aides publiques et le crowdfunding, il existe de multiples solutions pour financer son projet.",
+/home/z/my-project/download/STRATEGIE-PIPELINE-V3-PROPOSITION.md:134:**Problème** : Les 6 sections Finances du BP (`financement`, `compte-resultat`, `tresorerie`, `seuil-rentabilite`, `investissements`, `bilan`) n'ont **pas de suggestion IA** (`hasAiSuggestion: false`). Seuls les 13 sections texte disposent de suggestions.
+/home/z/my-project/download/STRATEGIE-PIPELINE-V3-PROPOSITION.md:568:- Des **lignes de tableau suggestionnelles** ("Voici 5 sources de financement typiques pour votre secteur")
+/home/z/my-project/download/STRATEGIE-PIPELINE-V3-PROPOSITION.md:576:  sectionId: 'financement',
+/home/z/my-project/download/STRATEGIE-PIPELINE-V3-PROPOSITION.md:589:  "analysis": "Votre besoin de financement de 50K€ est cohérent avec votre secteur..."
+/home/z/my-project/download/STRATEGIE-PIPELINE-V3-PROPOSITION.md:643:| `financier` | financement, compte-resultat, tresorerie, seuil-rentabilite, investissements, bilan | FinancialForecast |
+/home/z/my-project/download/STRATEGIE-PIPELINE-V3-PROPOSITION.md:764:| BMC vs BP | BMC "Sources de Revenus" ≠ vide si BP "financement" rempli | info |
+/home/z/my-project/src/lib/ft-enrichment.ts:4:// à partir des données France Travail (offres, aides, etc.)
+/home/z/my-project/src/lib/ft-enrichment.ts:18:  aides?: string
+/home/z/my-project/src/lib/ft-enrichment.ts:135: * Résumé des aides financières en français lisible
+/home/z/my-project/src/lib/ft-enrichment.ts:137:function summarizeAides(data: Record<string, unknown>, maxItems = 5): string {
+/home/z/my-project/src/lib/ft-enrichment.ts:138:  const aides = data?.resultats as FTAide[] | undefined
+/home/z/my-project/src/lib/ft-enrichment.ts:139:  if (!Array.isArray(aides) || aides.length === 0) {
+/home/z/my-project/src/lib/ft-enrichment.ts:143:  const lines = aides.slice(0, maxItems).map((aide, i) => {
+/home/z/my-project/src/lib/ft-enrichment.ts:158:  let summary = 'Aides financières disponibles :\n'
+/home/z/my-project/src/lib/ft-enrichment.ts:159:  if (aides.length > maxItems) {
+/home/z/my-project/src/lib/ft-enrichment.ts:160:    summary += `(${aides.length} résultats trouvés, affichage des ${maxItems} premières)\n\n`
+/home/z/my-project/src/lib/ft-enrichment.ts:162:    summary += `(${aides.length} résultats)\n\n`
+/home/z/my-project/src/lib/ft-enrichment.ts:339:  // 2. Aides financières
+/home/z/my-project/src/lib/ft-enrichment.ts:347:    cachedFetchFTAPI<Record<string, unknown>>(`${FT_API.AIDES}${aideQS}`, FT_SCOPES.AIDES).then(
+/home/z/my-project/src/lib/ft-enrichment.ts:349:        if (data) context.aides = summarizeAides(data)
+/home/z/my-project/src/lib/ft-enrichment.ts:435:  if (ctx.aides) {
+/home/z/my-project/src/lib/ft-enrichment.ts:436:    sections.push(`## Aides financières\n${ctx.aides}`)
+/home/z/my-project/src/lib/france-travail.ts:22:  AIDES: 'api_aides',
+/home/z/my-project/src/lib/france-travail.ts:38:  AIDES: 'https://api.francetravail.io/partenaire/aides/v1/aides',
+/home/z/my-project/tool-results/read_1782130956806_dff5161dd706.txt:98:    98→  'Business Plan', 'Financement', 'Marketing Digital', 'Stratégie',
+/home/z/my-project/tool-results/read_1782130956806_dff5161dd706.txt:148:   148→    expertise: ['Financement', 'Fiscalité', 'Business Plan'],
+/home/z/my-project/tool-results/read_1782130956806_dff5161dd706.txt:203:   203→    bio: 'Serial entrepreneur, fondateur de 3 entreprises. Expert en levée de fonds et en pitch deck. Accompagne les startups dans leur recherche de financement.',
+/home/z/my-project/tool-results/read_1782130956806_dff5161dd706.txt:204:   204→    expertise: ['Financement', 'Business Plan', 'Stratégie'],
+/home/z/my-project/tool-results/read_1782130956806_dff5161dd706.txt:260:   260→    expertise: ['Business Plan', 'Financement', 'Commerce International'],
+/home/z/my-project/download/STRATEGIE-PIPELINE.md:130:| 3. Économie | revenueSources[], revenueYear1/2/3, initialInvestment, financingNeed | `financement`, `compte-resultat` |
+/home/z/my-project/download/STRATEGIE-PIPELINE.md:304:- `financement` ← Plan de financement (sources + montants)
+/home/z/my-project/download/STRATEGIE-PIPELINE.md:488:| `financement` | Plan de financement initial | `financing-table` | ❌ | Financier |
+/home/z/my-project/download/STRATEGIE-PIPELINE.md:584:- **Champs Ask** : Montant de financement + Utilisation des fonds
+/home/z/my-project/download/STRATEGIE-PIPELINE.md:707:| `financement` | Financier | Manuel |
+/home/z/my-project/download/STRATEGIE-PIPELINE.md:747:  "financement": [
+/home/z/my-project/tool-results/read_1782858018294_c98aca07c4c6.txt:796:   796→                placeholder="Marché en croissance, besoins non satisfaits, aides..."
+/home/z/my-project/tool-results/grep_1782861501237_0e55fa9ab7ec.txt:124:/home/z/my-project/src/components/bureau/ia-assistant.tsx:100:  'tremplin': "Je peux vous aider à identifier les aides et financements disponibles pour votre projet. Que recherchez-vous ?",
+/home/z/my-project/download/STRATEGIE-PIPELINE-V3.md:93:│   │  │  financement ← financier (orange)                      │    │    │
+/home/z/my-project/download/STRATEGIE-PIPELINE-V3.md:180:│  │  ○ SWOT          [Vide]              ○ Financement   [Vide]     │    │
+/home/z/my-project/download/STRATEGIE-PIPELINE-V3.md:310:| `financier` | Prévisions Financières | simulateurs | 5 (financement, compte-resultat, tresorerie, investissements, bilan) | FinancialForecast |
+/home/z/my-project/download/STRATEGIE-PIPELINE-V3.md:763:| `financement` | **3** | Finances | Plan de financement — besoin de fonds |
+/home/z/my-project/download/STRATEGIE-PIPELINE-V3.md:817:| `financement` | 3 | ✅ | 15 | 0.4 | 3 × 0.4 = 1.2 |
+/home/z/my-project/download/STRATEGIE-PIPELINE-V3.md:848:| Si sections critiques vides (etude-marche, financement) | 50% (aucune distinction) | Score plus bas car les sections critiques (poids 3) ne contribuent pas |
+/home/z/my-project/download/STRATEGIE-PIPELINE-V3.md:907:| `financier` | `sync-module: financier` | financement, compte-resultat | `FinancialForecast` |
+/home/z/my-project/download/STRATEGIE-PIPELINE-V3.md:962:**Financier → financement** :
+/home/z/my-project/download/STRATEGIE-PIPELINE-V3.md:1048:  financement:         ['financier', 'manual'],
+/home/z/my-project/download/STRATEGIE-PIPELINE-V3.md:1109:| `financement` | ✅ | Financier (year1Revenue) | `financier` |
+/home/z/my-project/download/STRATEGIE-PIPELINE-V3.md:1210:| `financier` | Alimente 5 sections Finances du BP (financement, compte résultat, trésorerie, investissements, bilan) |
+/home/z/my-project/download/STRATEGIE-PIPELINE-V3.md:1520:| BMC vs BP | BMC "Sources de Revenus" ≠ vide si BP "financement" rempli | `info` |
+/home/z/my-project/src/lib/metiers-data.ts:405:      text: 'Quel financement envisages-tu ?',
+/home/z/my-project/src/lib/metiers-data.ts:406:      options: ['CPF ou Pôle Emploi', 'Financement par la Région', 'Auto-financement', 'Je ne sais pas encore'],
+/home/z/my-project/src/lib/metiers-data.ts:434:    { title: 'Région IDF', description: 'Aides régionales pour les formations prioritaires', icon: 'MapPin', duration: 'Variable' },
+/home/z/my-project/src/lib/metiers-data.ts:530:    { title: 'Micro-crédit', description: 'Obtenir un financement pour lancer son projet', icon: 'Wallet', duration: '1-3 mois' },
+/home/z/my-project/tool-results/grep_1782861499398_93ae3e4d8d44.txt:128:/home/z/my-project/src/components/conseiller/planning.tsx:119:    { id: 'p6', date: offsetDate(2), startTime: '14:00', endTime: '16:00', beneficiaryId: 'b6', beneficiaryName: 'Julie Moreau', beneficiaryInitials: 'JM', type: 'atelier', mode: 'physique', location: 'GIDEF Paris - Salle A', notes: 'Atelier financement. Groupe de 5.' },
+/home/z/my-project/tool-results/grep_1782861499398_93ae3e4d8d44.txt:207:/home/z/my-project/src/components/admin-centre/conseillers.tsx:32:  { id: 'c1', name: 'Sophie Martin', email: 'sophie.martin@gidef.fr', phone: '01 43 45 12 34', specialities: ['Creation', 'Financement', 'Business Plan'], beneficiairesCount: 28, maxCapacity: 30, status: 'active', avgProgress: 72, city: 'Creteil', entretiensThisMonth: 12 },
+/home/z/my-project/tool-results/grep_1782861499398_93ae3e4d8d44.txt:244:/home/z/my-project/prisma/seed-diagnostic.ts:70:      { email: 'marie.dupont@gidef.fr', firstName: 'Marie', lastName: 'Dupont', pw: 'Conseiller1!', specs: ["Cr\u00e9ation d'entreprise", 'Business Plan', 'Financement'] },
+/home/z/my-project/src/lib/pipeline-types.ts:69:  financement: 3,
+/home/z/my-project/src/lib/pipeline-types.ts:98:  financement: ['financier', 'manual'],
+/home/z/my-project/tool-results/read_1782858017989_40d2626dbbf1.txt:104:   104→  { value: 'financement', label: 'Financement & aides' },
+/home/z/my-project/tool-results/read_1782044736168_3880748585e4.txt:95:    95→  financement: 'Financement',
+/home/z/my-project/src/lib/ft-guard.ts:94:  // Aides-specific
+/home/z/my-project/tool-results/read_1782130957297_c180e4d9d00c.txt:86:    86→    inconvenients: ['Risque de répéter les erreurs', 'Fatigue entrepreneuriale', 'Nécessite du financement', 'Temps de montage'],
+/home/z/my-project/tool-results/read_1782130957297_c180e4d9d00c.txt:92:    92→    avantages: ['Montée en compétences', 'Certification valorisable', 'Réorientation possible', 'Financement CPF possible'],
+/home/z/my-project/tool-results/read_1782858018982_e65fd07f18cc.txt:820:   820→      {/* Besoin en financement */}
+/home/z/my-project/tool-results/read_1782858018982_e65fd07f18cc.txt:822:   822→        <Label className="text-sm font-medium">Besoin en financement</Label>
+/home/z/my-project/tool-results/read_1782858018982_e65fd07f18cc.txt:1023:  1023→        { label: 'Besoin en financement', value: data.financingNeed || 'Non défini' },
+/home/z/my-project/src/components/admin-plateforme/contenus.tsx:30:  { id: '3', title: 'Partenariat avec la BPI pour le financement', excerpt: 'Nouveau partenariat strategique pour faciliter l\'acces au financement des startups...', publishedAt: '2024-12-05', status: 'publie', author: 'Admin Plateforme' },
+/home/z/my-project/src/components/admin-plateforme/contenus.tsx:48:  { id: '1', name: 'BPI France', website: 'bpifrance.fr', category: 'Financement' },
+/home/z/my-project/src/components/admin-plateforme/contenus.tsx:55:/* ─── Aides ─── */
+/home/z/my-project/src/components/admin-plateforme/contenus.tsx:64:const aides: Aide[] = [
+/home/z/my-project/src/components/admin-plateforme/contenus.tsx:125:                    <div className="grid gap-2"><Label>Categorie</Label><Input placeholder="Ex: Financement" /></div>
+/home/z/my-project/src/components/admin-plateforme/contenus.tsx:152:          <TabsTrigger value="aides" className="gap-1"><HandCoins className="h-3.5 w-3.5" /> Aides ({aides.length})</TabsTrigger>
+/home/z/my-project/src/components/admin-plateforme/contenus.tsx:221:        <TabsContent value="aides" className="mt-3">
+/home/z/my-project/src/components/admin-plateforme/contenus.tsx:223:            {aides.map((a) => (
+/home/z/my-project/src/components/conseiller/planning.tsx:119:    { id: 'p6', date: offsetDate(2), startTime: '14:00', endTime: '16:00', beneficiaryId: 'b6', beneficiaryName: 'Julie Moreau', beneficiaryInitials: 'JM', type: 'atelier', mode: 'physique', location: 'GIDEF Paris - Salle A', notes: 'Atelier financement. Groupe de 5.' },
+/home/z/my-project/src/components/conseiller/visio.tsx:164:    roomName: 'creapulse-financement-karim',
+/home/z/my-project/src/components/conseiller/visio.tsx:165:    roomSubject: 'Point Financement',
+/home/z/my-project/src/components/conseiller/livrables.tsx:129:    createdAt: '2025-01-10', notes: 'Exporte pour demande de pret bancaire.', content: 'Previsions financieres validees et exportees pour le dossier de financement.',
+/home/z/my-project/src/components/conseiller/rapports.tsx:77:  { name: 'Financement', value: 5, color: '#FF6B35' },
+/home/z/my-project/src/components/conseiller/rapports.tsx:110:  { id: 'b4', name: 'Clara Dubois', initials: 'CD', progress: 72, lastActivity: 'Il y a 3 jours', status: 'Financement' },
+/home/z/my-project/src/components/conseiller/rapports.tsx:158:  'Financement': 'bg-coral-50 text-coral-500',
+/home/z/my-project/src/components/landing/actualites-section.tsx:30:const ARTICLE_CATEGORIES = ['Tous', 'Financement', 'Juridique', 'Marketing', 'Île-de-France', 'Inspiration', 'Outils numériques', 'Événements'] as const
+/home/z/my-project/src/components/admin-centre/conseillers.tsx:32:  { id: 'c1', name: 'Sophie Martin', email: 'sophie.martin@gidef.fr', phone: '01 43 45 12 34', specialities: ['Creation', 'Financement', 'Business Plan'], beneficiairesCount: 28, maxCapacity: 30, status: 'active', avgProgress: 72, city: 'Creteil', entretiensThisMonth: 12 },
+/home/z/my-project/src/components/admin-centre/conseillers.tsx:43:  { id: 'b2', name: 'Marie Dupont', project: 'Studio de Yoga', phase: 'Financement', progress: 60 },
+/home/z/my-project/src/components/admin-centre/beneficiaires.tsx:40:  { id: 'b2', name: 'Marie Dupont', email: 'm.dupont@email.com', project: 'Studio de Yoga Bien-etre', conseiller: 'Sophie Martin', phase: 'Financement', progress: 60, sector: 'Bien-etre', registrationDate: '2024-11-20', status: 'active' },
+/home/z/my-project/src/components/admin-centre/beneficiaires.tsx:47:  { id: 'b9', name: 'Karim Diallo', email: 'k.diallo@email.com', project: 'Transport de marchandises', conseiller: 'Pierre Dubois', phase: 'Financement', progress: 50, sector: 'Transport', registrationDate: '2024-12-14', status: 'active' },
+/home/z/my-project/src/components/admin-centre/beneficiaires.tsx:80:      'Financement': 'bg-[#FF6B35]/10 text-[#FF6B35]',
+/home/z/my-project/src/components/admin-centre/statistiques.tsx:38:    { phase: 'Financement', count: 31 },
+/home/z/my-project/src/components/admin-centre/statistiques.tsx:45:    { phase: 'Financement', count: 94 },
+/home/z/my-project/src/components/admin-centre/statistiques.tsx:52:    { phase: 'Financement', count: 356 },
+/home/z/my-project/src/components/landing/pdf-exports-section.tsx:95:    details: 'Tableau CA/Charges/Résultat, analyse sectorielle, recommandations de financement.',
+/home/z/my-project/src/components/admin-centre/dashboard.tsx:34:  { phase: 'Financement', count: 31 },
+/home/z/my-project/src/components/bureau/welcome.tsx:77:    title: 'Je cherche des financements',
+/home/z/my-project/src/components/landing/pdf-showcase-section.tsx:143:                  plan de financement, compte de résultat prévisionnel, trésorerie, seuil de rentabilité,
+/home/z/my-project/src/components/bureau/ia-assistant.tsx:100:  'tremplin': "Je peux vous aider à identifier les aides et financements disponibles pour votre projet. Que recherchez-vous ?",
+/home/z/my-project/src/components/bureau/ia-assistant.tsx:225:    'Quels organismes pour le financement ?',
+/home/z/my-project/src/components/bureau/ia-assistant.tsx:244:    'Quelles aides suis-je éligible ?',
+/home/z/my-project/src/components/bureau/ia-assistant.tsx:246:    'Quels financements BPI France ?',
+/home/z/my-project/src/components/bureau/ia-assistant.tsx:256:    'Utile pour un financement ?',
+/home/z/my-project/src/components/bureau/ia-assistant.tsx:301:    'Quelles aides sont disponibles ?',
+/home/z/my-project/prisma/seed.ts:93:    specialities: ['Création d\'entreprise', 'Business Plan', 'Financement'],
+/home/z/my-project/prisma/seed.ts:162:      financement: [
+/home/z/my-project/prisma/seed.ts:165:        { id: 'f3', source: 'ACRE + Aides', montant: 20000 },
+/home/z/my-project/prisma/seed.ts:183:        opportunities: 'Marché en croissance +8%/an, Demande forte de local, Subventions et aides à la création disponibles',
+/home/z/my-project/prisma/seed.ts:374:    summary: 'Projet viable avec conditions : finaliser le financement et le pitch.',
+/home/z/my-project/prisma/seed.ts:376:      'Finaliser le plan de financement',
+/home/z/my-project/prisma/seed.ts:414:        { id: 'financier', content: 'Investissement 85k€. Apport 25k€ + Emprunt 40k€ + Aides 20k€. Rentabilité 18 mois.' },
+/home/z/my-project/prisma/seed.ts:415:        { id: 'ask', content: '85k€ financement + 10 producteurs supplémentaires + 12 mois accompagnement GIDEF.' },
+/home/z/my-project/prisma/seed.ts:449:    recommendations: ['Finaliser BP financier', 'Lancer démarches financement', 'Préparer Tremplin'],
+/home/z/my-project/prisma/seed.ts:460:    { interviewId: interview2.id, phase: 'SUIVI', category: 'recommandation', content: 'Finaliser le dossier de financement.', isKeyPoint: true },
+/home/z/my-project/src/components/bureau/export/business-plan-pdf.tsx:114:  { id: 'financement', title: '7a. Plan de financement', type: 'table' as const },
+/home/z/my-project/src/components/bureau/export/business-plan-pdf.tsx:331:          <th className="text-left py-2 px-3 font-medium">Source de financement</th>
+/home/z/my-project/prisma/seed-diagnostic.ts:70:      { email: 'marie.dupont@gidef.fr', firstName: 'Marie', lastName: 'Dupont', pw: 'Conseiller1!', specs: ["Cr\u00e9ation d'entreprise", 'Business Plan', 'Financement'] },
+/home/z/my-project/prisma/seed-diagnostic.ts:327:          step2: { q4: "SARL pour prot\u00e9ger mon patrimoine et faciliter l'association future.", q5: "35 000\u20ac (am\u00e9nagement, stock initial, mat\u00e9riel, fonds de commerce, communication).", q6: "J'ai un pr\u00eat personnel de 10 000\u20ac, le reste sera financ\u00e9 par \u00e9pargne et aides." },
+/home/z/my-project/prisma/seed-diagnostic.ts:446:        synthesis: "Le projet Studio Bloom pr\u00e9sente un profil de rentabilit\u00e9 rapide. Le seuil de rentabilit\u00e9 est atteint au 8\u00e8me mois. La croissance est organique et contr\u00f4l\u00e9e. Pas de besoin de financement externe au d\u00e9marrage.",
+/home/z/my-project/prisma/seed-diagnostic.ts:451:        synthesis: "TaskFlow est un projet SaaS avec un potentiel de scaling important. Le seuil de rentabilit\u00e9 est atteint au 14\u00e8me mois. Un financement d'amor\u00e7age (Bpifrance, Bourse French Tech) est recommand\u00e9 pour acc\u00e9l\u00e9rer la croissance.",
+/home/z/my-project/prisma/seed-diagnostic.ts:456:        synthesis: "Saveurs d'Ici est un projet de commerce avec un CA imm\u00e9diat. Le seuil de rentabilit\u00e9 est atteint au 10\u00e8me mois. L'investissement initial est plus important mais les aides r\u00e9gionales et le pr\u00eat d'honneur peuvent couvrir une partie significative.",
+/home/z/my-project/prisma/seed-diagnostic.ts:954:            { step: 8, title: 'Dossier financement', status: 'pending' },
+/home/z/my-project/prisma/seed-articles.ts:28:  "Financement": [
+/home/z/my-project/prisma/seed-articles.ts:74:  { title: "Rentrée 2024 : les nouvelles aides à la création d'entreprise en Île-de-France", slug: "rentree-2024-aides-creation-ile-de-france", category: "Financement", excerpt: "Découvrez les dispositifs mis en place pour soutenir les créateurs d'entreprise en Île-de-France pour cette rentrée 2024.", publishedAt: d(2024,9,3), readTime: 6, isFeatured: true },
+/home/z/my-project/prisma/seed-articles.ts:78:  { title: "France Travail : les accompagnements spécifiques pour les créateurs", slug: "france-travail-accompagnement-createurs", category: "Financement", excerpt: "France Travail propose plusieurs dispositifs pour les porteurs de projet. Tour d'horizon complet.", publishedAt: d(2024,9,12), readTime: 5 },
+/home/z/my-project/prisma/seed-articles.ts:86:  { title: "BPI France : le prêt d'amorçage décrypté", slug: "bpi-france-pret-amorcage-decrypte", category: "Financement", excerpt: "Le prêt d'amorçage de BPI France est un outil essentiel pour les jeunes entreprises. Comment l'obtenir ?", publishedAt: d(2024,10,8), readTime: 7 },
+/home/z/my-project/prisma/seed-articles.ts:96:  { title: "Le crowdfunding : financer son projet autrement", slug: "crowdfunding-financer-projet", category: "Financement", excerpt: "Plateformes de don, prêt participatif ou investissement : le panorama du crowdfunding en France.", publishedAt: d(2024,11,4), readTime: 7, isFeatured: true },
+/home/z/my-project/prisma/seed-articles.ts:102:  { title: "ARE France Travail : maintenir ses revenus durant la création", slug: "are-france-travail-maintenir-revenus", category: "Financement", excerpt: "L'ARE permet de cumuler allocation chômage et revenus de la nouvelle activité. Les conditions.", publishedAt: d(2024,11,22), readTime: 6 },
+/home/z/my-project/prisma/seed-articles.ts:109:  { title: "Les subventions régionales Île-de-France pour 2025", slug: "subventions-regionales-ile-de-france-2025", category: "Financement", excerpt: "La Région Île-de-France propose plusieurs aides. Tour d'horizon des dispositifs.", publishedAt: d(2024,12,10), readTime: 6 },
+/home/z/my-project/prisma/seed-articles.ts:117:  { title: "Nouvelles aides à la création 2025 : le guide complet", slug: "nouvelles-aides-creation-2025-guide-complet", category: "Financement", excerpt: "L'État a annoncé de nouvelles mesures pour soutenir la création d'entreprise en 2025. Décryptage.", publishedAt: d(2025,1,3), readTime: 7, isFeatured: true },
+/home/z/my-project/prisma/seed-articles.ts:124:  { title: "Le NACRE : l'aide à la reprise et à la création d'entreprise", slug: "nacre-aide-reprise-creation-entreprise", category: "Financement", excerpt: "Le dispositif NACRE offre un prêt à taux zéro pour les créateurs. Conditions et démarches.", publishedAt: d(2025,1,24), readTime: 6 },
+/home/z/my-project/prisma/seed-articles.ts:132:  { title: "Les aides de la Région Île-de-France aux jeunes entrepreneurs", slug: "aides-region-ile-de-france-jeunes-entrepreneurs", category: "Financement", excerpt: "La Région propose des aides spécifiques pour les moins de 30 ans. Détails et conditions.", publishedAt: d(2025,2,16), readTime: 6 },
+/home/z/my-project/prisma/seed-articles.ts:141:  { title: "Les plateformes de financement participatif en France", slug: "plateformes-financement-participatif-france", category: "Financement", excerpt: "Ulule, Lendopolis, KissKissBankBank : comparatif des principales plateformes.", publishedAt: d(2025,3,13), readTime: 7 },
+/home/z/my-project/prisma/seed-articles.ts:147:  { title: "Préparer sa demande de prêt bancaire : le dossier parfait", slug: "preparer-demande-pret-bancaire-dossier-parfait", category: "Financement", excerpt: "Un dossier bien préparé maximise vos chances d'obtenir un prêt. Nos conseils.", publishedAt: d(2025,4,1), readTime: 7, isFeatured: true },
+/home/z/my-project/prisma/seed-articles.ts:154:  { title: "Les aides à l'embauche pour les jeunes entreprises", slug: "aides-embauche-jeunes-entreprises", category: "Financement", excerpt: "Embaucher quand on débute est un défi. Découvrez les aides existantes.", publishedAt: d(2025,4,22), readTime: 6 },
+/home/z/my-project/prisma/seed-articles.ts:162:  { title: "Trouver un local commercial en Île-de-France : les astuces", slug: "trouver-local-commercial-ile-de-france-astuces", category: "Financement", excerpt: "Trouver un local à un prix raisonnable en Île-de-France est un défi. Nos conseils.", publishedAt: d(2025,5,16), readTime: 5 },
+/home/z/my-project/prisma/seed-articles.ts:165:  { title: "Le business model canvas : outil incontournable pour structurer son projet", slug: "business-model-canvas-outil-incontournable", category: "Financement", excerpt: "Le BMC permet de visualiser votre modèle économique en une seule page. Mode d'emploi.", publishedAt: d(2025,5,23), readTime: 6, isFeatured: true },
+/home/z/my-project/prisma/seed-articles.ts:170:    "Financement": "Le financement est souvent le premier obstacle des créateurs d'entreprise. Entre les prêts bancaires, les aides publiques et le crowdfunding, il existe de multiples solutions pour financer son projet.",
+/home/z/my-project/src/app/metiers/formation/page.tsx:83:  const financementOptions = [
+/home/z/my-project/src/app/metiers/formation/page.tsx:103:      subtitle: 'Aides régionales',
+/home/z/my-project/src/app/metiers/formation/page.tsx:106:      badge: 'Aides variables',
+/home/z/my-project/src/app/metiers/formation/page.tsx:149:                Voir les financements
+/home/z/my-project/src/app/metiers/formation/page.tsx:295:      {/* 6. FINANCEMENT SECTION */}
+/home/z/my-project/src/app/metiers/formation/page.tsx:301:              Financement
+/home/z/my-project/src/app/metiers/formation/page.tsx:318:            {financementOptions.map((option) => (
+/home/z/my-project/src/app/metiers/formation/page.tsx:366:              { icon: Compass, title: 'Orientation intelligente', desc: 'Recommandations personnalisées basées sur ta situation, tes envies et les financements disponibles.' },
+/home/z/my-project/src/app/metiers/formation/layout.tsx:6:    'Découvrez les formations et financements pour votre reconversion professionnelle : CPF, Pôle Emploi, Région IDF, alternance. Test IA pour identifier la formation adaptée à votre profil.',
+/home/z/my-project/src/app/metiers/formation/layout.tsx:10:      'Des formations qualifiantes et des dispositifs de financement pour réussir votre reconversion. Test IA gratuit pour trouver la bonne voie.',
+/home/z/my-project/prisma/seed-extended.ts:538:  const catFinancement = await seedIfMissing(db.discussionCategory, { slug: 'financement' }, {
+/home/z/my-project/prisma/seed-extended.ts:539:    name: 'Financement & Aides',
+/home/z/my-project/prisma/seed-extended.ts:540:    slug: 'financement',
+/home/z/my-project/prisma/seed-extended.ts:541:    description: 'Aides à la création, subventions, prêts d\'honneur et financements bancaires.',
+/home/z/my-project/prisma/seed-extended.ts:597:  // Discussion 2: Aides à la création en IDF
+/home/z/my-project/prisma/seed-extended.ts:598:  const discussion2 = await seedIfMissing(db.discussion, { id: 'discussion-aides-idf' }, {
+/home/z/my-project/prisma/seed-extended.ts:599:    id: 'discussion-aides-idf',
+/home/z/my-project/prisma/seed-extended.ts:601:    categoryId: catFinancement.id,
+/home/z/my-project/prisma/seed-extended.ts:602:    title: 'Aides à la création en Île-de-France : le guide complet',
+/home/z/my-project/prisma/seed-extended.ts:603:    content: 'Après des semaines de recherches, voici un récapitulatif des aides disponibles pour les créateurs en Île-de-France :\n\n**Aides régionales :**\n- ARCE (Allocation chômeurs créateurs) : jusqu\'à 45% du reliquat des allocations\n- ACRE : exonération partielle de charges sociales (1 an)\n- Prêt d\'honneur Initiative IDF : jusqu\'à 5 000€\n\n**Aides locales :**\n- Bourses BGE Paris : jusqu\'à 3 000€\n- Subvention mairie de Paris pour les commerces de proximité\n\n**Aides nationales :**\n- ARE maintien (si éligible Pôle Emploi)\n- NACRE : accompagnement + prêt à taux zéro\n\nN\'hésitez pas à compléter cette liste avec vos découvertes !',
+/home/z/my-project/prisma/seed-extended.ts:604:    tags: ['aides', 'subventions', 'idf', 'arce', 'acre', 'financement'],
+/home/z/my-project/prisma/seed-extended.ts:635:    content: 'Je prépare mon Tremplin pour le mois prochain et j\'aimerais avoir vos conseils. Mon score actuel est de 68/100 avec un GO_CONDITIONAL.\n\nLes recommandations sont :\n- Finaliser le plan de financement\n- Préparer le pitch (5-7 min)\n- Consolider le dossier ACRE/ARCE\n\nPour ceux qui ont déjà passé le Tremplin avec succès, quelles sont les clés pour obtenir un GO ?\n\nMon conseiller Jean Dupont m\'a dit que le pitch est déterminant. Comment le préparer au mieux ?',
+/home/z/my-project/prisma/seed-extended.ts:682:      content: 'Excellent récapitulatif Thomas ! Je complète avec 2 aides que vous avez oublié :\n\n- **Prêt d\'honneur Bpifrance** : jusqu\'à 50 000€ pour les créateurs, sans garantie. Très utile pour le fonds de roulement initial.\n- **Aide à la reprise/création d\'entreprise (ARCE)** : si vous êtes inscrit à France Travail, pensez à demander l\'ARCE plutôt que le maintien des ARE si votre projet nécessite du capital de départ.\n\nN\'hésitez pas à consulter votre conseiller GIDEF pour un point personnalisé sur votre éligibilité !',
+/home/z/my-project/prisma/seed-extended.ts:691:      content: 'Merci Thomas pour ce partage très utile ! Pour mon projet d\'épicerie fine, je vise l\'ACRE et le prêt d\'honneur Initiative IDF. Mon conseiller m\'a aussi parlé des subventions mairie de Paris pour les commerces de proximité — je vais creuser ce dossier.',
+/home/z/my-project/src/components/bureau/modules/e-learning.tsx:103:      { id: 'tr-2', title: 'Construire un plan de trésorerie', content: 'Le plan de trésorerie prévisionnel sur 12 mois vous permet d\'anticiper les périodes de tension. Liste mois par mois : encaissements (ventes, subventions), décaissements (charges, investissements), et solde cumulé.\n\nMaintenez toujours un fonds de roulement suffisant pour couvrir 2 à 3 mois de charges fixes. C\'est votre filet de sécurité.', duration: '15 min', completed: false },
+/home/z/my-project/agent-ctx/P0-1-security-fix-agent.md:14:  - aides/route.ts (GET) — Zod query validation, withFTAuth('GET'), validateFTPagination
+/home/z/my-project/agent-ctx/6-forum-module-builder.md:29:- 7 color-coded categories (Création, Financement, Juridique, Marketing, Réseau, Emploi, Vie d'entrepreneur)
+/home/z/my-project/src/components/bureau/modules/annuaire.tsx:175:    services: ['Création d\'entreprise', 'Formation', 'Financement', 'Mentorat', 'Réseau'],
+/home/z/my-project/src/components/bureau/modules/annuaire.tsx:226:    services: ['Statut étudiant-entrepreneur', 'Formation', 'Coaching', 'Financement'],
+/home/z/my-project/src/components/bureau/modules/annuaire.tsx:259:      'Banque spécialisée dans le financement des créateurs d\'entreprise en Île-de-France.',
+/home/z/my-project/src/components/bureau/modules/annuaire.tsx:292:    services: ['Coaching stratégique', 'Préparation financements', 'Réseau'],
+/home/z/my-project/src/components/bureau/modules/annuaire.tsx:343:    services: ['Hébergement', 'Formation', 'Financement solidaire', 'Réseau'],
+/home/z/my-project/src/app/actualites/page.tsx:41:  'Financement',
+/home/z/my-project/src/components/bureau/modules/forum.tsx:46:  | 'financement'
+/home/z/my-project/src/components/bureau/modules/forum.tsx:99:  { slug: 'financement', name: 'Financement', color: 'text-amber-700 dark:text-amber-400', bgColor: 'bg-amber-100 dark:bg-amber-900/30', borderColor: 'border-amber-200 dark:border-amber-800' },
+/home/z/my-project/src/components/bureau/modules/forum.tsx:164:    category: CATEGORY_MAP['financement'],
+/home/z/my-project/src/components/bureau/modules/forum.tsx:170:    tags: ['BPI France', 'prêt d\'honneur', 'financement'],
+/home/z/my-project/src/components/bureau/modules/forum.tsx:178:      { id: 'r5', author: MOCK_AUTHORS[2], content: 'Merci pour ce partage ! Est-ce que le prêt d\'honneur est cumulable avec d\'autres aides ?', likesCount: 3, isLiked: false, createdAt: hoursAgo(40), parentId: null, children: [] },
+/home/z/my-project/src/components/bureau/modules/forum.tsx:234:    content: `Mon auto-entreprise décolle et j'envisage d'embaucher mon premier salarié. Je suis un peu perdu face aux démarches administratives.\n\nQuestions :\n- CDI ou CDD pour commencer ?\n- Quelles aides à l'embauche existent ?\n- Comment gérer la paie ? (logiciel ? expert-comptable ?)\n- Quelles sont les erreurs courantes à éviter ?\n\nMerci d'avance pour vos conseils !`,
+/home/z/my-project/src/components/bureau/modules/forum.tsx:268:    title: 'Nouvelle-aquitaine : aides spécifiques pour les créateurs d\'entreprise',
+/home/z/my-project/src/components/bureau/modules/forum.tsx:269:    content: `Je me lance dans la création d'une entreprise de services en Nouvelle-Aquitaine. Je cherche à recenser toutes les aides disponibles au niveau régional.\n\nPour l'instant j'ai identifié :\n- Aide à la création (Région)\n- ARCE si je prends mes indemnités\n- ACCRE pour les cotisations\n\nEst-ce que je manque quelque chose ? Y a-t-il des dispositifs spécifiques à la région ?`,
+/home/z/my-project/src/components/bureau/modules/forum.tsx:271:    category: CATEGORY_MAP['financement'],
+/home/z/my-project/src/components/bureau/modules/forum.tsx:277:    tags: ['aides', 'Nouvelle-Aquitaine', 'région', 'subventions'],
+/home/z/my-project/src/components/bureau/modules/forum.tsx:907:              placeholder="Ex: financement, BPI France, startup (séparés par des virgules)"
+/home/z/my-project/src/app/besoin/creer-entreprise/page.tsx:79:  { number: 4, label: 'Financement obtenu', icon: Wallet, done: false },
+/home/z/my-project/src/app/besoin/creer-entreprise/page.tsx:103:      'Comptes prévisionnels, calcul du seuil de rentabilité, plan de trésorerie et recherche de financements : subventions, prêts d\'honneur, crowdfunding.',
+/home/z/my-project/src/components/bureau/modules/tremplin.tsx:64:  { id: 3, title: 'Plan financier', icon: Shield, description: 'Budget, seuil de rentabilité et financement' },
+/home/z/my-project/src/components/bureau/modules/tremplin.tsx:92:    { id: 'f3', text: 'Avez-vous sécurisé ou identifié vos sources de financement ?', type: 'select', weight: 7, category: 'Financement', options: [
+/home/z/my-project/src/components/bureau/modules/tremplin.tsx:93:      { label: 'Financement déjà obtenu', value: 'secured' },
+/home/z/my-project/src/components/bureau/modules/tremplin.tsx:94:      { label: 'Financement en cours de négociation', value: 'pending' },
+/home/z/my-project/src/components/bureau/modules/tremplin.tsx:96:      { label: 'Pas encore de source de financement', value: 'none' },
+/home/z/my-project/src/components/bureau/modules/tremplin.tsx:222:    'Financement': 'Rencontrez des banques et investisseurs pour sécuriser votre financement.',
+/home/z/my-project/src/components/bureau/modules/marche.tsx:796:                placeholder="Marché en croissance, besoins non satisfaits, aides..."
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:38:      'Le projet est prometteur mais nécessite des actions préalables (formation, financement, etc.).',
+/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-synthese.tsx:254:            Formulez vos recommandations au porteur : formations, mentors, financements,
+/home/z/my-project/src/components/bureau/modules/mentorat.tsx:98:  'Business Plan', 'Financement', 'Marketing Digital', 'Stratégie',
+/home/z/my-project/src/components/bureau/modules/mentorat.tsx:148:    expertise: ['Financement', 'Fiscalité', 'Business Plan'],
+/home/z/my-project/src/components/bureau/modules/mentorat.tsx:203:    bio: 'Serial entrepreneur, fondateur de 3 entreprises. Expert en levée de fonds et en pitch deck. Accompagne les startups dans leur recherche de financement.',
+/home/z/my-project/src/components/bureau/modules/mentorat.tsx:204:    expertise: ['Financement', 'Business Plan', 'Stratégie'],
+/home/z/my-project/src/components/bureau/modules/mentorat.tsx:260:    expertise: ['Business Plan', 'Financement', 'Commerce International'],
+/home/z/my-project/src/components/bureau/modules/cloture-rebond.tsx:86:    inconvenients: ['Risque de répéter les erreurs', 'Fatigue entrepreneuriale', 'Nécessite du financement', 'Temps de montage'],
+/home/z/my-project/src/components/bureau/modules/cloture-rebond.tsx:92:    avantages: ['Montée en compétences', 'Certification valorisable', 'Réorientation possible', 'Financement CPF possible'],
+/home/z/my-project/src/components/bureau/modules/mon-projet.tsx:820:      {/* Besoin en financement */}
+/home/z/my-project/src/components/bureau/modules/mon-projet.tsx:822:        <Label className="text-sm font-medium">Besoin en financement</Label>
+/home/z/my-project/src/components/bureau/modules/mon-projet.tsx:1023:        { label: 'Besoin en financement', value: data.financingNeed || 'Non défini' },
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:95:  { id: 'financement', title: 'Plan de financement initial', description: "Sources et montants de financement de lancement", type: 'financing-table', hasAiSuggestion: false, icon: Calculator, color: 'text-[#00838F] bg-[#00838F]/10' },
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:223:  financement: [],
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1793:              <th className="text-left py-2 px-3 font-medium">Source de financement</th>
+/home/z/my-project/src/components/bureau/modules/parcours-paa.tsx:258:  { id: 'a8', title: 'Financement & Aides', description: 'Identifier les dispositifs de financement', completed: false, category: 'finance' },
+/home/z/my-project/src/components/bureau/modules/tresorerie.tsx:31:type TxCategory = 'ventes' | 'fournisseurs' | 'salaires' | 'loyer' | 'charges_sociales' | 'impots' | 'subventions' | 'autre'
+/home/z/my-project/src/components/bureau/modules/tresorerie.tsx:66:  subventions: 'Subventions', autre: 'Autre',
+/home/z/my-project/src/components/bureau/modules/tresorerie.tsx:71:  charges_sociales: '🏥', impots: '🏛️', subventions: '🎁', autre: '📌',
+/home/z/my-project/src/components/bureau/modules/profil-createur.tsx:104:  { value: 'financement', label: 'Financement & aides' },
+/home/z/my-project/src/components/bureau/modules/pipeline-v3-overview.tsx:95:  financement: 'Financement',
+/home/z/my-project/src/app/api/pitch-deck/route.ts:306:      const systemPrompt = `Tu es un expert en pitch decks pour startups et entrepreneurs. Tu aides des entrepreneurs francophones à créer des pitch decks percutants pour lever des fonds ou convaincre des partenaires.
+/home/z/my-project/src/app/api/pitch-deck/route.ts:441:      const systemPrompt = `Tu es un expert en pitch decks pour startups et entrepreneurs. Tu aides des entrepreneurs francophones à créer des slides de pitch deck percutantes.
+/home/z/my-project/src/app/api/ia/route.ts:55:- Financement (aides, subventions, investisseurs)
+/home/z/my-project/src/app/api/ia/route.ts:96:    'tremplin': `L'utilisateur recherche des dispositifs d'aide pour lancer son activité. Aide-le à identifier les aides, subventions et financements disponibles (ARE, ACCRE, BPI, etc.) adaptés à sa situation.`,
+/home/z/my-project/src/app/api/ia/route.ts:220:    'Quels organismes peuvent m\'aider au financement ?',
+/home/z/my-project/src/app/api/ia/route.ts:240:    'Quelles aides suis-je éligible de demander ?',
+/home/z/my-project/src/app/api/ia/route.ts:242:    'Quels financements BPI France pour mon secteur ?',
+/home/z/my-project/src/app/api/ia/route.ts:252:    'Mes certifications sont-elles utiles pour obtenir un financement ?',
+/home/z/my-project/src/app/api/ia/route.ts:288:  'Quelles aides sont disponibles ?',
+/home/z/my-project/src/app/api/ia/route.ts:297:  'subvention', 'financement', 'stage', 'alternance',
+/home/z/my-project/src/app/api/business-plan/route.ts:290:  const systemPrompt = `Tu es un expert en création d'entreprise et en rédaction de business plans. Tu aides des entrepreneurs francophones à rédiger un business plan professionnel et convaincant.
+/home/z/my-project/src/app/api/business-plan/route.ts:678:      fillSection('financement', `## Plan financier (synthèse)\n\n${finParts.join('\n\n')}`, 'Prévisions financières')
+/home/z/my-project/src/app/api/business-plan/route.ts:680:      skipped.push({ section: 'financement', source: 'Prévisions financières', reason: 'Données insuffisantes' })
+/home/z/my-project/src/app/api/business-plan/route.ts:716:    skipped.push({ section: 'financement', source: 'Prévisions financières', reason: 'Simulation non complétée' })
+/home/z/my-project/src/app/api/juridique/route.ts:276:      const systemPrompt = `Tu es un expert en droit des affaires et en création d'entreprise en France. Tu aides les entrepreneurs à choisir le bon statut juridique.
+/home/z/my-project/src/app/api/pipeline-v3/route.ts:105:  const finSections = ['financement', 'compte-resultat', 'tresorerie', 'investissements', 'bilan']
+/home/z/my-project/src/app/api/pipeline-v3/route.ts:282:    case 'financier': return 'Alimente 5 sections Finances du BP (financement, compte résultat, trésorerie, investissements, bilan)'
+/home/z/my-project/src/app/api/pipeline-v3/route.ts:412:        if (parts.length > 0) fillIfEmpty('financement', `## Plan financier (synthèse)\n\n${parts.join('\n\n')}`)
+/home/z/my-project/src/app/api/bmc/route.ts:396:      const systemPrompt = `Tu es un expert en Business Model Canvas et en stratégie d'entreprise. Tu aides des entrepreneurs francophones à construire un BMC complet et cohérent.
+/home/z/my-project/src/app/api/bmc/route.ts:536:      const systemPrompt = `Tu es un expert en Business Model Canvas et en stratégie d'entreprise. Tu aides des entrepreneurs francophones à construire un BMC complet et cohérent.
+/home/z/my-project/src/app/api/export/demo/business-plan/route.ts:98:  '16. Plan de financement',
+
+[Showing results with pagination = limit: 250]

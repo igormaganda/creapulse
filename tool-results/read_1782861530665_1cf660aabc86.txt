@@ -1,0 +1,202 @@
+     1→/home/z/my-project/public/images/logo-gidef.svg:3:  <text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-weight="bold" font-size="12" fill="white">GIDEF</text>
+     2→/home/z/my-project/public/manifest.json:4:  "description": "Votre bureau virtuel entrepreneurial propulse par Echo Entreprendre et le reseau GIDEF Ile-de-France",
+     3→/home/z/my-project/test-db.cjs:17:    where: { slug: 'gidef' },
+     4→/home/z/my-project/test-db.cjs:18:    create: { name: 'GIDEF', slug: 'gidef', isActive: true },
+     5→/home/z/my-project/deploy-files/schema.prisma:26:  GIDEF_AGENCY
+     6→/home/z/my-project/deploy-files/schema.prisma:110:  GIDEF
+     7→/home/z/my-project/deploy-files/schema.prisma:1116:  authorRole   String   @default("GIDEF Île-de-France")
+     8→/home/z/my-project/deploy-files/seed.ts:14:  console.log('📦 Creating tenant GIDEF...')
+     9→/home/z/my-project/deploy-files/seed.ts:16:    where: { slug: 'gidef-idf' },
+    10→/home/z/my-project/deploy-files/seed.ts:19:      name: 'GIDEF Île-de-France',
+    11→/home/z/my-project/deploy-files/seed.ts:20:      slug: 'gidef-idf',
+    12→/home/z/my-project/deploy-files/seed.ts:33:      name: 'GIDEF Paris Centre',
+    13→/home/z/my-project/deploy-files/seed.ts:34:      type: 'GIDEF_AGENCY',
+    14→/home/z/my-project/deploy-files/seed.ts:40:      email: 'contact@gidef-paris.fr',
+    15→/home/z/my-project/deploy-files/seed.ts:54:    { email: 'admin@gidef.fr', password: 'Admin123!', firstName: 'Admin', lastName: 'GIDEF', role: 'ADMIN' as const },
+    16→/home/z/my-project/deploy-files/seed.ts:55:    { email: 'marie.dupont@gidef.fr', password: 'Conseiller1!', firstName: 'Marie', lastName: 'Dupont', role: 'COUNSELOR' as const },
+    17→/home/z/my-project/deploy-files/seed.ts:56:    { email: 'jean.martin@gidef.fr', password: 'Conseiller2!', firstName: 'Jean', lastName: 'Martin', role: 'COUNSELOR' as const },
+    18→/home/z/my-project/deploy-files/seed.ts:85:  console.log('  admin@gidef.fr / Admin123!')
+    19→/home/z/my-project/deploy-files/seed.ts:86:  console.log('  marie.dupont@gidef.fr / Conseiller1!')
+    20→/home/z/my-project/deploy-files/seed.ts:87:  console.log('  jean.martin@gidef.fr / Conseiller2!')
+    21→/home/z/my-project/deploy-files/seed-articles.ts:71:  { title: "Le réseau GIDEF en Île-de-France : 60 agences à votre service", slug: "reseau-gidef-ile-de-france-agences", category: "Île-de-France", excerpt: "Le GIDEF dispose de 60 agences en Île-de-France. Découvrez comment en bénéficier.", publishedAt: d(2025,1,6), readTime: 5 },
+    22→/home/z/my-project/deploy-files/seed-articles.ts:110:  { title: "Sommet GIDEF Île-de-France 2025 : les temps forts", slug: "sommet-gidef-ile-de-france-2025-temps-forts", category: "Événements", excerpt: "Le sommet annuel du GIDEF réunit les acteurs de l'entrepreneuriat en Île-de-France.", publishedAt: d(2025,5,1), readTime: 5, isFeatured: true },
+    23→/home/z/my-project/deploy-files/seed-articles.ts:137:    `<h2>Nos recommandations</h2><p> Pour aller plus loin, nous recommandons de consulter les ressources mises à disposition par le réseau GIDEF en Île-de-France. Les conseillers spécialisés peuvent vous accompagner dans chaque étape de votre projet.</p><p>N'hésitez pas à contacter votre agence GIDEF la plus proche pour bénéficier d'un accompagnement personnalisé et gratuit.</p>`,
+    24→/home/z/my-project/deploy-files/seed-articles.ts:158:          authorName: article.category === "Île-de-France" ? "Rédaction GIDEF" : "Équipe CreaPulse",
+    25→/home/z/my-project/deploy-files/seed-articles.ts:159:          authorRole: "GIDEF Île-de-France",
+    26→/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:118:   118→- Reviewed register route: tenantId is properly set from tenant upsert (gidef slug)
+    27→/home/z/my-project/mini-services/pdf-service/index.ts:458:    .text('Echo Entreprendre — GIDEF', 50, 155)
+    28→/home/z/my-project/tool-results/read_1782044769289_13e2b7aa1f18.txt:670:   670→          ou le Délégué à la Protection des Données (DPO) du GIDEF Île-de-France.
+    29→/home/z/my-project/mini-services/pdf-service/TASK_SUMMARY.md:32:5. **Brand Color**: `#00838F` (GIDEF teal)
+    30→/home/z/my-project/tool-results/read_1782835890207_9103facb9fa6.txt:118:   118→- Reviewed register route: tenantId is properly set from tenant upsert (gidef slug)
+    31→/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:118:   118→- Reviewed register route: tenantId is properly set from tenant upsert (gidef slug)
+    32→/home/z/my-project/tool-results/read_1782044721633_bc3642103a43.txt:27:    27→  GIDEF_AGENCY
+    33→/home/z/my-project/tool-results/read_1782044721633_bc3642103a43.txt:111:   111→  GIDEF
+    34→/home/z/my-project/tool-results/read_1782044721633_bc3642103a43.txt:1216:  1216→  authorRole   String   @default("GIDEF Île-de-France")
+    35→/home/z/my-project/tool-results/read_1782858019290_f305c1e1d101.txt:224:   224→    lines.push('  BILAN IA — CreaPulse / GIDEF')
+    36→/home/z/my-project/tool-results/read_1782835881930_9103facb9fa6.txt:118:   118→- Reviewed register route: tenantId is properly set from tenant upsert (gidef slug)
+    37→/home/z/my-project/tool-results/read_1782835587880_f20d11436cad.txt:118:   118→   118→- Reviewed register route: tenantId is properly set from tenant upsert (gidef slug)
+    38→/home/z/my-project/tool-results/read_1782044738220_bc3642103a43.txt:27:    27→  GIDEF_AGENCY
+    39→/home/z/my-project/tool-results/read_1782044738220_bc3642103a43.txt:111:   111→  GIDEF
+    40→/home/z/my-project/tool-results/read_1782044738220_bc3642103a43.txt:1216:  1216→  authorRole   String   @default("GIDEF Île-de-France")
+    41→/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:27:    27→    27→  GIDEF_AGENCY
+    42→/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:111:   111→   111→  GIDEF
+    43→/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:1216:  1216→  1216→  authorRole   String   @default("GIDEF Île-de-France")
+    44→/home/z/my-project/tool-results/read_1782835577560_9103facb9fa6.txt:118:   118→- Reviewed register route: tenantId is properly set from tenant upsert (gidef slug)
+    45→/home/z/my-project/worklog.md:118:- Reviewed register route: tenantId is properly set from tenant upsert (gidef slug)
+    46→/home/z/my-project/agent-ctx/12-admin-centre-builder.md:4:Built the complete Admin Centre (Center Administrator) interface for CreaPulse V2 — a professional admin dashboard overlay for managing a single GIDEF center/organization.
+    47→/home/z/my-project/src/app/metiers/entrepreneuriat/page.tsx:418:          <p className="mt-2">© 2025 GIDEF — Tous droits réservés</p>
+    48→/home/z/my-project/src/app/metiers/entrepreneuriat/layout.tsx:4:  title: 'Entrepreneuriat — CreaPulse V2 | Horizon Emplois GIDEF',
+    49→/home/z/my-project/agent-ctx/4-api-infrastructure.md:59:- Upserts default GIDEF Île-de-France tenant
+    50→/home/z/my-project/src/lib/pdf-utils.ts:131:      'CreaPulse V2 — GIDEF Île-de-France — Document confidentiel',
+    51→/home/z/my-project/src/lib/pdf-utils.ts:163:  // GIDEF logo placeholder (orange badge)
+    52→/home/z/my-project/src/lib/pdf-utils.ts:175:    .text('GIDEF', logoX - logoW / 2, logoY - 6, {
+    53→/home/z/my-project/src/app/metiers/btp/page.tsx:408:          <p className="mt-2">© 2025 GIDEF — Tous droits réservés</p>
+    54→/home/z/my-project/src/app/metiers/btp/layout.tsx:4:  title: 'Métiers du BTP — CreaPulse V2 | Horizon Emplois GIDEF',
+    55→/home/z/my-project/src/lib/metiers-data.ts:528:    { title: 'Réseau GIDEF', description: 'Accompagnement personnalisé par le réseau GIDEF', icon: 'Users', duration: 'Variable' },
+    56→/home/z/my-project/src/lib/metiers-data.ts:536:    { label: 'Accompagnements GIDEF', value: '15 000', suffix: '/an' },
+    57→/home/z/my-project/src/app/metiers/social/page.tsx:379:          <p className="mt-2">© 2025 GIDEF — Tous droits réservés</p>
+    58→/home/z/my-project/src/app/metiers/social/layout.tsx:4:  title: 'Métiers du Social — CreaPulse V2 | Horizon Emplois GIDEF',
+    59→/home/z/my-project/src/app/metiers/formation/page.tsx:462:          <p className="mt-2">© 2025 GIDEF — Tous droits réservés</p>
+    60→/home/z/my-project/src/app/metiers/formation/layout.tsx:4:  title: 'Formation & Reconversion — CreaPulse V2 | Horizon Emplois GIDEF',
+    61→/home/z/my-project/src/app/metiers/test-ia/page.tsx:412:          <p className="mt-2">© 2025 GIDEF — Tous droits réservés</p>
+    62→/home/z/my-project/src/app/metiers/test-ia/layout.tsx:4:  title: 'Test IA — Horizon Emplois | CreaPulse V2 × GIDEF',
+    63→/home/z/my-project/src/app/metiers/numerique/page.tsx:379:          <p className="mt-2">© 2025 GIDEF — Tous droits réservés</p>
+    64→/home/z/my-project/src/app/metiers/numerique/layout.tsx:4:  title: 'Métiers du Numérique — CreaPulse V2 | Horizon Emplois GIDEF',
+    65→/home/z/my-project/src/app/layout.tsx:24:    default: 'CreaPulse V2 — Bureau Virtuel Entrepreneurial | Echo Entreprendre × GIDEF',
+    66→/home/z/my-project/src/app/layout.tsx:28:    'Votre bureau virtuel entrepreneurial : diagnostic, business plan, simulateur financier, accompagnement IA. Propulse par Echo Entreprendre et le reseau GIDEF Ile-de-France.',
+    67→/home/z/my-project/src/app/layout.tsx:34:    'GIDEF',
+    68→/home/z/my-project/src/app/layout.tsx:57:    description: 'Votre bureau virtuel entrepreneurial propulse par Echo Entreprendre et GIDEF',
+    69→/home/z/my-project/src/app/layout.tsx:63:    description: 'Votre bureau virtuel entrepreneurial propulse par Echo Entreprendre et GIDEF',
+    70→/home/z/my-project/src/lib/module-registry.ts:349:    description: "Explorez le réseau GIDEF et les acteurs de l'écosystème entrepreneurial.",
+    71→/home/z/my-project/src/app/besoin/decouvrir-idee/page.tsx:57:      'Rejoins un réseau dynamique porté par GIDEF Île-de-France et Echo Entreprendre. Accède au forum communautaire, bénéficie d\'un mentorat personnalisé et connects-toi avec des entrepreneurs qui partagent tes ambitions.',
+    72→/home/z/my-project/src/app/besoin/decouvrir-idee/layout.tsx:4:  title: 'Découvrir une idée — CreaPulse V2 | Echo Entreprendre × GIDEF',
+    73→/home/z/my-project/src/app/besoin/decouvrir-idee/layout.tsx:10:      'Explorez et validez votre idée de création d\'entreprise avec CreaPulse et le réseau GIDEF Île-de-France.',
+    74→/home/z/my-project/src/app/besoin/developper-activite/page.tsx:64:      'Utilise l\'annuaire du réseau GIDEF pour trouver des partenaires stratégiques, des mentors et des investisseurs. Participe au forum communautaire pour échanger avec tes pairs.',
+    75→/home/z/my-project/src/app/besoin/developper-activite/page.tsx:95:      'Trouve des partenaires, mentors et investisseurs dans l\'écosystème GIDEF Île-de-France. Filtre par secteur, expertise et localisation pour des connexions pertinentes.',
+    76→/home/z/my-project/src/app/besoin/developper-activite/layout.tsx:4:  title: 'Développer mon activité — CreaPulse V2 | Echo Entreprendre × GIDEF',
+    77→/home/z/my-project/src/app/besoin/developper-activite/layout.tsx:10:      'Passez à la vitesse supérieure grâce aux outils de pilotage, au réseau GIDEF et au programme Tremplin de CreaPulse.',
+    78→/home/z/my-project/src/components/auth/login-dialog.tsx:159:                onClick={() => toast.info('Contactez votre agence GIDEF pour reinitialiser votre mot de passe.')}
+    79→/home/z/my-project/src/app/besoin/creer-entreprise/page.tsx:110:      'Annuaire GIDEF, mise en relation avec des mentors, partenaires et conseillers. Accède à un écosystème entrepreneurial solidaire en Île-de-France.',
+    80→/home/z/my-project/src/app/besoin/creer-entreprise/layout.tsx:4:  title: 'Créer mon entreprise — CreaPulse V2 | Echo Entreprendre × GIDEF',
+    81→/home/z/my-project/src/app/page.tsx:84:import { ReseauGIDEFSection } from '@/components/landing/reseau-section'
+    82→/home/z/my-project/src/app/page.tsx:162:            {/* GIDEF Logo */}
+    83→/home/z/my-project/src/app/page.tsx:164:              src="/images/logo-gidef.svg"
+    84→/home/z/my-project/src/app/page.tsx:165:              alt="GIDEF Île-de-France"
+    85→/home/z/my-project/src/app/page.tsx:256:                Trouver mon agence GIDEF
+    86→/home/z/my-project/src/app/page.tsx:332:                      src="/images/logo-gidef.svg"
+    87→/home/z/my-project/src/app/page.tsx:333:                      alt="GIDEF"
+    88→/home/z/my-project/src/app/page.tsx:361:                    Trouver mon agence GIDEF
+    89→/home/z/my-project/src/app/page.tsx:525:        {/* Reseau GIDEF */}
+    90→/home/z/my-project/src/app/page.tsx:526:        <ReseauGIDEFSection />
+    91→/home/z/my-project/src/components/admin-plateforme/facturation.tsx:40:  { id: '1', name: 'GIDEF Paris Centre', plan: 'Enterprise', mrr: 299, usersCount: 68, nextBilling: '2025-01-15', status: 'actif' },
+    92→/home/z/my-project/src/components/admin-plateforme/facturation.tsx:41:  { id: '2', name: 'GIDEF Creteil', plan: 'Pro', mrr: 99, usersCount: 42, nextBilling: '2025-01-20', status: 'actif' },
+    93→/home/z/my-project/src/components/admin-plateforme/facturation.tsx:42:  { id: '3', name: 'GIDEF Nanterre', plan: 'Pro', mrr: 99, usersCount: 32, nextBilling: '2025-01-10', status: 'actif' },
+    94→/home/z/my-project/src/app/api/auth/register/route.ts:81:      where: { slug: 'gidef' },
+    95→/home/z/my-project/src/app/api/auth/register/route.ts:83:        name: 'GIDEF',
+    96→/home/z/my-project/src/app/api/auth/register/route.ts:84:        slug: 'gidef',
+    97→/home/z/my-project/src/app/globals.css:526:      content: "GIDEF — CreaPulse V2 — Document confidentiel";
+    98→/home/z/my-project/src/components/admin-plateforme/utilisateurs.tsx:39:  { id: '1', firstName: 'Sophie', lastName: 'Martin', email: 'sophie@gidef-paris.fr', role: 'Admin', organization: 'GIDEF Paris Centre', status: 'actif', lastLogin: '2024-12-18 09:30', createdAt: '2024-01-15' },
+    99→/home/z/my-project/src/components/admin-plateforme/utilisateurs.tsx:40:  { id: '2', firstName: 'Jean', lastName: 'Dupont', email: 'jean@gidef-paris.fr', role: 'Conseiller', organization: 'GIDEF Paris Centre', status: 'actif', lastLogin: '2024-12-17 14:20', createdAt: '2024-01-20' },
+   100→/home/z/my-project/src/components/admin-plateforme/utilisateurs.tsx:41:  { id: '3', firstName: 'Marie', lastName: 'Leroy', email: 'marie@gidef-creteil.fr', role: 'Admin', organization: 'GIDEF Creteil', status: 'actif', lastLogin: '2024-12-18 08:15', createdAt: '2024-02-20' },
+   101→/home/z/my-project/src/components/admin-plateforme/utilisateurs.tsx:42:  { id: '4', firstName: 'Pierre', lastName: 'Moreau', email: 'pierre@gidef-nanterre.fr', role: 'Admin', organization: 'GIDEF Nanterre', status: 'actif', lastLogin: '2024-12-16 16:45', createdAt: '2024-03-10' },
+   102→/home/z/my-project/src/components/admin-plateforme/utilisateurs.tsx:48:  { id: '10', firstName: 'Ahmed', lastName: 'Benali', email: 'ahmed@gmail.com', role: 'Beneficiaire', organization: 'GIDEF Paris Centre', status: 'actif', lastLogin: '2024-12-18 07:45', createdAt: '2024-03-05' },
+   103→/home/z/my-project/src/components/admin-plateforme/utilisateurs.tsx:49:  { id: '11', firstName: 'Fatima', lastName: 'Hassan', email: 'fatima@gmail.com', role: 'Beneficiaire', organization: 'GIDEF Creteil', status: 'actif', lastLogin: '2024-12-17 18:20', createdAt: '2024-04-12' },
+   104→/home/z/my-project/src/components/admin-plateforme/utilisateurs.tsx:50:  { id: '12', firstName: 'David', lastName: 'Nguyen', email: 'david@gmail.com', role: 'Beneficiaire', organization: 'GIDEF Paris Centre', status: 'actif', lastLogin: '2024-12-18 12:00', createdAt: '2024-05-01' },
+   105→/home/z/my-project/src/components/admin-plateforme/utilisateurs.tsx:52:  { id: '14', firstName: 'Hugo', lastName: 'Lambert', email: 'hugo@gmail.com', role: 'Beneficiaire', organization: 'GIDEF Nanterre', status: 'actif', lastLogin: '2024-12-17 09:15', createdAt: '2024-07-01' },
+   106→/home/z/my-project/src/components/admin-plateforme/utilisateurs.tsx:54:  { id: '16', firstName: 'Nathan', lastName: 'Girard', email: 'nathan@gmail.com', role: 'Beneficiaire', organization: 'GIDEF Paris Centre', status: 'actif', lastLogin: '2024-12-18 08:30', createdAt: '2024-08-01' },
+   107→/home/z/my-project/src/components/admin-plateforme/utilisateurs.tsx:55:  { id: '17', firstName: 'Emma', lastName: 'Bonnet', email: 'emma@gmail.com', role: 'Conseiller', organization: 'GIDEF Creteil', status: 'actif', lastLogin: '2024-12-18 10:45', createdAt: '2024-03-15' },
+   108→/home/z/my-project/src/components/admin-plateforme/utilisateurs.tsx:56:  { id: '18', firstName: 'Romain', lastName: 'Mercier', email: 'romain@gmail.com', role: 'Conseiller', organization: 'GIDEF Nanterre', status: 'actif', lastLogin: '2024-12-17 16:00', createdAt: '2024-04-01' },
+   109→/home/z/my-project/src/components/admin-plateforme/dashboard.tsx:60:  { name: 'GIDEF', utilisateurs: 142 },
+   110→/home/z/my-project/src/components/admin-plateforme/dashboard.tsx:77:  { name: 'GIDEF Paris', score: 72 },
+   111→/home/z/my-project/src/components/admin-plateforme/dashboard.tsx:78:  { name: 'GIDEF Creteil', score: 65 },
+   112→/home/z/my-project/src/components/admin-plateforme/dashboard.tsx:80:  { name: 'GIDEF Nanterre', score: 58 },
+   113→/home/z/my-project/src/components/landing/hero-section.tsx:163:            { ref: stat2.ref, count: stat2.count, suffix: '', label: 'agences GIDEF' },
+   114→/home/z/my-project/src/components/admin-plateforme/organisations.tsx:17:type OrgType = 'GIDEF' | 'Incubateur' | 'PEPITE' | 'CCI' | 'Formation'
+   115→/home/z/my-project/src/components/admin-plateforme/organisations.tsx:39:  { id: '1', name: 'GIDEF Paris Centre', type: 'GIDEF', city: 'Paris', usersCount: 68, plan: 'Enterprise', status: 'actif', createdAt: '2024-01-15', beneficiaires: 52, conseillers: 16, completionRate: 74, description: 'Agence principale GIDEF en Ile-de-France', contact: 'contact@gidef-paris.fr', members: [{ name: 'Sophie Martin', role: 'Admin', email: 'sophie@gidef-paris.fr' }, { name: 'Jean Dupont', role: 'Conseiller', email: 'jean@gidef-paris.fr' }] },
+   116→/home/z/my-project/src/components/admin-plateforme/organisations.tsx:40:  { id: '2', name: 'GIDEF Creteil', type: 'GIDEF', city: 'Creteil', usersCount: 42, plan: 'Pro', status: 'actif', createdAt: '2024-02-20', beneficiaires: 34, conseillers: 8, completionRate: 68, description: 'Agence GIDEF du Val-de-Marne', contact: 'contact@gidef-creteil.fr', members: [{ name: 'Marie Leroy', role: 'Admin', email: 'marie@gidef-creteil.fr' }] },
+   117→/home/z/my-project/src/components/admin-plateforme/organisations.tsx:41:  { id: '3', name: 'GIDEF Nanterre', type: 'GIDEF', city: 'Nanterre', usersCount: 32, plan: 'Pro', status: 'actif', createdAt: '2024-03-10', beneficiaires: 24, conseillers: 8, completionRate: 61, description: 'Agence GIDEF des Hauts-de-Seine', contact: 'contact@gidef-nanterre.fr', members: [{ name: 'Pierre Moreau', role: 'Admin', email: 'pierre@gidef-nanterre.fr' }] },
+   118→/home/z/my-project/src/components/admin-plateforme/organisations.tsx:50:  GIDEF: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300',
+   119→/home/z/my-project/src/components/admin-plateforme/organisations.tsx:110:                <Input placeholder="Ex: GIDEF Lyon" />
+   120→/home/z/my-project/src/components/admin-plateforme/organisations.tsx:118:                      <SelectItem value="GIDEF">GIDEF</SelectItem>
+   121→/home/z/my-project/src/components/admin-plateforme/organisations.tsx:167:            <SelectItem value="GIDEF">GIDEF</SelectItem>
+   122→/home/z/my-project/src/components/landing/footer-section.tsx:66:              Le bureau virtuel pour les entrepreneurs. Accompagné par le réseau GIDEF
+   123→/home/z/my-project/src/components/landing/footer-section.tsx:129:            &copy; 2025 CreaPulse - GIDEF Île-de-France. Tous droits réservés.
+   124→/home/z/my-project/src/components/landing/temoignages-section.tsx:40:      "L'accompagnement personnalisé et les outils de diagnostic m'ont aidé à trouver mon réseau GIDEF local.",
+   125→/home/z/my-project/src/app/api/admin-plateforme/stats/route.ts:174:        GIDEF_AGENCY: orgTypeMap['GIDEF_AGENCY'] || 0,
+   126→/home/z/my-project/src/components/conseiller/planning.tsx:114:    { id: 'p1', date: offsetDate(0), startTime: '09:00', endTime: '10:00', beneficiaryId: 'b1', beneficiaryName: 'Amadou Diallo', beneficiaryInitials: 'AD', type: 'suivi', mode: 'physique', location: 'GIDEF Paris - Salle A', notes: 'Suivi business plan Afrika Fusion.' },
+   127→/home/z/my-project/src/components/conseiller/planning.tsx:116:    { id: 'p3', date: offsetDate(1), startTime: '09:30', endTime: '11:00', beneficiaryId: 'b3', beneficiaryName: 'Marc Renaud', beneficiaryInitials: 'MR', type: 'atelier', mode: 'physique', location: 'GIDEF Paris - Salle B', notes: 'Atelier Business Model Canvas.' },
+   128→/home/z/my-project/src/components/conseiller/planning.tsx:119:    { id: 'p6', date: offsetDate(2), startTime: '14:00', endTime: '16:00', beneficiaryId: 'b6', beneficiaryName: 'Julie Moreau', beneficiaryInitials: 'JM', type: 'atelier', mode: 'physique', location: 'GIDEF Paris - Salle A', notes: 'Atelier financement. Groupe de 5.' },
+   129→/home/z/my-project/src/components/conseiller/planning.tsx:120:    { id: 'p7', date: offsetDate(3), startTime: '09:00', endTime: '10:00', beneficiaryId: 'b7', beneficiaryName: 'Thomas Leroy', beneficiaryInitials: 'TL', type: 'bilan', mode: 'physique', location: 'GIDEF Paris - Salle C', notes: 'Bilan mi-parcours UrbanFarm.' },
+   130→/home/z/my-project/src/components/conseiller/planning.tsx:123:    { id: 'p10', date: offsetDate(4), startTime: '10:00', endTime: '11:30', beneficiaryId: 'b10', beneficiaryName: 'Nadia Bouzid', beneficiaryInitials: 'NB', type: 'bilan', mode: 'physique', location: 'GIDEF Paris - Salle A', notes: 'Bilan complet MedConnect.' },
+   131→/home/z/my-project/src/components/conseiller/planning.tsx:124:    { id: 'p11', date: offsetDate(4), startTime: '14:00', endTime: '15:00', beneficiaryId: 'b1', beneficiaryName: 'Amadou Diallo', beneficiaryInitials: 'AD', type: 'atelier', mode: 'physique', location: 'GIDEF Paris - Salle B', notes: 'Atelier marketing digital.' },
+   132→/home/z/my-project/src/components/conseiller/planning.tsx:128:    { id: 'p15', date: offsetDate(4), startTime: '09:00', endTime: '10:00', beneficiaryId: 'b5', beneficiaryName: 'Karim Benali', beneficiaryInitials: 'KB', type: 'bilan', mode: 'physique', location: 'GIDEF Paris - Salle C', notes: 'Bilan SnapClean.' },
+   133→/home/z/my-project/src/app/api/admin-plateforme/modules-sync/route.ts:59:  { code: 'annuaire', name: 'Annuaire', description: "Réseau GIDEF et écosystème", category: 'ECOSYSTEM', phase: 'ECOSYSTEM', sortOrder: 20 },
+   134→/home/z/my-project/src/components/landing/reseau-section.tsx:25:const gidefCards = [
+   135→/home/z/my-project/src/components/landing/reseau-section.tsx:27:    name: 'GIDEF Paris',
+   136→/home/z/my-project/src/components/landing/reseau-section.tsx:33:    name: 'GIDEF Creteil',
+   137→/home/z/my-project/src/components/landing/reseau-section.tsx:39:    name: 'GIDEF Nanterre',
+   138→/home/z/my-project/src/components/landing/reseau-section.tsx:46:export function ReseauGIDEFSection() {
+   139→/home/z/my-project/src/components/landing/reseau-section.tsx:61:            Réseau GIDEF
+   140→/home/z/my-project/src/components/landing/reseau-section.tsx:64:            Trouvez votre agence GIDEF{' '}
+   141→/home/z/my-project/src/components/landing/reseau-section.tsx:95:        {/* GIDEF cards */}
+   142→/home/z/my-project/src/components/landing/reseau-section.tsx:103:          {gidefCards.map((gidef) => (
+   143→/home/z/my-project/src/components/landing/reseau-section.tsx:104:            <motion.div key={gidef.name} variants={scaleIn}>
+   144→/home/z/my-project/src/components/landing/reseau-section.tsx:111:                    <CardTitle className="text-lg">{gidef.name}</CardTitle>
+   145→/home/z/my-project/src/components/landing/reseau-section.tsx:117:                    {gidef.address}
+   146→/home/z/my-project/src/components/landing/reseau-section.tsx:121:                    {gidef.hours}
+   147→/home/z/my-project/src/components/landing/reseau-section.tsx:125:                    {gidef.phone}
+   148→/home/z/my-project/src/components/conseiller/dashboard.tsx:338:              GIDEF Paris
+   149→/home/z/my-project/src/app/api/admin-plateforme/organisations/route.ts:22:  type: z.enum(['FORMATION_CENTER', 'GIDEF_AGENCY', 'INCUBATOR', 'PEPITE', 'CO_WORKING']),
+   150→/home/z/my-project/src/components/bureau/sidebar.tsx:277:      {/* Logo area — CreaPulse + GIDEF branding */}
+   151→/home/z/my-project/src/components/bureau/sidebar.tsx:287:              <span className="text-[10px] text-neutral-400 leading-tight">par GIDEF</span>
+   152→/home/z/my-project/src/components/bureau/sidebar.tsx:290:              <img src="/images/logo-gidef.svg" alt="GIDEF" className="h-6 w-auto shrink-0 rounded" />
+   153→/home/z/my-project/src/components/bureau/sidebar.tsx:297:            <img src="/images/logo-gidef.svg" alt="GIDEF" className="h-5 w-auto shrink-0 rounded" />
+   154→/home/z/my-project/src/components/bureau/welcome.tsx:122:    tooltip: 'Bénéficiez de l\'accompagnement personnalisé d\'un conseiller GIDEF pour structurer et lancer votre projet.',
+   155→/home/z/my-project/src/components/metiers/metiers-navbar.tsx:164:              Propulsé par GIDEF Île-de-France
+   156→/home/z/my-project/src/components/metiers/metiers-navbar.tsx:184:              <li>Trouver mon agence GIDEF</li>
+   157→/home/z/my-project/src/components/metiers/metiers-navbar.tsx:195:            &copy; {new Date().getFullYear()} CreaPulse - GIDEF Île-de-France. Tous droits réservés.
+   158→/home/z/my-project/src/components/bureau/export/passeport-pdf.tsx:160:                <p className="text-lg font-bold text-[#00838F]">GIDEF Île-de-France</p>
+   159→/home/z/my-project/src/components/bureau/export/passeport-pdf.tsx:432:                  <p className="text-xs text-gray-400">Cachet de GIDEF</p>
+   160→/home/z/my-project/src/components/bureau/export/passeport-pdf.tsx:445:            GIDEF Île-de-France — CreaPulse V2 — Document confidentiel
+   161→/home/z/my-project/src/components/bureau/export/business-plan-pdf.tsx:195:                GIDEF Île-de-France
+   162→/home/z/my-project/src/components/bureau/export/business-plan-pdf.tsx:218:            <p>Document confidentiel — CreaPulse V2 — GIDEF Île-de-France</p>
+   163→/home/z/my-project/src/components/bureau/modules/bilan-ia.tsx:224:    lines.push('  BILAN IA — CreaPulse / GIDEF')
+   164→/home/z/my-project/src/components/bureau/modules/annuaire.tsx:52:  | 'GIDEF'
+   165→/home/z/my-project/src/components/bureau/modules/annuaire.tsx:85:  GIDEF: {
+   166→/home/z/my-project/src/components/bureau/modules/annuaire.tsx:86:    label: 'Agence GIDEF',
+   167→/home/z/my-project/src/components/bureau/modules/annuaire.tsx:164:    name: 'GIDEF Paris Centre',
+   168→/home/z/my-project/src/components/bureau/modules/annuaire.tsx:165:    type: 'GIDEF',
+   169→/home/z/my-project/src/components/bureau/modules/annuaire.tsx:171:    email: 'paris-centre@gidef.fr',
+   170→/home/z/my-project/src/components/bureau/modules/annuaire.tsx:172:    website: 'https://www.gidef.fr',
+   171→/home/z/my-project/src/components/bureau/modules/annuaire.tsx:174:      'Agence GIDEF de Paris Centre, accompagnement complet des créateurs et repreneurs d\'entreprise dans le cœur de Paris.',
+   172→/home/z/my-project/src/components/bureau/modules/annuaire.tsx:181:    name: 'GIDEF Créteil Val-de-Marne',
+   173→/home/z/my-project/src/components/bureau/modules/annuaire.tsx:182:    type: 'GIDEF',
+   174→/home/z/my-project/src/components/bureau/modules/annuaire.tsx:188:    email: 'creteil@gidef.fr',
+   175→/home/z/my-project/src/components/bureau/modules/annuaire.tsx:189:    website: 'https://www.gidef.fr',
+   176→/home/z/my-project/src/components/bureau/modules/annuaire.tsx:191:      'L\'agence GIDEF du Val-de-Marne accompagne les porteurs de projets du département.',
+   177→/home/z/my-project/src/components/bureau/modules/annuaire.tsx:315:    name: 'GIDEF Nanterre-La Défense',
+   178→/home/z/my-project/src/components/bureau/modules/annuaire.tsx:316:    type: 'GIDEF',
+   179→/home/z/my-project/src/components/bureau/modules/annuaire.tsx:322:    email: 'nanterre@gidef.fr',
+   180→/home/z/my-project/src/components/bureau/modules/annuaire.tsx:323:    website: 'https://www.gidef.fr',
+   181→/home/z/my-project/src/components/bureau/modules/annuaire.tsx:325:      'Agence GIDEF de la plateforme de La Défense, accompagnement des projets innovants.',
+   182→/home/z/my-project/src/components/bureau/modules/passeport.tsx:429:              Passeport Entrepreneurial GIDEF
+   183→/home/z/my-project/src/components/bureau/modules/privacy-dashboard.tsx:670:          ou le Délégué à la Protection des Données (DPO) du GIDEF Île-de-France.
+   184→/home/z/my-project/src/app/api/marche/route.ts:364:*Synthèse générée automatiquement — à compléter avec votre conseiller GIDEF.*`
+   185→/home/z/my-project/src/app/api/creascope/ai-suggest/route.ts:194:          content: `Tu es un conseiller entrepreneurial expert du GIDEF, spécialisé dans l'accompagnement des créateurs d'entreprise.
+   186→/home/z/my-project/src/components/bureau/modules/certifications.tsx:102:      credentialId: 'GIDEF-CREATEUR-CERTIFIE-A1B2C3D4',
+   187→/home/z/my-project/src/components/bureau/modules/certifications.tsx:130:      credentialId: 'GIDEF-ANALYSTE-MARCHE-A1B2C3D4',
+   188→/home/z/my-project/src/components/bureau/modules/certifications.tsx:150:      id: 'entrepreneur-gidef',
+   189→/home/z/my-project/src/components/bureau/modules/certifications.tsx:151:      name: 'Entrepreneur GIDEF',
+   190→/home/z/my-project/src/components/bureau/modules/certifications.tsx:152:      description: 'Certification complète du parcours entrepreneurial GIDEF Ile-de-France',
+   191→/home/z/my-project/src/components/bureau/modules/certifications.tsx:228:          <p className="text-sm text-muted-foreground">Validez vos compétences et obtenez des certifications GIDEF</p>
+   192→/home/z/my-project/src/app/api/creascope/sessions/[id]/route.ts:144:        content: `Tu es un conseiller entrepreneurial expert dans l'accompagnement de créateurs d'entreprise au sein du GIDEF.
+   193→/home/z/my-project/src/app/api/financier/route.ts:243:    const systemPrompt = `Tu es un expert-comptable et analyste financier spécialisé dans l'accompagnement des créateurs d'entreprise. Tu travailles pour CreaPulse / GIDEF, un réseau d'accompagnement entrepreneurial en Île-de-France.
+   194→/home/z/my-project/src/app/api/financier/route.ts:280:- Points à discuter avec le conseiller GIDEF
+   195→/home/z/my-project/src/components/bureau/modules/telechargements.tsx:323:                Chaque PDF est généré à partir de vos données réelles. Les documents sont confidentiels et destinés à vous et votre conseiller GIDEF.
+   196→/home/z/my-project/src/components/bureau/modules/telechargements.tsx:438:            Pour tout problème, contactez votre conseiller GIDEF ou vérifiez que les modules correspondants sont complétés.
+   197→/home/z/my-project/src/app/api/bilan/route.ts:265:  return `Tu es un expert en accompagnement entrepreneurial. Tu dois générer un BILAN COMPLET et PERSONNALISÉ pour un créateur d'entreprise sur la plateforme CreaPulse (GIDEF).
+   198→/home/z/my-project/src/app/api/ia/route.ts:35:const SYSTEM_PROMPT = `Tu es l'assistant IA de CreaPulse, un bureau virtuel pour les entrepreneurs en France, proposé par GIDEF / GIDEF Île-de-France.
+   199→/home/z/my-project/src/app/api/ia/route.ts:50:- Mentionne GIDEF comme partenaire d'accompagnement quand c'est pertinent
+   200→/home/z/my-project/src/app/api/ia/route.ts:90:    'annuaire': `L'utilisateur explore l'annuaire des partenaires GIDEF. Aide-le à identifier les bons interlocuteurs pour son projet et à préparer ses rendez-vous avec les experts et organismes partenaires.`,
+
+[showing lines 1-200 of 252; use offset=201 with limit to continue reading]
