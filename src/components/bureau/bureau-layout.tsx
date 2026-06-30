@@ -63,6 +63,9 @@ const MarketingCommercialeModule = dynamic(() => import('./modules/marketing-com
 const SatisfactionFeedbackModule = dynamic(() => import('./modules/satisfaction-feedback').then(m => ({ default: m.SatisfactionFeedbackModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const MindMapModule = dynamic(() => import('./modules/mind-map').then(m => ({ default: m.MindMapModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 const GamificationModule = dynamic(() => import('./modules/gamification').then(m => ({ default: m.GamificationModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const CrmModule = dynamic(() => import('./modules/crm').then(m => ({ default: m.CrmModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const ELearningModule = dynamic(() => import('./modules/e-learning').then(m => ({ default: m.ELearningModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+const TresorerieModule = dynamic(() => import('./modules/tresorerie').then(m => ({ default: m.TresorerieModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 
 /* ─── UI imports (used by SectionOverview and ModulePlaceholder) ─── */
 import { Card, CardContent } from '@/components/ui/card'
@@ -240,6 +243,9 @@ function BureauContent() {
         {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'mind-map' && <MindMapModule />}
         {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'satisfaction-feedback' && <SatisfactionFeedbackModule />}
         {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'gamification' && <GamificationModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'crm' && <CrmModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'e-learning' && <ELearningModule />}
+        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'tresorerie' && <TresorerieModule />}
         {/* Module is disabled — show placeholder */}
         {modulesLoaded && currentModule && !isModuleActive(currentModule) && <ModulePlaceholder moduleId={currentModule} />}
         {currentSection === 'strategie' && !currentModule && <PipelineV3Overview />}

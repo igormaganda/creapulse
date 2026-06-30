@@ -28,6 +28,7 @@ import {
   LayoutGrid, Brain, Construction,
   Clock, AlertTriangle, RotateCcw,
   Megaphone, Star, GitBranch, Trophy,
+  Briefcase, BookOpen, Wallet,
 } from 'lucide-react'
 
 /* ─── Types ─── */
@@ -325,7 +326,23 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     core: false,
   },
 
-  // ═══ ÉCOSYSTÈME (4 modules) ═══
+  // ═══ STRATÉGIE — Suite (2 modules) ═══
+  {
+    code: 'tresorerie',
+    label: 'Trésorerie',
+    description: 'Suivi de vos flux de trésorerie, prévisions et solde en temps réel.',
+    section: 'strategie',
+    category: 'STRATEGY',
+    phase: 'STRATEGY',
+    icon: Wallet,
+    iconName: 'Wallet',
+    badge: 'Nouveau',
+    color: 'text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20',
+    sortOrder: 22,
+    core: false,
+  },
+
+  // ═══ ÉCOSYSTÈME (5 modules) ═══
   {
     code: 'annuaire',
     label: 'Annuaire',
@@ -380,8 +397,22 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     sortOrder: 23,
     core: false,
   },
+  {
+    code: 'crm',
+    label: 'CRM',
+    description: 'Gérez vos contacts, pipeline commercial et opportunités d\'affaires.',
+    section: 'ecosysteme',
+    category: 'ECOSYSTEM',
+    phase: 'ECOSYSTEM',
+    icon: Briefcase,
+    iconName: 'Briefcase',
+    badge: 'Nouveau',
+    color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20',
+    sortOrder: 24,
+    core: false,
+  },
 
-  // ═══ PILOTAGE (8 modules) ═══
+  // ═══ PILOTAGE (10 modules) ═══
   {
     code: 'tremplin',
     label: 'Tremplin',
@@ -490,6 +521,20 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     badge: 'Nouveau',
     color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20',
     sortOrder: 38,
+    core: false,
+  },
+  {
+    code: 'e-learning',
+    label: 'E-Learning',
+    description: 'Formations interactives et parcours d\'apprentissage entrepreneurial.',
+    section: 'pilotage',
+    category: 'PILOTAGE',
+    phase: 'LAUNCH',
+    icon: BookOpen,
+    iconName: 'BookOpen',
+    badge: 'Nouveau',
+    color: 'text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/20',
+    sortOrder: 39,
     core: false,
   },
   {

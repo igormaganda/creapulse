@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -210,23 +211,20 @@ const DEFAULT_DATA: ELearningData = { formations: {}, badges: {}, xp: 0, streak:
 // ─── Main Component ─────────────────────────
 
 export function ELearningModule() {
-  const [isLoading, setIsLoading] = useState(true)
-  const [data, setData] = useState<ELearningData>(DEFAULT_DATA)
+  const [data, setData] = useState<ELearningData>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY)
+      if (saved) return { ...DEFAULT_DATA, ...JSON.parse(saved) }
+    } catch { /* ignore */ }
+    return DEFAULT_DATA
+  })
   const [searchQuery, setSearchQuery] = useState('')
   const [catFilter, setCatFilter] = useState<string>('all')
   const [diffFilter, setDiffFilter] = useState<string>('all')
   const [activeFormation, setActiveFormation] = useState<Formation | null>(null)
   const [selectedBadge, setSelectedBadge] = useState<BadgeItem | null>(null)
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) setData({ ...DEFAULT_DATA, ...JSON.parse(saved) })
-    } catch { /* ignore */ }
-    setIsLoading(false)
-  }, [])
-
-  useEffect(() => { if (!isLoading) localStorage.setItem(STORAGE_KEY, JSON.stringify(data)) }, [isLoading, data])
+  useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)) }, [data])
 
   // ─── Helpers ───────────────────────────────
   const getFormationProgress = useCallback((f: Formation) => {
@@ -288,14 +286,20 @@ export function ELearningModule() {
     check('champion', completedFormations.length >= 8)
     check('expert', completedFormations.length >= 12)
 
-    const badges = { ...data.badges, ...updates }
-    if (Object.keys(updates).length > 0 && JSON.stringify(badges) !== JSON.stringify(data.badges)) {
-      setData(prev => ({ ...prev, badges }))
-    }
-    return BADGES_CATALOG.map(b => ({ ...b, ...(badges[b.id] || { unlocked: false, unlockedAt: null }) }))
+    const mergedBadges = { ...data.badges, ...updates }
+    const list = BADGES_CATALOG.map(b => ({ ...b, ...(mergedBadges[b.id] || { unlocked: false, unlockedAt: null }) }))
+    return { mergedBadges, list }
   }, [data])
 
-  const unlockedCount = earnedBadges.filter(b => b.unlocked).length
+  // Sync badge updates via render-time adjustment (avoids setState-in-effect)
+  const [prevBadges, setPrevBadges] = useState(data.badges)
+  if (earnedBadges.mergedBadges !== prevBadges &&
+      JSON.stringify(earnedBadges.mergedBadges) !== JSON.stringify(data.badges)) {
+    setPrevBadges(earnedBadges.mergedBadges)
+    setData(prev => ({ ...prev, badges: earnedBadges.mergedBadges }))
+  }
+
+  const unlockedCount = earnedBadges.list.filter(b => b.unlocked).length
 
   // ─── Filtered formations ──────────────────
   const filteredFormations = useMemo(() => {
@@ -311,17 +315,7 @@ export function ELearningModule() {
 
   const totalCompleted = FORMATIONS_CATALOG.filter(f => data.formations[f.id]?.completedAt).length
 
-  // ─── Loading skeleton ─────────────────────
-  if (isLoading) {
-    return (
-      <div className="p-4 md:p-6 lg:p-8 space-y-6">
-        <div className="h-8 w-64 bg-muted animate-pulse rounded" />
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">{[...Array(4)].map((_, i) => <div key={i} className="h-20 bg-muted animate-pulse rounded-xl" />)}</div>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">{[...Array(6)].map((_, i) => <div key={i} className="h-48 bg-muted animate-pulse rounded-xl" />)}</div>
-      </div>
-    )
-  }
-
+  // ─── Main render ───────────────────────
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="flex-1 overflow-y-auto">
       {/* Header */}
@@ -514,7 +508,7 @@ export function ELearningModule() {
             </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {earnedBadges.map(badge => (
+            {earnedBadges.list.map(badge => (
               <motion.div key={badge.id} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
                 <Card className={cn('cursor-pointer hover:shadow-md transition-all h-full', badge.unlocked ? 'border-violet-300 dark:border-violet-800' : 'opacity-60')} onClick={() => setSelectedBadge(badge)}>
                   <CardContent className="flex flex-col items-center text-center p-4">

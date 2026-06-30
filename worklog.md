@@ -656,3 +656,41 @@ Stage Summary:
 - 0 new lint errors introduced across all 3 features
 - All 3 features compile successfully (verified via Turbopack 200 response)
 - Pre-existing environment issues: Prisma client initialization, articles 500
+---
+Task ID: p3-fixes
+Agent: Main Orchestrator
+Task: Fix all pre-existing lint errors in source files
+
+Work Log:
+- Fixed e-learning.tsx: Added missing Input import from @/components/ui/input
+- Fixed e-learning.tsx: Moved setData out of useMemo (badge computation) — separated into pure useMemo + render-time state sync
+- Fixed e-learning.tsx: Replaced localStorage-loading useEffect with lazy useState initializer
+- Fixed e-learning.tsx: Removed unused isLoading state and loading skeleton
+- Fixed crm.tsx:143 — Replaced useEffect+setForm with render-time state adjustment pattern (prevOpen tracking)
+- Fixed crm.tsx:220 — Same render-time pattern for DealFormDialog
+- Fixed tresorerie.tsx:108 — Same render-time pattern for TxFormDialog
+
+Stage Summary:
+- Lint: 9 errors → 4 errors (only test-db.cjs require imports remain)
+- 0 warnings in project source files
+- All fixes use React-recommended patterns (lazy initializers, render-time state adjustment)
+- Page compilation verified: GET / 200
+---
+Task ID: p3-modules
+Agent: Main Orchestrator
+Task: Wire orphaned modules (CRM, E-Learning, Trésorerie) into platform
+
+Work Log:
+- Added Briefcase, BookOpen, Wallet icon imports to module-registry.ts
+- Registered 'crm' module: ecosysteme section, sortOrder 24, emerald theme, badge 'Nouveau'
+- Registered 'e-learning' module: pilotage section, sortOrder 39, violet theme, badge 'Nouveau'
+- Registered 'tresorerie' module: strategie section, sortOrder 22, teal theme, badge 'Nouveau'
+- Added 3 dynamic imports to bureau-layout.tsx (CrmModule, ELearningModule, TresorerieModule)
+- Added 3 rendering lines in BureauContent
+- Updated section comments: ÉCOSYSTÈME 4→5 modules, PILOTAGE 8→10 modules
+
+Stage Summary:
+- Module registry: 35 → 38 modules
+- All 3 orphaned modules now appear in sidebar, section overview, and render when active
+- Lint: 0 source code errors (only test-db.cjs pre-existing)
+- Compilation: GET / 200 verified

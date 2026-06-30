@@ -134,17 +134,16 @@ function ContactFormDialog({
   initial?: Contact
   title: string
 }) {
-  const [form, setForm] = useState({
+  const getInitialForm = () => ({
     nom: initial?.nom || '', email: initial?.email || '', telephone: initial?.telephone || '',
     entreprise: initial?.entreprise || '', role: (initial?.role || 'prospect') as ContactRole, notes: initial?.notes || '',
   })
-
-  useEffect(() => {
-    if (open) setForm({
-      nom: initial?.nom || '', email: initial?.email || '', telephone: initial?.telephone || '',
-      entreprise: initial?.entreprise || '', role: (initial?.role || 'prospect') as ContactRole, notes: initial?.notes || '',
-    })
-  }, [open, initial])
+  const [form, setForm] = useState(getInitialForm)
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
+    if (open) setForm(getInitialForm())
+  }
 
   const handleSubmit = () => {
     if (!form.nom.trim()) { toast.error('Le nom est requis'); return }
@@ -214,11 +213,13 @@ function DealFormDialog({
   open: boolean; onOpenChange: (open: boolean) => void
   onSave: (data: Omit<Deal, 'id'>) => void; contacts: Contact[]
 }) {
-  const [form, setForm] = useState({ contactId: '', valeur: '', notes: '', stage: 'prospect' as PipelineStage })
-
-  useEffect(() => {
-    if (open) setForm({ contactId: '', valeur: '', notes: '', stage: 'prospect' })
-  }, [open])
+  const getInitialForm = () => ({ contactId: '', valeur: '', notes: '', stage: 'prospect' as PipelineStage })
+  const [form, setForm] = useState(getInitialForm)
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
+    if (open) setForm(getInitialForm())
+  }
 
   const handleSubmit = () => {
     if (!form.contactId) { toast.error('Sélectionnez un contact'); return }

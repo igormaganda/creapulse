@@ -103,9 +103,13 @@ function TxFormDialog({ open, onOpenChange, onSave }: {
   open: boolean; onOpenChange: (o: boolean) => void;
   onSave: (tx: Omit<Transaction, 'id'>) => void
 }) {
-  const [form, setForm] = useState({ date: new Date().toISOString().split('T')[0], type: 'entree' as TxType, category: 'ventes' as TxCategory, montant: '', description: '', tiers: '' })
-
-  useEffect(() => { if (open) setForm({ date: new Date().toISOString().split('T')[0], type: 'entree', category: 'ventes', montant: '', description: '', tiers: '' }) }, [open])
+  const getInitialForm = () => ({ date: new Date().toISOString().split('T')[0], type: 'entree' as TxType, category: 'ventes' as TxCategory, montant: '', description: '', tiers: '' })
+  const [form, setForm] = useState(getInitialForm)
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
+    if (open) setForm(getInitialForm())
+  }
 
   const submit = () => {
     if (!form.montant || isNaN(Number(form.montant)) || Number(form.montant) <= 0) { toast.error('Montant invalide'); return }
