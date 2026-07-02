@@ -1,19 +1,9 @@
 import { NextRequest } from 'next/server'
-import { success, Errors, getTokenFromHeader, handleApiError } from '@/lib/api-response'
-import { verifyToken } from '@/lib/auth'
+import { success, Errors, handleApiError } from '@/lib/api-response'
+import { withAdminAuth } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 import { z } from 'zod'
 import { AuditAction } from '@prisma/client'
-
-// ─── Admin guard ────────────────────────────
-
-async function requireAdmin(request: NextRequest) {
-  const token = getTokenFromHeader(request)
-  if (!token) throw new Error('Unauthorized')
-  const payload = await verifyToken(token)
-  if (payload.role !== 'ADMIN') throw new Error('Forbidden')
-  return { userId: payload.userId, tenantId: payload.tenantId }
-}
 
 // ─── Zod schema pour la mise à jour ─────────
 
@@ -76,17 +66,19 @@ const DEFAULT_PAA_CONFIG = {
 
 export async function GET(request: NextRequest) {
   try {
-    const admin = await requireAdmin(request)
+    const auth = await withAdminAuth(request)
+    if (!auth) return auth
+    const { tenantId } = auth
 
     const { searchParams } = new URL(request.url)
-    const tenantId = searchParams.get('tenantId') || admin.tenantId
+    const effectiveTenantId = searchParams.get('tenantId') || tenantId
 
     // Si la section 'paa' est demandée, retourner la config PAA
     const section = searchParams.get('section')
     if (section === 'paa') {
       // Use first tenant or admin's tenant for PAA config
       const tenantForPaa = await db.tenant.findUnique({
-        where: { id: admin.tenantId },
+        where: { id: tenantId },
         select: { id: true, settings: true },
       })
       if (!tenantForPaa) {
@@ -121,7 +113,7 @@ export async function GET(request: NextRequest) {
 
     // Récupérer un tenant spécifique
     const tenant = await db.tenant.findUnique({
-      where: { id: tenantId },
+      where: { id: effectiveTenantId },
       select: {
         id: true,
         name: true,
@@ -152,11 +144,6 @@ export async function GET(request: NextRequest) {
 
     return success(tenant, 'Configuration du tenant')
   } catch (err) {
-    if (err instanceof Error && (err.message === 'Unauthorized' || err.message === 'Forbidden')) {
-      return err.message === 'Unauthorized'
-        ? Errors.unauthorized('Authentification requise')
-        : Errors.forbidden('Accès réservé aux administrateurs')
-    }
     return handleApiError(err)
   }
 }
@@ -165,14 +152,16 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const admin = await requireAdmin(request)
+    const auth = await withAdminAuth(request)
+    if (!auth) return auth
+    const { userId, tenantId } = auth
     const body = await request.json()
     const data = patchPaaConfigSchema.parse(body)
 
     // Find tenant (use admin tenant or first available)
     let targetTenantId = data.tenantId
     if (targetTenantId === 'platform') {
-      targetTenantId = admin.tenantId
+      targetTenantId = tenantId
     }
 
     const existingTenant = await db.tenant.findUnique({
@@ -213,7 +202,7 @@ export async function PATCH(request: NextRequest) {
       await tx.auditLog.create({
         data: {
           tenantId: targetTenantId!,
-          userId: admin.userId,
+          userId,
           action: AuditAction.SETTINGS_UPDATE,
           entityType: 'Tenant',
           entityId: targetTenantId!,
@@ -229,11 +218,6 @@ export async function PATCH(request: NextRequest) {
 
     return success({ paa: updatedPaaConfig }, 'Configuration PAA mise à jour avec succès')
   } catch (err) {
-    if (err instanceof Error && (err.message === 'Unauthorized' || err.message === 'Forbidden')) {
-      return err.message === 'Unauthorized'
-        ? Errors.unauthorized('Authentification requise')
-        : Errors.forbidden('Accès réservé aux administrateurs')
-    }
     return handleApiError(err)
   }
 }
@@ -242,7 +226,9 @@ export async function PATCH(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const admin = await requireAdmin(request)
+    const auth = await withAdminAuth(request)
+    if (!auth) return auth
+    const { userId } = auth
     const body = await request.json()
     const data = updateConfigSchema.parse(body)
 
@@ -279,7 +265,7 @@ export async function PUT(request: NextRequest) {
       await tx.auditLog.create({
         data: {
           tenantId: data.tenantId,
-          userId: admin.userId,
+          userId,
           action: AuditAction.SETTINGS_UPDATE,
           entityType: 'Tenant',
           entityId: data.tenantId,
@@ -295,11 +281,6 @@ export async function PUT(request: NextRequest) {
 
     return success(updatedTenant, 'Configuration mise à jour avec succès')
   } catch (err) {
-    if (err instanceof Error && (err.message === 'Unauthorized' || err.message === 'Forbidden')) {
-      return err.message === 'Unauthorized'
-        ? Errors.unauthorized('Authentification requise')
-        : Errors.forbidden('Accès réservé aux administrateurs')
-    }
     return handleApiError(err)
   }
 }

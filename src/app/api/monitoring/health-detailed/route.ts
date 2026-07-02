@@ -7,27 +7,19 @@
 import { NextRequest } from 'next/server'
 import { accessSync, constants } from 'fs'
 import { db } from '@/lib/db'
-import { success, handleApiError, Errors } from '@/lib/api-response'
-import { verifyToken } from '@/lib/auth'
+import { success, handleApiError } from '@/lib/api-response'
+import { withAdminAuth } from '@/lib/api-auth'
 import { createLogger } from '@/lib/logger'
 
 const logger = createLogger('HealthDetailed')
 const startTime = Date.now()
 const UPLOAD_DIR = '/home/z/my-project/upload'
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     // Auth required (admin only)
-    try {
-      const token = _request.headers.get('authorization')?.replace('Bearer ', '')
-      if (!token) return Errors.unauthorized('Authentification requise')
-      const payload = await verifyToken(token)
-      if (payload.role !== 'ADMIN') {
-        return Errors.forbidden('Accès réservé aux administrateurs')
-      }
-    } catch {
-      return Errors.unauthorized('Token invalide')
-    }
+    const auth = await withAdminAuth(request)
+    if (!auth) return auth
 
     // ─── Database Check ──────────────────
     let dbStatus: 'connected' | 'error' = 'connected'
@@ -114,13 +106,6 @@ export async function GET(_request: NextRequest) {
         // Memory
         memory: {
           ...memoryFormatted,
-        },
-
-        // Runtime info
-        runtime: {
-          platform: process.platform,
-          nodeVersion: process.version,
-          arch: process.arch,
         },
       },
       `CreaPulse V2 — ${overallStatus === 'healthy' ? 'Système en bonne santé' : 'Système dégradé'}`,

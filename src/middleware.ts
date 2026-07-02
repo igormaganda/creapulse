@@ -1,7 +1,8 @@
 // ============================================
 // CreaPulse V2 — Next.js Middleware
-// Adds security headers to all matched responses.
+// Adds security headers to all responses.
 // Enforces JWT auth on protected routes.
+// Validates CSRF on all mutating API requests.
 // ============================================
 
 import { NextResponse } from 'next/server'
@@ -24,6 +25,20 @@ const securityHeaders: Record<string, string> = {
 
 const PROTECTED_PREFIXES = ['/bureau', '/conseiller', '/admin-centre', '/admin-plateforme']
 
+// ─── CSRF exempt API routes ────────────────
+// These endpoints are called by external services or non-browser clients
+// and legitimately don't send CSRF tokens.
+const CSRF_EXEMPT_PREFIXES = [
+  '/api/auth/',          // Login/register/refresh — no session yet
+  '/api/health',         // Health checks (monitoring)
+  '/api/monitoring/',    // Monitoring endpoints
+  '/api/export/demo/',   // Public demo exports
+  '/api/geo/',           // Public geo API proxy
+  '/api/france-travail/', // FT API proxy (external callbacks)
+]
+
+const MUTATING_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE']
+
 // ─── JWT Verification ───────────────────────
 
 async function verifySessionToken(token: string): Promise<boolean> {
@@ -31,31 +46,70 @@ async function verifySessionToken(token: string): Promise<boolean> {
     const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET)
     await jwtVerify(token, secret)
     return true
-  } catch {
+  }
+  catch {
     return false
   }
+}
+
+// ─── CSRF Validation ───────────────────────
+
+function isCsrfExempt(pathname: string): boolean {
+  return CSRF_EXEMPT_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+}
+
+function validateCsrf(request: NextRequest): boolean {
+  const cookieToken = request.cookies.get('csrf_token')?.value
+  const headerToken = request.headers.get('X-CSRF-Token')
+
+  if (!cookieToken || !headerToken) return false
+  if (cookieToken.length !== headerToken.length) return false
+
+  // Timing-safe comparison
+  let result = 0
+  for (let i = 0; i < cookieToken.length; i++) {
+    result |= cookieToken.charCodeAt(i) ^ headerToken.charCodeAt(i)
+  }
+  return result === 0
 }
 
 // ─── Middleware ────────────────────────────
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const method = request.method.toUpperCase()
+  const isApi = pathname.startsWith('/api/')
 
-  // Check if the path is a protected route
-  const isProtected = PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix + '/') || pathname === prefix)
+  // ─── CSRF validation for mutating API requests ─
+  if (isApi && MUTATING_METHODS.includes(method) && !isCsrfExempt(pathname)) {
+    if (!validateCsrf(request)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'CSRF_INVALID',
+            message: 'Jeton CSRF invalide. Veuillez recharger la page.',
+          },
+        },
+        { status: 403 },
+      )
+    }
+  }
 
-  // ─── Auth check for protected paths ───────
+  // ─── Auth check for protected page routes ─
+  const isProtected = PROTECTED_PREFIXES.some(
+    (prefix) => pathname.startsWith(prefix + '/') || pathname === prefix,
+  )
+
   if (isProtected) {
     const sessionToken = request.cookies.get('session')?.value
 
-    // No cookie at all → redirect to login
     if (!sessionToken) {
       const loginUrl = new URL('/', request.url)
       loginUrl.searchParams.set('login', '1')
       return NextResponse.redirect(loginUrl)
     }
 
-    // Cookie exists but invalid/expired → redirect with expired flag
     const isValid = await verifySessionToken(sessionToken)
     if (!isValid) {
       const loginUrl = new URL('/', request.url)
@@ -65,33 +119,31 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // ─── Security headers on all matched paths ─
+  // ─── Build response with security headers ─
   const response = NextResponse.next()
 
+  // Security headers on all responses (pages + API)
   for (const [key, value] of Object.entries(securityHeaders)) {
     response.headers.set(key, value)
   }
 
-  // ─── CSRF token (double-submit cookie pattern) ─
-  // Generate a csrf_token cookie on GET requests if not already present.
-  // This cookie is non-httpOnly so JavaScript can read it.
-  // The same token is also sent as X-CSRF-Token header for server validation.
-  const method = request.method.toUpperCase()
+  // ─── CSRF token cookie on safe requests ─
+  // Generate a csrf_token cookie on GET/HEAD/OPTIONS if not already present.
+  // Non-httpOnly so JavaScript can read it and send as X-CSRF-Token header.
   if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
     const existingCsrf = request.cookies.get('csrf_token')?.value
     if (!existingCsrf) {
       const csrfToken = crypto.randomUUID()
       response.cookies.set('csrf_token', csrfToken, {
         path: '/',
-        httpOnly: false, // Must be readable by JavaScript
+        httpOnly: false,
         secure: true,
         sameSite: 'lax',
         maxAge: 24 * 60 * 60, // 24 hours
       })
-      // Also set as response header so the client can pick it up immediately
       response.headers.set('X-CSRF-Token', csrfToken)
-    } else {
-      // Pass existing token in header for consistency
+    }
+    else {
       response.headers.set('X-CSRF-Token', existingCsrf)
     }
   }
@@ -99,15 +151,10 @@ export async function middleware(request: NextRequest) {
   return response
 }
 
+// Match ALL paths (pages + API) so CSRF and security headers apply everywhere.
+// Static files and Next.js internals are excluded.
 export const config = {
   matcher: [
-    /*
-     * Match all paths except:
-     * - / (landing page)
-     * - /api (API routes have own auth)
-     * - /_next (Next.js internals)
-     * - /images, /favicon.ico, etc. (static files)
-     */
-    '/((?!$|api|_next|images|favicon\\.ico|logo\\.svg|robots\\.txt|sitemap\\.xml).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico|logo\\.svg|robots\\.txt|sitemap\\.xml).*)',
   ],
 }

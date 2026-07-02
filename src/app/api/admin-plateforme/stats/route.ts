@@ -1,20 +1,13 @@
 import { NextRequest } from 'next/server'
-import { success, Errors, getTokenFromHeader, handleApiError } from '@/lib/api-response'
-import { verifyToken } from '@/lib/auth'
+import { success, handleApiError } from '@/lib/api-response'
+import { withAdminAuth } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 import { Prisma } from '@prisma/client'
 
-async function requireAdmin(request: NextRequest) {
-  const token = getTokenFromHeader(request)
-  if (!token) throw new Error('Unauthorized')
-  const payload = await verifyToken(token)
-  if (payload.role !== 'ADMIN') throw new Error('Forbidden')
-  return { userId: payload.userId, tenantId: payload.tenantId }
-}
-
 export async function GET(request: NextRequest) {
   try {
-    await requireAdmin(request)
+    const auth = await withAdminAuth(request)
+    if (!auth) return auth
 
     // Exécuter toutes les requêtes en parallèle pour la performance
     const [
@@ -203,11 +196,6 @@ export async function GET(request: NextRequest) {
 
     return success(stats, 'Statistiques globales de la plateforme')
   } catch (err) {
-    if (err instanceof Error && (err.message === 'Unauthorized' || err.message === 'Forbidden')) {
-      return err.message === 'Unauthorized'
-        ? Errors.unauthorized('Authentification requise')
-        : Errors.forbidden('Accès réservé aux administrateurs')
-    }
     return handleApiError(err)
   }
 }

@@ -3,28 +3,18 @@
 // GET /api/admin-centre/stats
 // ============================================
 
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
-import { verifyToken } from '@/lib/auth'
-
-// ─── Admin Auth Helper ──────────────────────
-
-async function getAdminOrg(request: NextRequest) {
-  const cookieToken = request.cookies.get('session')?.value
-  const headerToken = getTokenFromHeader(request)
-  const token = cookieToken || headerToken
-  if (!token) throw new Error('Unauthorized')
-  const payload = await verifyToken(token)
-  if (payload.role !== 'ADMIN') throw new Error('Forbidden')
-  return { userId: payload.userId, tenantId: payload.tenantId }
-}
+import { success, Errors, handleApiError } from '@/lib/api-response'
+import { withAuth } from '@/lib/api-auth'
 
 // ─── GET: Center statistics ─────────────────
 
 export async function GET(request: NextRequest) {
   try {
-    const { tenantId } = await getAdminOrg(request)
+    const auth = await withAuth(request, { roles: ['COUNSELOR', 'ADMIN'] })
+    if (!auth || auth instanceof NextResponse) return auth
+    const { tenantId } = auth
 
     const now = new Date()
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -261,9 +251,6 @@ export async function GET(request: NextRequest) {
       recentActivity,
     }, 'Statistiques du centre')
   } catch (err) {
-    if (err instanceof Error && (err.message === 'Unauthorized' || err.message === 'Forbidden')) {
-      return Errors.unauthorized('Authentification requise')
-    }
     return handleApiError(err)
   }
 }

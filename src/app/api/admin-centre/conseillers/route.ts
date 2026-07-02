@@ -3,29 +3,19 @@
 // GET /api/admin-centre/conseillers
 // ============================================
 
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
-import { verifyToken } from '@/lib/auth'
+import { success, Errors, handleApiError } from '@/lib/api-response'
+import { withAuth } from '@/lib/api-auth'
 import { Prisma } from '@prisma/client'
-
-// ─── Admin Auth Helper ──────────────────────
-
-async function getAdminOrg(request: NextRequest) {
-  const cookieToken = request.cookies.get('session')?.value
-  const headerToken = getTokenFromHeader(request)
-  const token = cookieToken || headerToken
-  if (!token) throw new Error('Unauthorized')
-  const payload = await verifyToken(token)
-  if (payload.role !== 'ADMIN') throw new Error('Forbidden')
-  return { userId: payload.userId, tenantId: payload.tenantId }
-}
 
 // ─── GET: List counselors with filters ──────
 
 export async function GET(request: NextRequest) {
   try {
-    const { userId, tenantId } = await getAdminOrg(request)
+    const auth = await withAuth(request, { roles: ['COUNSELOR', 'ADMIN'] })
+    if (!auth || auth instanceof NextResponse) return auth
+    const { tenantId } = auth
 
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
@@ -127,9 +117,6 @@ export async function GET(request: NextRequest) {
       `${total} conseiller(s) trouve(s)`,
     )
   } catch (err) {
-    if (err instanceof Error && (err.message === 'Unauthorized' || err.message === 'Forbidden')) {
-      return Errors.unauthorized('Authentification requise')
-    }
     return handleApiError(err)
   }
 }

@@ -62,3 +62,13 @@ export async function withAuth(
 
   return { payload, request, userId: payload.userId, tenantId: payload.tenantId, role: payload.role }
 }
+
+/**
+ * Convenience wrapper: requires ADMIN role.
+ * Shorthand for withAuth(request, { roles: ['ADMIN'] }).
+ */
+export async function withAdminAuth(
+  request: NextRequest,
+): Promise<AuthResult | NextResponse> {
+  return withAuth(request, { roles: ['ADMIN'] })
+}

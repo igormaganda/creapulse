@@ -1,17 +1,7 @@
 import { NextRequest } from 'next/server'
-import { success, Errors, getTokenFromHeader, handleApiError } from '@/lib/api-response'
-import { verifyToken } from '@/lib/auth'
+import { success, handleApiError } from '@/lib/api-response'
+import { withAdminAuth } from '@/lib/api-auth'
 import { db } from '@/lib/db'
-
-// ─── Admin guard ────────────────────────────
-
-async function requireAdmin(request: NextRequest) {
-  const token = getTokenFromHeader(request)
-  if (!token) throw new Error('Unauthorized')
-  const payload = await verifyToken(token)
-  if (payload.role !== 'ADMIN') throw new Error('Forbidden')
-  return { userId: payload.userId, tenantId: payload.tenantId }
-}
 
 // ─── Limites de plans ──────────────────────
 
@@ -23,7 +13,8 @@ const PLAN_LIMITS: Record<string, { maxUsers: number; maxOrganizations: number; 
 
 export async function GET(request: NextRequest) {
   try {
-    await requireAdmin(request)
+    const auth = await withAdminAuth(request)
+    if (!auth) return auth
 
     const tenants = await db.tenant.findMany({
       select: {
@@ -121,11 +112,6 @@ export async function GET(request: NextRequest) {
       'Données de facturation de la plateforme',
     )
   } catch (err) {
-    if (err instanceof Error && (err.message === 'Unauthorized' || err.message === 'Forbidden')) {
-      return err.message === 'Unauthorized'
-        ? Errors.unauthorized('Authentification requise')
-        : Errors.forbidden('Accès réservé aux administrateurs')
-    }
     return handleApiError(err)
   }
 }

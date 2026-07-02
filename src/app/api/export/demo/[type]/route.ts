@@ -1185,11 +1185,8 @@ export async function GET(
   try {
     const { type } = await params
 
-    console.error(`[DemoPDF] Request received: type=${type}`)
-
     // Validate type
     if (!VALID_TYPES.includes(type as DemoExportType)) {
-      console.error(`[DemoPDF] Invalid type: "${type}"`)
       return NextResponse.json(
         {
           success: false,
@@ -1213,7 +1210,6 @@ export async function GET(
       fullName = user.fullName
       email = user.email
       createdAt = user.createdAt
-      console.error(`[DemoPDF] User fetched: ${fullName} (${email})`)
     } catch (dbErr) {
       const errMsg = dbErr instanceof Error ? dbErr.message : String(dbErr)
       console.error(`[DemoPDF] ❌ Failed to fetch demo user: ${errMsg}`)
@@ -1244,10 +1240,8 @@ export async function GET(
     try {
       switch (type) {
         case 'suivi-kiviat': {
-          console.error(`[DemoPDF] Building Kiviat PDF for ${fullName}...`)
           const result = await buildKiviatPdf(fullName, email)
           if (!result) {
-            console.error(`[DemoPDF] No Kiviat data found, returning 404`)
             return NextResponse.json(
               {
                 success: false,
@@ -1266,10 +1260,8 @@ export async function GET(
         }
 
         case 'suivi-tremplin': {
-          console.error(`[DemoPDF] Building Tremplin PDF for ${fullName}...`)
           const result = await buildTremplinPdf(fullName)
           if (!result) {
-            console.error(`[DemoPDF] No Tremplin data found, returning 404`)
             return NextResponse.json(
               {
                 success: false,
@@ -1288,10 +1280,8 @@ export async function GET(
         }
 
         case 'suivi-creasim': {
-          console.error(`[DemoPDF] Building CreaSim PDF for ${fullName}...`)
           const result = await buildCreaSimPdf(fullName)
           if (!result) {
-            console.error(`[DemoPDF] No CreaSim data found, returning 404`)
             return NextResponse.json(
               {
                 success: false,
@@ -1310,7 +1300,6 @@ export async function GET(
         }
 
         case 'suivi-parcours': {
-          console.error(`[DemoPDF] Building Parcours PDF for ${fullName}...`)
           pdfBuffer = await buildParcoursPdf(
             fullName,
             email,
@@ -1321,10 +1310,8 @@ export async function GET(
         }
 
         case 'bmc': {
-          console.error(`[DemoPDF] Building BMC PDF for ${fullName}...`)
           const result = await buildBmcPdf(fullName)
           if (!result) {
-            console.error(`[DemoPDF] No BMC data found, returning 404`)
             return NextResponse.json(
               {
                 success: false,
@@ -1367,7 +1354,6 @@ export async function GET(
     }
 
     if (!pdfBuffer) {
-      console.error(`[DemoPDF] ❌ pdfBuffer is null after switch for type="${type}"`)
       const fallbackBuffer = await buildFallbackPdf(
         'Document Indisponible',
         `Aucun contenu PDF n'a pu être généré pour le type "${type}". Les données de démonstration sont peut-être incomplètes.`,
@@ -1385,7 +1371,6 @@ export async function GET(
     }
 
     // ── Step 3: Return PDF ──
-    console.error(`[DemoPDF] ✓ PDF generated successfully: ${filename} (${pdfBuffer.length} bytes)`)
     return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {

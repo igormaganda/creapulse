@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
-import { success, Errors, getTokenFromHeader, handleApiError } from '@/lib/api-response'
-import { verifyToken } from '@/lib/auth'
+import { success, Errors, handleApiError } from '@/lib/api-response'
+import { withAdminAuth } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 import { z } from 'zod'
 import { AuditAction, ModuleCategory, JourneyPhase } from '@prisma/client'
@@ -16,15 +16,6 @@ import { AuditAction, ModuleCategory, JourneyPhase } from '@prisma/client'
  * Preserves isActive toggle state for existing modules.
  * ═══════════════════════════════════════════════
  */
-
-// Admin guard
-async function requireAdmin(request: NextRequest) {
-  const token = getTokenFromHeader(request)
-  if (!token) throw new Error('Unauthorized')
-  const payload = await verifyToken(token)
-  if (payload.role !== 'ADMIN') throw new Error('Forbidden')
-  return { userId: payload.userId, tenantId: payload.tenantId }
-}
 
 // Zod schema for bulk toggle
 const bulkToggleSchema = z.object({
@@ -73,10 +64,12 @@ const REGISTRY_MODULES = [
  */
 export async function POST(request: NextRequest) {
   try {
-    const admin = await requireAdmin(request)
+    const auth = await withAdminAuth(request)
+    if (!auth) return auth
+    const { userId, tenantId } = auth
 
     const { searchParams } = new URL(request.url)
-    const targetTenantId = searchParams.get('tenantId') || admin.tenantId
+    const targetTenantId = searchParams.get('tenantId') || tenantId
 
     // Validate tenant exists
     const tenantExists = await db.tenant.findUnique({ where: { id: targetTenantId }, select: { id: true } })
@@ -128,7 +121,7 @@ export async function POST(request: NextRequest) {
     await db.auditLog.create({
       data: {
         tenantId: targetTenantId,
-        userId: admin.userId,
+        userId,
         action: AuditAction.MODULE_TOGGLE,
         entityType: 'AppModule',
         details: {
@@ -152,11 +145,6 @@ export async function POST(request: NextRequest) {
       'Modules synchronisés avec succès',
     )
   } catch (err) {
-    if (err instanceof Error && (err.message === 'Unauthorized' || err.message === 'Forbidden')) {
-      return err.message === 'Unauthorized'
-        ? Errors.unauthorized('Authentification requise')
-        : Errors.forbidden('Accès réservé aux administrateurs')
-    }
     return handleApiError(err)
   }
 }
@@ -166,12 +154,14 @@ export async function POST(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
-    const admin = await requireAdmin(request)
+    const auth = await withAdminAuth(request)
+    if (!auth) return auth
+    const { userId, tenantId } = auth
     const body = await request.json()
     const data = bulkToggleSchema.parse(body)
 
     const { searchParams } = new URL(request.url)
-    const targetTenantId = searchParams.get('tenantId') || admin.tenantId
+    const targetTenantId = searchParams.get('tenantId') || tenantId
 
     // Validate tenant exists
     const tenantExists = await db.tenant.findUnique({ where: { id: targetTenantId }, select: { id: true } })
@@ -197,7 +187,7 @@ export async function PUT(request: NextRequest) {
     await db.auditLog.create({
       data: {
         tenantId: targetTenantId,
-        userId: admin.userId,
+        userId,
         action: AuditAction.MODULE_TOGGLE,
         entityType: 'AppModule',
         details: {
@@ -213,11 +203,6 @@ export async function PUT(request: NextRequest) {
       `${toggled} module(s) mis à jour`,
     )
   } catch (err) {
-    if (err instanceof Error && (err.message === 'Unauthorized' || err.message === 'Forbidden')) {
-      return err.message === 'Unauthorized'
-        ? Errors.unauthorized('Authentification requise')
-        : Errors.forbidden('Accès réservé aux administrateurs')
-    }
     return handleApiError(err)
   }
 }

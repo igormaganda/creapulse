@@ -1,0 +1,1408 @@
+     1→     1→// ============================================
+     2→     2→// CreaPulse V2 — Public Demo PDF Export
+     3→     3→// GET /api/export/demo/[type]
+     4→     4→// No authentication required — uses demo beneficiary
+     5→     5→// Supported types: suivi-kiviat, suivi-tremplin, suivi-creasim, suivi-parcours, bmc
+     6→     6→// ============================================
+     7→     7→
+     8→     8→import { NextRequest, NextResponse } from 'next/server'
+     9→     9→import { db } from '@/lib/db'
+    10→    10→import { handleApiError } from '@/lib/api-response'
+    11→    11→import {
+    12→    12→  generatePdfBuffer,
+    13→    13→  drawCoverPage,
+    14→    14→  addSectionHeader,
+    15→    15→  addSubSectionHeader,
+    16→    16→  addTable,
+    17→    17→  addKeyValueBlock,
+    18→    18→  addBullet,
+    19→    19→  addParagraph,
+    20→    20→  addSpacing,
+    21→    21→  checkNewPage,
+    22→    22→  addDecisionBadge,
+    23→    23→  scoreBar,
+    24→    24→  finalizeWithFooters,
+    25→    25→  formatDate,
+    26→    26→  formatCurrency,
+    27→    27→  formatPercent,
+    28→    28→  type TableColumn,
+    29→    29→  type TableRow,
+    30→    30→  COLORS,
+    31→    31→} from '@/lib/pdf-utils'
+    32→    32→
+    33→    33→// ─── Constants ────────────────────────────────
+    34→    34→
+    35→    35→const DEMO_USER_ID = 'beneficiaire-demo-001'
+    36→    36→
+    37→    37→const VALID_TYPES = [
+    38→    38→  'suivi-kiviat',
+    39→    39→  'suivi-tremplin',
+    40→    40→  'suivi-creasim',
+    41→    41→  'suivi-parcours',
+    42→    42→  'bmc',
+    43→    43→] as const
+    44→    44→
+    45→    45→export type DemoExportType = (typeof VALID_TYPES)[number]
+    46→    46→
+    47→    47→// ─── Module code labels ──────────────────────
+    48→    48→
+    49→    49→const MODULE_LABELS: Record<string, string> = {
+    50→    50→  'profil-createur': 'Profil Créateur',
+    51→    51→  riasec: 'Test RIASEC',
+    52→    52→  kiviat: 'Compétences Kiviat',
+    53→    53→  'mon-projet': 'Mon Projet',
+    54→    54→  marche: 'Analyse de Marché',
+    55→    55→  juridique: 'Analyse Juridique',
+    56→    56→  creasim: 'Plan Financier',
+    57→    57→  'business-plan': 'Business Plan',
+    58→    58→  tremplin: 'Tremplin',
+    59→    59→}
+    60→    60→
+    61→    61→// ─── RIASEC labels ───────────────────────────
+    62→    62→
+    63→    63→const RIASEC_LABELS: Record<string, string> = {
+    64→    64→  R: 'Réaliste',
+    65→    65→  I: 'Investigateur',
+    66→    66→  A: 'Artistique',
+    67→    67→  S: 'Social',
+    68→    68→  E: 'Entrepreneur',
+    69→    69→  C: 'Conventionnel',
+    70→    70→}
+    71→    71→
+    72→    72→// ─── Phase labels ────────────────────────────
+    73→    73→
+    74→    74→const PHASE_LABELS: Record<string, string> = {
+    75→    75→  DISCOVERY: 'Découverte',
+    76→    76→  PROFILING: 'Profiling',
+    77→    77→  MODELING: 'Modélisation',
+    78→    78→  STRATEGY: 'Stratégie',
+    79→    79→  ECOSYSTEM: 'Écosystème',
+    80→    80→  LAUNCH: 'Lancement',
+    81→    81→  POST_CREATION: 'Post-création',
+    82→    82→}
+    83→    83→
+    84→    84→// ─── Tremplin step labels ────────────────────
+    85→    85→
+    86→    86→const TREMPLIN_STEPS: Record<string, string> = {
+    87→    87→  step0: '1. Motivation et vision',
+    88→    88→  step1: '2. Adéquation marché',
+    89→    89→  step2: '3. Viabilité financière',
+    90→    90→  step3: '4. Compétences clés',
+    91→    91→  step4: '5. Réseau et écosystème',
+    92→    92→  step5: '6. Plan d\'action',
+    93→    93→  step6: '7. Préparation au pitch',
+    94→    94→  step7: '8. Validation finale',
+    95→    95→}
+    96→    96→
+    97→    97→function getStepLabel(stepKey: string): string {
+    98→    98→  return TREMPLIN_STEPS[stepKey] || stepKey
+    99→    99→}
+   100→   100→
+   101→   101→// ─── BMC block definitions ───────────────────
+   102→   102→
+   103→   103→const BMC_BLOCKS: { key: string; label: string }[] = [
+   104→   104→  { key: 'partenairesCles', label: 'Partenaires Clés' },
+   105→   105→  { key: 'activitesCles', label: 'Activités Clés' },
+   106→   106→  { key: 'ressourcesCles', label: 'Ressources Clés' },
+   107→   107→  { key: 'propositionValeur', label: 'Proposition de Valeur' },
+   108→   108→  { key: 'relationsClients', label: 'Relations Clients' },
+   109→   109→  { key: 'canaux', label: 'Canaux' },
+   110→   110→  { key: 'segmentsClients', label: 'Segments Clients' },
+   111→   111→  { key: 'structureCouts', label: 'Structure des Coûts' },
+   112→   112→  { key: 'sourcesRevenus', label: 'Sources de Revenus' },
+   113→   113→]
+   114→   114→
+   115→   115→// ─── Helper: fetch common demo user ─────────
+   116→   116→
+   117→   117→async function fetchDemoUser() {
+   118→   118→  const user = await db.user.findUnique({
+   119→   119→    where: { id: DEMO_USER_ID },
+   120→   120→    select: { id: true, firstName: true, lastName: true, email: true, createdAt: true },
+   121→   121→  })
+   122→   122→  if (!user) {
+   123→   123→    throw new Error('Demo beneficiary not found. Please seed the database.')
+   124→   124→  }
+   125→   125→  return {
+   126→   126→    ...user,
+   127→   127→    fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+   128→   128→  }
+   129→   129→}
+   130→   130→
+   131→   131→// ─── PDF Builders ────────────────────────────
+   132→   132→
+   133→   133→async function buildKiviatPdf(
+   134→   134→  fullName: string,
+   135→   135→  email: string,
+   136→   136→) {
+   137→   137→  // Fetch journey
+   138→   138→  const journey = await db.creatorJourney.findUnique({
+   139→   139→    where: { userId: DEMO_USER_ID },
+   140→   140→    select: { projectTitle: true, currentPhase: true },
+   141→   141→  })
+   142→   142→
+   143→   143→  // Fetch Kiviat results
+   144→   144→  const kiviatResults = await db.kiviatResult.findMany({
+   145→   145→    where: { userId: DEMO_USER_ID },
+   146→   146→    orderBy: { category: 'asc' },
+   147→   147→  })
+   148→   148→
+   149→   149→  if (kiviatResults.length === 0) {
+   150→   150→    return null
+   151→   151→  }
+   152→   152→
+   153→   153→  return generatePdfBuffer((doc) => {
+   154→   154→    // ── Cover Page ──
+   155→   155→    drawCoverPage(
+   156→   156→      doc,
+   157→   157→      'Suivi — Compétences Kiviat',
+   158→   158→      'Analyse radar des compétences entrepreneuriales',
+   159→   159→      fullName,
+   160→   160→    )
+   161→   161→
+   162→   162→    // ── Profile Summary ──
+   163→   163→    let y = addSectionHeader(doc, 'Profil du bénéficiaire')
+   164→   164→    y = addKeyValueBlock(
+   165→   165→      doc,
+   166→   166→      [
+   167→   167→        { key: 'Nom :', value: fullName },
+   168→   168→        { key: 'Projet :', value: journey?.projectTitle || 'Non défini' },
+   169→   169→        { key: 'Phase :', value: journey?.currentPhase || 'Non définie' },
+   170→   170→        { key: 'Nombre de dimensions :', value: `${kiviatResults.length}` },
+   171→   171→      ],
+   172→   172→      y,
+   173→   173→    )
+   174→   174→    addSpacing(doc, 10)
+   175→   175→
+   176→   176→    // ── Kiviat Scores Table ──
+   177→   177→    checkNewPage(doc, 260)
+   178→   178→    y = addSectionHeader(doc, 'Résultats par dimension')
+   179→   179→
+   180→   180→    const scoreColumns: TableColumn[] = [
+   181→   181→      { header: 'Dimension', width: 180, align: 'left' },
+   182→   182→      { header: 'Note /10', width: 80, align: 'center' },
+   183→   183→      { header: 'Évaluation', width: 185, align: 'left' },
+   184→   184→    ]
+   185→   185→
+   186→   186→    const scoreRows: TableRow[] = kiviatResults.map((k) => {
+   187→   187→      const score = k.score
+   188→   188→      let label = 'À renforcer'
+   189→   189→      if (score >= 8) label = 'Excellent'
+   190→   190→      else if (score >= 6) label = 'Bon'
+   191→   191→      else if (score >= 4) label = 'Moyen'
+   192→   192→      else if (score >= 2) label = 'Faible'
+   193→   193→
+   194→   194→      return {
+   195→   195→        cells: [k.category, score.toFixed(1), scoreBar(score, k.maxScore || 10)],
+   196→   196→        textColor: score >= 6 ? '#2E7D32' : score >= 4 ? '#F57F17' : '#C62828',
+   197→   197→      }
+   198→   198→    })
+   199→   199→
+   200→   200→    y = addTable(doc, scoreColumns, scoreRows, y)
+   201→   201→    addSpacing(doc, 10)
+   202→   202→
+   203→   203→    // ── Global Average ──
+   204→   204→    checkNewPage(doc, 100)
+   205→   205→    const totalScore = kiviatResults.reduce((sum, k) => sum + k.score, 0)
+   206→   206→    const avgScore = totalScore / kiviatResults.length
+   207→   207→    const maxScore = kiviatResults[0]?.maxScore || 10
+   208→   208→
+   209→   209→    y = addSectionHeader(doc, 'Score global moyen')
+   210→   210→    y = addKeyValueBlock(
+   211→   211→      doc,
+   212→   212→      [
+   213→   213→        { key: 'Moyenne générale :', value: `${avgScore.toFixed(1)} / ${maxScore}` },
+   214→   214→        { key: 'Barre de progression :', value: scoreBar(avgScore, maxScore, 20) },
+   215→   215→      ],
+   216→   216→      y,
+   217→   217→    )
+   218→   218→    addSpacing(doc, 10)
+   219→   219→
+   220→   220→    // ── Strengths ──
+   221→   221→    const strengths = kiviatResults
+   222→   222→      .filter((k) => k.score >= 7)
+   223→   223→      .sort((a, b) => b.score - a.score)
+   224→   224→
+   225→   225→    if (strengths.length > 0) {
+   226→   226→      checkNewPage(doc, 60 + strengths.length * 24)
+   227→   227→      y = addSectionHeader(doc, 'Points forts')
+   228→   228→      for (const s of strengths) {
+   229→   229→        y = addBullet(doc, `${s.category} : ${s.score.toFixed(1)}/10`, y)
+   230→   230→      }
+   231→   231→      addSpacing(doc, 10)
+   232→   232→    }
+   233→   233→
+   234→   234→    // ── Areas to improve ──
+   235→   235→    const improvements = kiviatResults
+   236→   236→      .filter((k) => k.score < 5)
+   237→   237→      .sort((a, b) => a.score - b.score)
+   238→   238→
+   239→   239→    if (improvements.length > 0) {
+   240→   240→      checkNewPage(doc, 60 + improvements.length * 24)
+   241→   241→      y = addSectionHeader(doc, 'Axes d\'amélioration')
+   242→   242→      for (const imp of improvements) {
+   243→   243→        y = addBullet(doc, `${imp.category} : ${imp.score.toFixed(1)}/10 — à renforcer`, y)
+   244→   244→      }
+   245→   245→      addSpacing(doc, 10)
+   246→   246→    }
+   247→   247→
+   248→   248→    // ── Recommendations ──
+   249→   249→    checkNewPage(doc, 80)
+   250→   250→    y = addSectionHeader(doc, 'Recommandations')
+   251→   251→    y = addSubSectionHeader(doc, 'Actions suggérées', y)
+   252→   252→
+   253→   253→    if (improvements.length > 0) {
+   254→   254→      y = addParagraph(
+   255→   255→        doc,
+   256→   256→        `Nous vous recommandons de vous concentrer sur les ${improvements.length} dimension(s) en dessous de la moyenne. Formez-vous sur ces compétences et pratiquez des exercices ciblés.`,
+   257→   257→        y,
+   258→   258→      )
+   259→   259→    } else {
+   260→   260→      y = addParagraph(
+   261→   261→        doc,
+   262→   262→        'Félicitations ! Vos compétences entrepreneuriales sont équilibrées. Continuez à les développer régulièrement.',
+   263→   263→        y,
+   264→   264→      )
+   265→   265→    }
+   266→   266→
+   267→   267→    y = addSubSectionHeader(doc, 'Prochaines étapes', y)
+   268→   268→    y = addBullet(doc, 'Réévaluez vos compétences dans 3 mois pour mesurer votre progression.', y)
+   269→   269→    y = addBullet(doc, 'Consultez les ressources de formation dans les dimensions à renforcer.', y)
+   270→   270→    y = addBullet(doc, 'Partagez vos résultats avec votre conseiller lors du prochain entretien.', y)
+   271→   271→
+   272→   272→    // ── Footer on all content pages ──
+   273→   273→    finalizeWithFooters(doc)
+   274→   274→  })
+   275→   275→}
+   276→   276→
+   277→   277→async function buildTremplinPdf(
+   278→   278→  fullName: string,
+   279→   279→) {
+   280→   280→  // Fetch journey
+   281→   281→  const journey = await db.creatorJourney.findUnique({
+   282→   282→    where: { userId: DEMO_USER_ID },
+   283→   283→    select: { projectTitle: true },
+   284→   284→  })
+   285→   285→
+   286→   286→  // Fetch Tremplin
+   287→   287→  const tremplin = await db.tremplin.findUnique({
+   288→   288→    where: { userId: DEMO_USER_ID },
+   289→   289→  })
+   290→   290→
+   291→   291→  if (!tremplin) {
+   292→   292→    return null
+   293→   293→  }
+   294→   294→
+   295→   295→  return generatePdfBuffer((doc) => {
+   296→   296→    // ── Cover Page ──
+   297→   297→    drawCoverPage(
+   298→   298→      doc,
+   299→   299→      'Suivi — Évaluation Tremplin',
+   300→   300→      'Bilan de préparation au lancement',
+   301→   301→      fullName,
+   302→   302→    )
+   303→   303→
+   304→   304→    // ── Profile ──
+   305→   305→    let y = addSectionHeader(doc, 'Informations')
+   306→   306→    y = addKeyValueBlock(
+   307→   307→      doc,
+   308→   308→      [
+   309→   309→        { key: 'Bénéficiaire :', value: fullName },
+   310→   310→        { key: 'Projet :', value: journey?.projectTitle || 'Non défini' },
+   311→   311→        { key: 'Étape courante :', value: `${tremplin.currentStep + 1}/8` },
+   312→   312→        { key: 'Complétée :', value: tremplin.isCompleted ? 'Oui' : 'Non' },
+   313→   313→        {
+   314→   314→          key: 'Date de complétion :',
+   315→   315→          value: tremplin.completedAt
+   316→   316→            ? tremplin.completedAt.toLocaleDateString('fr-FR')
+   317→   317→            : '—',
+   318→   318→        },
+   319→   319→      ],
+   320→   320→      y,
+   321→   321→    )
+   322→   322→    addSpacing(doc, 12)
+   323→   323→
+   324→   324→    // ── Decision Badge ──
+   325→   325→    checkNewPage(doc, 100)
+   326→   326→    y = addSectionHeader(doc, 'Décision')
+   327→   327→
+   328→   328→    const decisionStr = tremplin.decision || 'PENDING'
+   329→   329→    y = addDecisionBadge(doc, decisionStr, y)
+   330→   330→
+   331→   331→    if (tremplin.score != null) {
+   332→   332→      y = addKeyValueBlock(
+   333→   333→        doc,
+   334→   334→        [
+   335→   335→          { key: 'Score global :', value: `${tremplin.score}/100` },
+   336→   336→        ],
+   337→   337→        y,
+   338→   338→      )
+   339→   339→    }
+   340→   340→
+   341→   341→    if (tremplin.summary) {
+   342→   342→      addSpacing(doc, 6)
+   343→   343→      y = addParagraph(doc, tremplin.summary, y)
+   344→   344→    }
+   345→   345→
+   346→   346→    addSpacing(doc, 12)
+   347→   347→
+   348→   348→    // ── Step-by-step responses ──
+   349→   349→    checkNewPage(doc, 260)
+   350→   350→    y = addSectionHeader(doc, 'Détail des étapes')
+   351→   351→
+   352→   352→    const responses = tremplin.responses as Record<string, unknown> | null
+   353→   353→    const stepEntries = responses ? Object.entries(responses) : []
+   354→   354→
+   355→   355→    if (stepEntries.length > 0) {
+   356→   356→      const stepColumns: TableColumn[] = [
+   357→   357→        { header: 'Étape', width: 180, align: 'left' },
+   358→   358→        { header: 'Statut', width: 80, align: 'center' },
+   359→   359→        { header: 'Notes', width: 185, align: 'left' },
+   360→   360→      ]
+   361→   361→
+   362→   362→      const stepRows: TableRow[] = stepEntries.map(([key, value]) => {
+   363→   363→        const val = value as Record<string, unknown> | null
+   364→   364→        const completed = val?.completed === true || val?.done === true
+   365→   365→        const notes = val?.notes as string | null || val?.comment as string | null || ''
+   366→   366→
+   367→   367→        return {
+   368→   368→          cells: [
+   369→   369→            getStepLabel(key),
+   370→   370→            completed ? '✓ Validée' : 'En cours',
+   371→   371→            notes.length > 50 ? notes.substring(0, 50) + '...' : notes || '—',
+   372→   372→          ],
+   373→   373→          fillColor: completed ? '#E8F5E9' : undefined,
+   374→   374→        }
+   375→   375→      })
+   376→   376→
+   377→   377→      y = addTable(doc, stepColumns, stepRows, y)
+   378→   378→    } else {
+   379→   379→      y = addParagraph(doc, 'Aucune réponse détaillée enregistrée pour les étapes.', y)
+   380→   380→    }
+   381→   381→
+   382→   382→    addSpacing(doc, 12)
+   383→   383→
+   384→   384→    // ── Recommendations ──
+   385→   385→    const recommendations = tremplin.recommendations as string[] | null
+   386→   386→    if (recommendations && recommendations.length > 0) {
+   387→   387→      checkNewPage(doc, 60 + recommendations.length * 24)
+   388→   388→      y = addSectionHeader(doc, 'Recommandations')
+   389→   389→      for (const rec of recommendations) {
+   390→   390→        y = addBullet(doc, rec, y)
+   391→   391→      }
+   392→   392→      addSpacing(doc, 10)
+   393→   393→    }
+   394→   394→
+   395→   395→    // ── Next steps ──
+   396→   396→    checkNewPage(doc, 80)
+   397→   397→    y = addSectionHeader(doc, 'Prochaines étapes')
+   398→   398→    y = addBullet(doc, 'Revoir les étapes incomplètes avec votre conseiller.', y)
+   399→   399→    y = addBullet(doc, 'Préparer les arguments pour le passage en commission.', y)
+   400→   400→    y = addBullet(doc, 'Finaliser votre pitch et votre business plan.', y)
+   401→   401→
+   402→   402→    // ── Footer ──
+   403→   403→    finalizeWithFooters(doc)
+   404→   404→  })
+   405→   405→}
+   406→   406→
+   407→   407→async function buildCreaSimPdf(
+   408→   408→  fullName: string,
+   409→   409→) {
+   410→   410→  // Fetch journey
+   411→   411→  const journey = await db.creatorJourney.findUnique({
+   412→   412→    where: { userId: DEMO_USER_ID },
+   413→   413→    select: { projectTitle: true, projectSector: true },
+   414→   414→  })
+   415→   415→
+   416→   416→  // Fetch CreaSim simulation
+   417→   417→  const creasim = await db.creaSimSimulation.findUnique({
+   418→   418→    where: { userId: DEMO_USER_ID },
+   419→   419→  })
+   420→   420→
+   421→   421→  if (!creasim) {
+   422→   422→    return null
+   423→   423→  }
+   424→   424→
+   425→   425→  return generatePdfBuffer((doc) => {
+   426→   426→    // ── Cover Page ──
+   427→   427→    drawCoverPage(
+   428→   428→      doc,
+   429→   429→      'Suivi — Simulation Financière',
+   430→   430→      'CreaSim — Prévisionnel financier',
+   431→   431→      fullName,
+   432→   432→    )
+   433→   433→
+   434→   434→    // ── Project Info ──
+   435→   435→    let y = addSectionHeader(doc, 'Informations du projet')
+   436→   436→    y = addKeyValueBlock(
+   437→   437→      doc,
+   438→   438→      [
+   439→   439→        { key: 'Bénéficiaire :', value: fullName },
+   440→   440→        { key: 'Projet :', value: journey?.projectTitle || 'Non défini' },
+   441→   441→        { key: 'Secteur :', value: journey?.projectSector || 'Non défini' },
+   442→   442→      ],
+   443→   443→      y,
+   444→   444→    )
+   445→   445→    addSpacing(doc, 12)
+   446→   446→
+   447→   447→    // ── Monthly Simulation Summary ──
+   448→   448→    checkNewPage(doc, 180)
+   449→   449→    y = addSectionHeader(doc, 'Simulation mensuelle')
+   450→   450→
+   451→   451→    y = addSubSectionHeader(doc, 'Chiffre d\'affaires et charges', y)
+   452→   452→
+   453→   453→    const monthlyColumns: TableColumn[] = [
+   454→   454→      { header: 'Indicateur', width: 220, align: 'left' },
+   455→   455→      { header: 'Montant', width: 225, align: 'right' },
+   456→   456→    ]
+   457→   457→
+   458→   458→    const fixedChargesArray = (creasim.fixedCharges as Array<{ name: string; amount: number }>) || []
+   459→   459→    const fixedChargesTotal = creasim.fixedChargesTotal ?? fixedChargesArray.reduce((s, c) => s + c.amount, 0)
+   460→   460→    const variableCharges = creasim.variableChargesAmount
+   461→   461→      ?? (creasim.monthlyRevenue != null && creasim.variableChargesRate != null
+   462→   462→        ? (creasim.monthlyRevenue * creasim.variableChargesRate) / 100
+   463→   463→        : 0)
+   464→   464→    const totalCharges = creasim.totalCharges ?? fixedChargesTotal + variableCharges
+   465→   465→    const grossMargin = creasim.grossMarginAmount
+   466→   466→      ?? (creasim.monthlyRevenue != null ? creasim.monthlyRevenue - variableCharges : 0)
+   467→   467→    const netMargin = creasim.netMarginAmount
+   468→   468→      ?? (grossMargin - fixedChargesTotal)
+   469→   469→
+   470→   470→    const monthlyRows: TableRow[] = [
+   471→   471→      {
+   472→   472→        cells: ['Chiffre d\'affaires (CA)', formatCurrency(creasim.monthlyRevenue)],
+   473→   473→        textColor: COLORS.dark,
+   474→   474→      },
+   475→   475→      {
+   476→   476→        cells: ['Charges variables', formatCurrency(variableCharges)],
+   477→   477→        textColor: COLORS.gray,
+   478→   478→      },
+   479→   479→      {
+   480→   480→        cells: ['Charges fixes', formatCurrency(fixedChargesTotal)],
+   481→   481→        textColor: COLORS.gray,
+   482→   482→      },
+   483→   483→      {
+   484→   484→        cells: ['Total des charges', formatCurrency(totalCharges)],
+   485→   485→        textColor: COLORS.danger,
+   486→   486→        fillColor: '#FFF3E0',
+   487→   487→      },
+   488→   488→      {
+   489→   489→        cells: ['Marge brute', formatCurrency(grossMargin)],
+   490→   490→        textColor: grossMargin >= 0 ? COLORS.success : COLORS.danger,
+   491→   491→      },
+   492→   492→      {
+   493→   493→        cells: ['Marge nette', formatCurrency(netMargin)],
+   494→   494→        textColor: netMargin >= 0 ? COLORS.success : COLORS.danger,
+   495→   495→        fillColor: netMargin >= 0 ? '#E8F5E9' : '#FFEBEE',
+   496→   496→      },
+   497→   497→    ]
+   498→   498→
+   499→   499→    y = addTable(doc, monthlyColumns, monthlyRows, y)
+   500→   500→    addSpacing(doc, 10)
+   501→   501→
+   502→   502→    // Margins percentages
+   503→   503→    y = addSubSectionHeader(doc, 'Taux de marge', y)
+   504→   504→    y = addKeyValueBlock(
+   505→   505→      doc,
+   506→   506→      [
+   507→   507→        {
+   508→   508→          key: 'Taux de marge brute :',
+   509→   509→          value: formatPercent(creasim.grossMarginRate),
+   510→   510→        },
+   511→   511→        {
+   512→   512→          key: 'Taux de marge nette :',
+   513→   513→          value: formatPercent(creasim.netMarginRate),
+   514→   514→        },
+   515→   515→        {
+   516→   516→          key: 'Objectif de marge :',
+   517→   517→          value: formatPercent(creasim.targetMarginRate),
+   518→   518→        },
+   519→   519→      ],
+   520→   520→      y,
+   521→   521→    )
+   522→   522→    addSpacing(doc, 12)
+   523→   523→
+   524→   524→    // ── 3-Year Projection ──
+   525→   525→    checkNewPage(doc, 180)
+   526→   526→    y = addSectionHeader(doc, 'Projection sur 3 ans')
+   527→   527→
+   528→   528→    const projectionColumns: TableColumn[] = [
+   529→   529→      { header: 'Indicateur', width: 160, align: 'left' },
+   530→   530→      { header: 'Année 1', width: 90, align: 'right' },
+   531→   531→      { header: 'Année 2', width: 90, align: 'right' },
+   532→   532→      { header: 'Année 3', width: 105, align: 'right' },
+   533→   533→    ]
+   534→   534→
+   535→   535→    const y1r = creasim.year1Revenue ?? 0
+   536→   536→    const y1e = creasim.year1Expenses ?? 0
+   537→   537→    const y2r = creasim.year2Revenue ?? 0
+   538→   538→    const y2e = creasim.year2Expenses ?? 0
+   539→   539→    const y3r = creasim.year3Revenue ?? 0
+   540→   540→    const y3e = creasim.year3Expenses ?? 0
+   541→   541→
+   542→   542→    const projectionRows: TableRow[] = [
+   543→   543→      {
+   544→   544→        cells: ['Revenus', formatCurrency(y1r), formatCurrency(y2r), formatCurrency(y3r)],
+   545→   545→        textColor: COLORS.dark,
+   546→   546→      },
+   547→   547→      {
+   548→   548→        cells: ['Charges', formatCurrency(y1e), formatCurrency(y2e), formatCurrency(y3e)],
+   549→   549→        textColor: COLORS.danger,
+   550→   550→      },
+   551→   551→      {
+   552→   552→        cells: [
+   553→   553→          'Résultat net',
+   554→   554→          formatCurrency(y1r - y1e),
+   555→   555→          formatCurrency(y2r - y2e),
+   556→   556→          formatCurrency(y3r - y3e),
+   557→   557→        ],
+   558→   558→        textColor: (y1r - y1e) >= 0 ? COLORS.success : COLORS.danger,
+   559→   559→        fillColor: '#E8F5E9',
+   560→   560→      },
+   561→   561→    ]
+   562→   562→
+   563→   563→    y = addTable(doc, projectionColumns, projectionRows, y)
+   564→   564→
+   565→   565→    // Profitability summary
+   566→   566→    if (creasim.profitability1Y != null || creasim.profitability2Y != null || creasim.profitability3Y != null) {
+   567→   567→      addSpacing(doc, 8)
+   568→   568→      y = addSubSectionHeader(doc, 'Rentabilité cumulée', y)
+   569→   569→      y = addKeyValueBlock(
+   570→   570→        doc,
+   571→   571→          [
+   572→   572→            { key: 'Année 1 :', value: formatPercent(creasim.profitability1Y) },
+   573→   573→            { key: 'Année 2 :', value: formatPercent(creasim.profitability2Y) },
+   574→   574→            { key: 'Année 3 :', value: formatPercent(creasim.profitability3Y) },
+   575→   575→          ],
+   576→   576→        y,
+   577→   577→      )
+   578→   578→    }
+   579→   579→    addSpacing(doc, 12)
+   580→   580→
+   581→   581→    // ── Break-even Analysis ──
+   582→   582→    checkNewPage(doc, 120)
+   583→   583→    y = addSectionHeader(doc, 'Analyse du seuil de rentabilité')
+   584→   584→
+   585→   585→    y = addKeyValueBlock(
+   586→   586→      doc,
+   587→   587→      [
+   588→   588→        {
+   589→   589→          key: 'CA de seuil (mensuel) :',
+   590→   590→          value: formatCurrency(creasim.monthlyBreakeven),
+   591→   591→        },
+   592→   592→        {
+   593→   593→          key: 'Délai avant rentabilité :',
+   594→   594→          value: creasim.breakevenMonths != null
+   595→   595→            ? `${Math.round(creasim.breakevenMonths)} mois`
+   596→   596→            : '—',
+   597→   597→        },
+   598→   598→        {
+   599→   599→          key: 'Investissement initial :',
+   600→   600→          value: formatCurrency(creasim.initialInvestment),
+   601→   601→        },
+   602→   602→      ],
+   603→   603→      y,
+   604→   604→    )
+   605→   605→
+   606→   606→    if (creasim.monthlyBreakeven != null && creasim.monthlyRevenue != null) {
+   607→   607→      addSpacing(doc, 6)
+   608→   608→      if (creasim.monthlyRevenue >= creasim.monthlyBreakeven) {
+   609→   609→        y = addParagraph(
+   610→   610→          doc,
+   611→   611→          `Le CA mensuel estimé (${formatCurrency(creasim.monthlyRevenue)}) est supérieur au seuil de rentabilité (${formatCurrency(creasim.monthlyBreakeven)}). Le projet est financièrement viable sur cette base.`,
+   612→   612→          y,
+   613→   613→          { color: COLORS.success },
+   614→   614→        )
+   615→   615→      } else {
+   616→   616→        y = addParagraph(
+   617→   617→          doc,
+   618→   618→          `Le CA mensuel estimé (${formatCurrency(creasim.monthlyRevenue)}) est inférieur au seuil de rentabilité (${formatCurrency(creasim.monthlyBreakeven)}). Il est nécessaire d'augmenter le CA ou de réduire les charges.`,
+   619→   619→          y,
+   620→   620→          { color: COLORS.danger },
+   621→   621→        )
+   622→   622→      }
+   623→   623→    }
+   624→   624→    addSpacing(doc, 12)
+   625→   625→
+   626→   626→    // ── Fixed charges detail ──
+   627→   627→    if (fixedChargesArray.length > 0) {
+   628→   628→      checkNewPage(doc, 80 + fixedChargesArray.length * 22)
+   629→   629→      y = addSectionHeader(doc, 'Détail des charges fixes')
+   630→   630→
+   631→   631→      const chargesColumns: TableColumn[] = [
+   632→   632→        { header: 'Poste de charge', width: 280, align: 'left' },
+   633→   633→        { header: 'Montant mensuel', width: 165, align: 'right' },
+   634→   634→      ]
+   635→   635→
+   636→   636→      const chargesRows: TableRow[] = fixedChargesArray.map((c) => ({
+   637→   637→        cells: [c.name, formatCurrency(c.amount)],
+   638→   638→      }))
+   639→   639→
+   640→   640→      // Total row
+   641→   641→      chargesRows.push({
+   642→   642→        cells: ['TOTAL', formatCurrency(fixedChargesTotal)],
+   643→   643→        fillColor: COLORS.lightGray,
+   644→   644→        textColor: COLORS.primary,
+   645→   645→      })
+   646→   646→
+   647→   647→      y = addTable(doc, chargesColumns, chargesRows, y)
+   648→   648→      addSpacing(doc, 12)
+   649→   649→    }
+   650→   650→
+   651→   651→    // ── AI Synthesis ──
+   652→   652→    if (creasim.aiAnalysis) {
+   653→   653→      checkNewPage(doc, 120)
+   654→   654→      y = addSectionHeader(doc, 'Synthèse IA')
+   655→   655→      y = addParagraph(doc, creasim.aiAnalysis, y)
+   656→   656→      addSpacing(doc, 12)
+   657→   657→    }
+   658→   658→
+   659→   659→    // ── Recommendations ──
+   660→   660→    checkNewPage(doc, 120)
+   661→   661→    y = addSectionHeader(doc, 'Recommandations')
+   662→   662→    y = addBullet(doc, 'Affinez vos prévisions régulièrement avec les données réelles.', y)
+   663→   663→    y = addBullet(doc, 'Prévoyez une trésorerie de sécurité de 3 mois minimum.', y)
+   664→   664→    y = addBullet(doc, 'Identifiez les leviers d\'augmentation du CA et de réduction des charges.', y)
+   665→   665→    y = addBullet(doc, 'Consultez votre conseiller pour valider les hypothèses financières.', y)
+   666→   666→
+   667→   667→    // ── Footer ──
+   668→   668→    finalizeWithFooters(doc)
+   669→   669→  })
+   670→   670→}
+   671→   671→
+   672→   672→async function buildParcoursPdf(
+   673→   673→  fullName: string,
+   674→   674→  email: string,
+   675→   675→  createdAt: Date,
+   676→   676→) {
+   677→   677→  // Fetch journey
+   678→   678→  const journey = await db.creatorJourney.findUnique({
+   679→   679→    where: { userId: DEMO_USER_ID },
+   680→   680→  })
+   681→   681→
+   682→   682→  // Fetch Kiviat results
+   683→   683→  const kiviatResults = await db.kiviatResult.findMany({
+   684→   684→    where: { userId: DEMO_USER_ID },
+   685→   685→    orderBy: { category: 'asc' },
+   686→   686→  })
+   687→   687→
+   688→   688→  // Fetch RIASEC results
+   689→   689→  const riasecResults = await db.riasecResult.findMany({
+   690→   690→    where: { userId: DEMO_USER_ID },
+   691→   691→    orderBy: [{ isDominant: 'desc' }, { score: 'desc' }],
+   692→   692→  })
+   693→   693→
+   694→   694→  // Fetch module results
+   695→   695→  const moduleResults = await db.moduleResult.findMany({
+   696→   696→    where: { userId: DEMO_USER_ID },
+   697→   697→    orderBy: { completedAt: 'asc' },
+   698→   698→  })
+   699→   699→
+   700→   700→  // Fetch Tremplin
+   701→   701→  const tremplin = await db.tremplin.findUnique({
+   702→   702→    where: { userId: DEMO_USER_ID },
+   703→   703→  })
+   704→   704→
+   705→   705→  // Fetch CreaSim (brief info)
+   706→   706→  const creasim = await db.creaSimSimulation.findUnique({
+   707→   707→    where: { userId: DEMO_USER_ID },
+   708→   708→    select: {
+   709→   709→      monthlyRevenue: true,
+   710→   710→      grossMarginRate: true,
+   711→   711→      netMarginRate: true,
+   712→   712→      year1Revenue: true,
+   713→   713→      year1Expenses: true,
+   714→   714→    },
+   715→   715→  })
+   716→   716→
+   717→   717→  // Fetch BMC (existence check)
+   718→   718→  const bmc = await db.businessModelCanvas.findUnique({
+   719→   719→    where: { userId: DEMO_USER_ID },
+   720→   720→    select: { status: true, generatedAt: true },
+   721→   721→  })
+   722→   722→
+   723→   723→  // Fetch interviews
+   724→   724→  const interviews = await db.interviewSession.findMany({
+   725→   725→    where: { beneficiaryId: DEMO_USER_ID },
+   726→   726→    orderBy: { scheduledAt: 'desc' },
+   727→   727→    take: 5,
+   728→   728→  })
+   729→   729→
+   730→   730→  // Fetch interview notes
+   731→   731→  const interviewIds = interviews.map((i) => i.id)
+   732→   732→  const interviewNotes = interviewIds.length > 0
+   733→   733→    ? await db.interviewNote.findMany({
+   734→   734→        where: { interviewId: { in: interviewIds }, isKeyPoint: true },
+   735→   735→        include: { interview: { select: { scheduledAt: true, type: true } } },
+   736→   736→        orderBy: { createdAt: 'desc' },
+   737→   737→        take: 10,
+   738→   738→      })
+   739→   739→    : []
+   740→   740→
+   741→   741→  return generatePdfBuffer((doc) => {
+   742→   742→    // ── Cover Page ──
+   743→   743→    drawCoverPage(
+   744→   744→      doc,
+   745→   745→      'Suivi de Parcours Complet',
+   746→   746→      'Bilan global du parcours créateur',
+   747→   747→      fullName,
+   748→   748→    )
+   749→   749→
+   750→   750→    // ═══════════════════════════════════════
+   751→   751→    // PAGE 2: Profile + Kiviat Summary
+   752→   752→    // ═══════════════════════════════════════
+   753→   753→
+   754→   754→    // ── Profile Summary ──
+   755→   755→    let y = addSectionHeader(doc, 'Résumé du profil')
+   756→   756→    y = addKeyValueBlock(
+   757→   757→      doc,
+   758→   758→      [
+   759→   759→        { key: 'Nom :', value: fullName },
+   760→   760→        { key: 'Email :', value: email },
+   761→   761→        { key: 'Projet :', value: journey?.projectTitle || 'Non défini' },
+   762→   762→        { key: 'Secteur :', value: journey?.projectSector || 'Non défini' },
+   763→   763→        {
+   764→   764→          key: 'Phase actuelle :',
+   765→   765→          value: PHASE_LABELS[journey?.currentPhase || ''] || journey?.currentPhase || '—',
+   766→   766→        },
+   767→   767→        {
+   768→   768→          key: 'Progression :',
+   769→   769→          value: `${journey?.progressPercent || 0}%`,
+   770→   770→        },
+   771→   771→        {
+   772→   772→          key: 'Date d\'inscription :',
+   773→   773→          value: formatDate(createdAt),
+   774→   774→        },
+   775→   775→      ],
+   776→   776→      y,
+   777→   777→    )
+   778→   778→    addSpacing(doc, 14)
+   779→   779→
+   780→   780→    // ── Kiviat Radar Summary ──
+   781→   781→    if (kiviatResults.length > 0) {
+   782→   782→      checkNewPage(doc, 260)
+   783→   783→      y = addSectionHeader(doc, 'Compétences Kiviat — Résumé')
+   784→   784→
+   785→   785→      const kiviatColumns: TableColumn[] = [
+   786→   786→        { header: 'Dimension', width: 200, align: 'left' },
+   787→   787→        { header: 'Score', width: 70, align: 'center' },
+   788→   788→        { header: 'Barre', width: 175, align: 'left' },
+   789→   789→      ]
+   790→   790→
+   791→   791→      const totalScore = kiviatResults.reduce((sum, k) => sum + k.score, 0)
+   792→   792→      const avgScore = totalScore / kiviatResults.length
+   793→   793→      const maxScore = kiviatResults[0]?.maxScore || 10
+   794→   794→
+   795→   795→      const kiviatRows: TableRow[] = kiviatResults.map((k) => ({
+   796→   796→        cells: [k.category, k.score.toFixed(1), scoreBar(k.score, maxScore)],
+   797→   797→      }))
+   798→   798→
+   799→   799→      // Add average row
+   800→   800→      kiviatRows.push({
+   801→   801→        cells: ['MOYENNE GÉNÉRALE', avgScore.toFixed(1), scoreBar(avgScore, maxScore)],
+   802→   802→        fillColor: COLORS.lightGray,
+   803→   803→        textColor: COLORS.primary,
+   804→   804→      })
+   805→   805→
+   806→   806→      y = addTable(doc, kiviatColumns, kiviatRows, y)
+   807→   807→      addSpacing(doc, 14)
+   808→   808→    }
+   809→   809→
+   810→   810→    // ── RIASEC Profile ──
+   811→   811→    if (riasecResults.length > 0) {
+   812→   812→      checkNewPage(doc, 180)
+   813→   813→      y = addSectionHeader(doc, 'Profil RIASEC')
+   814→   814→
+   815→   815→      const dominant = riasecResults.filter((r) => r.isDominant)
+   816→   816→      if (dominant.length > 0) {
+   817→   817→        y = addParagraph(
+   818→   818→          doc,
+   819→   819→          `Profil(s) dominant(s) : ${dominant.map((r) => RIASEC_LABELS[r.profileType] || r.profileType).join(', ')}`,
+   820→   820→          y,
+   821→   821→        )
+   822→   822→      }
+   823→   823→
+   824→   824→      const riasecColumns: TableColumn[] = [
+   825→   825→        { header: 'Type', width: 160, align: 'left' },
+   826→   826→        { header: 'Score', width: 70, align: 'center' },
+   827→   827→        { header: 'Dominant', width: 100, align: 'center' },
+   828→   828→        { header: 'Description', width: 115, align: 'left' },
+   829→   829→      ]
+   830→   830→
+   831→   831→      const riasecRows: TableRow[] = riasecResults.map((r) => ({
+   832→   832→        cells: [
+   833→   833→          RIASEC_LABELS[r.profileType] || r.profileType,
+   834→   834→          r.score.toFixed(0),
+   835→   835→          r.isDominant ? '★ Oui' : 'Non',
+   836→   836→          r.isDominant ? 'Profil principal' : 'Secondaire',
+   837→   837→        ],
+   838→   838→        textColor: r.isDominant ? COLORS.primary : COLORS.dark,
+   839→   839→      }))
+   840→   840→
+   841→   841→      y = addTable(doc, riasecColumns, riasecRows, y)
+   842→   842→      addSpacing(doc, 14)
+   843→   843→    }
+   844→   844→
+   845→   845→    // ═══════════════════════════════════════
+   846→   846→    // PAGE 3: Module Completion + Tremplin
+   847→   847→    // ═══════════════════════════════════════
+   848→   848→
+   849→   849→    // ── Module Completion Status ──
+   850→   850→    checkNewPage(doc, 260)
+   851→   851→    y = addSectionHeader(doc, 'Avancement des modules')
+   852→   852→
+   853→   853→    const moduleColumns: TableColumn[] = [
+   854→   854→      { header: 'Module', width: 200, align: 'left' },
+   855→   855→      { header: 'Statut', width: 90, align: 'center' },
+   856→   856→      { header: 'Score', width: 70, align: 'center' },
+   857→   857→      { header: 'Date', width: 85, align: 'center' },
+   858→   858→    ]
+   859→   859→
+   860→   860→    const moduleRows: TableRow[] = Object.keys(MODULE_LABELS).map((code) => {
+   861→   861→      const result = moduleResults.find((r) => r.moduleCode === code)
+   862→   862→      const status = result?.completedAt ? 'Terminé' : result ? 'En cours' : 'Non commencé'
+   863→   863→      return {
+   864→   864→        cells: [
+   865→   865→          MODULE_LABELS[code],
+   866→   866→          status,
+   867→   867→          result ? `${result.score}/${result.maxScore}` : '—',
+   868→   868→          result?.completedAt ? formatDate(result.completedAt) : '—',
+   869→   869→        ],
+   870→   870→        fillColor: result?.completedAt ? '#E8F5E9' : undefined,
+   871→   871→      }
+   872→   872→    })
+   873→   873→
+   874→   874→    y = addTable(doc, moduleColumns, moduleRows, y)
+   875→   875→
+   876→   876→    const completedCount = moduleResults.filter((m) => m.completedAt).length
+   877→   877→    y = addParagraph(
+   878→   878→      doc,
+   879→   879→      `Progression : ${completedCount}/${Object.keys(MODULE_LABELS).length} modules terminés (${Math.round((completedCount / Object.keys(MODULE_LABELS).length) * 100)}%).`,
+   880→   880→      y,
+   881→   881→    )
+   882→   882→    addSpacing(doc, 14)
+   883→   883→
+   884→   884→    // ── Tremplin Status ──
+   885→   885→    checkNewPage(doc, 120)
+   886→   886→    y = addSectionHeader(doc, 'Statut Tremplin')
+   887→   887→
+   888→   888→    if (tremplin) {
+   889→   889→      const decisionStr = tremplin.decision || 'PENDING'
+   890→   890→      y = addDecisionBadge(doc, decisionStr, y)
+   891→   891→
+   892→   892→      if (tremplin.score != null) {
+   893→   893→        y = addKeyValueBlock(
+   894→   894→          doc,
+   895→   895→          [
+   896→   896→            { key: 'Score :', value: `${tremplin.score}/100` },
+   897→   897→            { key: 'Complété :', value: tremplin.isCompleted ? 'Oui' : 'Non' },
+   898→   898→            {
+   899→   899→              key: 'Date :',
+   900→   900→              value: tremplin.completedAt ? formatDate(tremplin.completedAt) : '—',
+   901→   901→            },
+   902→   902→          ],
+   903→   903→          y,
+   904→   904→        )
+   905→   905→      }
+   906→   906→    } else {
+   907→   907→      y = addParagraph(doc, 'Tremplin non encore commencé.', y)
+   908→   908→    }
+   909→   909→    addSpacing(doc, 14)
+   910→   910→
+   911→   911→    // ═══════════════════════════════════════
+   912→   912→    // PAGE 4: CreaSim + BMC + Interviews
+   913→   913→    // ═══════════════════════════════════════
+   914→   914→
+   915→   915→    // ── CreaSim Brief ──
+   916→   916→    if (creasim) {
+   917→   917→      checkNewPage(doc, 100)
+   918→   918→      y = addSectionHeader(doc, 'Simulation financière (CreaSim)')
+   919→   919→      y = addKeyValueBlock(
+   920→   920→        doc,
+   921→   921→        [
+   922→   922→          {
+   923→   923→            key: 'CA mensuel estimé :',
+   924→   924→            value: creasim.monthlyRevenue != null
+   925→   925→              ? `${creasim.monthlyRevenue.toLocaleString('fr-FR')} €`
+   926→   926→              : '—',
+   927→   927→          },
+   928→   928→          {
+   929→   929→            key: 'Marge brute :',
+   930→   930→            value: creasim.grossMarginRate != null
+   931→   931→              ? `${creasim.grossMarginRate.toFixed(1)} %`
+   932→   932→              : '—',
+   933→   933→          },
+   934→   934→          {
+   935→   935→            key: 'Marge nette :',
+   936→   936→            value: creasim.netMarginRate != null
+   937→   937→              ? `${creasim.netMarginRate.toFixed(1)} %`
+   938→   938→              : '—',
+   939→   939→          },
+   940→   940→          {
+   941→   941→            key: 'CA Année 1 :',
+   942→   942→            value: creasim.year1Revenue != null
+   943→   943→              ? `${Math.round(creasim.year1Revenue).toLocaleString('fr-FR')} €`
+   944→   944→              : '—',
+   945→   945→          },
+   946→   946→        ],
+   947→   947→        y,
+   948→   948→      )
+   949→   949→      addSpacing(doc, 14)
+   950→   950→    }
+   951→   951→
+   952→   952→    // ── BMC Status ──
+   953→   953→    if (bmc) {
+   954→   954→      checkNewPage(doc, 80)
+   955→   955→      y = addSectionHeader(doc, 'Business Model Canvas')
+   956→   956→      y = addKeyValueBlock(
+   957→   957→        doc,
+   958→   958→        [
+   959→   959→          { key: 'Statut :', value: bmc.status },
+   960→   960→          {
+   961→   961→            key: 'Généré le :',
+   962→   962→            value: bmc.generatedAt ? formatDate(bmc.generatedAt) : '—',
+   963→   963→          },
+   964→   964→        ],
+   965→   965→        y,
+   966→   966→      )
+   967→   967→      addSpacing(doc, 14)
+   968→   968→    }
+   969→   969→
+   970→   970→    // ── Key Interview Notes ──
+   971→   971→    if (interviewNotes.length > 0) {
+   972→   972→      checkNewPage(doc, 80 + interviewNotes.length * 24)
+   973→   973→      y = addSectionHeader(doc, 'Notes clés des entretiens')
+   974→   974→
+   975→   975→      for (const note of interviewNotes) {
+   976→   976→        const dateStr = note.interview?.scheduledAt
+   977→   977→          ? formatDate(note.interview.scheduledAt)
+   978→   978→          : ''
+   979→   979→        const typeStr = note.interview?.type ? ` (${note.interview.type})` : ''
+   980→   980→        y = addBullet(
+   981→   981→          doc,
+   982→   982→          `[${dateStr}${typeStr}] ${note.content}`,
+   983→   983→          y,
+   984→   984→        )
+   985→   985→      }
+   986→   986→      addSpacing(doc, 14)
+   987→   987→    }
+   988→   988→
+   989→   989→    // ═══════════════════════════════════════
+   990→   990→    // PAGE 5: Recommendations
+   991→   991→    // ═══════════════════════════════════════
+   992→   992→
+   993→   993→    checkNewPage(doc, 200)
+   994→   994→    y = addSectionHeader(doc, 'Recommandations et actions')
+   995→   995→
+   996→   996→    y = addSubSectionHeader(doc, 'Actions prioritaires', y)
+   997→   997→
+   998→   998→    // Generate contextual recommendations
+   999→   999→    if (kiviatResults.length > 0) {
+  1000→  1000→      const weakDims = kiviatResults.filter((k) => k.score < 5)
+  1001→  1001→      if (weakDims.length > 0) {
+  1002→  1002→        y = addBullet(
+  1003→  1003→          doc,
+  1004→  1004→          `Renforcer les compétences en ${weakDims.map((d) => d.category).join(', ')} via les formations recommandées.`,
+  1005→  1005→          y,
+  1006→  1006→        )
+  1007→  1007→      }
+  1008→  1008→    }
+  1009→  1009→
+  1010→  1010→    const incompleteModules = moduleResults.filter((m) => !m.completedAt)
+  1011→  1011→    if (incompleteModules.length > 0) {
+  1012→  1012→      y = addBullet(
+  1013→  1013→        doc,
+  1014→  1014→        `Terminer les modules en cours : ${incompleteModules.map((m) => MODULE_LABELS[m.moduleCode] || m.moduleCode).join(', ')}.`,
+  1015→  1015→        y,
+  1016→  1016→      )
+  1017→  1017→    }
+  1018→  1018→
+  1019→  1019→    if (tremplin && !tremplin.isCompleted) {
+  1020→  1020→      y = addBullet(doc, 'Finaliser l\'évaluation Tremplin pour valider le projet.', y)
+  1021→  1021→    }
+  1022→  1022→
+  1023→  1023→    if (!bmc) {
+  1024→  1024→      y = addBullet(doc, 'Générer le Business Model Canvas pour structurer votre modèle.', y)
+  1025→  1025→    }
+  1026→  1026→
+  1027→  1027→    if (journey?.progressPercent && journey.progressPercent < 100) {
+  1028→  1028→      y = addBullet(
+  1029→  1029→        doc,
+  1030→  1030→        `Continuer le parcours pour atteindre 100% de progression (actuel : ${journey.progressPercent}%).`,
+  1031→  1031→        y,
+  1032→  1032→      )
+  1033→  1033→    }
+  1034→  1034→
+  1035→  1035→    addSpacing(doc, 12)
+  1036→  1036→
+  1037→  1037→    y = addSubSectionHeader(doc, 'Rappel du contact', y)
+  1038→  1038→    y = addParagraph(
+  1039→  1039→      doc,
+  1040→  1040→      'Prenez rendez-vous avec votre conseiller GIDEF pour faire le point sur votre progression et ajuster votre plan d\'action.',
+  1041→  1041→      y,
+  1042→  1042→    )
+  1043→  1043→
+  1044→  1044→    // ── Footer ──
+  1045→  1045→    finalizeWithFooters(doc)
+  1046→  1046→  })
+  1047→  1047→}
+  1048→  1048→
+  1049→  1049→async function buildBmcPdf(
+  1050→  1050→  fullName: string,
+  1051→  1051→) {
+  1052→  1052→  // Fetch journey for project title
+  1053→  1053→  const journey = await db.creatorJourney.findUnique({
+  1054→  1054→    where: { userId: DEMO_USER_ID },
+  1055→  1055→    select: { projectTitle: true },
+  1056→  1056→  })
+  1057→  1057→
+  1058→  1058→  // Fetch BMC
+  1059→  1059→  const bmc = await db.businessModelCanvas.findUnique({
+  1060→  1060→    where: { userId: DEMO_USER_ID },
+  1061→  1061→  })
+  1062→  1062→
+  1063→  1063→  if (!bmc) {
+  1064→  1064→    return null
+  1065→  1065→  }
+  1066→  1066→
+  1067→  1067→  return generatePdfBuffer((doc) => {
+  1068→  1068→    // ── Cover Page ──
+  1069→  1069→    drawCoverPage(
+  1070→  1070→      doc,
+  1071→  1071→      'Business Model Canvas',
+  1072→  1072→      'Modèle économique du projet',
+  1073→  1073→      fullName,
+  1074→  1074→    )
+  1075→  1075→
+  1076→  1076→    // ── Project Info ──
+  1077→  1077→    let y = addSectionHeader(doc, 'Informations du projet')
+  1078→  1078→    y = addKeyValueBlock(
+  1079→  1079→      doc,
+  1080→  1080→      [
+  1081→  1081→        { key: 'Bénéficiaire :', value: fullName },
+  1082→  1082→        { key: 'Projet :', value: journey?.projectTitle || 'Non défini' },
+  1083→  1083→        { key: 'Statut :', value: bmc.status || 'Brouillon' },
+  1084→  1084→        {
+  1085→  1085→          key: 'Généré le :',
+  1086→  1086→          value: bmc.generatedAt ? formatDate(bmc.generatedAt) : '—',
+  1087→  1087→        },
+  1088→  1088→      ],
+  1089→  1089→      y,
+  1090→  1090→    )
+  1091→  1091→    addSpacing(doc, 14)
+  1092→  1092→
+  1093→  1093→    // ── BMC Blocks ──
+  1094→  1094→    const bmcRecord = bmc as unknown as Record<string, string | null | undefined>
+  1095→  1095→
+  1096→  1096→    for (const block of BMC_BLOCKS) {
+  1097→  1097→      const content = bmcRecord[block.key] || ''
+  1098→  1098→      checkNewPage(doc, 80)
+  1099→  1099→      y = addSectionHeader(doc, block.label)
+  1100→  1100→
+  1101→  1101→      if (content && content.trim().length > 0) {
+  1102→  1102→        // Display content: replace newlines with bullets for readability
+  1103→  1103→        const lines = content.split('\n').filter((l) => l.trim().length > 0)
+  1104→  1104→        for (const line of lines) {
+  1105→  1105→          const trimmed = line.trim().replace(/^[-•]\s*/, '')
+  1106→  1106→          y = addBullet(doc, trimmed, y)
+  1107→  1107→        }
+  1108→  1108→      } else {
+  1109→  1109→        y = addParagraph(doc, 'Non renseigné', y, { color: COLORS.gray })
+  1110→  1110→      }
+  1111→  1111→      addSpacing(doc, 8)
+  1112→  1112→    }
+  1113→  1113→
+  1114→  1114→    addSpacing(doc, 12)
+  1115→  1115→
+  1116→  1116→    // ── Completion Summary ──
+  1117→  1117→    const filledCount = BMC_BLOCKS.filter(
+  1118→  1118→      (b) => bmcRecord[b.key] && bmcRecord[b.key]!.trim().length > 0,
+  1119→  1119→    ).length
+  1120→  1120→
+  1121→  1121→    y = addSectionHeader(doc, 'Complétion')
+  1122→  1122→    y = addKeyValueBlock(
+  1123→  1123→      doc,
+  1124→  1124→      [
+  1125→  1125→        { key: 'Blocs remplis :', value: `${filledCount}/${BMC_BLOCKS.length}` },
+  1126→  1126→        { key: 'Taux de complétion :', value: `${Math.round((filledCount / BMC_BLOCKS.length) * 100)}%` },
+  1127→  1127→      ],
+  1128→  1128→      y,
+  1129→  1129→    )
+  1130→  1130→    addSpacing(doc, 12)
+  1131→  1131→
+  1132→  1132→    // ── Recommendations ──
+  1133→  1133→    checkNewPage(doc, 80)
+  1134→  1134→    y = addSectionHeader(doc, 'Recommandations')
+  1135→  1135→    if (filledCount < BMC_BLOCKS.length) {
+  1136→  1136→      y = addBullet(doc, 'Complétez les blocs manquants pour avoir une vision complète de votre modèle.', y)
+  1137→  1137→    }
+  1138→  1138→    y = addBullet(doc, 'Partagez votre BMC avec votre conseiller pour validation.', y)
+  1139→  1139→    y = addBullet(doc, 'Révisez régulièrement votre canvas au fur et à mesure de l\'avancement du projet.', y)
+  1140→  1140→
+  1141→  1141→    // ── Footer ──
+  1142→  1142→    finalizeWithFooters(doc)
+  1143→  1143→  })
+  1144→  1144→}
+  1145→  1145→
+  1146→  1146→// ─── Fallback PDF Builder ─────────────────────
+  1147→  1147→
+  1148→  1148→/**
+  1149→  1149→ * Generate a simple fallback PDF when the main PDF builder fails.
+  1150→  1150→ * Shows a branded cover page with an error message instead of crashing.
+  1151→  1151→ */
+  1152→  1152→async function buildFallbackPdf(
+  1153→  1153→  title: string,
+  1154→  1154→  message: string,
+  1155→  1155→  fullName: string,
+  1156→  1156→): Promise<Buffer> {
+  1157→  1157→  return generatePdfBuffer((doc) => {
+  1158→  1158→    drawCoverPage(doc, title, 'CreaPulse V2 — Document de démonstration', fullName)
+  1159→  1159→
+  1160→  1160→    let y = addSectionHeader(doc, 'Information')
+  1161→  1161→    y = addParagraph(doc, message, y, { color: COLORS.warning, fontSize: 11 })
+  1162→  1162→    addSpacing(doc, 20)
+  1163→  1163→
+  1164→  1164→    y = addSectionHeader(doc, 'Que faire ?')
+  1165→  1165→    y = addBullet(doc, 'Vérifiez que la base de données est accessible et contient les données de démonstration.', y)
+  1166→  1166→    y = addBullet(doc, 'Relancez le script de peuplement (seed) si nécessaire.', y)
+  1167→  1167→    y = addBullet(doc, 'Consultez les logs du serveur pour plus de détails.', y)
+  1168→  1168→    addSpacing(doc, 20)
+  1169→  1169→
+  1170→  1170→    y = addSectionHeader(doc, 'Support')
+  1171→  1171→    y = addParagraph(doc, 'Si le problème persiste, contactez votre conseiller GIDEF Île-de-France.', y)
+  1172→  1172→
+  1173→  1173→    finalizeWithFooters(doc)
+  1174→  1174→  })
+  1175→  1175→}
+  1176→  1176→
+  1177→  1177→// ─── Route Handler ───────────────────────────
+  1178→  1178→
+  1179→  1179→export async function GET(
+  1180→  1180→  request: NextRequest,
+  1181→  1181→  { params }: { params: Promise<{ type: string }> },
+  1182→  1182→) {
+  1183→  1183→  const isDev = process.env.NODE_ENV === 'development'
+  1184→  1184→
+  1185→  1185→  try {
+  1186→  1186→    const { type } = await params
+  1187→  1187→
+  1188→  1188→    console.error(`[DemoPDF] Request received: type=${type}`)
+  1189→  1189→
+  1190→  1190→    // Validate type
+  1191→  1191→    if (!VALID_TYPES.includes(type as DemoExportType)) {
+  1192→  1192→      console.error(`[DemoPDF] Invalid type: "${type}"`)
+  1193→  1193→      return NextResponse.json(
+  1194→  1194→        {
+  1195→  1195→          success: false,
+  1196→  1196→          error: {
+  1197→  1197→            code: 'INVALID_INPUT',
+  1198→  1198→            message: `Type "${type}" is not supported. Valid types: ${VALID_TYPES.join(', ')}`,
+  1199→  1199→          },
+  1200→  1200→          timestamp: new Date().toISOString(),
+  1201→  1201→        },
+  1202→  1202→        { status: 400 },
+  1203→  1203→      )
+  1204→  1204→    }
+  1205→  1205→
+  1206→  1206→    // ── Step 1: Fetch demo user ──
+  1207→  1207→    let fullName = 'Bénéficiaire Démo'
+  1208→  1208→    let email = 'demo@creapulse.fr'
+  1209→  1209→    let createdAt = new Date()
+  1210→  1210→
+  1211→  1211→    try {
+  1212→  1212→      const user = await fetchDemoUser()
+  1213→  1213→      fullName = user.fullName
+  1214→  1214→      email = user.email
+  1215→  1215→      createdAt = user.createdAt
+  1216→  1216→      console.error(`[DemoPDF] User fetched: ${fullName} (${email})`)
+  1217→  1217→    } catch (dbErr) {
+  1218→  1218→      const errMsg = dbErr instanceof Error ? dbErr.message : String(dbErr)
+  1219→  1219→      console.error(`[DemoPDF] ❌ Failed to fetch demo user: ${errMsg}`)
+  1220→  1220→      if (dbErr instanceof Error && dbErr.stack) {
+  1221→  1221→        console.error(`[DemoPDF] Stack: ${dbErr.stack}`)
+  1222→  1222→      }
+  1223→  1223→      // Return fallback PDF — DB is unreachable or user not seeded
+  1224→  1224→      const fallbackBuffer = await buildFallbackPdf(
+  1225→  1225→        'Document Indisponible',
+  1226→  1226→        `Impossible de se connecter à la base de données ou le bénéficiaire de démonstration est introuvable. ${isDev ? `Détail : ${errMsg}` : 'Veuillez réessayer plus tard.'}`,
+  1227→  1227→        'Bénéficiaire Démo',
+  1228→  1228→      )
+  1229→  1229→      return new NextResponse(new Uint8Array(fallbackBuffer), {
+  1230→  1230→        status: 200,
+  1231→  1231→        headers: {
+  1232→  1232→          'Content-Type': 'application/pdf',
+  1233→  1233→          'Content-Disposition': `attachment; filename="demo-${type}-fallback.pdf"`,
+  1234→  1234→          'Content-Length': fallbackBuffer.length.toString(),
+  1235→  1235→          'Cache-Control': 'no-store',
+  1236→  1236→        },
+  1237→  1237→      })
+  1238→  1238→    }
+  1239→  1239→
+  1240→  1240→    // ── Step 2: Build PDF based on type ──
+  1241→  1241→    let pdfBuffer: Buffer | null = null
+  1242→  1242→    let filename = 'demo.pdf'
+  1243→  1243→
+  1244→  1244→    try {
+  1245→  1245→      switch (type) {
+  1246→  1246→        case 'suivi-kiviat': {
+  1247→  1247→          console.error(`[DemoPDF] Building Kiviat PDF for ${fullName}...`)
+  1248→  1248→          const result = await buildKiviatPdf(fullName, email)
+  1249→  1249→          if (!result) {
+  1250→  1250→            console.error(`[DemoPDF] No Kiviat data found, returning 404`)
+  1251→  1251→            return NextResponse.json(
+  1252→  1252→              {
+  1253→  1253→                success: false,
+  1254→  1254→                error: {
+  1255→  1255→                  code: 'NO_DATA',
+  1256→  1256→                  message: 'No Kiviat results found for the demo beneficiary.',
+  1257→  1257→                },
+  1258→  1258→                timestamp: new Date().toISOString(),
+  1259→  1259→              },
+  1260→  1260→              { status: 404 },
+  1261→  1261→            )
+  1262→  1262→          }
+  1263→  1263→          pdfBuffer = result
+  1264→  1264→          filename = `demo-suivi-kiviat.pdf`
+  1265→  1265→          break
+  1266→  1266→        }
+  1267→  1267→
+  1268→  1268→        case 'suivi-tremplin': {
+  1269→  1269→          console.error(`[DemoPDF] Building Tremplin PDF for ${fullName}...`)
+  1270→  1270→          const result = await buildTremplinPdf(fullName)
+  1271→  1271→          if (!result) {
+  1272→  1272→            console.error(`[DemoPDF] No Tremplin data found, returning 404`)
+  1273→  1273→            return NextResponse.json(
+  1274→  1274→              {
+  1275→  1275→                success: false,
+  1276→  1276→                error: {
+  1277→  1277→                  code: 'NO_DATA',
+  1278→  1278→                  message: 'No Tremplin assessment found for the demo beneficiary.',
+  1279→  1279→                },
+  1280→  1280→                timestamp: new Date().toISOString(),
+  1281→  1281→              },
+  1282→  1282→              { status: 404 },
+  1283→  1283→            )
+  1284→  1284→          }
+  1285→  1285→          pdfBuffer = result
+  1286→  1286→          filename = `demo-suivi-tremplin.pdf`
+  1287→  1287→          break
+  1288→  1288→        }
+  1289→  1289→
+  1290→  1290→        case 'suivi-creasim': {
+  1291→  1291→          console.error(`[DemoPDF] Building CreaSim PDF for ${fullName}...`)
+  1292→  1292→          const result = await buildCreaSimPdf(fullName)
+  1293→  1293→          if (!result) {
+  1294→  1294→            console.error(`[DemoPDF] No CreaSim data found, returning 404`)
+  1295→  1295→            return NextResponse.json(
+  1296→  1296→              {
+  1297→  1297→                success: false,
+  1298→  1298→                error: {
+  1299→  1299→                  code: 'NO_DATA',
+  1300→  1300→                  message: 'No CreaSim simulation found for the demo beneficiary.',
+  1301→  1301→                },
+  1302→  1302→                timestamp: new Date().toISOString(),
+  1303→  1303→              },
+  1304→  1304→              { status: 404 },
+  1305→  1305→            )
+  1306→  1306→          }
+  1307→  1307→          pdfBuffer = result
+  1308→  1308→          filename = `demo-suivi-creasim.pdf`
+  1309→  1309→          break
+  1310→  1310→        }
+  1311→  1311→
+  1312→  1312→        case 'suivi-parcours': {
+  1313→  1313→          console.error(`[DemoPDF] Building Parcours PDF for ${fullName}...`)
+  1314→  1314→          pdfBuffer = await buildParcoursPdf(
+  1315→  1315→            fullName,
+  1316→  1316→            email,
+  1317→  1317→            createdAt,
+  1318→  1318→          )
+  1319→  1319→          filename = `demo-suivi-parcours.pdf`
+  1320→  1320→          break
+  1321→  1321→        }
+  1322→  1322→
+  1323→  1323→        case 'bmc': {
+  1324→  1324→          console.error(`[DemoPDF] Building BMC PDF for ${fullName}...`)
+  1325→  1325→          const result = await buildBmcPdf(fullName)
+  1326→  1326→          if (!result) {
+  1327→  1327→            console.error(`[DemoPDF] No BMC data found, returning 404`)
+  1328→  1328→            return NextResponse.json(
+  1329→  1329→              {
+  1330→  1330→                success: false,
+  1331→  1331→                error: {
+  1332→  1332→                  code: 'NO_DATA',
+  1333→  1333→                  message: 'No Business Model Canvas found for the demo beneficiary.',
+  1334→  1334→                },
+  1335→  1335→                timestamp: new Date().toISOString(),
+  1336→  1336→              },
+  1337→  1337→              { status: 404 },
+  1338→  1338→            )
+  1339→  1339→          }
+  1340→  1340→          pdfBuffer = result
+  1341→  1341→          filename = `demo-bmc.pdf`
+  1342→  1342→          break
+  1343→  1343→        }
+  1344→  1344→      }
+  1345→  1345→    } catch (buildErr) {
+  1346→  1346→      const errMsg = buildErr instanceof Error ? buildErr.message : String(buildErr)
+  1347→  1347→      console.error(`[DemoPDF] ❌ PDF build failed for type="${type}": ${errMsg}`)
+  1348→  1348→      if (buildErr instanceof Error && buildErr.stack) {
+  1349→  1349→        console.error(`[DemoPDF] Stack: ${buildErr.stack}`)
+  1350→  1350→      }
+  1351→  1351→
+  1352→  1352→      // Return a fallback PDF instead of a JSON error
+  1353→  1353→      const fallbackBuffer = await buildFallbackPdf(
+  1354→  1354→        'Erreur de Génération',
+  1355→  1355→        `La génération du document "${type}" a échoué. ${isDev ? `Cause : ${errMsg}` : 'Veuillez réessayer plus tard ou contacter le support.'}`,
+  1356→  1356→        fullName,
+  1357→  1357→      )
+  1358→  1358→      return new NextResponse(new Uint8Array(fallbackBuffer), {
+  1359→  1359→        status: 200,
+  1360→  1360→        headers: {
+  1361→  1361→          'Content-Type': 'application/pdf',
+  1362→  1362→          'Content-Disposition': `attachment; filename="demo-${type}-error.pdf"`,
+  1363→  1363→          'Content-Length': fallbackBuffer.length.toString(),
+  1364→  1364→          'Cache-Control': 'no-store',
+  1365→  1365→        },
+  1366→  1366→      })
+  1367→  1367→    }
+  1368→  1368→
+  1369→  1369→    if (!pdfBuffer) {
+  1370→  1370→      console.error(`[DemoPDF] ❌ pdfBuffer is null after switch for type="${type}"`)
+  1371→  1371→      const fallbackBuffer = await buildFallbackPdf(
+  1372→  1372→        'Document Indisponible',
+  1373→  1373→        `Aucun contenu PDF n'a pu être généré pour le type "${type}". Les données de démonstration sont peut-être incomplètes.`,
+  1374→  1374→        fullName,
+  1375→  1375→      )
+  1376→  1376→      return new NextResponse(new Uint8Array(fallbackBuffer), {
+  1377→  1377→        status: 200,
+  1378→  1378→        headers: {
+  1379→  1379→          'Content-Type': 'application/pdf',
+  1380→  1380→          'Content-Disposition': `attachment; filename="demo-${type}-unavailable.pdf"`,
+  1381→  1381→          'Content-Length': fallbackBuffer.length.toString(),
+  1382→  1382→          'Cache-Control': 'no-store',
+  1383→  1383→        },
+  1384→  1384→      })
+  1385→  1385→    }
+  1386→  1386→
+  1387→  1387→    // ── Step 3: Return PDF ──
+  1388→  1388→    console.error(`[DemoPDF] ✓ PDF generated successfully: ${filename} (${pdfBuffer.length} bytes)`)
+  1389→  1389→    return new NextResponse(new Uint8Array(pdfBuffer), {
+  1390→  1390→      status: 200,
+  1391→  1391→      headers: {
+  1392→  1392→        'Content-Type': 'application/pdf',
+  1393→  1393→        'Content-Disposition': `attachment; filename="${filename}"`,
+  1394→  1394→        'Content-Length': pdfBuffer.length.toString(),
+  1395→  1395→        'Cache-Control': 'public, max-age=300', // Cache for 5 minutes
+  1396→  1396→      },
+  1397→  1397→    })
+  1398→  1398→  } catch (err) {
+  1399→  1399→    // Absolute last-resort catch (should rarely reach here now)
+  1400→  1400→    const errMsg = err instanceof Error ? err.message : String(err)
+  1401→  1401→    console.error(`[DemoPDF] ❌❌ UNHANDLED error in GET handler: ${errMsg}`)
+  1402→  1402→    if (err instanceof Error && err.stack) {
+  1403→  1403→      console.error(`[DemoPDF] Stack: ${err.stack}`)
+  1404→  1404→    }
+  1405→  1405→    return handleApiError(err)
+  1406→  1406→  }
+  1407→  1407→}
+  1408→  1408→

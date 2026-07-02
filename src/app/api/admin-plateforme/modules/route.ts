@@ -1,19 +1,9 @@
 import { NextRequest } from 'next/server'
-import { success, Errors, getTokenFromHeader, handleApiError } from '@/lib/api-response'
-import { verifyToken } from '@/lib/auth'
+import { success, Errors, handleApiError } from '@/lib/api-response'
+import { withAdminAuth } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 import { z } from 'zod'
 import { AuditAction } from '@prisma/client'
-
-// ─── Admin guard ────────────────────────────
-
-async function requireAdmin(request: NextRequest) {
-  const token = getTokenFromHeader(request)
-  if (!token) throw new Error('Unauthorized')
-  const payload = await verifyToken(token)
-  if (payload.role !== 'ADMIN') throw new Error('Forbidden')
-  return { userId: payload.userId, tenantId: payload.tenantId }
-}
 
 // ─── Zod schemas ────────────────────────────
 
@@ -26,7 +16,8 @@ const toggleModuleSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    await requireAdmin(request)
+    const auth = await withAdminAuth(request)
+    if (!auth) return auth
 
     const { searchParams } = new URL(request.url)
     const tenantId = searchParams.get('tenantId') || ''
@@ -94,11 +85,6 @@ export async function GET(request: NextRequest) {
 
     return success(formattedModules, 'Liste des modules')
   } catch (err) {
-    if (err instanceof Error && (err.message === 'Unauthorized' || err.message === 'Forbidden')) {
-      return err.message === 'Unauthorized'
-        ? Errors.unauthorized('Authentification requise')
-        : Errors.forbidden('Accès réservé aux administrateurs')
-    }
     return handleApiError(err)
   }
 }
@@ -107,7 +93,9 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const admin = await requireAdmin(request)
+    const auth = await withAdminAuth(request)
+    if (!auth) return auth
+    const { userId, tenantId } = auth
     const body = await request.json()
     const data = toggleModuleSchema.parse(body)
 
@@ -121,7 +109,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Verify tenant ownership
-    if (existingModule.tenantId !== admin.tenantId) {
+    if (existingModule.tenantId !== tenantId) {
       return Errors.forbidden('Vous ne pouvez pas modifier un module d\'une autre organisation')
     }
 
@@ -134,7 +122,7 @@ export async function PUT(request: NextRequest) {
       await tx.auditLog.create({
         data: {
           tenantId: existingModule.tenantId,
-          userId: admin.userId,
+          userId,
           action: AuditAction.MODULE_TOGGLE,
           entityType: 'AppModule',
           entityId: data.moduleId,
@@ -159,11 +147,6 @@ export async function PUT(request: NextRequest) {
       `Module ${data.isActive ? 'activé' : 'désactivé'} avec succès`,
     )
   } catch (err) {
-    if (err instanceof Error && (err.message === 'Unauthorized' || err.message === 'Forbidden')) {
-      return err.message === 'Unauthorized'
-        ? Errors.unauthorized('Authentification requise')
-        : Errors.forbidden('Accès réservé aux administrateurs')
-    }
     return handleApiError(err)
   }
 }

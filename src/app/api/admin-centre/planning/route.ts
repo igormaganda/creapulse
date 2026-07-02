@@ -4,23 +4,11 @@
 // POST /api/admin-centre/planning — Create appointment
 // ============================================
 
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
-import { verifyToken } from '@/lib/auth'
+import { success, Errors, handleApiError } from '@/lib/api-response'
+import { withAuth } from '@/lib/api-auth'
 import { z } from 'zod'
-
-// ─── Admin Auth Helper ──────────────────────
-
-async function getAdminOrg(request: NextRequest) {
-  const cookieToken = request.cookies.get('session')?.value
-  const headerToken = getTokenFromHeader(request)
-  const token = cookieToken || headerToken
-  if (!token) throw new Error('Unauthorized')
-  const payload = await verifyToken(token)
-  if (payload.role !== 'ADMIN') throw new Error('Forbidden')
-  return { userId: payload.userId, tenantId: payload.tenantId }
-}
 
 // ─── Zod Schema for POST ───────────────────
 
@@ -59,7 +47,9 @@ const monthNames = [
 
 export async function GET(request: NextRequest) {
   try {
-    const { tenantId } = await getAdminOrg(request)
+    const auth = await withAuth(request, { roles: ['COUNSELOR', 'ADMIN'] })
+    if (!auth || auth instanceof NextResponse) return auth
+    const { tenantId } = auth
 
     const { searchParams } = new URL(request.url)
     const startDate = searchParams.get('start') || ''
@@ -182,9 +172,6 @@ export async function GET(request: NextRequest) {
       total: appointments.length,
     }, `${appointments.length} rendez-vous trouvé(s)`)
   } catch (err) {
-    if (err instanceof Error && (err.message === 'Unauthorized' || err.message === 'Forbidden')) {
-      return Errors.unauthorized('Authentification requise')
-    }
     return handleApiError(err)
   }
 }
@@ -193,7 +180,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId, tenantId } = await getAdminOrg(request)
+    const auth = await withAuth(request, { roles: ['COUNSELOR', 'ADMIN'] })
+    if (!auth || auth instanceof NextResponse) return auth
+    const { userId, tenantId } = auth
 
     const body = await request.json()
     const parsed = createAppointmentSchema.safeParse(body)
@@ -292,9 +281,6 @@ export async function POST(request: NextRequest) {
       201,
     )
   } catch (err) {
-    if (err instanceof Error && (err.message === 'Unauthorized' || err.message === 'Forbidden')) {
-      return Errors.unauthorized('Authentification requise')
-    }
     return handleApiError(err)
   }
 }
