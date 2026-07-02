@@ -1,0 +1,695 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import {
+     6→  RadarChart,
+     7→  PolarGrid,
+     8→  PolarAngleAxis,
+     9→  PolarRadiusAxis,
+    10→  Radar,
+    11→  ResponsiveContainer,
+    12→  Tooltip,
+    13→} from 'recharts'
+    14→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+    15→import { Button } from '@/components/ui/button'
+    16→import { Badge } from '@/components/ui/badge'
+    17→import { Slider } from '@/components/ui/slider'
+    18→import { Skeleton } from '@/components/ui/skeleton'
+    19→import { Separator } from '@/components/ui/separator'
+    20→import {
+    21→  Pentagon,
+    22→  Save,
+    23→  Loader2,
+    24→  CheckCircle2,
+    25→  Sparkles,
+    26→  Lightbulb,
+    27→  Target,
+    28→  AlertTriangle,
+    29→  TrendingUp,
+    30→  BarChart3,
+    31→  Zap,
+    32→  Layers,
+    33→} from 'lucide-react'
+    34→import { cn } from '@/lib/utils'
+    35→import { toast } from 'sonner'
+    36→import { useAuthStore } from '@/lib/zustand/store'
+    37→import { useBureauStore } from '../bureau-store'
+    38→
+    39→// ────────────────────────────────────────────
+    40→// Types
+    41→// ────────────────────────────────────────────
+    42→
+    43→type DimensionKey =
+    44→  | 'creativite'
+    45→  | 'leadership'
+    46→  | 'gestion_financiere'
+    47→  | 'communication'
+    48→  | 'resolution_problemes'
+    49→  | 'perseverance'
+    50→  | 'adaptabilite'
+    51→  | 'organisation'
+    52→
+    53→interface DimensionDef {
+    54→  key: DimensionKey
+    55→  label: string
+    56→  icon: string
+    57→  color: string
+    58→  bgLight: string
+    59→}
+    60→
+    61→type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+    62→
+    63→// ────────────────────────────────────────────
+    64→// Constants
+    65→// ────────────────────────────────────────────
+    66→
+    67→const STORAGE_KEY = 'creapulse-kiviat'
+    68→
+    69→const DIMENSIONS: DimensionDef[] = [
+    70→  { key: 'creativite', label: 'Créativité', icon: '💡', color: '#FF6B35', bgLight: 'bg-orange-50 dark:bg-orange-900/20' },
+    71→  { key: 'leadership', label: 'Leadership', icon: '👑', color: '#00838F', bgLight: 'bg-teal-50 dark:bg-teal-900/20' },
+    72→  { key: 'gestion_financiere', label: 'Gestion financière', icon: '💰', color: '#22C55E', bgLight: 'bg-green-50 dark:bg-green-900/20' },
+    73→  { key: 'communication', label: 'Communication', icon: '🗣️', color: '#3B82F6', bgLight: 'bg-blue-50 dark:bg-blue-900/20' },
+    74→  { key: 'resolution_problemes', label: 'Résolution problèmes', icon: '🧩', color: '#A855F7', bgLight: 'bg-purple-50 dark:bg-purple-900/20' },
+    75→  { key: 'perseverance', label: 'Persévérance', icon: '🔥', color: '#EF4444', bgLight: 'bg-red-50 dark:bg-red-900/20' },
+    76→  { key: 'adaptabilite', label: 'Adaptabilité', icon: '🔄', color: '#F59E0B', bgLight: 'bg-amber-50 dark:bg-amber-900/20' },
+    77→  { key: 'organisation', label: 'Organisation', icon: '📋', color: '#6366F1', bgLight: 'bg-indigo-50 dark:bg-indigo-900/20' },
+    78→]
+    79→
+    80→const DEFAULT_SCORES: Record<DimensionKey, number> = {
+    81→  creativite: 5,
+    82→  leadership: 5,
+    83→  gestion_financiere: 5,
+    84→  communication: 5,
+    85→  resolution_problemes: 5,
+    86→  perseverance: 5,
+    87→  adaptabilite: 5,
+    88→  organisation: 5,
+    89→}
+    90→
+    91→// ────────────────────────────────────────────
+    92→// Profile interpretation logic
+    93→// ────────────────────────────────────────────
+    94→
+    95→function getProfileInterpretation(scores: Record<DimensionKey, number>): {
+    96→  label: string
+    97→  description: string
+    98→  color: string
+    99→  strengths: string[]
+   100→  areas: string[]
+   101→} {
+   102→  const entries = Object.entries(scores) as [DimensionKey, number][]
+   103→  const sorted = [...entries].sort(([, a], [, b]) => b - a)
+   104→  const top = sorted[0]
+   105→  const bottom = sorted[sorted.length - 1]
+   106→  const avg = entries.reduce((s, [, v]) => s + v, 0) / entries.length
+   107→
+   108→  const dimMap: Record<DimensionKey, {
+   109→    label: string
+   110→    high: string
+   111→    low: string
+   112→  }> = {
+   113→    creativite: {
+   114→      label: 'Créatif',
+   115→      high: 'Votre esprit créatif est un atout majeur pour innover et vous différencier sur votre marché.',
+   116→      low: 'Développer votre créativité vous aidera à trouver des solutions originales.',
+   117→    },
+   118→    leadership: {
+   119→      label: 'Leader',
+   120→      high: 'Vos capacités de leadership vous permettent de mobiliser et inspirer votre équipe.',
+   121→      low: 'Renforcer votre leadership facilitera la prise de décision et la gestion d\'équipe.',
+   122→    },
+   123→    gestion_financiere: {
+   124→      label: 'Gestionnaire',
+   125→      high: 'Votre sens de la gestion financière est un pilier solide pour la pérennité de votre entreprise.',
+   126→      low: 'Améliorer votre gestion financière est essentiel pour la survie de votre entreprise.',
+   127→    },
+   128→    communication: {
+   129→      label: 'Communicant',
+   130→      high: 'Votre aisance en communication vous aide à convaincre et fédérer autour de votre projet.',
+   131→      low: 'Renforcer votre communication vous permettra de mieux vendre votre projet.',
+   132→    },
+   133→    resolution_problemes: {
+   134→      label: 'Stratège',
+   135→      high: 'Votre capacité à résoudre les problèmes vous rend résilient face aux défis entrepreneuriaux.',
+   136→      low: 'Développer cette compétence vous aidera à surmonter les obstacles avec plus d\'aisance.',
+   137→    },
+   138→    perseverance: {
+   139→      label: 'Persévérant',
+   140→      high: 'Votre persévérance est la clé de votre réussite entrepreneuriale.',
+   141→      low: 'Cultiver la persévérance vous aidera à traverser les moments difficiles.',
+   142→    },
+   143→    adaptabilite: {
+   144→      label: 'Adaptable',
+   145→      high: 'Votre adaptabilité vous permet de pivoter rapidement face aux changements du marché.',
+   146→      low: 'L\'adaptabilité est cruciale dans un environnement entrepreneurial en constante évolution.',
+   147→    },
+   148→    organisation: {
+   149→      label: 'Organisateur',
+   150→      high: 'Votre sens de l\'organisation garantit une exécution méthodique et efficace.',
+   151→      low: 'Mieux vous organiser vous fera gagner en productivité et en sérénité.',
+   152→    },
+   153→  }
+   154→
+   155→  const topInfo = dimMap[top[0]]
+   156→  const bottomInfo = dimMap[bottom[0]]
+   157→
+   158→  const strengths: string[] = []
+   159→  const areas: string[] = []
+   160→
+   161→  sorted.forEach(([key, val]) => {
+   162→    const info = dimMap[key]
+   163→    if (val >= 7) {
+   164→      strengths.push(`${info.label} (${val}/10)`)
+   165→    } else if (val <= 4) {
+   166→      areas.push(`${info.label} (${val}/10)`)
+   167→    }
+   168→  })
+   169→
+   170→  let label: string
+   171→  let color: string
+   172→  let description: string
+   173→
+   174→  if (avg >= 8) {
+   175→    label = 'Profil Entrepreneurial Complet'
+   176→    color = 'text-green-600 dark:text-green-400'
+   177→    description = 'Vous possédez un ensemble de compétences exceptionnellement équilibré. Vous êtes prêt(e) à relever tous les défis de la création d\'entreprise.'
+   178→  } else if (avg >= 6) {
+   179→    label = 'Profil Prometteur'
+   180→    color = 'text-primary'
+   181→    description = `Votre profil entrepreneurial est solide avec des points forts en ${topInfo.label.toLowerCase()}. ${bottomInfo.low}`
+   182→  } else if (avg >= 4) {
+   183→    label = 'Profil en Développement'
+   184→    color = 'text-amber-600 dark:text-amber-400'
+   185→    description = `Vous avez un bon potentiel, particulièrement en ${topInfo.label.toLowerCase()}. Concentrez-vous sur le développement de ${bottomInfo.label.toLowerCase()} pour renforcer votre profil.`
+   186→  } else {
+   187→    label = 'Profil Émergent'
+   188→    color = 'text-red-600 dark:text-red-400'
+   189→    description = 'Vous êtes en début de parcours entrepreneurial. Chaque compétence peut se développer avec de la formation et de la pratique.'
+   190→  }
+   191→
+   192→  if (top[1] >= 7 && topInfo) {
+   193→    description += ` Votre double force en ${topInfo.label.toLowerCase()} et ${dimMap[sorted[1][0]].label.toLowerCase()} est un excellent point de départ.`
+   194→  }
+   195→
+   196→  return { label, description, color, strengths, areas }
+   197→}
+   198→
+   199→// ────────────────────────────────────────────
+   200→// Custom Tooltip for RadarChart
+   201→// ────────────────────────────────────────────
+   202→
+   203→function CustomRadarTooltip({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number; payload: { fullMark: number } }> }) {
+   204→  if (!active || !payload || !payload.length) return null
+   205→  const d = payload[0]
+   206→  return (
+   207→    <div className="rounded-lg border bg-background p-3 shadow-lg">
+   208→      <p className="text-sm font-semibold text-foreground">{d.name}</p>
+   209→      <p className="text-xs text-muted-foreground">{d.value} / {d.payload.fullMark}</p>
+   210→    </div>
+   211→  )
+   212→}
+   213→
+   214→// ────────────────────────────────────────────
+   215→// Main Component
+   216→// ────────────────────────────────────────────
+   217→
+   218→export function KiviatModule() {
+   219→  const [scores, setScores] = useState<Record<DimensionKey, number>>(DEFAULT_SCORES)
+   220→  const [loading, setLoading] = useState(true)
+   221→  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+   222→  const [hasLoaded, setHasLoaded] = useState(false)
+   223→  const token = useAuthStore((s) => s.token)
+   224→
+   225→  // ── Load saved data ──
+   226→  useEffect(() => {
+   227→    async function loadKiviat() {
+   228→      const saved = localStorage.getItem(STORAGE_KEY)
+   229→      if (saved) {
+   230→        try {
+   231→          const parsed = JSON.parse(saved)
+   232→          if (parsed.scores) {
+   233→            setScores(parsed.scores)
+   234→            setLoading(false)
+   235→            if (token) fetchFromApi()
+   236→            return
+   237→          }
+   238→        } catch { /* ignore */ }
+   239→      }
+   240→      if (token) {
+   241→        await fetchFromApi()
+   242→      } else {
+   243→        setLoading(false)
+   244→      }
+   245→    }
+   246→
+   247→    async function fetchFromApi() {
+   248→      try {
+   249→        const res = await fetch('/api/kiviat', {
+   250→          headers: { Authorization: `Bearer ${token}` },
+   251→        })
+   252→        if (res.ok) {
+   253→          const json = await res.json()
+   254→          if (json.success && json.data && json.data.length > 0) {
+   255→            const loaded: Record<string, number> = {}
+   256→            json.data.forEach((r: { category: string; score: number }) => {
+   257→              loaded[r.category] = r.score
+   258→            })
+   259→            const merged = { ...DEFAULT_SCORES }
+   260→            for (const key of Object.keys(DEFAULT_SCORES) as DimensionKey[]) {
+   261→              if (loaded[key]) merged[key] = loaded[key]
+   262→            }
+   263→            setScores(merged)
+   264→            localStorage.setItem(STORAGE_KEY, JSON.stringify({ scores: merged }))
+   265→            setHasLoaded(true)
+   266→          }
+   267→        }
+   268→      } catch { /* silent */ }
+   269→      setLoading(false)
+   270→    }
+   271→
+   272→    loadKiviat()
+   273→  }, [token])
+   274→
+   275→  // ── Auto-save to localStorage ──
+   276→  useEffect(() => {
+   277→    if (!loading) {
+   278→      localStorage.setItem(STORAGE_KEY, JSON.stringify({ scores }))
+   279→    }
+   280→  }, [scores, loading])
+   281→
+   282→  // ── Update score ──
+   283→  const updateScore = useCallback((key: DimensionKey, value: number) => {
+   284→    setScores((prev) => ({ ...prev, [key]: value }))
+   285→  }, [])
+   286→
+   287→  // ── Save to API ──
+   288→  const handleSave = async () => {
+   289→    if (!token) {
+   290→      toast.error('Vous devez être connecté(e) pour sauvegarder')
+   291→      return
+   292→    }
+   293→    setSaveStatus('saving')
+   294→    try {
+   295→      const results = DIMENSIONS.map((d) => ({
+   296→        category: d.key,
+   297→        score: scores[d.key],
+   298→      }))
+   299→      const res = await fetch('/api/kiviat', {
+   300→        method: 'POST',
+   301→        headers: {
+   302→          'Content-Type': 'application/json',
+   303→          Authorization: `Bearer ${token}`,
+   304→        },
+   305→        body: JSON.stringify({ results }),
+   306→      })
+   307→      if (res.ok) {
+   308→        setSaveStatus('saved')
+   309→        toast.success('Résultats Kiviat sauvegardés !')
+   310→        setTimeout(() => setSaveStatus('idle'), 3000)
+   311→      } else {
+   312→        setSaveStatus('error')
+   313→        toast.error('Erreur lors de la sauvegarde')
+   314→      }
+   315→    } catch {
+   316→      setSaveStatus('error')
+   317→      toast.error('Erreur réseau')
+   318→    }
+   319→  }
+   320→
+   321→  // ── Computed values ──
+   322→  const globalAverage = useMemo(() => {
+   323→    const vals = Object.values(scores)
+   324→    return Math.round((vals.reduce((s, v) => s + v, 0) / vals.length) * 10) / 10
+   325→  }, [scores])
+   326→
+   327→  const interpretation = useMemo(() => getProfileInterpretation(scores), [scores])
+   328→
+   329→  const chartData = useMemo(() =>
+   330→    DIMENSIONS.map((d) => ({
+   331→      dimension: d.label,
+   332→      score: scores[d.key],
+   333→      fullMark: 10,
+   334→      key: d.key,
+   335→    })),
+   336→    [scores]
+   337→  )
+   338→
+   339→  const sortedDimensions = useMemo(() =>
+   340→    [...DIMENSIONS].sort((a, b) => scores[b.key] - scores[a.key]),
+   341→    [scores]
+   342→  )
+   343→
+   344→  if (loading) {
+   345→    return (
+   346→      <div className="px-4 py-6 md:px-8 md:py-8 max-w-4xl mx-auto w-full space-y-6">
+   347→        <Skeleton className="h-8 w-64" />
+   348→        <Skeleton className="h-4 w-48" />
+   349→        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   350→          <Skeleton className="h-96" />
+   351→          <Skeleton className="h-96" />
+   352→        </div>
+   353→      </div>
+   354→    )
+   355→  }
+   356→
+   357→  return (
+   358→    <motion.div
+   359→      initial={{ opacity: 0, y: 20 }}
+   360→      animate={{ opacity: 1, y: 0 }}
+   361→      transition={{ duration: 0.4 }}
+   362→      className="px-4 py-6 md:px-8 md:py-8 max-w-4xl mx-auto w-full space-y-6"
+   363→    >
+   364→      {/* Header */}
+   365→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   366→        <div>
+   367→          <h1 className="text-2xl md:text-3xl font-bold text-foreground flex items-center gap-3">
+   368→            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+   369→              <Pentagon className="h-5 w-5 text-primary" />
+   370→            </div>
+   371→            Test Kiviat
+   372→          </h1>
+   373→          <p className="mt-1 text-muted-foreground">
+   374→            Évaluez vos compétences entrepreneuriales sur 8 dimensions
+   375→          </p>
+   376→        </div>
+   377→
+   378→        <Button
+   379→          onClick={handleSave}
+   380→          disabled={saveStatus === 'saving'}
+   381→          className="gap-2 rounded-full"
+   382→          size="sm"
+   383→        >
+   384→          {saveStatus === 'saving' ? (
+   385→            <Loader2 className="h-4 w-4 animate-spin" />
+   386→          ) : saveStatus === 'saved' ? (
+   387→            <CheckCircle2 className="h-4 w-4" />
+   388→          ) : (
+   389→            <Save className="h-4 w-4" />
+   390→          )}
+   391→          {saveStatus === 'saving' ? 'Sauvegarde...' : saveStatus === 'saved' ? 'Sauvegardé !' : 'Sauvegarder'}
+   392→        </Button>
+   393→      </div>
+   394→
+   395→      {/* Global Average */}
+   396→      <motion.div
+   397→        initial={{ opacity: 0, y: 10 }}
+   398→        animate={{ opacity: 1, y: 0 }}
+   399→        transition={{ delay: 0.1 }}
+   400→      >
+   401→        <Card className="border-none shadow-sm bg-muted/30">
+   402→          <CardContent className="p-4 flex items-center gap-4">
+   403→            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+   404→              <BarChart3 className="h-6 w-6 text-primary" />
+   405→            </div>
+   406→            <div className="flex-1">
+   407→              <p className="text-sm font-medium text-foreground">Score global moyen</p>
+   408→              <p className="text-xs text-muted-foreground">
+   409→                Moyenne des 8 dimensions
+   410→              </p>
+   411→            </div>
+   412→            <div className="text-right">
+   413→              <span className={cn(
+   414→                'text-2xl font-bold',
+   415→                globalAverage >= 7 ? 'text-green-600 dark:text-green-400' :
+   416→                globalAverage >= 5 ? 'text-primary' :
+   417→                'text-amber-600 dark:text-amber-400'
+   418→              )}>
+   419→                {globalAverage}
+   420→              </span>
+   421→              <span className="text-sm text-muted-foreground"> / 10</span>
+   422→            </div>
+   423→          </CardContent>
+   424→        </Card>
+   425→      </motion.div>
+   426→
+   427→      {/* Radar Chart + Sliders */}
+   428→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   429→        {/* Radar Chart */}
+   430→        <motion.div
+   431→          initial={{ opacity: 0, y: 10 }}
+   432→          animate={{ opacity: 1, y: 0 }}
+   433→          transition={{ delay: 0.2 }}
+   434→        >
+   435→          <Card className="border-none shadow-sm h-full">
+   436→            <CardHeader className="pb-2">
+   437→              <CardTitle className="text-base flex items-center gap-2">
+   438→                <Target className="h-4 w-4 text-primary" />
+   439→                Radar des compétences
+   440→              </CardTitle>
+   441→              <CardDescription>Ajustez les curseurs pour évaluer chaque dimension</CardDescription>
+   442→            </CardHeader>
+   443→            <CardContent className="pt-0">
+   444→              <div className="w-full aspect-square max-w-[350px] mx-auto">
+   445→                <ResponsiveContainer width="100%" height="100%">
+   446→                  <RadarChart data={chartData} cx="50%" cy="50%" outerRadius="70%">
+   447→                    <PolarGrid stroke="hsl(var(--border))" />
+   448→                    <PolarAngleAxis
+   449→                      dataKey="dimension"
+   450→                      tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+   451→                    />
+   452→                    <PolarRadiusAxis
+   453→                      angle={90}
+   454→                      domain={[0, 10]}
+   455→                      tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }}
+   456→                      tickCount={6}
+   457→                    />
+   458→                    <Radar
+   459→                      name="Score"
+   460→                      dataKey="score"
+   461→                      stroke="#00838F"
+   462→                      fill="#00838F"
+   463→                      fillOpacity={0.15}
+   464→                      strokeWidth={2}
+   465→                    />
+   466→                    <Tooltip content={<CustomRadarTooltip />} />
+   467→                  </RadarChart>
+   468→                </ResponsiveContainer>
+   469→              </div>
+   470→            </CardContent>
+   471→          </Card>
+   472→        </motion.div>
+   473→
+   474→        {/* Sliders */}
+   475→        <motion.div
+   476→          initial={{ opacity: 0, y: 10 }}
+   477→          animate={{ opacity: 1, y: 0 }}
+   478→          transition={{ delay: 0.3 }}
+   479→        >
+   480→          <Card className="border-none shadow-sm h-full">
+   481→            <CardHeader className="pb-2">
+   482→              <CardTitle className="text-base">Évaluation par dimension</CardTitle>
+   483→              <CardDescription>Scorez-vous de 1 (faible) à 10 (excellent)</CardDescription>
+   484→            </CardHeader>
+   485→            <CardContent className="pt-0 space-y-5 max-h-[500px] overflow-y-auto pr-1">
+   486→              {DIMENSIONS.map((dim, idx) => (
+   487→                <motion.div
+   488→                  key={dim.key}
+   489→                  initial={{ opacity: 0, x: 20 }}
+   490→                  animate={{ opacity: 1, x: 0 }}
+   491→                  transition={{ delay: 0.35 + idx * 0.05 }}
+   492→                  className="space-y-2"
+   493→                >
+   494→                  <div className="flex items-center justify-between">
+   495→                    <div className="flex items-center gap-2">
+   496→                      <span className="text-base">{dim.icon}</span>
+   497→                      <span className="text-sm font-medium text-foreground">{dim.label}</span>
+   498→                    </div>
+   499→                    <Badge
+   500→                      variant="secondary"
+   501→                      className={cn(
+   502→                        'text-xs font-bold min-w-[3rem] justify-center',
+   503→                        scores[dim.key] >= 7 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+   504→                        scores[dim.key] >= 4 ? 'bg-primary/10 text-primary' :
+   505→                        'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+   506→                      )}
+   507→                    >
+   508→                      {scores[dim.key]}/10
+   509→                    </Badge>
+   510→                  </div>
+   511→                  <Slider
+   512→                    value={[scores[dim.key]]}
+   513→                    onValueChange={(val) => updateScore(dim.key, val[0])}
+   514→                    min={1}
+   515→                    max={10}
+   516→                    step={1}
+   517→                    className="w-full"
+   518→                  />
+   519→                </motion.div>
+   520→              ))}
+   521→            </CardContent>
+   522→          </Card>
+   523→        </motion.div>
+   524→      </div>
+   525→
+   526→      {/* Profile Interpretation */}
+   527→      <motion.div
+   528→        initial={{ opacity: 0, y: 10 }}
+   529→        animate={{ opacity: 1, y: 0 }}
+   530→        transition={{ delay: 0.5 }}
+   531→      >
+   532→        <Card className="border-none shadow-sm">
+   533→          <CardHeader>
+   534→            <CardTitle className="text-lg flex items-center gap-2">
+   535→              <Sparkles className="h-5 w-5 text-amber-500" />
+   536→              Interprétation du profil
+   537→            </CardTitle>
+   538→          </CardHeader>
+   539→          <CardContent className="space-y-5">
+   540→            {/* Profile label */}
+   541→            <div className={cn(
+   542→              'inline-flex items-center gap-2 px-4 py-2 rounded-xl',
+   543→              'bg-muted/50'
+   544→            )}>
+   545→              <Lightbulb className={cn('h-5 w-5', interpretation.color)} />
+   546→              <span className={cn('font-semibold', interpretation.color)}>
+   547→                {interpretation.label}
+   548→              </span>
+   549→            </div>
+   550→
+   551→            <p className="text-sm text-muted-foreground leading-relaxed">
+   552→              {interpretation.description}
+   553→            </p>
+   554→
+   555→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   556→              {/* Strengths */}
+   557→              <div className="space-y-3">
+   558→                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+   559→                  <TrendingUp className="h-4 w-4 text-green-500" />
+   560→                  Points forts
+   561→                </h4>
+   562→                {interpretation.strengths.length > 0 ? (
+   563→                  <div className="space-y-1.5">
+   564→                    {interpretation.strengths.map((s, i) => (
+   565→                      <div key={i} className="flex items-center gap-2 text-sm">
+   566→                        <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
+   567→                        <span className="text-muted-foreground">{s}</span>
+   568→                      </div>
+   569→                    ))}
+   570→                  </div>
+   571→                ) : (
+   572→                  <p className="text-sm text-muted-foreground">
+   573→                    Continuez à développer vos compétences pour identifier vos points forts.
+   574→                  </p>
+   575→                )}
+   576→              </div>
+   577→
+   578→              {/* Areas to improve */}
+   579→              <div className="space-y-3">
+   580→                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+   581→                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+   582→                  Axes d&apos;amélioration
+   583→                </h4>
+   584→                {interpretation.areas.length > 0 ? (
+   585→                  <div className="space-y-1.5">
+   586→                    {interpretation.areas.map((a, i) => (
+   587→                      <div key={i} className="flex items-center gap-2 text-sm">
+   588→                        <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+   589→                        <span className="text-muted-foreground">{a}</span>
+   590→                      </div>
+   591→                    ))}
+   592→                  </div>
+   593→                ) : (
+   594→                  <p className="text-sm text-muted-foreground">
+   595→                    Aucune compétence faible détectée. Excellent équilibre !
+   596→                  </p>
+   597→                )}
+   598→              </div>
+   599→            </div>
+   600→          </CardContent>
+   601→        </Card>
+   602→      </motion.div>
+   603→
+   604→      {/* Score breakdown */}
+   605→      <motion.div
+   606→        initial={{ opacity: 0, y: 10 }}
+   607→        animate={{ opacity: 1, y: 0 }}
+   608→        transition={{ delay: 0.6 }}
+   609→      >
+   610→        <Card className="border-none shadow-sm">
+   611→          <CardHeader className="pb-2">
+   612→            <CardTitle className="text-base">Classement des dimensions</CardTitle>
+   613→          </CardHeader>
+   614→          <CardContent className="pt-0 space-y-3">
+   615→            {sortedDimensions.map((dim, idx) => (
+   616→              <div key={dim.key} className="flex items-center gap-3">
+   617→                <div className={cn(
+   618→                  'flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold shrink-0',
+   619→                  idx < 3 ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+   620→                )}>
+   621→                  {idx + 1}
+   622→                </div>
+   623→                <span className="text-base shrink-0">{dim.icon}</span>
+   624→                <span className="text-sm font-medium text-foreground min-w-[130px]">{dim.label}</span>
+   625→                <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+   626→                  <motion.div
+   627→                    initial={{ width: 0 }}
+   628→                    animate={{ width: `${(scores[dim.key] / 10) * 100}%` }}
+   629→                    transition={{ duration: 0.8, delay: 0.7 + idx * 0.05, ease: 'easeOut' }}
+   630→                    className="h-full rounded-full"
+   631→                    style={{ backgroundColor: dim.color }}
+   632→                  />
+   633→                </div>
+   634→                <span className="text-sm font-bold text-muted-foreground min-w-[2.5rem] text-right">
+   635→                  {scores[dim.key]}/10
+   636→                </span>
+   637→              </div>
+   638→            ))}
+   639→          </CardContent>
+   640→        </Card>
+   641→      </motion.div>
+   642→
+   643→      {/* Loaded indicator */}
+   644→      {hasLoaded && (
+   645→        <motion.div
+   646→          initial={{ opacity: 0 }}
+   647→          animate={{ opacity: 1 }}
+   648→          className="text-center"
+   649→        >
+   650→          <Badge variant="secondary" className="text-xs">
+   651→            <CheckCircle2 className="h-3 w-3 mr-1" />
+   652→            Résultats précédents chargés
+   653→          </Badge>
+   654→        </motion.div>
+   655→      )}
+   656→
+   657→      {/* Pépites Game CTA */}
+   658→      <motion.div
+   659→        initial={{ opacity: 0, y: 10 }}
+   660→        animate={{ opacity: 1, y: 0 }}
+   661→        transition={{ delay: 0.7 }}
+   662→      >
+   663→        <Card className="border-none shadow-sm bg-gradient-to-r from-amber-50 to-amber-100/50 dark:from-amber-900/10 dark:to-amber-800/10">
+   664→          <CardContent className="p-4 flex items-center gap-4">
+   665→            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 shrink-0">
+   666→              <Zap className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+   667→            </div>
+   668→            <div className="flex-1 min-w-0">
+   669→              <p className="text-sm font-semibold text-foreground">Pépites Game — CréaScope</p>
+   670→              <p className="text-xs text-muted-foreground">
+   671→                Identifiez vos soft skills avec le jeu de cartes interactif et alimentez automatiquement ce radar.
+   672→              </p>
+   673→            </div>
+   674→            <Button
+   675→              variant="outline"
+   676→              size="sm"
+   677→              className="gap-2 shrink-0 rounded-full"
+   678→              onClick={() => {
+   679→                const store = useBureauStore.getState()
+   680→                store.setSection('parcours')
+   681→                store.setModule('pepites')
+   682→              }}
+   683→            >
+   684→              <Layers className="h-4 w-4" />
+   685→              Jouer
+   686→            </Button>
+   687→          </CardContent>
+   688→        </Card>
+   689→      </motion.div>
+   690→    </motion.div>
+   691→  )
+   692→}
+   693→
+   694→export default KiviatModule
+   695→

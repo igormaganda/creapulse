@@ -1,0 +1,947 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Input } from '@/components/ui/input'
+     9→import { Textarea } from '@/components/ui/textarea'
+    10→import { Label } from '@/components/ui/label'
+    11→import { Checkbox } from '@/components/ui/checkbox'
+    12→import { Skeleton } from '@/components/ui/skeleton'
+    13→import { Separator } from '@/components/ui/separator'
+    14→import {
+    15→  Select,
+    16→  SelectContent,
+    17→  SelectItem,
+    18→  SelectTrigger,
+    19→  SelectValue,
+    20→} from '@/components/ui/select'
+    21→import {
+    22→  Eye,
+    23→  Target,
+    24→  Heart,
+    25→  Flag,
+    26→  Save,
+    27→  Loader2,
+    28→  CheckCircle2,
+    29→  Plus,
+    30→  X,
+    31→  Download,
+    32→  Sparkles,
+    33→  Lightbulb,
+    34→  Clock,
+    35→  Star,
+    36→  ArrowRight,
+    37→  Milestone,
+    38→} from 'lucide-react'
+    39→import { cn } from '@/lib/utils'
+    40→import { toast } from 'sonner'
+    41→import { useAuthStore } from '@/lib/zustand/store'
+    42→
+    43→// ────────────────────────────────────────────
+    44→// Types
+    45→// ────────────────────────────────────────────
+    46→
+    47→interface Objective {
+    48→  id: string
+    49→  title: string
+    50→  description: string
+    51→  deadline: string
+    52→  priority: 'high' | 'medium' | 'low'
+    53→}
+    54→
+    55→interface Milestones {
+    56→  sixMonths: { goals: string[] }
+    57→  oneYear: { goals: string[] }
+    58→  threeYears: { goals: string[] }
+    59→  fiveYears: { goals: string[] }
+    60→}
+    61→
+    62→interface VisionData {
+    63→  projectTitle: string
+    64→  visionStatement: string
+    65→  objectives: Objective[]
+    66→  coreValues: string[]
+    67→  milestones: Milestones
+    68→  motivation: string
+    69→  desiredImpact: string
+    70→}
+    71→
+    72→type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+    73→
+    74→// ────────────────────────────────────────────
+    75→// Constants
+    76→// ────────────────────────────────────────────
+    77→
+    78→const STORAGE_KEY = 'creapulse-vision'
+    79→
+    80→const PREDEFINED_VALUES = [
+    81→  { value: 'innovation', label: 'Innovation', icon: '💡' },
+    82→  { value: 'impact_social', label: 'Impact social', icon: '🌍' },
+    83→  { value: 'excellence', label: 'Excellence', icon: '⭐' },
+    84→  { value: 'transparence', label: 'Transparence', icon: '🔍' },
+    85→  { value: 'collaboration', label: 'Collaboration', icon: '🤝' },
+    86→  { value: 'durabilite', label: 'Durabilité', icon: '🌱' },
+    87→  { value: 'liberte', label: 'Liberté', icon: '🕊️' },
+    88→  { value: 'autonomie', label: 'Autonomie', icon: '🎯' },
+    89→  { value: 'passion', label: 'Passion', icon: '❤️' },
+    90→  { value: 'integrite', label: 'Intégrité', icon: '⚖️' },
+    91→  { value: 'courage', label: 'Courage', icon: '🦁' },
+    92→  { value: 'simplicite', label: 'Simplicité', icon: '✨' },
+    93→  { value: 'respect', label: 'Respect', icon: '🙏' },
+    94→  { value: 'croissance', label: 'Croissance', icon: '📈' },
+    95→  { value: 'creativite', label: 'Créativité', icon: '🎨' },
+    96→]
+    97→
+    98→const PRIORITY_CONFIG = {
+    99→  high: { label: 'Haute', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', border: 'border-red-200 dark:border-red-800' },
+   100→  medium: { label: 'Moyenne', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', border: 'border-amber-200 dark:border-amber-800' },
+   101→  low: { label: 'Basse', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', border: 'border-green-200 dark:border-green-800' },
+   102→}
+   103→
+   104→const MILESTONE_PHASES = [
+   105→  { key: 'sixMonths' as const, label: '6 mois', sublabel: 'Lancement', color: '#00838F', icon: '🚀' },
+   106→  { key: 'oneYear' as const, label: '1 an', sublabel: 'Croissance', color: '#22C55E', icon: '📈' },
+   107→  { key: 'threeYears' as const, label: '3 ans', sublabel: 'Consolidation', color: '#F59E0B', icon: '🏛️' },
+   108→  { key: 'fiveYears' as const, label: '5 ans', sublabel: 'Maturité', color: '#A855F7', icon: '🌟' },
+   109→]
+   110→
+   111→const DEFAULT_MILESTONES: Milestones = {
+   112→  sixMonths: { goals: [] },
+   113→  oneYear: { goals: [] },
+   114→  threeYears: { goals: [] },
+   115→  fiveYears: { goals: [] },
+   116→}
+   117→
+   118→const DEFAULT_VISION: VisionData = {
+   119→  projectTitle: '',
+   120→  visionStatement: '',
+   121→  objectives: [],
+   122→  coreValues: [],
+   123→  milestones: DEFAULT_MILESTONES,
+   124→  motivation: '',
+   125→  desiredImpact: '',
+   126→}
+   127→
+   128→function generateId() {
+   129→  return `obj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+   130→}
+   131→
+   132→function calculateCompletion(data: VisionData): number {
+   133→  let filled = 0
+   134→  let total = 6
+   135→  if (data.visionStatement.trim()) filled++
+   136→  if (data.objectives.length > 0) filled++
+   137→  if (data.coreValues.length > 0) filled++
+   138→  const totalGoals = Object.values(data.milestones).reduce((s, m) => s + m.goals.length, 0)
+   139→  if (totalGoals > 0) filled++
+   140→  if (data.motivation.trim()) filled++
+   141→  if (data.desiredImpact.trim()) filled++
+   142→  return Math.round((filled / total) * 100)
+   143→}
+   144→
+   145→// ────────────────────────────────────────────
+   146→// Main Component
+   147→// ────────────────────────────────────────────
+   148→
+   149→export function VisionModule() {
+   150→  const [data, setData] = useState<VisionData>(DEFAULT_VISION)
+   151→  const [loading, setLoading] = useState(true)
+   152→  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+   153→  const [hasChanges, setHasChanges] = useState(false)
+   154→  const [newGoalPhase, setNewGoalPhase] = useState<keyof Milestones | null>(null)
+   155→  const [newGoalText, setNewGoalText] = useState('')
+   156→  const token = useAuthStore((s) => s.token)
+   157→
+   158→  // ── Load data ──
+   159→  useEffect(() => {
+   160→    async function loadVision() {
+   161→      const saved = localStorage.getItem(STORAGE_KEY)
+   162→      if (saved) {
+   163→        try {
+   164→          const parsed = JSON.parse(saved)
+   165→          setData({ ...DEFAULT_VISION, ...parsed })
+   166→          setLoading(false)
+   167→          fetchFromApi()
+   168→          return
+   169→        } catch { /* ignore */ }
+   170→      }
+   171→      fetchFromApi()
+   172→    }
+   173→
+   174→    async function fetchFromApi() {
+   175→      try {
+   176→        const res = await fetch('/api/vision', {
+   177→          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+   178→          credentials: 'include',
+   179→        })
+   180→        if (res.ok) {
+   181→          const json = await res.json()
+   182→          if (json.success && json.data) {
+   183→            const apiData = json.data as VisionData
+   184→            setData((prev) => ({
+   185→              ...prev,
+   186→              ...apiData,
+   187→              milestones: { ...DEFAULT_MILESTONES, ...(apiData.milestones || {}) },
+   188→            }))
+   189→            localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...DEFAULT_VISION, ...apiData }))
+   190→          }
+   191→        }
+   192→      } catch { /* silent */ }
+   193→      setLoading(false)
+   194→    }
+   195→
+   196→    loadVision()
+   197→  }, [token])
+   198→
+   199→  // ── Auto-save to localStorage ──
+   200→  useEffect(() => {
+   201→    if (!loading) {
+   202→      localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+   203→    }
+   204→  }, [data, loading])
+   205→
+   206→  // ── Update helpers ──
+   207→  const updateField = useCallback(<K extends keyof VisionData>(key: K, value: VisionData[K]) => {
+   208→    setData((prev) => ({ ...prev, [key]: value }))
+   209→    setHasChanges(true)
+   210→  }, [])
+   211→
+   212→  const addObjective = useCallback(() => {
+   213→    if (data.objectives.length >= 5) {
+   214→      toast.warning('Maximum 5 objectifs autorisés')
+   215→      return
+   216→    }
+   217→    const newObj: Objective = {
+   218→      id: generateId(),
+   219→      title: '',
+   220→      description: '',
+   221→      deadline: '',
+   222→      priority: 'medium',
+   223→    }
+   224→    setData((prev) => ({ ...prev, objectives: [...prev.objectives, newObj] }))
+   225→    setHasChanges(true)
+   226→  }, [data.objectives.length])
+   227→
+   228→  const updateObjective = useCallback((id: string, field: keyof Objective, value: string) => {
+   229→    setData((prev) => ({
+   230→      ...prev,
+   231→      objectives: prev.objectives.map((o) => o.id === id ? { ...o, [field]: value } : o),
+   232→    }))
+   233→    setHasChanges(true)
+   234→  }, [])
+   235→
+   236→  const removeObjective = useCallback((id: string) => {
+   237→    setData((prev) => ({
+   238→      ...prev,
+   239→      objectives: prev.objectives.filter((o) => o.id !== id),
+   240→    }))
+   241→    setHasChanges(true)
+   242→  }, [])
+   243→
+   244→  const toggleValue = useCallback((value: string) => {
+   245→    setData((prev) => ({
+   246→      ...prev,
+   247→      coreValues: prev.coreValues.includes(value)
+   248→        ? prev.coreValues.filter((v) => v !== value)
+   249→        : prev.coreValues.length < 5
+   250→          ? [...prev.coreValues, value]
+   251→          : prev.coreValues,
+   252→    }))
+   253→    setHasChanges(true)
+   254→  }, [])
+   255→
+   256→  const addGoal = useCallback((phase: keyof Milestones) => {
+   257→    const trimmed = newGoalText.trim()
+   258→    if (!trimmed) return
+   259→    setData((prev) => ({
+   260→      ...prev,
+   261→      milestones: {
+   262→        ...prev.milestones,
+   263→        [phase]: {
+   264→          goals: [...prev.milestones[phase].goals, trimmed],
+   265→        },
+   266→      },
+   267→    }))
+   268→    setNewGoalText('')
+   269→    setHasChanges(true)
+   270→  }, [newGoalText])
+   271→
+   272→  const removeGoal = useCallback((phase: keyof Milestones, index: number) => {
+   273→    setData((prev) => ({
+   274→      ...prev,
+   275→      milestones: {
+   276→        ...prev.milestones,
+   277→        [phase]: {
+   278→          goals: prev.milestones[phase].goals.filter((_, i) => i !== index),
+   279→        },
+   280→      },
+   281→    }))
+   282→    setHasChanges(true)
+   283→  }, [])
+   284→
+   285→  // ── Save to API ──
+   286→  const handleSave = async () => {
+   287→    if (!token) {
+   288→      setSaveStatus('error')
+   289→      toast.error('Vous devez être connecté(e)', { description: 'Session non trouvée. Reconnectez-vous.' })
+   290→      return
+   291→    }
+   292→    setSaveStatus('saving')
+   293→    try {
+   294→      const res = await fetch('/api/vision', {
+   295→        method: 'PUT',
+   296→        headers: {
+   297→          'Content-Type': 'application/json',
+   298→          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+   299→        },
+   300→        credentials: 'include',
+   301→        body: JSON.stringify(data),
+   302→      })
+   303→      if (res.ok) {
+   304→        setSaveStatus('saved')
+   305→        setHasChanges(false)
+   306→        toast.success('Vision sauvegardée avec succès !')
+   307→        setTimeout(() => setSaveStatus('idle'), 3000)
+   308→      } else if (res.status === 401) {
+   309→        setSaveStatus('error')
+   310→        toast.error('Vous devez être connecté(e) pour sauvegarder', {
+   311→          description: 'Votre session a expiré. Veuillez vous reconnecter.',
+   312→        })
+   313→      } else {
+   314→        setSaveStatus('error')
+   315→        const json = await res.json().catch(() => null)
+   316→        toast.error('Erreur lors de la sauvegarde', {
+   317→          description: json?.error?.message || 'Veuillez réessayer.',
+   318→        })
+   319→      }
+   320→    } catch {
+   321→      setSaveStatus('error')
+   322→      toast.error('Erreur réseau', {
+   323→        description: 'Vérifiez votre connexion et réessayez.',
+   324→      })
+   325→    }
+   326→  }
+   327→
+   328→  // ── Export summary ──
+   329→  const handleExport = useCallback(() => {
+   330→    const lines: string[] = []
+   331→    lines.push('═══════════════════════════════════════')
+   332→    lines.push('  VISION STRATÉGIQUE — CreaPulse')
+   333→    lines.push('═══════════════════════════════════════')
+   334→    lines.push('')
+   335→
+   336→    if (data.projectTitle) {
+   337→      lines.push(`Projet : ${data.projectTitle}`)
+   338→      lines.push('')
+   339→    }
+   340→
+   341→    lines.push('── MA VISION À 5 ANS ──')
+   342→    lines.push(data.visionStatement || 'Non définie')
+   343→    lines.push('')
+   344→
+   345→    if (data.coreValues.length > 0) {
+   346→      lines.push('── VALEURS FONDAMENTALES ──')
+   347→      data.coreValues.forEach((v) => {
+   348→        const found = PREDEFINED_VALUES.find((pv) => pv.value === v)
+   349→        lines.push(`  ${found?.icon || '◆'} ${found?.label || v}`)
+   350→      })
+   351→      lines.push('')
+   352→    }
+   353→
+   354→    if (data.objectives.length > 0) {
+   355→      lines.push('── OBJECTIFS STRATÉGIQUES ──')
+   356→      data.objectives.forEach((obj, i) => {
+   357→        const prio = PRIORITY_CONFIG[obj.priority]
+   358→        lines.push(`  ${i + 1}. [${prio.label}] ${obj.title || 'Sans titre'}`)
+   359→        if (obj.description) lines.push(`     ${obj.description}`)
+   360→        if (obj.deadline) lines.push(`     Échéance : ${obj.deadline}`)
+   361→        lines.push('')
+   362→      })
+   363→    }
+   364→
+   365→    const hasGoals = Object.values(data.milestones).some((m) => m.goals.length > 0)
+   366→    if (hasGoals) {
+   367→      lines.push('── JALONS STRATÉGIQUES ──')
+   368→      MILESTONE_PHASES.forEach((phase) => {
+   369→        const goals = data.milestones[phase.key].goals
+   370→        if (goals.length > 0) {
+   371→          lines.push(`  ${phase.icon} ${phase.label} — ${phase.sublabel}`)
+   372→          goals.forEach((g) => lines.push(`    • ${g}`))
+   373→          lines.push('')
+   374→        }
+   375→      })
+   376→    }
+   377→
+   378→    if (data.motivation) {
+   379→      lines.push('── POURQUOI CE PROJET ? ──')
+   380→      lines.push(data.motivation)
+   381→      lines.push('')
+   382→    }
+   383→
+   384→    if (data.desiredImpact) {
+   385→      lines.push('── IMPACT SOUHAITÉ ──')
+   386→      lines.push(data.desiredImpact)
+   387→      lines.push('')
+   388→    }
+   389→
+   390→    lines.push('═══════════════════════════════════════')
+   391→    lines.push(`  Généré via CreaPulse — ${new Date().toLocaleDateString('fr-FR')}`)
+   392→    lines.push('═══════════════════════════════════════')
+   393→
+   394→    const text = lines.join('\n')
+   395→
+   396→    // Create and download file
+   397→    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+   398→    const url = URL.createObjectURL(blob)
+   399→    const a = document.createElement('a')
+   400→    a.href = url
+   401→    a.download = `vision-strategique-${new Date().toISOString().slice(0, 10)}.txt`
+   402→    document.body.appendChild(a)
+   403→    a.click()
+   404→    document.body.removeChild(a)
+   405→    URL.revokeObjectURL(url)
+   406→    toast.success('Résumé exporté avec succès !')
+   407→  }, [data])
+   408→
+   409→  const completion = calculateCompletion(data)
+   410→
+   411→  if (loading) {
+   412→    return (
+   413→      <div className="px-4 py-6 md:px-8 md:py-8 max-w-4xl mx-auto w-full space-y-6">
+   414→        <Skeleton className="h-8 w-64" />
+   415→        <Skeleton className="h-4 w-48" />
+   416→        <Skeleton className="h-48" />
+   417→        <Skeleton className="h-64" />
+   418→        <Skeleton className="h-48" />
+   419→      </div>
+   420→    )
+   421→  }
+   422→
+   423→  return (
+   424→    <motion.div
+   425→      initial={{ opacity: 0, y: 20 }}
+   426→      animate={{ opacity: 1, y: 0 }}
+   427→      transition={{ duration: 0.4 }}
+   428→      className="px-4 py-6 md:px-8 md:py-8 max-w-4xl mx-auto w-full space-y-6"
+   429→    >
+   430→      {/* Header */}
+   431→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   432→        <div>
+   433→          <h1 className="text-2xl md:text-3xl font-bold text-foreground flex items-center gap-3">
+   434→            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+   435→              <Eye className="h-5 w-5 text-primary" />
+   436→            </div>
+   437→            Vision Stratégique
+   438→          </h1>
+   439→          <p className="mt-1 text-muted-foreground">
+   440→            Définissez votre vision à long terme et vos objectifs
+   441→          </p>
+   442→        </div>
+   443→
+   444→        <div className="flex items-center gap-3">
+   445→          <Button variant="outline" onClick={handleExport} className="gap-2 rounded-full" size="sm">
+   446→            <Download className="h-4 w-4" />
+   447→            <span className="hidden sm:inline">Exporter</span>
+   448→          </Button>
+   449→          <Button
+   450→            onClick={handleSave}
+   451→            disabled={saveStatus === 'saving' || !hasChanges}
+   452→            className="gap-2 rounded-full"
+   453→            size="sm"
+   454→          >
+   455→            {saveStatus === 'saving' ? (
+   456→              <Loader2 className="h-4 w-4 animate-spin" />
+   457→            ) : saveStatus === 'saved' ? (
+   458→              <CheckCircle2 className="h-4 w-4" />
+   459→            ) : (
+   460→              <Save className="h-4 w-4" />
+   461→            )}
+   462→            {saveStatus === 'saving' ? 'Sauvegarde...' : saveStatus === 'saved' ? 'Sauvegardé !' : 'Sauvegarder'}
+   463→          </Button>
+   464→        </div>
+   465→      </div>
+   466→
+   467→      {/* Completion indicator */}
+   468→      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+   469→        <Card className="border-none shadow-sm bg-muted/30">
+   470→          <CardContent className="p-4 flex items-center gap-4">
+   471→            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 shrink-0">
+   472→              <Target className="h-6 w-6 text-primary" />
+   473→            </div>
+   474→            <div className="flex-1">
+   475→              <p className="text-sm font-medium text-foreground">
+   476→                Progression de votre vision
+   477→              </p>
+   478→              <div className="mt-1.5 h-2 rounded-full bg-muted overflow-hidden">
+   479→                <motion.div
+   480→                  initial={{ width: 0 }}
+   481→                  animate={{ width: `${completion}%` }}
+   482→                  transition={{ duration: 1, ease: 'easeOut' }}
+   483→                  className={cn(
+   484→                    'h-full rounded-full transition-colors',
+   485→                    completion >= 80 ? 'bg-green-500' :
+   486→                    completion >= 50 ? 'bg-primary' :
+   487→                    'bg-amber-500'
+   488→                  )}
+   489→                />
+   490→              </div>
+   491→            </div>
+   492→            <span className={cn(
+   493→              'text-2xl font-bold shrink-0',
+   494→              completion >= 80 ? 'text-green-600 dark:text-green-400' :
+   495→              completion >= 50 ? 'text-primary' :
+   496→              'text-amber-600 dark:text-amber-400'
+   497→            )}>
+   498→              {completion}%
+   499→            </span>
+   500→          </CardContent>
+   501→        </Card>
+   502→      </motion.div>
+   503→
+   504→      {/* Vision Statement */}
+   505→      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+   506→        <Card className="border-none shadow-sm">
+   507→          <CardHeader>
+   508→            <CardTitle className="text-lg flex items-center gap-2">
+   509→              <Eye className="h-5 w-5 text-primary" />
+   510→              Ma vision à 5 ans
+   511→            </CardTitle>
+   512→            <CardDescription>
+   513→              Décrivez où vous voyez votre entreprise dans 5 ans
+   514→            </CardDescription>
+   515→          </CardHeader>
+   516→          <CardContent>
+   517→            <Textarea
+   518→              placeholder="Dans 5 ans, mon entreprise..."
+   519→              value={data.visionStatement}
+   520→              onChange={(e) => updateField('visionStatement', e.target.value)}
+   521→              rows={5}
+   522→              className="text-base leading-relaxed resize-none"
+   523→            />
+   524→            <div className="mt-2 flex justify-between items-center">
+   525→              <p className="text-xs text-muted-foreground">
+   526→                Soyez inspirant(e) et précis(e)
+   527→              </p>
+   528→              <span className="text-xs text-muted-foreground">
+   529→                {data.visionStatement.length} caractères
+   530→              </span>
+   531→            </div>
+   532→          </CardContent>
+   533→        </Card>
+   534→      </motion.div>
+   535→
+   536→      {/* Motivation & Impact */}
+   537→      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+   538→        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+   539→          <Card className="border-none shadow-sm h-full">
+   540→            <CardHeader>
+   541→              <CardTitle className="text-lg flex items-center gap-2">
+   542→                <Heart className="h-5 w-5 text-coral-500" />
+   543→                Pourquoi ce projet ?
+   544→              </CardTitle>
+   545→            </CardHeader>
+   546→            <CardContent>
+   547→              <Textarea
+   548→                placeholder="Qu'est-ce qui vous anime dans ce projet entrepreneurial ?"
+   549→                value={data.motivation}
+   550→                onChange={(e) => updateField('motivation', e.target.value)}
+   551→                rows={5}
+   552→                className="resize-none"
+   553→              />
+   554→            </CardContent>
+   555→          </Card>
+   556→        </motion.div>
+   557→
+   558→        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+   559→          <Card className="border-none shadow-sm h-full">
+   560→            <CardHeader>
+   561→              <CardTitle className="text-lg flex items-center gap-2">
+   562→                <Lightbulb className="h-5 w-5 text-amber-500" />
+   563→                Impact souhaité
+   564→              </CardTitle>
+   565→            </CardHeader>
+   566→            <CardContent>
+   567→              <Textarea
+   568→                placeholder="Quel impact positif souhaitez-vous avoir sur votre marché, votre communauté, l'environnement ?"
+   569→                value={data.desiredImpact}
+   570→                onChange={(e) => updateField('desiredImpact', e.target.value)}
+   571→                rows={5}
+   572→                className="resize-none"
+   573→              />
+   574→            </CardContent>
+   575→          </Card>
+   576→        </motion.div>
+   577→      </div>
+   578→
+   579→      {/* Strategic Objectives */}
+   580→      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+   581→        <Card className="border-none shadow-sm">
+   582→          <CardHeader>
+   583→            <div className="flex items-center justify-between">
+   584→              <div>
+   585→                <CardTitle className="text-lg flex items-center gap-2">
+   586→                  <Flag className="h-5 w-5 text-primary" />
+   587→                  Objectifs stratégiques
+   588→                </CardTitle>
+   589→                <CardDescription className="mt-1">
+   590→                  Définissez jusqu&apos;à 5 objectifs clés pour votre entreprise
+   591→                </CardDescription>
+   592→              </div>
+   593→              <Button
+   594→                variant="outline"
+   595→                size="sm"
+   596→                onClick={addObjective}
+   597→                disabled={data.objectives.length >= 5}
+   598→                className="gap-1.5 rounded-full"
+   599→              >
+   600→                <Plus className="h-3.5 w-3.5" />
+   601→                Ajouter
+   602→              </Button>
+   603→            </div>
+   604→          </CardHeader>
+   605→          <CardContent>
+   606→            {data.objectives.length === 0 ? (
+   607→              <div className="text-center py-8 border-2 border-dashed border-muted-foreground/20 rounded-xl">
+   608→                <Flag className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+   609→                <p className="text-sm text-muted-foreground">
+   610→                  Aucun objectif défini. Cliquez sur &quot;Ajouter&quot; pour commencer.
+   611→                </p>
+   612→              </div>
+   613→            ) : (
+   614→              <div className="space-y-4">
+   615→                <AnimatePresence>
+   616→                  {data.objectives.map((obj, idx) => (
+   617→                    <motion.div
+   618→                      key={obj.id}
+   619→                      initial={{ opacity: 0, y: 10 }}
+   620→                      animate={{ opacity: 1, y: 0 }}
+   621→                      exit={{ opacity: 0, x: -20, height: 0 }}
+   622→                      transition={{ duration: 0.3 }}
+   623→                      className="rounded-xl border border-border p-4 space-y-3"
+   624→                    >
+   625→                      <div className="flex items-center justify-between">
+   626→                        <div className="flex items-center gap-2">
+   627→                          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">
+   628→                            {idx + 1}
+   629→                          </span>
+   630→                          <Input
+   631→                            placeholder="Titre de l'objectif..."
+   632→                            value={obj.title}
+   633→                            onChange={(e) => updateObjective(obj.id, 'title', e.target.value)}
+   634→                            className="font-medium border-0 shadow-none focus-visible:ring-0 p-0 h-auto text-base"
+   635→                          />
+   636→                        </div>
+   637→                        <div className="flex items-center gap-2 shrink-0">
+   638→                          <Select
+   639→                            value={obj.priority}
+   640→                            onValueChange={(val) => updateObjective(obj.id, 'priority', val)}
+   641→                          >
+   642→                            <SelectTrigger className="w-[110px] h-8 text-xs">
+   643→                              <SelectValue />
+   644→                            </SelectTrigger>
+   645→                            <SelectContent>
+   646→                              <SelectItem value="high">
+   647→                                <span className="flex items-center gap-1.5">
+   648→                                  <div className="h-2 w-2 rounded-full bg-red-500" />
+   649→                                  Haute
+   650→                                </span>
+   651→                              </SelectItem>
+   652→                              <SelectItem value="medium">
+   653→                                <span className="flex items-center gap-1.5">
+   654→                                  <div className="h-2 w-2 rounded-full bg-amber-500" />
+   655→                                  Moyenne
+   656→                                </span>
+   657→                              </SelectItem>
+   658→                              <SelectItem value="low">
+   659→                                <span className="flex items-center gap-1.5">
+   660→                                  <div className="h-2 w-2 rounded-full bg-green-500" />
+   661→                                  Basse
+   662→                                </span>
+   663→                              </SelectItem>
+   664→                            </SelectContent>
+   665→                          </Select>
+   666→                          <Button
+   667→                            variant="ghost"
+   668→                            size="sm"
+   669→                            onClick={() => removeObjective(obj.id)}
+   670→                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+   671→                          >
+   672→                            <X className="h-4 w-4" />
+   673→                          </Button>
+   674→                        </div>
+   675→                      </div>
+   676→                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-9">
+   677→                        <Textarea
+   678→                          placeholder="Description de l'objectif..."
+   679→                          value={obj.description}
+   680→                          onChange={(e) => updateObjective(obj.id, 'description', e.target.value)}
+   681→                          rows={2}
+   682→                          className="text-sm resize-none"
+   683→                        />
+   684→                        <div className="space-y-2">
+   685→                          <Label className="text-xs text-muted-foreground">Échéance</Label>
+   686→                          <Input
+   687→                            type="date"
+   688→                            value={obj.deadline}
+   689→                            onChange={(e) => updateObjective(obj.id, 'deadline', e.target.value)}
+   690→                            className="text-sm h-9"
+   691→                          />
+   692→                        </div>
+   693→                      </div>
+   694→                    </motion.div>
+   695→                  ))}
+   696→                </AnimatePresence>
+   697→              </div>
+   698→            )}
+   699→          </CardContent>
+   700→        </Card>
+   701→      </motion.div>
+   702→
+   703→      {/* Core Values */}
+   704→      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
+   705→        <Card className="border-none shadow-sm">
+   706→          <CardHeader>
+   707→            <CardTitle className="text-lg flex items-center gap-2">
+   708→              <Star className="h-5 w-5 text-amber-500" />
+   709→              Valeurs fondamentales
+   710→            </CardTitle>
+   711→            <CardDescription>
+   712→              Sélectionnez jusqu&apos;à 5 valeurs qui guideront votre entreprise
+   713→              <Badge variant="secondary" className="ml-2 text-xs">
+   714→                {data.coreValues.length}/5
+   715→              </Badge>
+   716→            </CardDescription>
+   717→          </CardHeader>
+   718→          <CardContent>
+   719→            {/* Selected values */}
+   720→            {data.coreValues.length > 0 && (
+   721→              <div className="flex flex-wrap gap-2 mb-4">
+   722→                {data.coreValues.map((val) => {
+   723→                  const found = PREDEFINED_VALUES.find((p) => p.value === val)
+   724→                  return (
+   725→                    <Badge
+   726→                      key={val}
+   727→                      className="gap-1.5 py-1.5 px-3 text-sm border border-primary/20 bg-primary/5"
+   728→                    >
+   729→                      {found?.icon} {found?.label || val}
+   730→                      <button
+   731→                        onClick={() => toggleValue(val)}
+   732→                        className="ml-1 hover:text-destructive transition-colors"
+   733→                      >
+   734→                        <X className="h-3 w-3" />
+   735→                      </button>
+   736→                    </Badge>
+   737→                  )
+   738→                })}
+   739→              </div>
+   740→            )}
+   741→
+   742→            {/* Values grid */}
+   743→            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+   744→              {PREDEFINED_VALUES.map((pv) => {
+   745→                const isSelected = data.coreValues.includes(pv.value)
+   746→                const isMaxed = data.coreValues.length >= 5 && !isSelected
+   747→                return (
+   748→                  <button
+   749→                    key={pv.value}
+   750→                    onClick={() => !isMaxed && toggleValue(pv.value)}
+   751→                    disabled={isMaxed}
+   752→                    className={cn(
+   753→                      'flex items-center gap-2 p-3 rounded-xl border-2 transition-all text-left',
+   754→                      isSelected
+   755→                        ? 'border-primary bg-primary/5 shadow-sm'
+   756→                        : isMaxed
+   757→                          ? 'border-transparent bg-muted/30 opacity-50 cursor-not-allowed'
+   758→                          : 'border-transparent bg-muted/50 hover:bg-muted hover:border-muted-foreground/20 cursor-pointer'
+   759→                    )}
+   760→                  >
+   761→                    <span className="text-lg">{pv.icon}</span>
+   762→                    <span className={cn(
+   763→                      'text-sm font-medium',
+   764→                      isSelected ? 'text-primary' : 'text-foreground'
+   765→                    )}>
+   766→                      {pv.label}
+   767→                    </span>
+   768→                    {isSelected && (
+   769→                      <CheckCircle2 className="h-4 w-4 text-primary ml-auto shrink-0" />
+   770→                    )}
+   771→                  </button>
+   772→                )
+   773→              })}
+   774→            </div>
+   775→          </CardContent>
+   776→        </Card>
+   777→      </motion.div>
+   778→
+   779→      {/* Milestones Timeline */}
+   780→      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+   781→        <Card className="border-none shadow-sm">
+   782→          <CardHeader>
+   783→            <CardTitle className="text-lg flex items-center gap-2">
+   784→              <Milestone className="h-5 w-5 text-primary" />
+   785→              Jalons stratégiques
+   786→            </CardTitle>
+   787→            <CardDescription>
+   788→              Définissez vos objectifs pour chaque phase de développement
+   789→            </CardDescription>
+   790→          </CardHeader>
+   791→          <CardContent>
+   792→            <div className="relative">
+   793→              {/* Timeline line */}
+   794→              <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-border hidden sm:block" />
+   795→
+   796→              <div className="space-y-6">
+   797→                {MILESTONE_PHASES.map((phase, idx) => {
+   798→                  const goals = data.milestones[phase.key].goals
+   799→                  return (
+   800→                    <motion.div
+   801→                      key={phase.key}
+   802→                      initial={{ opacity: 0, x: -20 }}
+   803→                      animate={{ opacity: 1, x: 0 }}
+   804→                      transition={{ delay: 0.45 + idx * 0.1 }}
+   805→                      className="relative flex gap-4 sm:gap-6"
+   806→                    >
+   807→                      {/* Timeline dot */}
+   808→                      <div className="hidden sm:flex flex-col items-center shrink-0 z-10">
+   809→                        <div
+   810→                          className="flex h-10 w-10 items-center justify-center rounded-full text-lg shadow-sm"
+   811→                          style={{ backgroundColor: `${phase.color}15`, border: `2px solid ${phase.color}` }}
+   812→                        >
+   813→                          {phase.icon}
+   814→                        </div>
+   815→                        {idx < MILESTONE_PHASES.length - 1 && (
+   816→                          <div className="flex-1 w-0.5 mt-1" style={{ backgroundColor: `${phase.color}30` }} />
+   817→                        )}
+   818→                      </div>
+   819→
+   820→                      {/* Phase content */}
+   821→                      <div className="flex-1 min-w-0">
+   822→                        <div className="flex items-center gap-3 mb-3">
+   823→                          <div
+   824→                            className="sm:hidden flex h-8 w-8 items-center justify-center rounded-full text-sm"
+   825→                            style={{ backgroundColor: `${phase.color}15` }}
+   826→                          >
+   827→                            {phase.icon}
+   828→                          </div>
+   829→                          <div>
+   830→                            <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+   831→                              {phase.label}
+   832→                              <Badge
+   833→                                variant="secondary"
+   834→                                className="text-[10px] px-1.5"
+   835→                                style={{ backgroundColor: `${phase.color}15`, color: phase.color }}
+   836→                              >
+   837→                                {phase.sublabel}
+   838→                              </Badge>
+   839→                            </h4>
+   840→                            <p className="text-xs text-muted-foreground">
+   841→                              {goals.length} objectif{goals.length !== 1 ? 's' : ''}
+   842→                            </p>
+   843→                          </div>
+   844→                        </div>
+   845→
+   846→                        {/* Goals list */}
+   847→                        <div className="space-y-2">
+   848→                          {goals.map((goal, gi) => (
+   849→                            <motion.div
+   850→                              key={gi}
+   851→                              initial={{ opacity: 0, x: -10 }}
+   852→                              animate={{ opacity: 1, x: 0 }}
+   853→                              transition={{ delay: 0.5 + idx * 0.1 + gi * 0.05 }}
+   854→                              className="flex items-start gap-2 group"
+   855→                            >
+   856→                              <ArrowRight className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: phase.color }} />
+   857→                              <span className="text-sm text-foreground flex-1">{goal}</span>
+   858→                              <Button
+   859→                                variant="ghost"
+   860→                                size="sm"
+   861→                                onClick={() => removeGoal(phase.key, gi)}
+   862→                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive shrink-0"
+   863→                              >
+   864→                                <X className="h-3 w-3" />
+   865→                              </Button>
+   866→                            </motion.div>
+   867→                          ))}
+   868→                        </div>
+   869→
+   870→                        {/* Add goal input */}
+   871→                        {newGoalPhase === phase.key ? (
+   872→                          <div className="flex gap-2 mt-2">
+   873→                            <Input
+   874→                              placeholder="Ajouter un objectif..."
+   875→                              value={newGoalText}
+   876→                              onChange={(e) => setNewGoalText(e.target.value)}
+   877→                              onKeyDown={(e) => {
+   878→                                if (e.key === 'Enter') { e.preventDefault(); addGoal(phase.key) }
+   879→                                if (e.key === 'Escape') { setNewGoalPhase(null); setNewGoalText('') }
+   880→                              }}
+   881→                              className="h-8 text-sm"
+   882→                              autoFocus
+   883→                            />
+   884→                            <Button size="sm" variant="outline" onClick={() => addGoal(phase.key)} disabled={!newGoalText.trim()} className="h-8 shrink-0">
+   885→                              OK
+   886→                            </Button>
+   887→                            <Button size="sm" variant="ghost" onClick={() => { setNewGoalPhase(null); setNewGoalText('') }} className="h-8 shrink-0">
+   888→                              <X className="h-3 w-3" />
+   889→                            </Button>
+   890→                          </div>
+   891→                        ) : (
+   892→                          <Button
+   893→                            variant="ghost"
+   894→                            size="sm"
+   895→                            onClick={() => setNewGoalPhase(phase.key)}
+   896→                            className="mt-2 gap-1 text-xs text-muted-foreground hover:text-primary"
+   897→                          >
+   898→                            <Plus className="h-3 w-3" />
+   899→                            Ajouter un objectif
+   900→                          </Button>
+   901→                        )}
+   902→                      </div>
+   903→                    </motion.div>
+   904→                  )
+   905→                })}
+   906→              </div>
+   907→            </div>
+   908→          </CardContent>
+   909→        </Card>
+   910→      </motion.div>
+   911→
+   912→      {/* Bottom action bar */}
+   913→      <motion.div
+   914→        initial={{ opacity: 0, y: 10 }}
+   915→        animate={{ opacity: 1, y: 0 }}
+   916→        transition={{ delay: 0.6 }}
+   917→        className="flex flex-col sm:flex-row items-center justify-center gap-3 pb-4"
+   918→      >
+   919→        <Button
+   920→          variant="outline"
+   921→          onClick={handleExport}
+   922→          className="gap-2 rounded-full"
+   923→        >
+   924→          <Download className="h-4 w-4" />
+   925→          Exporter le résumé
+   926→        </Button>
+   927→        <Button
+   928→          onClick={handleSave}
+   929→          disabled={saveStatus === 'saving' || !hasChanges}
+   930→          className="gap-2 rounded-full"
+   931→        >
+   932→          {saveStatus === 'saving' ? (
+   933→            <Loader2 className="h-4 w-4 animate-spin" />
+   934→          ) : saveStatus === 'saved' ? (
+   935→            <CheckCircle2 className="h-4 w-4" />
+   936→          ) : (
+   937→            <Save className="h-4 w-4" />
+   938→          )}
+   939→          {saveStatus === 'saving' ? 'Sauvegarde...' : saveStatus === 'saved' ? 'Sauvegardé !' : 'Sauvegarder la vision'}
+   940→        </Button>
+   941→      </motion.div>
+   942→    </motion.div>
+   943→  )
+   944→}
+   945→
+   946→export default VisionModule
+   947→
