@@ -1,41 +1,42 @@
 import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
+import pg from 'pg'
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
+// ─── Database connection string ──
+// DATABASE_URL must be set in the environment (Vercel / production / local .env)
+
+function getConnectionString(): string {
+  if (!process.env.DATABASE_URL) {
+    throw new Error(
+      '[DB] DATABASE_URL environment variable is not set. ' +
+      'Please set it in your .env file or deployment environment.',
+    )
+  }
+  return process.env.DATABASE_URL
+}
+
 function createPrismaClient(): PrismaClient {
-  const url = process.env.DATABASE_URL || ''
+  const connectionString = getConnectionString()
+  console.log('[DB] Creating PrismaClient')
 
-  // SQLite: use PrismaClient directly without adapter
-  if (url.startsWith('file:')) {
-    return new PrismaClient({ log: ['error', 'warn'] })
-  }
+  const pool = new pg.Pool({
+    connectionString,
+    connectionTimeoutMillis: 10000,
+    idleTimeoutMillis: 30000,
+    max: 5,
+  })
+  const adapter = new PrismaPg(pool)
 
-  // PostgreSQL: use pg pool + PrismaPg adapter
-  try {
-    // Dynamic imports to avoid lint errors and missing-module crashes
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pgMod = require('pg')
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const adapterMod = require('@prisma/adapter-pg')
-
-    const pool = new pgMod.Pool({
-      connectionString: url,
-      connectionTimeoutMillis: 5000,
-      max: 3,
-    })
-    pool.on('error', () => {}) // Prevent unhandled pool errors from crashing process
-
-    const adapter = new adapterMod.PrismaPg(pool)
-    return new PrismaClient({
-      adapter,
-      log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-    })
-  } catch {
-    return new PrismaClient({ log: ['error', 'warn'] })
-  }
+  return new PrismaClient({
+    adapter,
+    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+  })
 }
 
 export const db = globalForPrisma.prisma ?? createPrismaClient()
+
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
