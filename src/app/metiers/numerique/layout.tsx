@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     title: 'Métiers du Numérique — CreaPulse V2 | Horizon Emplois',
     description:
       'Le digital offre des opportunités dans tous les secteurs. Passez le test IA et découvrez quel métier du numérique correspond à votre profil.',
-    url: 'https://echo4-steel.vercel.app/metiers/numerique',
+    url: 'https://creapulse.echo-entreprendre.fr/metiers/numerique',
     type: 'website',
   },
 }

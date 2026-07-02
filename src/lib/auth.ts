@@ -18,7 +18,7 @@ if (!secret || secret.length < 32) {
 const JWT_SECRET = new TextEncoder().encode(secret)
 
 const JWT_ALGORITHM = 'HS256'
-const ACCESS_TOKEN_EXPIRY = '7d' // 7 days
+const ACCESS_TOKEN_EXPIRY = '1h' // 1 hour — short-lived, use refresh token
 const REFRESH_TOKEN_EXPIRY = '30d'
 
 // ─── Types ──────────────────────────────────
@@ -167,8 +167,8 @@ export async function generateAuthResponse(userData: {
     }),
   ])
 
-  // Calculate expiry in seconds (7 days for access, 30 days for refresh)
-  const expiresIn = 7 * 24 * 60 * 60
+  // Calculate expiry in seconds (1 hour for access, 30 days for refresh)
+  const expiresIn = 1 * 60 * 60
   const refreshExpiresIn = 30 * 24 * 60 * 60
 
   return {
@@ -193,7 +193,7 @@ export async function generateAuthResponse(userData: {
  * Create a session cookie header value
  */
 export function createSessionCookie(token: string): string {
-  return `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${7 * 24 * 60 * 60}`
+  return `session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${1 * 60 * 60}`
 }
 
 /**

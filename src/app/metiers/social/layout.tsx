@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     title: 'Métiers du Social — CreaPulse V2 | Horizon Emplois',
     description:
       'Des carrières humaines avec de vraies perspectives. Passez le test IA et découvrez quel métier du social est fait pour vous.',
-    url: 'https://echo4-steel.vercel.app/metiers/social',
+    url: 'https://creapulse.echo-entreprendre.fr/metiers/social',
     type: 'website',
   },
 }

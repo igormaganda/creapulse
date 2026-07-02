@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     title: 'Découvrir une idée entrepreneuriale — CreaPulse V2',
     description:
       'Explorez et validez votre idée de création d\'entreprise avec CreaPulse et le réseau GIDEF Île-de-France.',
-    url: 'https://echo4-steel.vercel.app/besoin/decouvrir-idee',
+    url: 'https://creapulse.echo-entreprendre.fr/besoin/decouvrir-idee',
     type: 'website',
   },
 }

@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     title: 'Formation & Reconversion — CreaPulse V2 | Horizon Emplois',
     description:
       'Des formations qualifiantes et des dispositifs de financement pour réussir votre reconversion. Test IA gratuit pour trouver la bonne voie.',
-    url: 'https://echo4-steel.vercel.app/metiers/formation',
+    url: 'https://creapulse.echo-entreprendre.fr/metiers/formation',
     type: 'website',
   },
 }

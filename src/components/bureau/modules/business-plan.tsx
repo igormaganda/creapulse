@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
+import rehypeSanitize from 'rehype-sanitize'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -569,7 +570,7 @@ export function BusinessPlanModule() {
             </div>
             {(val as string)?.length > 0 && (
               <div className="prose prose-sm dark:prose-invert max-w-none rounded-lg border bg-muted/30 p-4">
-                <ReactMarkdown>{val as string}</ReactMarkdown>
+                <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{val as string}</ReactMarkdown>
               </div>
             )}
           </div>
@@ -1012,7 +1013,7 @@ export function BusinessPlanModule() {
                             <h3 className="text-base font-semibold text-foreground mb-2">{s.title}</h3>
                             {s.type === 'textarea' && typeof val === 'string' && (
                               <div className="prose prose-sm dark:prose-invert max-w-none">
-                                <ReactMarkdown>{val}</ReactMarkdown>
+                                <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{val}</ReactMarkdown>
                               </div>
                             )}
                             {s.type === 'swot' && val && typeof val === 'object' ? (

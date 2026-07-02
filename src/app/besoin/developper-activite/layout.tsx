@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     title: 'Développer mon activité — CreaPulse V2',
     description:
       'Passez à la vitesse supérieure grâce aux outils de pilotage, au réseau GIDEF et au programme Tremplin de CreaPulse.',
-    url: 'https://echo4-steel.vercel.app/besoin/developper-activite',
+    url: 'https://creapulse.echo-entreprendre.fr/besoin/developper-activite',
     type: 'website',
   },
 }

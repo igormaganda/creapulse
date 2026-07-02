@@ -179,11 +179,9 @@ export function Certifications() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const token = localStorage.getItem('creapulse-token')
         const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-        if (token) headers['Authorization'] = `Bearer ${token}`
 
-        const res = await fetch('/api/certifications', { headers })
+        const res = await fetch('/api/certifications', { headers, credentials: 'include' })
         if (res.ok) {
           const json = await res.json()
           if (json.success && json.data) {

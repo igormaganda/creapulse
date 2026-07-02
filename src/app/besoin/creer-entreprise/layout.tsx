@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     title: 'Créer mon entreprise — CreaPulse V2',
     description:
       'De l\'idée à l\'immatriculation, CreaPulse est votre co-pilot entrepreneurial pour lancer votre activité sereinement.',
-    url: 'https://echo4-steel.vercel.app/besoin/creer-entreprise',
+    url: 'https://creapulse.echo-entreprendre.fr/besoin/creer-entreprise',
     type: 'website',
   },
 }

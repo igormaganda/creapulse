@@ -10,6 +10,7 @@ import { z } from 'zod'
 import { callZAI } from '@/lib/zai-helper'
 import { buildFTContext, contextToPrompt } from '@/lib/ft-enrichment'
 import { withAuth } from '@/lib/api-auth'
+import { aiRateLimit } from '@/lib/rate-limit'
 import { Errors } from '@/lib/api-response'
 
 // ─── Validation Schemas ──────────────────────
@@ -311,6 +312,18 @@ export async function POST(request: NextRequest) {
     // Authentication required
     const auth = await withAuth(request)
     if (!auth) return Errors.unauthorized()
+
+    // Rate limit: 20 AI requests per minute per user
+    const rl = aiRateLimit.check(auth.userId)
+    if (!rl.allowed) {
+      return Response.json(
+        { success: false, error: { code: 'RATE_LIMITED', message: 'Trop de requêtes IA. Réessayez dans une minute.' } },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) },
+        },
+      )
+    }
 
     const body = await request.json()
     const parsed = chatSchema.safeParse(body)

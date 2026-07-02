@@ -486,9 +486,8 @@ export async function PATCH(request: NextRequest) {
     try {
       const { auditLog, anonymizedEmail } = await performUserDataDeletion(targetUserId, reviewerId)
 
-      // Log the deletion summary to server console for audit trail
-      console.log(`[RGPD] Data deletion completed for user ${targetUserId} (was: ${targetUser.email})`)
-      console.log(`[RGPD] Anonymized to: ${anonymizedEmail}`)
+      // Log the deletion summary (no PII — userId only for traceability)
+      console.log(`[RGPD] Data deletion completed for user ${targetUserId}`)
       console.log(`[RGPD] Deletion audit:`, JSON.stringify(auditLog, null, 2))
 
       // Create an audit log entry (using raw query since AuditLog has optional userId)

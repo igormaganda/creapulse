@@ -320,11 +320,9 @@ export function Mentorat() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const token = localStorage.getItem('creapulse-token')
         const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-        if (token) headers['Authorization'] = `Bearer ${token}`
 
-        const res = await fetch('/api/mentorat', { headers })
+        const res = await fetch('/api/mentorat', { headers, credentials: 'include' })
         if (res.ok) {
           const json = await res.json()
           if (json.success && json.data) {
@@ -376,13 +374,12 @@ export function Mentorat() {
     if (!selectedMentor || !requestMessage.trim() || requestObjectives.length === 0) return
     setSending(true)
     try {
-      const token = localStorage.getItem('creapulse-token')
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (token) headers['Authorization'] = `Bearer ${token}`
 
       const res = await fetch('/api/mentorat', {
         method: 'POST',
         headers,
+        credentials: 'include',
         body: JSON.stringify({
           mentorId: selectedMentor.id,
           message: requestMessage,

@@ -10,6 +10,7 @@ import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-r
 import { verifyToken, AuthError } from '@/lib/auth'
 import { callZAI, getZAIErrorMessage } from '@/lib/zai-helper'
 import { buildFTContext, contextToPrompt } from '@/lib/ft-enrichment'
+import { creascopeAiRateLimit } from '@/lib/rate-limit'
 
 // ─── Validation ─────────────────────────
 
@@ -117,6 +118,18 @@ export async function POST(request: NextRequest) {
     const payload = await verifyToken(token)
     if (payload.role !== 'COUNSELOR' && payload.role !== 'ADMIN') {
       return Errors.forbidden('Accès réservé aux conseillers')
+    }
+
+    // Rate limit: 15 Creascope AI suggestions per minute per user
+    const rl = creascopeAiRateLimit.check(payload.userId)
+    if (!rl.allowed) {
+      return Response.json(
+        { success: false, error: { code: 'RATE_LIMITED', message: 'Trop de requêtes IA. Réessayez dans une minute.' } },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) },
+        },
+      )
     }
 
     const body = await request.json()

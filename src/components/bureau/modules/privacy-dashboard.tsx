@@ -125,15 +125,10 @@ export function PrivacyDashboard() {
   // Check if data has already been processed (deleted)
   const hasProcessedDeletion = deletions.some((d) => d.status === 'processed')
 
-  const token = typeof window !== 'undefined'
-    ? (document.cookie.match(/session=([^;]+)/)?.[1] || localStorage.getItem('cp_token') || '')
-    : ''
-
   const authHeaders = useCallback(() => ({
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    credentials: 'include',
-  }), [token])
+    credentials: 'include' as RequestCredentials,
+  }), [])
 
   /* ─── Fetch all data ─── */
   const fetchData = useCallback(async () => {

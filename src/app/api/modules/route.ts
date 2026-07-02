@@ -18,15 +18,14 @@ export async function GET(request: NextRequest) {
   try {
     // Auth required — extract tenant from token
     const token = getTokenFromHeader(request)
-    let tenantId = ''
+    if (!token) return Errors.unauthorized('Authentification requise')
 
-    if (token) {
-      try {
-        const payload = await verifyToken(token)
-        tenantId = payload.tenantId
-      } catch {
-        // Token invalid — fall through without tenant filter
-      }
+    let tenantId = ''
+    try {
+      const payload = await verifyToken(token)
+      tenantId = payload.tenantId
+    } catch {
+      return Errors.unauthorized('Token invalide ou expiré')
     }
 
     const { searchParams } = new URL(request.url)

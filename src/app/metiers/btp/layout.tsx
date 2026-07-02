@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     title: 'Métiers du BTP — CreaPulse V2 | Horizon Emplois',
     description:
       'Des postes vacants dans tous les secteurs du BTP. Passez le test IA et trouvez le métier du bâtiment qui correspond à votre profil.',
-    url: 'https://echo4-steel.vercel.app/metiers/btp',
+    url: 'https://creapulse.echo-entreprendre.fr/metiers/btp',
     type: 'website',
   },
 }

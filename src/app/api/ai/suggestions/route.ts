@@ -6,6 +6,7 @@
 import { NextRequest } from 'next/server'
 import { success } from '@/lib/api-response'
 import { withAuth } from '@/lib/api-auth'
+import { aiRateLimit } from '@/lib/rate-limit'
 import { callZAI, getZAIErrorMessage } from '@/lib/zai-helper'
 
 // ─── Types ───────────────────────────────────
@@ -177,8 +178,20 @@ Réponds UNIQUEMENT au format JSON suivant, sans texte supplémentaire :
 
 export async function POST(request: NextRequest) {
   try {
-    // Auth check (optional — suggestions work even without auth for better UX)
-    const auth = await withAuth(request).catch(() => null)
+    // Auth required — AI calls have cost implications
+    const auth = await withAuth(request)
+
+    // Rate limit: 20 AI requests per minute per user
+    const rl = aiRateLimit.check(auth.userId)
+    if (!rl.allowed) {
+      return Response.json(
+        { success: false, error: { code: 'RATE_LIMITED', message: 'Trop de requêtes IA. Réessayez dans une minute.' } },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)) },
+        },
+      )
+    }
 
     const body = await request.json()
     const { sector, activity, useAI } = body

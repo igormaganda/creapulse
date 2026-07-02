@@ -336,7 +336,8 @@ export function Tremplin() {
     try {
       await fetch('/api/tremplin', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('creapulse-token')}` },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           currentStep: 7,
           responses,

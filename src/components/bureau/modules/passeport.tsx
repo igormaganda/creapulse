@@ -150,11 +150,9 @@ export function Passeport() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const token = localStorage.getItem('creapulse-token')
         const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-        if (token) headers['Authorization'] = `Bearer ${token}`
 
-        const res = await fetch('/api/passeport', { headers })
+        const res = await fetch('/api/passeport', { headers, credentials: 'include' })
         if (res.ok) {
           const json = await res.json()
           if (json.success && json.data) {

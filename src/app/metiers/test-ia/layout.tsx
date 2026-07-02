@@ -8,7 +8,7 @@ export const metadata: Metadata = {
     title: 'Test IA — Horizon Emplois | CreaPulse V2',
     description:
       'Quiz IA gratuit : répondez à 7 questions et recevez votre matching personnalisé parmi les métiers qui recrutent en Île-de-France.',
-    url: 'https://echo4-steel.vercel.app/metiers/test-ia',
+    url: 'https://creapulse.echo-entreprendre.fr/metiers/test-ia',
     type: 'website',
   },
 }

@@ -1,0 +1,252 @@
+     1→/home/z/my-project/src/app/layout.tsx:25:    template: '%s | CreaPulse V2',
+     2→/home/z/my-project/src/app/api/admin-centre/stats/route.ts:242:      tempsMoyenParcours: '4.2 mois',
+     3→/home/z/my-project/src/app/api/creascope/ai-suggest/route.ts:204:      { temperature: 0.6, max_tokens: 600 },
+     4→/home/z/my-project/src/app/api/creascope/sessions/[id]/route.ts:154:    { temperature: 0.6, max_tokens: 800 },
+     5→/home/z/my-project/src/app/api/admin-plateforme/configuration/route.ts:63:    'gestion-temps': true,
+     6→/home/z/my-project/src/app/api/auth/login/route.ts:14:const loginAttempts = new Map<string, { count: number; resetAt: number }>()
+     7→/home/z/my-project/src/app/api/auth/login/route.ts:15:const MAX_LOGIN_ATTEMPTS_PER_15MIN = 10
+     8→/home/z/my-project/src/app/api/auth/login/route.ts:20:  const record = loginAttempts.get(ip)
+     9→/home/z/my-project/src/app/api/auth/login/route.ts:23:    loginAttempts.set(ip, { count: 1, resetAt: now + LOGIN_RATE_LIMIT_WINDOW_MS })
+    10→/home/z/my-project/src/app/api/auth/login/route.ts:27:  if (record.count >= MAX_LOGIN_ATTEMPTS_PER_15MIN) {
+    11→/home/z/my-project/src/app/api/bmc/route.ts:396:      const systemPrompt = `Tu es un expert en Business Model Canvas et en stratégie d'entreprise. Tu aides des entrepreneurs francophones à construire un BMC complet et cohérent.
+    12→/home/z/my-project/src/app/api/bmc/route.ts:438:        { role: 'system', content: systemPrompt },
+    13→/home/z/my-project/src/app/api/bmc/route.ts:440:      ], { temperature: 0.7, max_tokens: 2500 })
+    14→/home/z/my-project/src/app/api/bmc/route.ts:536:      const systemPrompt = `Tu es un expert en Business Model Canvas et en stratégie d'entreprise. Tu aides des entrepreneurs francophones à construire un BMC complet et cohérent.
+    15→/home/z/my-project/src/app/api/bmc/route.ts:570:        { role: 'system', content: systemPrompt },
+    16→/home/z/my-project/src/app/api/bmc/route.ts:572:      ], { temperature: 0.7, max_tokens: 800 })
+    17→/home/z/my-project/src/app/api/business-plan/route.ts:290:  const systemPrompt = `Tu es un expert en création d'entreprise et en rédaction de business plans. Tu aides des entrepreneurs francophones à rédiger un business plan professionnel et convaincant.
+    18→/home/z/my-project/src/app/api/business-plan/route.ts:316:    { role: 'system', content: systemPrompt },
+    19→/home/z/my-project/src/app/api/business-plan/route.ts:318:  ], { temperature: 0.7, max_tokens: 1200 })
+    20→/home/z/my-project/src/app/api/business-plan/route.ts:455:  const systemPrompt = `Tu es un expert en création d'entreprise et en rédaction de business plans professionnels. Tu travailles pour CreaPulse, une plateforme d'accompagnement entrepreneurial GIDEF.
+    21→/home/z/my-project/src/app/api/business-plan/route.ts:494:    { role: 'system', content: systemPrompt },
+    22→/home/z/my-project/src/app/api/business-plan/route.ts:496:  ], { temperature: 0.7, max_tokens: 3000 })
+    23→/home/z/my-project/src/app/api/auth/register/route.ts:26:const registerAttempts = new Map<string, { count: number; resetAt: number }>()
+    24→/home/z/my-project/src/app/api/auth/register/route.ts:27:const MAX_REGISTER_ATTEMPTS_PER_HOUR = 5
+    25→/home/z/my-project/src/app/api/auth/register/route.ts:32:  const record = registerAttempts.get(ip)
+    26→/home/z/my-project/src/app/api/auth/register/route.ts:35:    registerAttempts.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
+    27→/home/z/my-project/src/app/api/auth/register/route.ts:39:  if (record.count >= MAX_REGISTER_ATTEMPTS_PER_HOUR) {
+    28→/home/z/my-project/src/app/api/juridique/route.ts:276:      const systemPrompt = `Tu es un expert en droit des affaires et en création d'entreprise en France. Tu aides les entrepreneurs à choisir le bon statut juridique.
+    29→/home/z/my-project/src/app/api/juridique/route.ts:293:        { role: 'system', content: systemPrompt },
+    30→/home/z/my-project/src/app/api/juridique/route.ts:295:      ], { temperature: 0.7, max_tokens: 400 })
+    31→/home/z/my-project/src/app/api/juridique/route.ts:310:      const systemPrompt = `Tu es un expert en droit des affaires et en création d'entreprise en France. Tu dois recommander les meilleures réponses pour un questionnaire juridique.
+    32→/home/z/my-project/src/app/api/juridique/route.ts:331:        { role: 'system', content: systemPrompt },
+    33→/home/z/my-project/src/app/api/juridique/route.ts:333:      ], { temperature: 0.7, max_tokens: 600 })
+    34→/home/z/my-project/src/app/api/marche/route.ts:120:async function callZAI(messages: Array<{ role: string; content: string }>, options?: { temperature?: number; max_tokens?: number }): Promise<string | null> {
+    35→/home/z/my-project/src/app/api/marche/route.ts:227:      const systemPrompt = `Tu es un expert en analyse de marché et en création d'entreprise. Tu aides des entrepreneurs francophones à analyser leur marché.
+    36→/home/z/my-project/src/app/api/marche/route.ts:243:        { role: 'system', content: systemPrompt },
+    37→/home/z/my-project/src/app/api/marche/route.ts:245:      ], { temperature: 0.7, max_tokens: 800 })
+    38→/home/z/my-project/src/app/api/marche/route.ts:248:        return error(ErrorCode.SERVICE_UNAVAILABLE, 'Service IA temporairement indisponible. Veuillez réessayer.', 503)
+    39→/home/z/my-project/src/app/api/marche/route.ts:272:      const systemPrompt = `Tu es un expert en analyse de marché. Tu dois remplir TOUS les champs d'une analyse de marché complète pour un projet entrepreneurial français.
+    40→/home/z/my-project/src/app/api/marche/route.ts:301:        { role: 'system', content: systemPrompt },
+    41→/home/z/my-project/src/app/api/marche/route.ts:303:      ], { temperature: 0.7, max_tokens: 2000 })
+    42→/home/z/my-project/src/app/api/marche/route.ts:306:        return error(ErrorCode.SERVICE_UNAVAILABLE, 'Service IA temporairement indisponible. Veuillez réessayer.', 503)
+    43→/home/z/my-project/src/app/page.tsx:300:                {/* S'inscrire — masqué temporairement (accessible via login uniquement)
+    44→/home/z/my-project/src/app/page.tsx:434:                    {/* S'inscrire — masqué temporairement (accessible via login uniquement)
+    45→/home/z/my-project/src/app/metiers/test-ia/page.tsx:69:    before: 'Je passais mes journées sur TikTok sans but. Mes parents disaient que je perdais mon temps.',
+    46→/home/z/my-project/src/app/api/financier/route.ts:243:    const systemPrompt = `Tu es un expert-comptable et analyste financier spécialisé dans l'accompagnement des créateurs d'entreprise. Tu travailles pour CreaPulse / GIDEF, un réseau d'accompagnement entrepreneurial en Île-de-France.
+    47→/home/z/my-project/src/app/api/financier/route.ts:264:- Évolution des marges dans le temps
+    48→/home/z/my-project/src/app/api/financier/route.ts:287:      { role: 'system', content: systemPrompt },
+    49→/home/z/my-project/src/app/api/financier/route.ts:289:    ], { temperature: 0.7, max_tokens: 3000 })
+    50→/home/z/my-project/src/app/api/ai/suggestions/route.ts:80:    advantages: ['Pédagogie innovante et immersive (gamification, micro-learning)', 'Certifications reconnues et badge compétences', 'Contenus actualisés en temps réel par des experts métier', 'Accompagnement personnalisé avec mentorat', 'Plateforme accessible et mobile-first'],
+    51→/home/z/my-project/src/app/api/ai/suggestions/route.ts:90:    advantages: ['Flotte moderne et véhicule propres (électrique, GNV)', 'Logistique optimisée par IA et traçabilité en temps réel', 'Réseau de partenaires locaux et hubs de distribution', 'Flexibilité et réactivité pour les livraisons urgentes', 'Tarifs compétitifs et transparence sur les coûts'],
+    52→/home/z/my-project/src/app/api/ai/suggestions/route.ts:147:      temperature: 0.7,
+    53→/home/z/my-project/src/app/api/export/bmc/route.ts:232:      grid-template-columns: 1fr 1fr 1fr;
+    54→/home/z/my-project/src/app/api/export/bmc/route.ts:233:      grid-template-rows: auto auto auto;
+    55→/home/z/my-project/src/app/api/pitch-deck/route.ts:307:      const systemPrompt = `Tu es un expert en pitch decks pour startups et entrepreneurs. Tu aides des entrepreneurs francophones à créer des pitch decks percutants pour lever des fonds ou convaincre des partenaires.
+    56→/home/z/my-project/src/app/api/pitch-deck/route.ts:347:        { role: 'system', content: systemPrompt },
+    57→/home/z/my-project/src/app/api/pitch-deck/route.ts:349:      ], { temperature: 0.7, max_tokens: 2500 })
+    58→/home/z/my-project/src/app/api/pitch-deck/route.ts:442:      const systemPrompt = `Tu es un expert en pitch decks pour startups et entrepreneurs. Tu aides des entrepreneurs francophones à créer des slides de pitch deck percutantes.
+    59→/home/z/my-project/src/app/api/pitch-deck/route.ts:468:        { role: 'system', content: systemPrompt },
+    60→/home/z/my-project/src/app/api/pitch-deck/route.ts:470:      ], { temperature: 0.7, max_tokens: 800 })
+    61→/home/z/my-project/src/data/swipe-cards.ts:227:      "Livrer le meilleur de soi-même lorsque les enjeux sont élevés et le temps limité. Ceux qui brillent sous pression sont ceux qui l'apprivoisent au quotidien.",
+    62→/home/z/my-project/src/data/swipe-cards.ts:236:    title: "Gestion du temps",
+    63→/home/z/my-project/src/data/swipe-cards.ts:238:      "Organiser son temps avec méthode pour maximiser la productivité sans s'épuiser. Le temps est la seule ressource que personne ne peut acheter — investissons-le avec sagesse.",
+    64→/home/z/my-project/src/data/swipe-cards.ts:683:      "Acquérir de nouvelles compétences et connaissances en un temps record. La capacité à apprendre vite est la compétence ultime — elle vous rend inévitablement adaptable.",
+    65→/home/z/my-project/src/components/admin-centre/parametres.tsx:859:              <span className="text-xs text-muted-foreground">Données temporaires</span>
+    66→/home/z/my-project/src/components/admin-centre/statistiques.tsx:112:  mois: { tempsMoyen: '4.2 mois', tauxReussite: '72%', scoreBP: '68/100' },
+    67→/home/z/my-project/src/components/admin-centre/statistiques.tsx:113:  trimestre: { tempsMoyen: '4.5 mois', tauxReussite: '70%', scoreBP: '65/100' },
+    68→/home/z/my-project/src/components/admin-centre/statistiques.tsx:114:  annee: { tempsMoyen: '4.8 mois', tauxReussite: '68%', scoreBP: '63/100' },
+    69→/home/z/my-project/src/components/admin-centre/statistiques.tsx:172:                <p className="text-sm text-muted-foreground">Temps moyen parcours</p>
+    70→/home/z/my-project/src/components/admin-centre/statistiques.tsx:173:                <p className="text-2xl font-bold text-foreground">{metrics.tempsMoyen}</p>
+    71→/home/z/my-project/src/data/swipe-questions.ts:75:    question: "Je consacre du temps chaque semaine pour accompagner le développement de mes collaborateurs.",
+    72→/home/z/my-project/src/data/swipe-questions.ts:218:      "Je note l'idée pour plus tard quand j'aurai plus de temps"
+    73→/home/z/my-project/src/data/swipe-questions.ts:304:      "Je ralentis les ventes internationales le temps de m'organiser",
+    74→/home/z/my-project/src/data/swipe-questions.ts:406:      "J'accepte le rewrite et j'arrête les ventes le temps du développement",
+    75→/home/z/my-project/src/data/swipe-questions.ts:693:      "Je lui ai consacré du temps, j'ai partagé des ressources et j'ai suivi ses progrès",
+    76→/home/z/my-project/src/data/swipe-questions.ts:851:    subcategory: "temps",
+    77→/home/z/my-project/src/data/swipe-questions.ts:964:    subcategory: "temps",
+    78→/home/z/my-project/src/data/swipe-questions.ts:1055:      "Je me cache et j'attends que la tempête passe"
+    79→/home/z/my-project/src/data/swipe-questions.ts:1100:    question: "Vous dirigez une équipe de cinq personnes et trois d'entre elles tombent malades en même temps pendant un lancement critique. Que faites-vous ?",
+    80→/home/z/my-project/src/data/swipe-questions.ts:1105:      "Je réorganise les priorités, je négocie les délais avec les clients et je mobilise des ressources temporaires",
+    81→/home/z/my-project/src/data/swipe-questions.ts:1119:    subcategory: "temps",
+    82→/home/z/my-project/src/data/swipe-questions.ts:1127:    helpText: "Savoir choisir ses priorités temporelles est une compétence clé",
+    83→/home/z/my-project/src/data/swipe-questions.ts:1257:    question: "Quelle routine ou méthode utilisez-vous pour protéger votre temps face aux sollicitations incessantes ?",
+    84→/home/z/my-project/src/data/swipe-questions.ts:1259:    subcategory: "temps",
+    85→/home/z/my-project/src/data/swipe-questions.ts:1353:    question: "Classez ces méthodes de gestion du temps par ordre d'efficacité pour un entrepreneur :",
+    86→/home/z/my-project/src/data/swipe-questions.ts:1355:    subcategory: "temps",
+    87→/home/z/my-project/src/data/swipe-questions.ts:1363:    helpText: "L'efficacité repose sur la protection du temps de qualité",
+    88→/home/z/my-project/src/data/swipe-questions.ts:1411:      "Pression temporelle avec des deadlines serrés",
+    89→/home/z/my-project/src/data/swipe-questions.ts:1463:      "L'échec m'a découragé pendant longtemps avant de réessayer",
+    90→/home/z/my-project/src/data/swipe-questions.ts:1510:    subcategory: "temps",
+    91→/home/z/my-project/src/data/swipe-questions.ts:1599:    question: "Je prends le temps d'écouter véritablement mon interlocuteur avant de répondre.",
+    92→/home/z/my-project/src/data/swipe-questions.ts:1707:    helpText: "L'écoute active est un investissement, pas une perte de temps",
+    93→/home/z/my-project/src/data/swipe-questions.ts:1775:    helpText: "En temps limité, le storytelling est plus puissant que la technique",
+    94→/home/z/my-project/src/data/swipe-questions.ts:1787:      "Je lui offre un espace de dialogue, j'adapte temporairement sa charge et je lui propose un soutien",
+    95→/home/z/my-project/src/data/swipe-questions.ts:1822:      "Je passe le plus de temps possible avec les organisateurs que je connais",
+    96→/home/z/my-project/src/data/swipe-questions.ts:1937:    question: "Un collaborateur très impliqué vous demande régulièrement du feedback mais vous n'avez pas le temps. Comment gérez-vous cette demande ?",
+    97→/home/z/my-project/src/data/swipe-questions.ts:1945:      "Je lui dis que je n'ai pas de temps pour lui accorder du feedback régulier"
+    98→/home/z/my-project/src/data/swipe-questions.ts:2316:      "J'ai pris le temps de comprendre la perspective de l'autre, j'ai reconnu ses émotions et cela a ouvert le dialogue",
+    99→/home/z/my-project/src/data/swipe-questions.ts:2333:      "Je me suis préparé minutieusement, j'ai anticipé les questions difficiles et j'ai adapté mon discours en temps réel face aux réactions du public",
+   100→/home/z/my-project/src/data/swipe-questions.ts:2367:      "J'ai cultivé la relation au fil du temps, j'ai offert de la valeur sans rien attendre en retour et elle s'est transformée en opportunité majeure",
+   101→/home/z/my-project/src/data/swipe-questions.ts:2559:      "Je ferme temporairement le site jusqu'à résolution du problème"
+   102→/home/z/my-project/src/data/swipe-questions.ts:2655:    question: "Votre équipe est en désaccord sur la cause d'un bug récurrent. Comment procédez-vous ?",
+   103→/home/z/my-project/src/data/swipe-questions.ts:2747:      "J'essaie de tout faire en même temps en répartissant les efforts",
+   104→/home/z/my-project/src/data/swipe-questions.ts:2931:      "Urgence temporelle",
+   105→/home/z/my-project/src/data/swipe-questions.ts:3000:      "Automatiser les tâches répétitives pour gagner du temps",
+   106→/home/z/my-project/src/data/swipe-questions.ts:3088:      "J'ai laissé le temps faire son oeuvre avec des ajustements marginaux"
+   107→/home/z/my-project/src/data/swipe-questions.ts:3358:      "Je passe le temps sur mon téléphone en attendant la fin",
+   108→/home/z/my-project/src/data/swipe-questions.ts:3479:    question: "Un hackathon interne est organisé et votre équipe n'a aucune idée de projet. Comment la lancez-vous ?",
+   109→/home/z/my-project/src/data/swipe-questions.ts:3539:      "Je corrige uniquement les bugs signalés dans les avis",
+   110→/home/z/my-project/src/data/swipe-questions.ts:3557:      "Je réutilise un template standard et je remplis les données rapidement",
+   111→/home/z/my-project/src/data/swipe-questions.ts:3595:      "Je ne prends pas de décision et je laisse le temps passer",
+   112→/home/z/my-project/src/data/swipe-questions.ts:3736:      "Sessions de brainstorming structuré avec contraintes de temps",
+   113→/home/z/my-project/src/data/swipe-questions.ts:3737:      "Temps libre pour l'exploration individuelle",
+   114→/home/z/my-project/src/data/swipe-questions.ts:3773:      "Manque de temps et de priorisation",
+   115→/home/z/my-project/src/data/swipe-questions.ts:4022:    question: "Je consacre régulièrement du temps à suivre les évolutions technologiques de mon secteur.",
+   116→/home/z/my-project/src/data/swipe-questions.ts:4159:      "Je repousse le projet en prétextant un manque de temps pour me former",
+   117→/home/z/my-project/src/data/swipe-questions.ts:4315:    question: "Vous devez prendre en charge temporairement le rôle de directeur technique alors que vous êtes directeur commercial. Comment gérez-vous cette situation ?",
+   118→/home/z/my-project/src/components/admin-plateforme/paa-pack.tsx:63:  { code: 'objectifs-smart', label: 'Objectifs SMART', description: 'Définition d\'objectifs Spécifiques, Mesurables, Atteignables, Réalistes, Temporels', enabled: true },
+   119→/home/z/my-project/src/components/admin-plateforme/paa-pack.tsx:64:  { code: 'gestion-temps', label: 'Gestion du Temps', description: 'Outils et méthodes de gestion du temps entrepreneurial', enabled: true },
+   120→/home/z/my-project/src/components/admin-plateforme/paa-pack.tsx:76:  'gestion-temps': Clock,
+   121→/home/z/my-project/src/components/admin-plateforme/configuration.tsx:28:  const emailTemplates = [
+   122→/home/z/my-project/src/components/admin-plateforme/configuration.tsx:37:    { name: 'JWT Secret', value: 'creapulse-v2-sec...xxxx', masked: true },
+   123→/home/z/my-project/src/components/admin-plateforme/configuration.tsx:38:    { name: 'API Key Stripe', value: 'sk_live_51Qx...xxxx', masked: true },
+   124→/home/z/my-project/src/components/admin-plateforme/configuration.tsx:39:    { name: 'SMTP Password', value: 'app_password...xxxx', masked: true },
+   125→/home/z/my-project/src/components/admin-plateforme/configuration.tsx:40:    { name: 'SendGrid API Key', value: 'SG.xxxx...xxxx', masked: true },
+   126→/home/z/my-project/src/components/admin-plateforme/configuration.tsx:170:                <CardTitle className="text-sm">Templates d&apos;emails</CardTitle>
+   127→/home/z/my-project/src/components/admin-plateforme/configuration.tsx:171:                <CardDescription>Gerez les templates d&apos;emails automatiques</CardDescription>
+   128→/home/z/my-project/src/components/admin-plateforme/configuration.tsx:182:                    <DialogTitle>Apercu du template</DialogTitle>
+   129→/home/z/my-project/src/components/admin-plateforme/configuration.tsx:203:                {emailTemplates.map((t) => (
+   130→/home/z/my-project/src/components/admin-plateforme/analytics.tsx:60:  { label: 'Temps moyen onboarding', value: '4m 32s', trend: '-18s', up: false, icon: Clock },
+   131→/home/z/my-project/src/components/admin-plateforme/analytics.tsx:105:              <div className={`flex items-center gap-0.5 text-[10px] font-medium mt-1 ${i.up ? 'text-emerald-500' : (i.label.includes('Temps') ? 'text-emerald-500' : 'text-red-500')}`}>
+   132→/home/z/my-project/src/components/auth/login-dialog.tsx:234:        {/* Switch to register — masqué temporairement
+   133→/home/z/my-project/src/components/bureau/ia-assistant.tsx:48:  'gestion-temps': 'creapulse-gestion-temps',
+   134→/home/z/my-project/src/components/bureau/ia-assistant.tsx:92:  'gestion-temps': "Je peux vous aider à optimiser votre organisation avec la matrice d'Eisenhower. Que souhaitez-vous améliorer ?",
+   135→/home/z/my-project/src/components/bureau/ia-assistant.tsx:203:  'gestion-temps': [
+   136→/home/z/my-project/src/components/bureau/ia-assistant.tsx:662:        content: 'Je suis temporairement indisponible. Veuillez vérifier votre connexion et réessayer.',
+   137→/home/z/my-project/src/components/bureau/bureau-layout.tsx:58:const GestionTempsModule = dynamic(() => import('./modules/gestion-temps').then(m => ({ default: m.GestionTempsModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
+   138→/home/z/my-project/src/components/bureau/bureau-layout.tsx:238:        {modulesLoaded && currentModule && isModuleActive(currentModule) && currentModule === 'gestion-temps' && <GestionTempsModule />}
+   139→/home/z/my-project/src/components/conseiller/beneficiaire-360.tsx:1018:                                  <p className="text-xs text-muted-foreground mt-1">Des livrables sont prêts pour review. Prenez le temps de les valider rapidement.</p>
+   140→/home/z/my-project/src/components/bureau/modules/creascope/creascope-store.ts:111:  status: 'todo' | 'in_progress' | 'done'
+   141→/home/z/my-project/src/components/bureau/modules/creascope/creascope-store.ts:511:                status: 'todo',
+   142→/home/z/my-project/src/app/api/france-travail/offres/route.ts:20:  tempsPlein: z.boolean().optional(),
+   143→/home/z/my-project/src/app/api/france-travail/offres/route.ts:45:    tempsPlein,
+   144→/home/z/my-project/src/app/api/france-travail/offres/route.ts:63:  if (tempsPlein !== undefined) params.append('tempsPlein', String(tempsPlein))
+   145→/home/z/my-project/src/components/bureau/modules/creascope/creascope-session.tsx:81:  if (ratio < 0.8) return 'Dans le temps'
+   146→/home/z/my-project/src/lib/ft-guard.ts:298:        'Service temporairement indisponible. Veuillez réessayer plus tard.',
+   147→/home/z/my-project/src/lib/module-scanner.ts:298:  'gestion-temps': {
+   148→/home/z/my-project/src/lib/module-scanner.ts:299:    key: 'creapulse-gestion-temps',
+   149→/home/z/my-project/src/components/bureau/modules/creascope/phases/phase-accueil.tsx:66:      'Confirmer que le porteur est prêt à démarrer le diagnostic. Vérifier le temps disponible et les éventuelles contraintes. Lancer le chronomètre de la session.',
+   150→/home/z/my-project/src/lib/pdf-utils.ts:3:// Wraps PDFKit with branded templates and helpers
+   151→/home/z/my-project/src/lib/metiers-data.ts:103:      options: ['Je reste concentré et efficace', 'Ça me stimule encore plus', 'Je prends le temps de bien faire', 'Je demande de l\'aide si besoin'],
+   152→/home/z/my-project/src/lib/metiers-data.ts:332:    { name: 'Youssef K.', age: 20, before: 'Je passais mes journées sur TikTok sans but. Mes parents disaient que je perdais mon temps.', after: 'J\'ai fait une formation CM de 4 mois. Aujourd\'hui je gère les réseaux de 3 clients et je travaille en freelance.', metier: 'Community Manager', initials: 'YK' },
+   153→/home/z/my-project/src/lib/metiers-data.ts:381:      text: 'Combien de temps es-tu prêt à te former ?',
+   154→/home/z/my-project/src/lib/metiers-data.ts:494:      text: 'Comment tu gères ton temps et ton organisation ?',
+   155→/home/z/my-project/src/lib/metiers-data.ts:510:    { title: 'Profil hybride', description: 'Tu combines créativité et organisation. Tu pourrais être un entrepreneur salarié ou un porteur de projet à temps partiel.', match: 86 },
+   156→/home/z/my-project/src/lib/module-registry.ts:272:    code: 'gestion-temps',
+   157→/home/z/my-project/src/lib/module-registry.ts:273:    label: 'Gestion du Temps',
+   158→/home/z/my-project/src/lib/module-registry.ts:333:    description: 'Suivi de vos flux de trésorerie, prévisions et solde en temps réel.',
+   159→/home/z/my-project/src/lib/module-registry.ts:473:    description: 'Définissez et suivez des objectifs Spécifiques, Mesurables, Atteignables, Pertinents et Temporels.',
+   160→/home/z/my-project/src/components/bureau/modules/profil-createur.tsx:684:                    <Label>Temps disponible par semaine</Label>
+   161→/home/z/my-project/src/lib/zai-helper.ts:16:  temperature?: number
+   162→/home/z/my-project/src/lib/zai-helper.ts:63:  for (let attempt = 0; attempt <= MAX_SDK_RETRIES; attempt++) {
+   163→/home/z/my-project/src/lib/zai-helper.ts:69:      if (attempt < MAX_SDK_RETRIES) {
+   164→/home/z/my-project/src/lib/zai-helper.ts:70:        console.warn(`[ZAI Helper] ZAI.create() attempt ${attempt + 1} failed, retrying in ${SDK_RETRY_DELAY_MS}ms...`)
+   165→/home/z/my-project/src/lib/zai-helper.ts:75:      console.error('[ZAI Helper] ZAI.create() failed after', MAX_SDK_RETRIES + 1, 'attempts:', errMsg)
+   166→/home/z/my-project/src/lib/zai-helper.ts:89:      temperature: options?.temperature ?? 0.7,
+   167→/home/z/my-project/src/lib/zai-helper.ts:177:      return 'Service IA temporairement indisponible. Veuillez réessayer dans quelques instants.'
+   168→/home/z/my-project/src/lib/zai-helper.ts:199:        message: message || 'Service IA temporairement indisponible. Veuillez réessayer dans quelques instants.',
+   169→/home/z/my-project/src/components/bureau/modules/e-learning.tsx:80:      { id: 'bm-1', title: 'Qu\'est-ce qu\'un business model ?', content: 'Un business model décrit comment votre entreprise crée, délivre et capture de la valeur. Il répond à la question : comment votre projet va-t-il gagner de l\'argent ?\n\nLes 9 blocs du Business Model Canvas couvrent : les segments de clientèle, la proposition de valeur, les canaux de distribution, les relations clients, les sources de revenus, les ressources clés, les activités clés, les partenaires clés et la structure de coûts.\n\nPrenez le temps de remplir chaque bloc en pensant spécifiquement à VOTRE projet. Ne restez pas théorique.', duration: '8 min', completed: false },
+   170→/home/z/my-project/src/components/bureau/modules/e-learning.tsx:112:      { id: 'md-1', title: 'Choisir ses canaux digitaux', content: 'Ne soyez pas partout. Choisissez 2-3 canaux pertinents pour votre cible :\n- Instagram/TikTok : visuel, B2C, 18-35 ans\n- LinkedIn : B2B, networking professionnel\n- Google My Business : présence locale\n- Site web + SEO : visibilité long terme\n\nConcentrez vos efforts là où votre client passe du temps.', duration: '12 min', completed: false },
+   171→/home/z/my-project/src/components/bureau/modules/e-learning.tsx:147:    id: 'temps', code: 'TE', title: 'Gérer son temps', description: 'Optimisez votre temps pour être plus productif en tant qu\'entrepreneur.',
+   172→/home/z/my-project/src/components/bureau/modules/e-learning.tsx:150:      { id: 'te-1', title: 'La matrice d\'Eisenhower', content: 'Classez vos tâches en 4 quadrants :\n1. Urgent + Important = FAIRE (livraisons, crises)\n2. Non-urgent + Important = PLANIFIER (stratégie, formation)\n3. Urgent + Non-important = DÉLÉGUER (emails, administratif)\n4. Non-urgent + Non-important = ÉLIMINER (scrolling, tâches inutiles)\n\nL\'erreur #1 des créateurs : passer 80% du temps dans le quadrant 3 au lieu du 2.', duration: '10 min', completed: false },
+   173→/home/z/my-project/src/components/bureau/modules/e-learning.tsx:168:      { id: 'rh-1', title: 'Quand et qui recruter ?', content: 'Recrutez quand vous atteignez un point de saturation : vous refusez des missions, la qualité baisse, ou vous passez trop de temps sur des tâches non-stratégiques.\n\nPremier profil à recruter en général : un assistant polyvalent ou un profil commercial. Évitez de recruter un profil identique au vôtre (complémentarité > similarité).\n\nAlternatives au CDI : freelances, alternants, prestataires, mise en réseau de compétences.', duration: '18 min', completed: false },
+   174→/home/z/my-project/src/lib/notification-poller.ts:143:   * Returns the current poll interval (useful for debugging / UI display).
+   175→/home/z/my-project/src/components/bureau/modules/pipeline-v3-overview.tsx:635:          <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(140px, 1fr))` }}>
+   176→/home/z/my-project/src/lib/stores/module-config-store.ts:19:  'gestion-temps',
+   177→/home/z/my-project/src/lib/stores/module-config-store.ts:72:  'gestion-temps': true,
+   178→/home/z/my-project/src/components/bureau/modules/gestion-crise.tsx:101:    description: 'Préparez un plan d\'action alternatif pour chaque risque identifié. En cas de crise, vous gagnerez un temps précieux.',
+   179→/home/z/my-project/src/app/api/ia/route.ts:84:    'gestion-temps': `L'utilisateur utilise la matrice d'Eisenhower pour gérer son temps. Aide-le à prioriser ses tâches, identifier les activités à déléguer ou éliminer, et optimiser sa productivité entrepreneuriale.`,
+   180→/home/z/my-project/src/app/api/ia/route.ts:101:    'objectifs-smart': `L'utilisateur définit des objectifs SMART pour son projet. Aide-le à formuler des objectifs Spécifiques, Mesurables, Atteignables, Pertinents et Temporels, et à suivre leur avancement.`,
+   181→/home/z/my-project/src/app/api/ia/route.ts:195:  'gestion-temps': [
+   182→/home/z/my-project/src/app/api/ia/route.ts:352:          { temperature: 0.6, max_tokens: 200 },
+   183→/home/z/my-project/src/app/api/ia/route.ts:383:    let systemPrompt = SYSTEM_PROMPT
+   184→/home/z/my-project/src/app/api/ia/route.ts:387:        systemPrompt += `\n\nCONTEXTE ACTUEL DE L'UTILISATEUR :\n${moduleCtx}`
+   185→/home/z/my-project/src/app/api/ia/route.ts:393:      systemPrompt += `\nDescription du module : ${context.moduleDescription}`
+   186→/home/z/my-project/src/app/api/ia/route.ts:401:      systemPrompt += `\n\nDONNÉES ACTUELLES DE L'UTILISATEUR DANS CE MODULE :\n${formattedData}\n\nUtilise ces données pour personnaliser tes conseils. Si des données sont incomplètes, guide l'utilisateur pour les compléter.`
+   187→/home/z/my-project/src/app/api/ia/route.ts:405:      systemPrompt += `\nProjet de l'utilisateur : ${context.projectTitle}`
+   188→/home/z/my-project/src/app/api/ia/route.ts:408:      systemPrompt += `\nSecteur : ${context.sector}`
+   189→/home/z/my-project/src/app/api/ia/route.ts:413:      systemPrompt += `\n\nUtilisateur connecté : ${auth.payload.email} (${auth.payload.role})`
+   190→/home/z/my-project/src/app/api/ia/route.ts:418:      { role: 'system', content: systemPrompt },
+   191→/home/z/my-project/src/app/api/ia/route.ts:457:    const result = await callZAI(messages, { temperature: 0.7, max_tokens: 1000 })
+   192→/home/z/my-project/src/app/api/ia/route.ts:461:      : 'Je suis temporairement indisponible. Veuillez réessayer dans quelques instants. En attendant, n\'hésitez pas à consulter les ressources disponibles dans votre Bureau Virtuel ou à contacter votre conseiller GIDEF.'
+   193→/home/z/my-project/src/app/api/ia/route.ts:477:        message: 'Le service IA est temporairement indisponible. Veuillez réessayer dans quelques instants.',
+   194→/home/z/my-project/src/lib/__tests__/auth.test.ts:94:      const tampered = token.slice(0, -5) + 'XXXXX'
+   195→/home/z/my-project/src/lib/logger.ts:3:// JSON-structured logging for monitoring & debugging
+   196→/home/z/my-project/src/lib/logger.ts:6:type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+   197→/home/z/my-project/src/lib/logger.ts:48:  debug(message: string, data?: Record<string, unknown>) {
+   198→/home/z/my-project/src/lib/logger.ts:49:    this.log('debug', message, data)
+   199→/home/z/my-project/src/lib/france-travail.ts:83:    throw new Error('Service France Travail temporairement indisponible.')
+   200→/home/z/my-project/src/lib/france-travail.ts:105:        throw new Error('Service France Travail temporairement indisponible.')
+   201→/home/z/my-project/src/lib/france-travail.ts:148: * - Delay: 500ms * 2^attempt (500ms, 1000ms)
+   202→/home/z/my-project/src/lib/france-travail.ts:160:  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+   203→/home/z/my-project/src/lib/france-travail.ts:180:        if (attempt < MAX_RETRIES) {
+   204→/home/z/my-project/src/lib/france-travail.ts:181:          const delay = BASE_DELAY_MS * Math.pow(2, attempt)
+   205→/home/z/my-project/src/lib/france-travail.ts:182:          console.warn(`[FT API] Erreur ${response.status} pour ${url}, tentative ${attempt + 1}/${MAX_RETRIES + 1}, nouvel essai dans ${delay}ms`)
+   206→/home/z/my-project/src/lib/france-travail.ts:200:      if (isNetworkError && attempt < MAX_RETRIES) {
+   207→/home/z/my-project/src/lib/france-travail.ts:201:        const delay = BASE_DELAY_MS * Math.pow(2, attempt)
+   208→/home/z/my-project/src/lib/france-travail.ts:202:        console.warn(`[FT API] Erreur réseau pour ${url}, tentative ${attempt + 1}/${MAX_RETRIES + 1}, nouvel essai dans ${delay}ms`)
+   209→/home/z/my-project/src/lib/api-response.ts:157:    // Log stack only in development for debugging
+   210→/home/z/my-project/src/lib/auth-fetch.ts:18: * Attempt to refresh the access token via /api/auth/refresh.
+   211→/home/z/my-project/src/lib/auth-fetch.ts:78: * - If the server returns 401, attempts to refresh the token via /api/auth/refresh.
+   212→/home/z/my-project/src/components/bureau/modules/tremplin.tsx:129:    { id: 'mo3', text: 'Êtes-vous prêt(e) à consacrer plus de 40h/semaine à votre projet au lancement ?', type: 'yes_no', weight: 5, category: 'Temps' },
+   213→/home/z/my-project/src/components/bureau/modules/tremplin.tsx:204:    recs.push('Votre projet nécessite une maturation supplémentaire avant le lancement. Prenez le temps de valider chaque dimension.')
+   214→/home/z/my-project/src/components/bureau/modules/tremplin.tsx:234:    'Temps': 'Assurez-vous d\'avoir suffisamment de temps disponible pour votre projet.',
+   215→/home/z/my-project/src/components/bureau/modules/objectifs-smart.tsx:44:  temporel: string
+   216→/home/z/my-project/src/components/bureau/modules/objectifs-smart.tsx:61:    temporel: '',
+   217→/home/z/my-project/src/components/bureau/modules/objectifs-smart.tsx:395:                  Définissez un objectif Spécifique, Mesurable, Atteignable, Pertinent et Temporel
+   218→/home/z/my-project/src/components/bureau/modules/objectifs-smart.tsx:473:                {/* Temporel */}
+   219→/home/z/my-project/src/components/bureau/modules/objectifs-smart.tsx:476:                    T — Temporel
+   220→/home/z/my-project/src/components/bureau/modules/objectifs-smart.tsx:485:                      value={formData.temporel}
+   221→/home/z/my-project/src/components/bureau/modules/objectifs-smart.tsx:486:                      onChange={(e) => setFormData(prev => ({ ...prev, temporel: e.target.value }))}
+   222→/home/z/my-project/src/components/bureau/modules/objectifs-smart.tsx:609:                          {obj.temporel && (
+   223→/home/z/my-project/src/components/bureau/modules/objectifs-smart.tsx:612:                              {formatDate(obj.temporel)}
+   224→/home/z/my-project/src/components/bureau/modules/financier.tsx:492:            <CardDescription>Ajustez les curseurs pour modifier vos prévisions en temps réel</CardDescription>
+   225→/home/z/my-project/src/components/bureau/modules/financier.tsx:557:                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Calculs en temps réel</span>
+   226→/home/z/my-project/src/components/bureau/modules/mind-map.tsx:15:  LayoutTemplate,
+   227→/home/z/my-project/src/components/bureau/modules/mind-map.tsx:48:const TEMPLATES: Record<string, MindMapNode[]> = {
+   228→/home/z/my-project/src/components/bureau/modules/mind-map.tsx:306:  // ─── Load template ───────────────────────
+   229→/home/z/my-project/src/components/bureau/modules/mind-map.tsx:307:  const loadTemplate = useCallback((name: string) => {
+   230→/home/z/my-project/src/components/bureau/modules/mind-map.tsx:308:    const template = TEMPLATES[name]
+   231→/home/z/my-project/src/components/bureau/modules/mind-map.tsx:309:    if (template) {
+   232→/home/z/my-project/src/components/bureau/modules/mind-map.tsx:310:      setNodes(template.map(n => ({ ...n, children: [...n.children] })))
+   233→/home/z/my-project/src/components/bureau/modules/mind-map.tsx:313:      toast.success(`Template "${name}" chargé`)
+   234→/home/z/my-project/src/components/bureau/modules/mind-map.tsx:397:          {/* Templates */}
+   235→/home/z/my-project/src/components/bureau/modules/mind-map.tsx:398:          {Object.keys(TEMPLATES).map((name) => (
+   236→/home/z/my-project/src/components/bureau/modules/mind-map.tsx:404:              onClick={() => loadTemplate(name)}
+   237→/home/z/my-project/src/components/bureau/modules/mind-map.tsx:406:              <LayoutTemplate className="h-3 w-3" />
+   238→/home/z/my-project/src/components/bureau/modules/cloture-rebond.tsx:86:    inconvenients: ['Risque de répéter les erreurs', 'Fatigue entrepreneuriale', 'Nécessite du financement', 'Temps de montage'],
+   239→/home/z/my-project/src/app/api/bilan/route.ts:278:  - Temps disponible : ${data.profil.availableTimePerWeek || '?'}h/semaine
+   240→/home/z/my-project/src/app/api/bilan/route.ts:346:      ? ['Service IA temporairement indisponible']
+   241→/home/z/my-project/src/app/api/bilan/route.ts:370:  ], { temperature: 0.5, max_tokens: 2000 })
+   242→/home/z/my-project/src/components/bureau/modules/gestion-temps.tsx:36:  ListTodo,
+   243→/home/z/my-project/src/components/bureau/modules/gestion-temps.tsx:72:interface GestionTempsData {
+   244→/home/z/my-project/src/components/bureau/modules/gestion-temps.tsx:126:  { name: 'RescueTime / Toggl', description: 'Suivi du temps réel. Mesurez où passez réellement votre temps.' },
+   245→/home/z/my-project/src/components/bureau/modules/gestion-temps.tsx:132:const DEFAULT_DATA: GestionTempsData = {
+   246→/home/z/my-project/src/components/bureau/modules/gestion-temps.tsx:1129:            Temps par catégorie
+   247→/home/z/my-project/src/components/bureau/modules/gestion-temps.tsx:1215:  data: GestionTempsData
+   248→/home/z/my-project/src/components/bureau/modules/gestion-temps.tsx:1216:  setData: React.Dispatch<React.SetStateAction<GestionTempsData>>
+   249→/home/z/my-project/src/components/bureau/modules/gestion-temps.tsx:1301:      {/* ── Diagnostic temps ── */}
+   250→/home/z/my-project/src/components/bureau/modules/gestion-temps.tsx:1307:              Où passez-vous votre temps ?
+   251→
+   252→[Showing results with pagination = limit: 250]

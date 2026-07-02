@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  poweredByHeader: false,
   typescript: {
     // TODO: Fix 241 TypeScript errors across the codebase (bunx tsc --noEmit).
     // Major categories to fix:
