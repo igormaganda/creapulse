@@ -4,11 +4,11 @@
 // POST /api/forum/[id]    — Add reply to discussion
 // ============================================
 
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
-import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
-import { verifyToken, AuthError } from '@/lib/auth'
+import { success, Errors, handleApiError } from '@/lib/api-response'
+import { withAuth } from '@/lib/api-auth'
 
 // ─── Validation schemas ────────────────────
 
@@ -87,10 +87,14 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Auth required for forum access
+    const auth = await withAuth(request)
+    if (!auth || auth instanceof NextResponse) return auth
+
     const { id } = await params
 
-    const discussion = await db.discussion.findUnique({
-      where: { id },
+    const discussion = await db.discussion.findFirst({
+      where: { id, author: { tenantId: auth.tenantId } },
       include: {
         author: { select: { id: true, firstName: true, lastName: true } },
         category: { select: { id: true, name: true, slug: true, color: true } },
@@ -144,20 +148,15 @@ export async function POST(
     const { id } = await params
 
     // Auth required
-    let userId: string | undefined
-    try {
-      const token = getTokenFromHeader(request)
-      if (!token) {
-        return Errors.unauthorized('Authentification requise pour publier')
-      }
-      const payload = await verifyToken(token)
-      userId = payload.userId
-    } catch {
-      return Errors.unauthorized('Token invalide ou expiré')
-    }
+    const auth = await withAuth(request)
+    if (!auth || auth instanceof NextResponse) return auth
+    const userId = auth.userId
+    const tenantId = auth.tenantId
 
-    // Check discussion exists
-    const discussion = await db.discussion.findUnique({ where: { id } })
+    // Check discussion exists and belongs to the same tenant
+    const discussion = await db.discussion.findFirst({
+      where: { id, author: { tenantId } },
+    })
     if (!discussion) {
       return Errors.notFound('Discussion')
     }
@@ -212,9 +211,6 @@ export async function POST(
       201,
     )
   } catch (err) {
-    if (err instanceof AuthError) {
-      return Errors.unauthorized(err.message)
-    }
     return handleApiError(err)
   }
 }

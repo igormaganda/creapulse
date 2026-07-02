@@ -42,7 +42,7 @@ const bpActionSchema = z.discriminatedUnion('action', [
 
 const saveBpSchema = z.object({
   sections: z.record(z.string(), z.unknown()).optional(),
-  bpStatus: z.string().optional(),
+  bpStatus: z.enum(['NOT_STARTED', 'IN_PROGRESS', 'DRAFT', 'SUBMITTED']).optional(),
 })
 
 // ─── Helper: Auth from request ───────────────

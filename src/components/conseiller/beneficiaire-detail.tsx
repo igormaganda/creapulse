@@ -203,7 +203,7 @@ export function BeneficiaireDetail({ beneficiaryId }: { beneficiaryId: string })
     )
   }
 
-  const initials = `${beneficiary.firstName[0]}${beneficiary.lastName[0]}`.toUpperCase()
+  const initials = `${(beneficiary.firstName || '')[0] || ''}${(beneficiary.lastName || '')[0] || ''}`.toUpperCase()
   const phase = phaseConfig[beneficiary.journeyPhase] || phaseConfig.Idee
   const completedSteps = beneficiary.progress >= 88 ? 9 : beneficiary.progress >= 60 ? 7 : beneficiary.progress >= 40 ? 5 : 3
 

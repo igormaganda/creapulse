@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { authFetch } from '@/lib/auth-fetch'
 import {
   Video,
   Plus,
@@ -680,7 +681,7 @@ export function VisioView() {
     async function fetchSessions() {
       try {
         setLoading(true)
-        const res = await fetch('/api/visio/sessions')
+        const res = await authFetch('/api/visio/sessions')
         if (res.ok) {
           const data = await res.json()
           if (Array.isArray(data) && data.length > 0) {
@@ -735,7 +736,7 @@ export function VisioView() {
       setSelectedSessionId(newSession.id)
 
       // Try POST to API
-      fetch('/api/visio/sessions', {
+      authFetch('/api/visio/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

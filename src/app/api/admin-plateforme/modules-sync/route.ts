@@ -33,7 +33,7 @@ const bulkToggleSchema = z.object({
       code: z.string().min(1),
       isActive: z.boolean(),
     })
-  ),
+  ).max(50, 'Maximum 50 modules par requête'),
 })
 
 // Module definitions from registry — must match src/lib/module-registry.ts
@@ -77,6 +77,12 @@ export async function POST(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const targetTenantId = searchParams.get('tenantId') || admin.tenantId
+
+    // Validate tenant exists
+    const tenantExists = await db.tenant.findUnique({ where: { id: targetTenantId }, select: { id: true } })
+    if (!tenantExists) {
+      return Errors.notFound('Organisation')
+    }
 
     let created = 0
     let updated = 0
@@ -166,6 +172,12 @@ export async function PUT(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const targetTenantId = searchParams.get('tenantId') || admin.tenantId
+
+    // Validate tenant exists
+    const tenantExists = await db.tenant.findUnique({ where: { id: targetTenantId }, select: { id: true } })
+    if (!tenantExists) {
+      return Errors.notFound('Organisation')
+    }
 
     let toggled = 0
     for (const mod of data.modules) {

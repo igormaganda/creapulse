@@ -45,6 +45,7 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { DemoBadge } from '@/lib/hooks/use-api-data'
+import { authFetch } from '@/lib/auth-fetch'
 
 // ─── Types ──────────────────────────────────
 
@@ -462,7 +463,7 @@ export function AnnuaireModule() {
       if (city) params.set('city', city)
       params.set('limit', '50')
 
-      const res = await fetch(`/api/annuaire?${params.toString()}`)
+      const res = await authFetch(`/api/annuaire?${params.toString()}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       if (json.success && json.data?.actors?.length > 0) {
@@ -590,12 +591,9 @@ export function AnnuaireModule() {
       })
       // Try API call
       try {
-        const token = localStorage.getItem('creapulse-token')
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-        if (token) headers['Authorization'] = `Bearer ${token}`
-        const res = await fetch('/api/annuaire/favorites', {
+        const res = await authFetch('/api/annuaire/favorites', {
           method: 'POST',
-          headers,
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ actorId }),
         })
         if (res.ok) {

@@ -7,7 +7,7 @@
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
-import { verifyToken, checkRole, createClearSessionCookie } from '@/lib/auth'
+import { verifyToken, checkRole, createClearSessionCookie, revokeAccessToken } from '@/lib/auth'
 import type { UserRole } from '@prisma/client'
 
 export async function GET(request: NextRequest) {
@@ -141,6 +141,7 @@ export async function DELETE(_request: NextRequest) {
   try {
     // Get token for audit logging
     const cookieToken = _request.cookies.get('session')?.value
+    const refreshCookieToken = _request.cookies.get('refresh')?.value
 
     if (cookieToken) {
       try {
@@ -155,16 +156,41 @@ export async function DELETE(_request: NextRequest) {
             entityId: payload.userId,
           },
         })
+
+        // Revoke the refresh token JTI if present in session token payload
+        if (payload.jti && payload.exp) {
+          revokeAccessToken(payload.jti, payload.exp)
+        }
       } catch {
-        // Token may be invalid/expired — just clear cookie
+        // Token may be invalid/expired — just clear cookies
       }
     }
 
-    // Return success with cleared cookie
+    // Also try to revoke the refresh token directly
+    if (refreshCookieToken) {
+      try {
+        const { verifyRefreshToken } = await import('@/lib/auth')
+        const refreshPayload = await verifyRefreshToken(refreshCookieToken)
+        if (refreshPayload.jti && refreshPayload.exp) {
+          revokeAccessToken(refreshPayload.jti, refreshPayload.exp)
+        }
+      } catch {
+        // Refresh token may be invalid/expired
+      }
+    }
+
+    // Return success with cleared cookies
     const response = success(null, 'Déconnecté avec succès')
     response.cookies.set('session', '', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: true,
+      sameSite: 'lax',
+      maxAge: 0,
+      path: '/',
+    })
+    response.cookies.set('refresh', '', {
+      httpOnly: true,
+      secure: true,
       sameSite: 'lax',
       maxAge: 0,
       path: '/',

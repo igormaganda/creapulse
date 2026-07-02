@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     const city = searchParams.get('city') || ''
     const tenantId = searchParams.get('tenantId') || ''
     const page = parseInt(searchParams.get('page') || '1', 10)
-    const limit = parseInt(searchParams.get('limit') || '20', 10)
+    const limit = Math.min(100, parseInt(searchParams.get('limit') || '20', 10))
 
     // Construire la clause where
     const where: Record<string, unknown> = {}

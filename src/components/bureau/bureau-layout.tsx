@@ -268,7 +268,11 @@ export function BureauLayout() {
       document.body.style.overflow = ''
     }
     return () => {
-      document.body.style.overflow = ''
+      // Only restore overflow if bureau is not currently open
+      // (prevents React strict mode double-mount race condition)
+      if (!useBureauStore.getState().isBureauOpen) {
+        document.body.style.overflow = ''
+      }
     }
   }, [isBureauOpen])
 

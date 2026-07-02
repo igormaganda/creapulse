@@ -318,7 +318,7 @@ export function ConseillerDashboard() {
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold md:text-3xl">
-              {greeting}, {conseillerName.split(' ')[0]}
+              {greeting}, {(conseillerName || '').split(' ')[0] || ''}
             </h1>
             <p className="mt-1 text-white/60 text-sm md:text-base">
               {formatDate(new Date())} — Voici un aperçu de votre activité

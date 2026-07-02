@@ -19,11 +19,12 @@ const pitchDeckSchema = z.object({
     z.object({
       id: z.string(),
       title: z.string(),
-      content: z.string().optional(),
+      content: z.string().max(10000).optional(),
       extraData: z.unknown().optional(),
     })
-  ).optional(),
-}).passthrough()
+  ).max(30, 'Maximum 30 slides').optional(),
+  projectTitle: z.string().max(200).optional(),
+})
 
 const slideKeys = [
   'probleme',
@@ -261,7 +262,7 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const { slides, projectTitle } = body
+    const { slides, projectTitle } = parsed.data
 
     // Store slides as content in ZeroDraft (JSON stringify)
     const content = JSON.stringify({ slides })

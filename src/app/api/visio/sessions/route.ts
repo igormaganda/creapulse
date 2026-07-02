@@ -132,16 +132,20 @@ export async function POST(request: NextRequest) {
 
     const { beneficiaryId, interviewId, appointmentId, roomSubject } = parsed.data
 
-    // Verify beneficiary exists
+    // Verify beneficiary exists and belongs to the same tenant
     const beneficiary = await db.beneficiary.findUnique({
       where: { id: beneficiaryId },
       include: {
-        user: { select: { firstName: true, lastName: true } },
+        user: { select: { firstName: true, lastName: true, tenantId: true } },
       },
     })
 
     if (!beneficiary) {
       return Errors.notFound('Bénéficiaire')
+    }
+
+    if (beneficiary.user.tenantId !== tenantId) {
+      return Errors.forbidden('Ce bénéficiaire ne fait pas partie de votre organisation')
     }
 
     // Get tenant slug for room name

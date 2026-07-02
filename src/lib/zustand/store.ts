@@ -118,10 +118,10 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'creapulse-auth',
-      // Only persist user and auth state — token stays in memory only (never in localStorage)
+      // Only persist user — token and isAuthenticated stay in memory only
+      // isAuthenticated is derived from token presence to avoid ghost auth state
       partialize: (state) => ({
         user: state.user,
-        isAuthenticated: state.isAuthenticated,
       }),
     },
   ),

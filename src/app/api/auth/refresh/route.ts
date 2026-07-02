@@ -10,6 +10,22 @@ import { db } from '@/lib/db'
 import { createAccessToken, createRefreshToken, verifyRefreshToken, revokeAccessToken } from '@/lib/auth'
 import { success, Errors, handleApiError } from '@/lib/api-response'
 
+// ─── Rate limiting (in-memory, 5 refreshes/minute per IP) ───
+const refreshRateLimit = new Map<string, { count: number; resetAt: number }>()
+function checkRefreshRateLimit(ip: string): boolean {
+  const now = Date.now()
+  const entry = refreshRateLimit.get(ip)
+  if (!entry || now > entry.resetAt) {
+    refreshRateLimit.set(ip, { count: 1, resetAt: now + 60_000 })
+    return true
+  }
+  entry.count++
+  return entry.count <= 5
+}
+function getClientIp(request: NextRequest): string {
+  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+}
+
 export async function POST(request: NextRequest) {
   try {
     // 1. Read refresh token from httpOnly cookie
@@ -17,6 +33,12 @@ export async function POST(request: NextRequest) {
 
     if (!refreshTokenStr) {
       return Errors.unauthorized('Refresh token manquant')
+    }
+
+    // Rate limiting
+    const clientIp = getClientIp(request)
+    if (!checkRefreshRateLimit(clientIp)) {
+      return Errors.tooManyRequests('Trop de tentatives de rafraîchissement')
     }
 
     // 2. Verify it's a valid refresh token (checks type, expiry, and blocklist)
@@ -34,7 +56,7 @@ export async function POST(request: NextRequest) {
     // 3. Verify the user still exists and is active
     const user = await db.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, isActive: true },
+      select: { id: true, isActive: true, email: true, role: true, tenantId: true },
     })
 
     if (!user || !user.isActive) {
@@ -49,16 +71,16 @@ export async function POST(request: NextRequest) {
     // 5. Create new access token + new refresh token
     const [newAccessToken, newRefreshToken] = await Promise.all([
       createAccessToken({
-        userId: payload.userId,
-        tenantId: payload.tenantId,
-        email: payload.email,
-        role: payload.role,
+        userId: user.id,
+        tenantId: user.tenantId,
+        email: user.email,
+        role: user.role,
       }),
       createRefreshToken({
-        userId: payload.userId,
-        tenantId: payload.tenantId,
-        email: payload.email,
-        role: payload.role,
+        userId: user.id,
+        tenantId: user.tenantId,
+        email: user.email,
+        role: user.role,
       }),
     ])
 

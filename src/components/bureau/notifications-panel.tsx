@@ -31,6 +31,7 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { authFetch } from '@/lib/auth-fetch'
 
 // ─── Types ──────────────────────────────────
 
@@ -137,7 +138,7 @@ function NotificationItemRow({
     e.stopPropagation()
     setIsDeleting(true)
     try {
-      const res = await fetch(`/api/notifications/${notification.id}`, { method: 'DELETE' })
+      const res = await authFetch(`/api/notifications/${notification.id}`, { method: 'DELETE' })
       if (res.ok) {
         onDelete(notification.id)
         toast.success('Notification supprimée')
@@ -262,7 +263,7 @@ function NotificationPanelContent({
     if (showLoading) setIsLoading(true)
     try {
       const params = new URLSearchParams({ limit: '30' })
-      const res = await fetch(`/api/notifications?${params.toString()}`)
+      const res = await authFetch(`/api/notifications?${params.toString()}`)
       if (res.ok) {
         const json = await res.json()
         if (json.success && json.data) {
@@ -287,7 +288,7 @@ function NotificationPanelContent({
   const handleMarkRead = useCallback(async (id: string) => {
     markAsRead(id)
     try {
-      await fetch(`/api/notifications/${id}`, {
+      await authFetch(`/api/notifications/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isRead: true }),
@@ -301,7 +302,7 @@ function NotificationPanelContent({
   const handleMarkAllRead = useCallback(async () => {
     useNotificationStore.getState().markAllAsRead()
     try {
-      await fetch('/api/notifications/read-all', { method: 'PUT' })
+      await authFetch('/api/notifications/read-all', { method: 'PUT' })
       toast.success('Toutes les notifications marquées comme lues')
     } catch {
       toast.error('Erreur lors de la mise à jour')
@@ -312,7 +313,7 @@ function NotificationPanelContent({
   const handleDelete = useCallback(async (id: string) => {
     setDeletingIds((prev) => new Set(prev).add(id))
     try {
-      const res = await fetch(`/api/notifications/${id}`, { method: 'DELETE' })
+      const res = await authFetch(`/api/notifications/${id}`, { method: 'DELETE' })
       if (res.ok) {
         removeNotification(id)
       }
@@ -333,7 +334,10 @@ function NotificationPanelContent({
       // Parse internal links like "section:parcours" or "module:riasec"
       const parts = n.link.split(':')
       if (parts.length === 2) {
-        if (parts[0] === 'section') setSection(parts[1] as 'dashboard' | 'parcours' | 'strategie' | 'ecosysteme' | 'pilotage')
+        const validSections = ['dashboard', 'parcours', 'strategie', 'ecosysteme', 'pilotage'] as const
+        if (parts[0] === 'section' && parts[1] && (validSections as readonly string[]).includes(parts[1])) {
+          setSection(parts[1] as typeof validSections[number])
+        }
         if (parts[0] === 'module') setModule(parts[1])
       }
     }

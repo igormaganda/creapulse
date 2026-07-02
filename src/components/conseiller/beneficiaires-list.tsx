@@ -351,7 +351,7 @@ export function BeneficiairesList() {
         {paginatedBeneficiaires.map((b, i) => {
           const phase = phaseConfig[b.journeyPhase]
           const status = statusConfig[b.status]
-          const initials = `${b.firstName[0]}${b.lastName[0]}`.toUpperCase()
+          const initials = `${(b.firstName || '')[0] || ''}${(b.lastName || '')[0] || ''}`.toUpperCase()
 
           return (
             <motion.div

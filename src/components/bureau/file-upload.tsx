@@ -5,7 +5,7 @@
 // Drag-and-drop with validation, preview, progress
 // ============================================
 
-import { useState, useRef, useCallback, type DragEvent, type ChangeEvent } from 'react'
+import { useState, useRef, useCallback, useEffect, type DragEvent, type ChangeEvent } from 'react'
 import { Upload, FileText, X, Check, AlertCircle, Image as ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -76,6 +76,18 @@ export function FileUpload({
   const [isDragging, setIsDragging] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // ─── Cleanup preview Object URLs on unmount ─────────────────
+  useEffect(() => {
+    return () => {
+      // Revoke all pending preview object URLs on unmount
+      pendingFiles.forEach(f => {
+        if (f.preview && f.preview.startsWith('blob:')) {
+          URL.revokeObjectURL(f.preview)
+        }
+      })
+    }
+  }, []) // empty deps - only on unmount
 
   const {
     files: uploadedFiles,
@@ -240,6 +252,9 @@ export function FileUpload({
         setProgress(((i + 1) / totalFiles) * 100)
       } catch {
         toast.error(`Erreur réseau lors du téléversement de ${pending.file.name}`)
+        if (pending.preview) {
+          URL.revokeObjectURL(pending.preview)
+        }
         setProgress(((i + 1) / totalFiles) * 100)
       }
     }

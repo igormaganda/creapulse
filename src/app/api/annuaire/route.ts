@@ -3,15 +3,19 @@
 // GET /api/annuaire — List actors with filters
 // ============================================
 
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { success, handleApiError } from '@/lib/api-response'
-import type { ActorType } from '@prisma/client'
+import { success, Errors, handleApiError } from '@/lib/api-response'
+import { withAuth } from '@/lib/api-auth'
+import { ActorType } from '@prisma/client'
 
 // ─── GET: List actors with filters ──────────
 
 export async function GET(request: NextRequest) {
   try {
+    // Auth required for directory access
+    const auth = await withAuth(request)
+    if (!auth || auth instanceof NextResponse) return auth
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') as ActorType | null
     const city = searchParams.get('city')
@@ -60,7 +64,7 @@ export async function GET(request: NextRequest) {
         let parsedServices: string[] | null = null
         if (a.services != null) {
           if (Array.isArray(a.services)) {
-            parsedServices = a.services
+            parsedServices = a.services as string[]
           } else if (typeof a.services === 'string') {
             try { parsedServices = JSON.parse(a.services) } catch { parsedServices = null }
           }

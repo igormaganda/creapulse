@@ -320,7 +320,9 @@ async function performUserDataDeletion(
 
 export async function POST(request: NextRequest) {
   try {
-    const token = getTokenFromHeader(request)
+    const cookieToken = request.cookies.get('session')?.value
+    const headerToken = getTokenFromHeader(request)
+    const token = cookieToken || headerToken
     if (!token) return Errors.unauthorized('Token manquant')
 
     const payload = await verifyToken(token)
@@ -373,7 +375,9 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const token = getTokenFromHeader(request)
+    const cookieToken = request.cookies.get('session')?.value
+    const headerToken = getTokenFromHeader(request)
+    const token = cookieToken || headerToken
     if (!token) return Errors.unauthorized('Token manquant')
 
     const payload = await verifyToken(token)
@@ -452,11 +456,18 @@ export async function PATCH(request: NextRequest) {
     // Verify the target user exists
     const targetUser = await db.user.findUnique({
       where: { id: targetUserId },
-      select: { id: true, email: true, firstName: true, lastName: true },
+      select: { id: true, email: true, firstName: true, lastName: true, tenantId: true },
     })
 
     if (!targetUser) {
       return Errors.notFound('Utilisateur cible')
+    }
+
+    // Cross-tenant check: COUNSELOR can only process requests for users in their tenant
+    if (payload.role !== 'ADMIN' && payload.role !== 'SUPER_ADMIN') {
+      if (targetUser.tenantId !== payload.tenantId) {
+        return Errors.forbidden('Vous ne pouvez pas traiter une demande d\'un utilisateur d\'une autre organisation')
+      }
     }
 
     // Update request status to 'approved' first
@@ -545,15 +556,22 @@ export async function PATCH(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const token = getTokenFromHeader(request)
+    const cookieToken = request.cookies.get('session')?.value
+    const headerToken = getTokenFromHeader(request)
+    const token = cookieToken || headerToken
     if (!token) return Errors.unauthorized('Token manquant')
 
     const payload = await verifyToken(token)
     const userId = payload.userId
 
-    // Les conseillers et admins voient toutes les demandes
+    // Les conseillers et admins voient toutes les demandes (filtered by tenant for COUNSELOR)
     if (hasMinRole(payload.role, 'COUNSELOR')) {
+      const whereClause = (payload.role === 'ADMIN' || payload.role === 'SUPER_ADMIN')
+        ? {}
+        : { user: { tenantId: payload.tenantId } }
+
       const allRequests = await db.dataDeletionRequest.findMany({
+        where: whereClause,
         orderBy: { createdAt: 'desc' },
         include: {
           user: {

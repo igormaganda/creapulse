@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       return Errors.validation('Vous ne pouvez pas commencer une conversation avec vous-meme')
     }
 
-    // Verify recipient exists
+    // Verify recipient exists and belongs to the same tenant
     const recipient = await db.user.findUnique({
       where: { id: recipientId },
       select: {
@@ -43,10 +43,14 @@ export async function POST(request: NextRequest) {
         lastName: true,
         avatarUrl: true,
         role: true,
+        tenantId: true,
       },
     })
 
     if (!recipient) return Errors.notFound('Destinataire')
+    if (recipient.tenantId !== tenantId) {
+      return Errors.forbidden('Impossible de démarrer une conversation avec un utilisateur d\'une autre organisation')
+    }
 
     // Sort participant IDs to ensure consistent ordering
     const [p1, p2] = userId < recipientId ? [userId, recipientId] : [recipientId, userId]

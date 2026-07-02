@@ -95,8 +95,8 @@ export function LoginDialog({
         })
       } else {
         // Fallback for old API format
-        toast.success(`Bienvenue ${data.user.firstName || ''} !`)
-        onLoginSuccess(data.user)
+        toast.success(`Bienvenue ${data.user?.firstName || ''} !`)
+        if (data.user) onLoginSuccess(data.user)
       }
       onOpenChange(false)
       setEmail('')

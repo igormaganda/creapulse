@@ -1,0 +1,1070 @@
+     1→'use client'
+     2→
+     3→import { useState, useRef, useEffect, useCallback } from 'react'
+     4→import { createPortal } from 'react-dom'
+     5→import { motion, AnimatePresence } from 'framer-motion'
+     6→import { useBureauStore } from './bureau-store'
+     7→import { MODULE_REGISTRY, getModuleDef } from '@/lib/module-registry'
+     8→import { cn } from '@/lib/utils'
+     9→import { Button } from '@/components/ui/button'
+    10→import { Input } from '@/components/ui/input'
+    11→import { Badge } from '@/components/ui/badge'
+    12→import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+    13→import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+    14→import {
+    15→  Sparkles,
+    16→  X,
+    17→  Send,
+    18→  Loader2,
+    19→  Copy,
+    20→  Check,
+    21→  RefreshCw,
+    22→  PlusCircle,
+    23→  Zap,
+    24→  FileSearch,
+    25→  ListChecks,
+    26→} from 'lucide-react'
+    27→import ReactMarkdown from 'react-markdown'
+    28→
+    29→/* ─── Types ─── */
+    30→
+    31→interface ChatMessage {
+    32→  id: string
+    33→  role: 'user' | 'assistant'
+    34→  content: string
+    35→  timestamp: Date
+    36→}
+    37→
+    38→/* ─── localStorage key for module data ─── */
+    39→
+    40→const MODULE_STORAGE_KEYS: Record<string, string> = {
+    41→  'mon-projet': 'creapulse-mon-projet',
+    42→  'vision': 'creapulse-vision',
+    43→  'bmc': 'creapulse-bmc',
+    44→  'swot': 'creapulse-swot',
+    45→  'creasim': 'creapulse-creasim',
+    46→  'gestion-temps': 'creapulse-gestion-temps',
+    47→  'marche': 'creapulse-marche',
+    48→  'juridique': 'creapulse-juridique',
+    49→  'financier': 'creapulse-financier-sim',
+    50→  'pitch-deck': 'creapulse-pitch-deck',
+    51→  'kiviat': 'creapulse-kiviat',
+    52→  'bilan-ia': 'creapulse-bilan-ia',
+    53→  'pepites': 'creapulse-pepites',
+    54→  'riasec': 'creapulse-riasec-progress',
+    55→  'tremplin': 'creapulse-tremplin',
+    56→  'objectifs-smart': 'creapulse-objectifs-smart',
+    57→  'cloture-rebond': 'creapulse-cloture-rebond',
+    58→  'marketing-commerciale': 'creapulse-marketing-commerciale',
+    59→  'mind-map': 'creapulse-mindmap',
+    60→  'gestion-crise': 'creapulse-gestion-crise',
+    61→  'e-learning': 'creapulse-e-learning',
+    62→  'crm': 'creapulse-crm',
+    63→  'tresorerie': 'creapulse-tresorerie',
+    64→  'gamification': 'creapulse-gamification',
+    65→  'profil-createur': 'creapulse-profil',
+    66→  'business-plan': 'creapulse-bp',
+    67→}
+    68→
+    69→/* ─── Contextual Greetings (all 35 modules) ─── */
+    70→
+    71→const greetings: Record<string, string> = {
+    72→  // ═══ PARCOURS ═══
+    73→  'profil-createur': "Je peux vous aider à configurer votre profil créateur pour un accompagnement sur mesure. Que souhaitez-vous savoir ?",
+    74→  'mon-projet': "Je peux vous aider à structurer votre projet. Comment puis-je vous aider ?",
+    75→  'vision': "Je peux vous aider à clarifier votre vision et vos objectifs stratégiques. Posez-moi vos questions !",
+    76→  'pepites': "Je peux vous aider à interpréter vos résultats Pépites Game et votre profil Kiviat. Que souhaitez-vous savoir ?",
+    77→  'riasec': "Je peux vous aider à interpréter vos résultats RIASEC. Que souhaitez-vous savoir ?",
+    78→  'kiviat': "Je peux vous aider à analyser votre radar de compétences Kiviat. Comment puis-je vous aider ?",
+    79→  'bilan-ia': "Je peux vous aider à comprendre votre bilan IA et à prioriser vos prochaines actions. Que souhaitez-vous explorer ?",
+    80→  'creascope': "Je peux vous accompagner dans votre session CréaScope. Posez-moi vos questions sur le pipeline diagnostique !",
+    81→  // ═══ STRATÉGIE ═══
+    82→  'marche': "Je peux vous aider à analyser votre marché et votre positionnement concurrentiel. Que souhaitez-vous approfondir ?",
+    83→  'juridique': "Je peux vous guider dans le choix du statut juridique adapté à votre projet. Posez-moi vos questions !",
+    84→  'financier': "Je peux vous aider à structurer votre plan financier prévisionnel. Que souhaitez-vous estimer ?",
+    85→  'creasim': "Je peux vous aider à optimiser votre simulation financière. Posez-moi vos questions !",
+    86→  'bmc': "Je peux vous aider à construire votre Business Model Canvas. Que souhaitez-vous travailler ?",
+    87→  'business-plan': "Je peux vous assister dans la rédaction de votre business plan.",
+    88→  'pitch-deck': "Je peux vous aider à créer un pitch deck convaincant. Que souhaitez-vous préparer ?",
+    89→  'swot': "Je peux vous aider à réaliser une analyse SWOT complète et actionnable. Comment puis-je vous aider ?",
+    90→  'gestion-temps': "Je peux vous aider à optimiser votre organisation avec la matrice d'Eisenhower. Que souhaitez-vous améliorer ?",
+    91→  'gestion-crise': "Je peux vous aider à identifier les risques et préparer un plan de résilience. Que souhaitez-vous sécuriser ?",
+    92→  'marketing-commerciale': "Je peux vous aider à planifier votre stratégie marketing et commerciale. Que souhaitez-vous définir ?",
+    93→  'mind-map': "Je peux vous aider à organiser vos idées et structurer votre carte mentale. Comment puis-je vous aider ?",
+    94→  // ═══ ÉCOSYSTÈME ═══
+    95→  'annuaire': "Je peux vous aider à trouver les bons partenaires pour votre projet.",
+    96→  'forum': "Je peux vous aider à formuler vos questions ou répondre à d'autres créateurs.",
+    97→  'messages': "Je peux vous aider à préparer vos échanges avec votre conseiller. Que souhaitez-vous aborder ?",
+    98→  'mentorat': "Je peux vous aider à tirer le meilleur parti du mentorat. Que souhaitez-vous savoir ?",
+    99→  // ═══ PILOTAGE ═══
+   100→  'tremplin': "Je peux vous aider à identifier les aides et financements disponibles pour votre projet. Que recherchez-vous ?",
+   101→  'passeport': "Je peux vous aider à valoriser votre passeport entrepreneurial. Que souhaitez-vous savoir ?",
+   102→  'certifications': "Je peux vous aider à comprendre vos certifications et leur valeur. Que souhaitez-vous explorer ?",
+   103→  'telechargements': "Je peux vous aider à identifier les documents dont vous avez besoin pour vos démarches. Que recherchez-vous ?",
+   104→  'vie-privee': "Je peux vous aider à gérer vos données personnelles et vos droits RGPD. Que souhaitez-vous faire ?",
+   105→  'objectifs-smart': "Je peux vous aider à formuler des objectifs SMART pertinents. Que souhaitez-vous atteindre ?",
+   106→  'cloture-rebond': "Je peux vous aider dans vos démarches de clôture ou de rebond. Que souhaitez-vous savoir ?",
+   107→  'satisfaction-feedback': "Je peux vous aider à donner un retour constructif sur votre parcours. Que souhaitez-vous partager ?",
+   108→  'gamification': "Je peux vous aider à comprendre votre progression et à débloquer de nouveaux défis. Que souhaitez-vous savoir ?",
+   109→  // ═══ PIPELINE / SPECIAL ═══
+   110→  'pipeline-v3-overview': "Je peux vous accompagner dans votre parcours Pipeline V3. Posez-moi vos questions !",
+   111→  'parcours-paa': "Je peux vous aider à suivre votre parcours PAA et à préparer vos prochaines étapes. Que souhaitez-vous savoir ?",
+   112→}
+   113→
+   114→const defaultGreeting = "Bonjour ! Je suis l'assistant IA CreaPulse. Comment puis-je vous aider dans votre parcours entrepreneurial ?"
+   115→
+   116→/* ─── Contextual Suggestion Chips (all 35 modules) ─── */
+   117→
+   118→const suggestions: Record<string, string[]> = {
+   119→  // ═══ PARCOURS ═══
+   120→  'profil-createur': [
+   121→    'Quelles informations dois-je renseigner ?',
+   122→    'Comment mon profil influence mon accompagnement ?',
+   123→    'Comment valoriser mes compétences ?',
+   124→  ],
+   125→  'mon-projet': [
+   126→    'Comment valider mon idée ?',
+   127→    'Quels sont les erreurs courantes ?',
+   128→    'Comment trouver mon client cible ?',
+   129→  ],
+   130→  'vision': [
+   131→    'Comment définir une vision claire ?',
+   132→    'Quels objectifs stratégiques fixer ?',
+   133→    'Comment aligner vision et business model ?',
+   134→  ],
+   135→  'pepites': [
+   136→    'Comment améliorer mes scores Kiviat ?',
+   137→    'Que signifient mes résultats Pépites ?',
+   138→    'Quelles compétences développer ?',
+   139→  ],
+   140→  'riasec': [
+   141→    'Que signifie mon profil ?',
+   142→    'Quels métiers me correspondent ?',
+   143→    'Comment utiliser mes forces ?',
+   144→  ],
+   145→  'kiviat': [
+   146→    'Comment interpréter mon radar ?',
+   147→    'Quelles sont mes forces principales ?',
+   148→    'Comment améliorer mes axes faibles ?',
+   149→  ],
+   150→  'bilan-ia': [
+   151→    'Que dit mon bilan IA ?',
+   152→    'Quelles sont mes priorités d\'action ?',
+   153→    'Comment améliorer mon score ?',
+   154→  ],
+   155→  'creascope': [
+   156→    'Comment préparer ma session ?',
+   157→    'Que se passe-t-il pendant le pipeline ?',
+   158→    'Comment utiliser le plan d\'action ?',
+   159→  ],
+   160→  // ═══ STRATÉGIE ═══
+   161→  'marche': [
+   162→    'Comment réaliser une étude de marché ?',
+   163→    'Quels outils analyser mes concurrents ?',
+   164→    'Comment identifier ma niche ?',
+   165→  ],
+   166→  'juridique': [
+   167→    'Quel statut choisir pour mon projet ?',
+   168→    'Auto-entrepreneur ou SAS ?',
+   169→    'Quelles obligations légales de départ ?',
+   170→  ],
+   171→  'financier': [
+   172→    'Comment estimer mon BFR ?',
+   173→    'Quels postes de charges prévoir ?',
+   174→    'Comment bâtir un prévisionnel réaliste ?',
+   175→  ],
+   176→  'creasim': [
+   177→    'Comment améliorer ma rentabilité ?',
+   178→    'Quel seuil de rentabilité viser ?',
+   179→    'Comment réduire mes charges ?',
+   180→  ],
+   181→  'bmc': [
+   182→    'Comment remplir "Proposition de valeur" ?',
+   183→    'Quels canaux de distribution choisir ?',
+   184→    'Comment identifier mes segments clients ?',
+   185→  ],
+   186→  'business-plan': [
+   187→    'Comment structurer mon BP ?',
+   188→    'Quelles sections sont essentielles ?',
+   189→    'Comment convaincre un banquier ?',
+   190→  ],
+   191→  'pitch-deck': [
+   192→    'Combien de slides pour un bon pitch ?',
+   193→    'Comment captiver dès la 1ère slide ?',
+   194→    'Quels chiffres clés inclure ?',
+   195→  ],
+   196→  'swot': [
+   197→    'Comment différencier forces et opportunités ?',
+   198→    'Quelles menaces examiner en priorité ?',
+   199→    'Comment transformer faiblesses en opportunités ?',
+   200→  ],
+   201→  'gestion-temps': [
+   202→    'Comment prioriser avec Eisenhower ?',
+   203→    'Quelles tâches déléguer en priorité ?',
+   204→    'Comment éviter la procrastination ?',
+   205→  ],
+   206→  'gestion-crise': [
+   207→    'Quels risques courants pour une startup ?',
+   208→    'Comment bâtir un plan de continuité ?',
+   209→    'Quelle trésorerie de secours prévoir ?',
+   210→  ],
+   211→  'marketing-commerciale': [
+   212→    'Comment définir mes personas clients ?',
+   213→    'Quels canaux pour un petit budget ?',
+   214→    'Comment mesurer mes actions marketing ?',
+   215→  ],
+   216→  'mind-map': [
+   217→    'Comment structurer ma carte mentale ?',
+   218→    'Quelles branches principales prévoir ?',
+   219→    'Comment passer à un plan d\'action ?',
+   220→  ],
+   221→  // ═══ ÉCOSYSTÈME ═══
+   222→  'annuaire': [
+   223→    'Quel partenaire contacter en premier ?',
+   224→    'Comment préparer mon rendez-vous ?',
+   225→    'Quels organismes pour le financement ?',
+   226→  ],
+   227→  'forum': [
+   228→    'Comment poser une question efficace ?',
+   229→    'Quels sujets abordent les créateurs ?',
+   230→    'Comment trouver un partenaire ?',
+   231→  ],
+   232→  'messages': [
+   233→    'Comment préparer ma session conseil ?',
+   234→    'Quels documents avoir sous la main ?',
+   235→    'Comment suivre mon dossier ?',
+   236→  ],
+   237→  'mentorat': [
+   238→    'Comment trouver le bon mentor ?',
+   239→    'Quels bénéfices du mentorat ?',
+   240→    'Comment préparer la 1ère rencontre ?',
+   241→  ],
+   242→  // ═══ PILOTAGE ═══
+   243→  'tremplin': [
+   244→    'Quelles aides suis-je éligible ?',
+   245→    'Comment obtenir ARE + ACCRE ?',
+   246→    'Quels financements BPI France ?',
+   247→  ],
+   248→  'passeport': [
+   249→    'Comment valoriser mon passeport ?',
+   250→    'Quelles certifications obtenir ?',
+   251→    'Reconnu par les banques ?',
+   252→  ],
+   253→  'certifications': [
+   254→    'Quelle certification la plus valorisante ?',
+   255→    'Comment préparer une certification ?',
+   256→    'Utile pour un financement ?',
+   257→  ],
+   258→  'telechargements': [
+   259→    'Quels documents pour un prêt bancaire ?',
+   260→    'Comment générer un résumé PDF ?',
+   261→    'Quels documents pour le CFE ?',
+   262→  ],
+   263→  'vie-privee': [
+   264→    'Comment exporter mes données ?',
+   265→    'Quels sont mes droits RGPD ?',
+   266→    'Comment supprimer mon compte ?',
+   267→  ],
+   268→  'objectifs-smart': [
+   269→    'Comment formuler un objectif SMART ?',
+   270→    'Quels objectifs pour 3 mois ?',
+   271→    'Comment suivre mes objectifs ?',
+   272→  ],
+   273→  'cloture-rebond': [
+   274→    'Quelles formalités de fermeture ?',
+   275→    'Comment rebondir après un échec ?',
+   276→    'Quels dispositifs de rebond existent ?',
+   277→  ],
+   278→  'satisfaction-feedback': [
+   279→    'Comment donner un retour constructif ?',
+   280→    'Mon avis influence-t-il le PAA ?',
+   281→    'Comment voir les résultats ?',
+   282→  ],
+   283→  'gamification': [
+   284→    'Comment gagner plus de points ?',
+   285→    'Quels défis sont disponibles ?',
+   286→    'Comment monter dans le classement ?',
+   287→  ],
+   288→  // ═══ SPECIAL ═══
+   289→  'pipeline-v3-overview': [
+   290→    'Comment avance mon pipeline ?',
+   291→    'Quelle est la prochaine étape ?',
+   292→    'Comment utiliser les livrables ?',
+   293→  ],
+   294→  'parcours-paa': [
+   295→    'Où en suis-je dans mon parcours ?',
+   296→    'Quelle prochaine atelier PAA ?',
+   297→    'Comment préparer ma prochaine session ?',
+   298→  ],
+   299→  default: [
+   300→    'Comment créer mon entreprise ?',
+   301→    'Quelles aides sont disponibles ?',
+   302→    'Comment trouver un conseiller ?',
+   303→  ],
+   304→}
+   305→
+   306→/* ─── Quick Actions ─── */
+   307→
+   308→interface QuickAction {
+   309→  label: string
+   310→  icon: React.ReactNode
+   311→  prompt: string
+   312→}
+   313→
+   314→function getQuickActions(moduleCode: string): QuickAction[] {
+   315→  // Strategy modules
+   316→  const strategyModules = ['marche', 'juridique', 'financier', 'creasim', 'bmc', 'business-plan', 'pitch-deck', 'swot', 'marketing-commerciale', 'mind-map']
+   317→  // Diagnostic modules
+   318→  const diagnosticModules = ['pepites', 'riasec', 'kiviat', 'bilan-ia', 'creascope', 'profil-createur']
+   319→  // Pilotage modules
+   320→  const pilotageModules = ['tremplin', 'passeport', 'certifications', 'objectifs-smart', 'cloture-rebond', 'satisfaction-feedback', 'gamification', 'pipeline-v3-overview', 'parcours-paa']
+   321→
+   322→  const actions: QuickAction[] = []
+   323→
+   324→  if (strategyModules.includes(moduleCode)) {
+   325→    actions.push({
+   326→      label: 'Analyser mon projet',
+   327→      icon: <Zap className="h-3.5 w-3.5" />,
+   328→      prompt: 'Analyse mon projet en cours et donne-moi 3 recommandations stratégiques prioritaires.',
+   329→    })
+   330→  }
+   331→
+   332→  if (diagnosticModules.includes(moduleCode)) {
+   333→    actions.push({
+   334→      label: 'Résumer mes données',
+   335→      icon: <FileSearch className="h-3.5 w-3.5" />,
+   336→      prompt: 'Fais un résumé synthétique de mes données dans ce module et identifie les points d\'attention.',
+   337→    })
+   338→  }
+   339→
+   340→  if (pilotageModules.includes(moduleCode)) {
+   341→    actions.push({
+   342→      label: 'Plan d\'action',
+   343→      icon: <ListChecks className="h-3.5 w-3.5" />,
+   344→      prompt: 'Propose-moi un plan d\'action concret avec 5 étapes à réaliser dans les 30 prochains jours.',
+   345→    })
+   346→  }
+   347→
+   348→  // Add a generic action if none matched
+   349→  if (actions.length === 0 && moduleCode) {
+   350→    actions.push({
+   351→      label: 'Conseils personnalisés',
+   352→      icon: <Sparkles className="h-3.5 w-3.5" />,
+   353→      prompt: 'Donne-moi 3 conseils personnalisés basés sur mes données dans ce module.',
+   354→    })
+   355→  }
+   356→
+   357→  return actions
+   358→}
+   359→
+   360→/* ─── Module data reader (try/catch safe) ─── */
+   361→
+   362→function readModuleData(moduleCode: string): Record<string, string> {
+   363→  const key = MODULE_STORAGE_KEYS[moduleCode]
+   364→  if (!key) return {}
+   365→
+   366→  try {
+   367→    if (typeof window === 'undefined') return {}
+   368→    const raw = localStorage.getItem(key)
+   369→    if (!raw) return {}
+   370→
+   371→    const data = JSON.parse(raw)
+   372→    if (!data || typeof data !== 'object') return {}
+   373→
+   374→    // Flatten the data for the AI context (max 6 entries, truncate long values)
+   375→    const flat: Record<string, string> = {}
+   376→    let count = 0
+   377→    for (const [k, v] of Object.entries(data)) {
+   378→      if (count >= 6) break
+   379→      if (v === null || v === undefined) continue
+   380→      const strVal = typeof v === 'string' ? v : JSON.stringify(v)
+   381→      flat[k] = strVal.length > 300 ? strVal.slice(0, 300) + '...' : strVal
+   382→      count++
+   383→    }
+   384→    return flat
+   385→  } catch {
+   386→    return {}
+   387→  }
+   388→}
+   389→
+   390→/* ─── History persistence helpers ─── */
+   391→
+   392→function loadHistory(moduleId: string): ChatMessage[] {
+   393→  try {
+   394→    if (typeof window === 'undefined') return []
+   395→    const key = `creapulse-ia-history-${moduleId}`
+   396→    const raw = localStorage.getItem(key)
+   397→    if (!raw) return []
+   398→    const parsed = JSON.parse(raw) as Array<{ id: string; role: string; content: string; timestamp: string }>
+   399→    return parsed.map((m) => ({
+   400→      ...m,
+   401→      timestamp: new Date(m.timestamp),
+   402→      role: m.role as 'user' | 'assistant',
+   403→    }))
+   404→  } catch {
+   405→    return []
+   406→  }
+   407→}
+   408→
+   409→function saveHistory(moduleId: string, messages: ChatMessage[]) {
+   410→  try {
+   411→    if (typeof window === 'undefined') return
+   412→    const key = `creapulse-ia-history-${moduleId}`
+   413→    // Keep max 50 messages
+   414→    const toSave = messages.slice(-50).map((m) => ({
+   415→      id: m.id,
+   416→      role: m.role,
+   417→      content: m.content,
+   418→      timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : m.timestamp,
+   419→    }))
+   420→    localStorage.setItem(key, JSON.stringify(toSave))
+   421→  } catch {
+   422→    // Silently fail
+   423→  }
+   424→}
+   425→
+   426→function clearHistory(moduleId: string) {
+   427→  try {
+   428→    if (typeof window === 'undefined') return
+   429→    localStorage.removeItem(`creapulse-ia-history-${moduleId}`)
+   430→  } catch {
+   431→    // Silently fail
+   432→  }
+   433→}
+   434→
+   435→/* ─── Typing Indicator ─── */
+   436→
+   437→function TypingIndicator() {
+   438→  return (
+   439→    <div className="flex items-end gap-2.5">
+   440→      <Avatar className="h-7 w-7 shrink-0 border border-primary/20">
+   441→        <AvatarFallback className="bg-gradient-to-br from-teal-500 to-teal-700 text-white text-[10px] font-bold">
+   442→          IA
+   443→        </AvatarFallback>
+   444→      </Avatar>
+   445→      <div className="max-w-[75%] rounded-2xl rounded-bl-md bg-muted px-4 py-3">
+   446→        <div className="flex items-center gap-1">
+   447→          <motion.span
+   448→            className="h-2 w-2 rounded-full bg-muted-foreground/50"
+   449→            animate={{ y: [0, -6, 0] }}
+   450→            transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
+   451→          />
+   452→          <motion.span
+   453→            className="h-2 w-2 rounded-full bg-muted-foreground/50"
+   454→            animate={{ y: [0, -6, 0] }}
+   455→            transition={{ duration: 0.6, repeat: Infinity, delay: 0.15 }}
+   456→          />
+   457→          <motion.span
+   458→            className="h-2 w-2 rounded-full bg-muted-foreground/50"
+   459→            animate={{ y: [0, -6, 0] }}
+   460→            transition={{ duration: 0.6, repeat: Infinity, delay: 0.3 }}
+   461→          />
+   462→        </div>
+   463→      </div>
+   464→    </div>
+   465→  )
+   466→}
+   467→
+   468→/* ─── Copy icon component ─── */
+   469→
+   470→function CopyButton({ content }: { content: string }) {
+   471→  const [copied, setCopied] = useState(false)
+   472→
+   473→  const handleCopy = useCallback(() => {
+   474→    navigator.clipboard.writeText(content).then(() => {
+   475→      setCopied(true)
+   476→      setTimeout(() => setCopied(false), 2000)
+   477→    })
+   478→  }, [content])
+   479→
+   480→  return (
+   481→    <TooltipProvider delayDuration={300}>
+   482→      <Tooltip>
+   483→        <TooltipTrigger asChild>
+   484→          <button
+   485→            onClick={handleCopy}
+   486→            className={cn(
+   487→              'p-1 rounded-md transition-all duration-200 cursor-pointer',
+   488→              'text-muted-foreground/0 group-hover/message:text-muted-foreground/70',
+   489→              'hover:text-foreground hover:bg-muted/80',
+   490→              copied && 'text-emerald-500',
+   491→            )}
+   492→            aria-label="Copier le message"
+   493→          >
+   494→            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+   495→          </button>
+   496→        </TooltipTrigger>
+   497→        <TooltipContent side="top" className="text-xs">
+   498→          {copied ? 'Copié !' : 'Copier'}
+   499→        </TooltipContent>
+   500→      </Tooltip>
+   501→    </TooltipProvider>
+   502→  )
+   503→}
+   504→
+   505→/* ─── IA Assistant Component ─── */
+   506→
+   507→export function IAAssistant() {
+   508→  const { currentModule } = useBureauStore()
+   509→  const [isOpen, setIsOpen] = useState(false)
+   510→  const [messages, setMessages] = useState<ChatMessage[]>([])
+   511→  const [input, setInput] = useState('')
+   512→  const [isTyping, setIsTyping] = useState(false)
+   513→  const [greetingShown, setGreetingShown] = useState(false)
+   514→  const [mounted, setMounted] = useState(false)
+   515→  const [copiedId, setCopiedId] = useState<string | null>(null)
+   516→  const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null)
+   517→  const scrollRef = useRef<HTMLDivElement>(null)
+   518→  const inputRef = useRef<HTMLInputElement>(null)
+   519→  const lastUserMessageRef = useRef<string>('')
+   520→
+   521→  // Ensure portal target is available (client-only)
+   522→  useEffect(() => {
+   523→    setMounted(true)
+   524→  }, [])
+   525→
+   526→  // Determine context
+   527→  const activeModule = currentModule || ''
+   528→  const moduleDef = activeModule ? getModuleDef(activeModule) : undefined
+   529→  const moduleName = moduleDef?.label || activeModule || ''
+   530→  const moduleDescription = moduleDef?.description || ''
+   531→  const greeting = greetings[activeModule] || defaultGreeting
+   532→  const moduleSuggestions = suggestions[activeModule] || suggestions.default
+   533→  const quickActions = activeModule ? getQuickActions(activeModule) : []
+   534→
+   535→  // Load history when module changes or panel opens
+   536→  useEffect(() => {
+   537→    if (isOpen && activeModule) {
+   538→      const saved = loadHistory(activeModule)
+   539→      if (saved.length > 0) {
+   540→        setMessages(saved)
+   541→        setGreetingShown(true)
+   542→      }
+   543→    }
+   544→  }, [isOpen, activeModule])
+   545→
+   546→  // Show greeting when panel opens (if no history)
+   547→  useEffect(() => {
+   548→    if (isOpen && !greetingShown) {
+   549→      setGreetingShown(true)
+   550→      setMessages([
+   551→        {
+   552→          id: 'greeting',
+   553→          role: 'assistant',
+   554→          content: greeting,
+   555→          timestamp: new Date(),
+   556→        },
+   557→      ])
+   558→    }
+   559→  }, [isOpen, greetingShown, greeting])
+   560→
+   561→  // Auto-scroll to bottom
+   562→  useEffect(() => {
+   563→    if (scrollRef.current) {
+   564→      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+   565→    }
+   566→  }, [messages, isTyping])
+   567→
+   568→  // Focus input when panel opens
+   569→  useEffect(() => {
+   570→    if (isOpen && inputRef.current) {
+   571→      setTimeout(() => inputRef.current?.focus(), 400)
+   572→    }
+   573→  }, [isOpen])
+   574→
+   575→  // Persist history on messages change (debounced via effect)
+   576→  useEffect(() => {
+   577→    if (isOpen && activeModule && messages.length > 0 && greetingShown) {
+   578→      saveHistory(activeModule, messages)
+   579→    }
+   580→  }, [messages, activeModule, isOpen, greetingShown])
+   581→
+   582→  // Reset conversation when module changes (and panel is open)
+   583→  useEffect(() => {
+   584→    if (isOpen) {
+   585→      setGreetingShown(false)
+   586→      setMessages([])
+   587→    }
+   588→  }, [activeModule])
+   589→
+   590→  // Read module data for context
+   591→  const getModuleData = useCallback((): Record<string, string> | undefined => {
+   592→    if (!activeModule) return undefined
+   593→    const data = readModuleData(activeModule)
+   594→    if (Object.keys(data).length === 0) return undefined
+   595→    return data
+   596→  }, [activeModule])
+   597→
+   598→  // Send message handler
+   599→  const sendMessage = useCallback(async (text: string) => {
+   600→    if (!text.trim() || isTyping) return
+   601→
+   602→    const userMessage: ChatMessage = {
+   603→      id: `user-${Date.now()}`,
+   604→      role: 'user',
+   605→      content: text.trim(),
+   606→      timestamp: new Date(),
+   607→    }
+   608→
+   609→    lastUserMessageRef.current = text.trim()
+   610→
+   611→    setMessages((prev) => [...prev, userMessage])
+   612→    setInput('')
+   613→    setIsTyping(true)
+   614→
+   615→    try {
+   616→      const history = [...messages, userMessage]
+   617→        .filter((m) => m.id !== 'greeting')
+   618→        .map((m) => ({ role: m.role, content: m.content }))
+   619→
+   620→      const moduleData = getModuleData()
+   621→
+   622→      const response = await fetch('/api/ia', {
+   623→        method: 'POST',
+   624→        headers: { 'Content-Type': 'application/json' },
+   625→        body: JSON.stringify({
+   626→          message: text.trim(),
+   627→          context: {
+   628→            module: activeModule || undefined,
+   629→            moduleDescription: moduleDescription || undefined,
+   630→            moduleData: moduleData || undefined,
+   631→          },
+   632→          history,
+   633→          action: 'chat',
+   634→        }),
+   635→      })
+   636→
+   637→      const data = await response.json()
+   638→
+   639→      if (data.success && data.data?.reply) {
+   640→        const aiMessage: ChatMessage = {
+   641→          id: `ai-${Date.now()}`,
+   642→          role: 'assistant',
+   643→          content: data.data.reply,
+   644→          timestamp: new Date(),
+   645→        }
+   646→        setMessages((prev) => [...prev, aiMessage])
+   647→      } else {
+   648→        const errorMessage: ChatMessage = {
+   649→          id: `error-${Date.now()}`,
+   650→          role: 'assistant',
+   651→          content: 'Désolé, une erreur est survenue. Veuillez réessayer dans quelques instants.',
+   652→          timestamp: new Date(),
+   653→        }
+   654→        setMessages((prev) => [...prev, errorMessage])
+   655→      }
+   656→    } catch {
+   657→      const errorMessage: ChatMessage = {
+   658→        id: `error-${Date.now()}`,
+   659→        role: 'assistant',
+   660→        content: 'Je suis temporairement indisponible. Veuillez vérifier votre connexion et réessayer.',
+   661→        timestamp: new Date(),
+   662→      }
+   663→      setMessages((prev) => [...prev, errorMessage])
+   664→    } finally {
+   665→      setIsTyping(false)
+   666→    }
+   667→  }, [isTyping, messages, activeModule, moduleDescription, getModuleData])
+   668→
+   669→  // Handle submit
+   670→  const handleSubmit = (e: React.FormEvent) => {
+   671→    e.preventDefault()
+   672→    sendMessage(input)
+   673→  }
+   674→
+   675→  // Handle suggestion click
+   676→  const handleSuggestionClick = (text: string) => {
+   677→    sendMessage(text)
+   678→  }
+   679→
+   680→  // Handle quick action click
+   681→  const handleQuickAction = (prompt: string) => {
+   682→    sendMessage(prompt)
+   683→  }
+   684→
+   685→  // Handle new conversation
+   686→  const handleNewConversation = () => {
+   687→    if (activeModule) {
+   688→      clearHistory(activeModule)
+   689→    }
+   690→    setGreetingShown(false)
+   691→    setMessages([])
+   692→    setTimeout(() => {
+   693→      setGreetingShown(true)
+   694→      setMessages([
+   695→        {
+   696→          id: 'greeting',
+   697→          role: 'assistant',
+   698→          content: greeting,
+   699→          timestamp: new Date(),
+   700→        },
+   701→      ])
+   702→    }, 50)
+   703→  }
+   704→
+   705→  // Handle regenerate last assistant message
+   706→  const handleRegenerate = useCallback(async () => {
+   707→    if (isTyping || !lastUserMessageRef.current) return
+   708→
+   709→    // Remove last assistant message
+   710→    setMessages((prev) => {
+   711→      const last = prev[prev.length - 1]
+   712→      if (last?.role === 'assistant') {
+   713→        return prev.slice(0, -1)
+   714→      }
+   715→      return prev
+   716→    })
+   717→
+   718→    setIsTyping(true)
+   719→
+   720→    try {
+   721→      const history = messages
+   722→        .filter((m) => m.id !== 'greeting' && m.role !== 'assistant' || m !== messages[messages.length - 1])
+   723→        .filter((m) => m.role === 'user')
+   724→        .slice(-10)
+   725→        .map((m) => ({ role: m.role, content: m.content }))
+   726→
+   727→      const moduleData = getModuleData()
+   728→
+   729→      const response = await fetch('/api/ia', {
+   730→        method: 'POST',
+   731→        headers: { 'Content-Type': 'application/json' },
+   732→        body: JSON.stringify({
+   733→          message: lastUserMessageRef.current,
+   734→          context: {
+   735→            module: activeModule || undefined,
+   736→            moduleDescription: moduleDescription || undefined,
+   737→            moduleData: moduleData || undefined,
+   738→          },
+   739→          history: history.length > 0 ? history.slice(0, -1) : undefined,
+   740→          action: 'chat',
+   741→        }),
+   742→      })
+   743→
+   744→      const data = await response.json()
+   745→
+   746→      if (data.success && data.data?.reply) {
+   747→        const aiMessage: ChatMessage = {
+   748→          id: `ai-regen-${Date.now()}`,
+   749→          role: 'assistant',
+   750→          content: data.data.reply,
+   751→          timestamp: new Date(),
+   752→        }
+   753→        setMessages((prev) => [...prev, aiMessage])
+   754→      }
+   755→    } catch {
+   756→      // Silently fail
+   757→    } finally {
+   758→      setIsTyping(false)
+   759→    }
+   760→  }, [isTyping, messages, activeModule, moduleDescription, getModuleData])
+   761→
+   762→  // Check if the last message is from the assistant
+   763→  const lastMessageIsAssistant = messages.length > 0 && messages[messages.length - 1]?.role === 'assistant'
+   764→
+   765→  if (!mounted) return null
+   766→
+   767→  // Portal container
+   768→  const portalContainer = typeof document !== 'undefined' ? document.body : null
+   769→
+   770→  return portalContainer ? createPortal(
+   771→    <>
+   772→      {/* ─── FAB Button ─── */}
+   773→      {!isOpen && (
+   774→        <motion.div
+   775→          initial={{ scale: 0, opacity: 0 }}
+   776→          animate={{ scale: 1, opacity: 1 }}
+   777→          exit={{ scale: 0, opacity: 0 }}
+   778→          transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+   779→          className="fixed bottom-6 right-6 z-[9999] md:bottom-8 md:right-8"
+   780→        >
+   781→          <Button
+   782→            onClick={() => setIsOpen(true)}
+   783→            className={cn(
+   784→              'relative h-14 w-14 rounded-full shadow-lg shadow-teal-600/25',
+   785→              'bg-gradient-to-br from-teal-500 to-teal-700 hover:from-teal-600 hover:to-teal-800',
+   786→              'text-white border-0 transition-all duration-300',
+   787→              'hover:shadow-xl hover:shadow-teal-600/30 hover:scale-105',
+   788→              'active:scale-95',
+   789→            )}
+   790→            aria-label="Ouvrir l'assistant IA"
+   791→          >
+   792→            <Sparkles className="h-6 w-6" />
+   793→            <span className="absolute inset-0 rounded-full bg-teal-400/40 animate-ping" style={{ animationDuration: '2s' }} />
+   794→            <span className="absolute -inset-1 rounded-full bg-gradient-to-br from-teal-400/20 to-teal-600/20 blur-md" />
+   795→          </Button>
+   796→        </motion.div>
+   797→      )}
+   798→
+   799→      {/* ─── Chat Panel ─── */}
+   800→      <AnimatePresence>
+   801→        {isOpen && (
+   802→          <motion.div
+   803→            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+   804→            animate={{ opacity: 1, y: 0, scale: 1 }}
+   805→            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+   806→            transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+   807→            className={cn(
+   808→              'fixed z-[9999] flex flex-col overflow-hidden',
+   809→              'bottom-0 right-0 w-full h-full sm:bottom-4 sm:right-4',
+   810→              'sm:h-[540px] sm:w-[400px] sm:max-h-[80vh]',
+   811→              'rounded-none sm:rounded-2xl',
+   812→              'border border-border/50',
+   813→              'shadow-2xl shadow-black/20',
+   814→              'bg-white/95 dark:bg-[#1A1D28]/95',
+   815→              'backdrop-blur-xl',
+   816→            )}
+   817→          >
+   818→            {/* ─── Header ─── */}
+   819→            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border/50 bg-white/80 dark:bg-[#1A1D28]/80 backdrop-blur-md">
+   820→              <div className="flex items-center gap-2.5 min-w-0">
+   821→                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-teal-700 shadow-sm">
+   822→                  <Sparkles className="h-4 w-4 text-white" />
+   823→                </div>
+   824→                <div className="min-w-0">
+   825→                  <h3 className="text-sm font-semibold text-foreground truncate">
+   826→                    Assistant IA CreaPulse
+   827→                  </h3>
+   828→                  <div className="flex items-center gap-1.5">
+   829→                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+   830→                    <span className="text-[10px] text-muted-foreground">En ligne</span>
+   831→                  </div>
+   832→                </div>
+   833→              </div>
+   834→
+   835→              <div className="flex items-center gap-1.5">
+   836→                {/* New conversation button */}
+   837→                <TooltipProvider delayDuration={300}>
+   838→                  <Tooltip>
+   839→                    <TooltipTrigger asChild>
+   840→                      <Button
+   841→                        variant="ghost"
+   842→                        size="icon"
+   843→                        className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+   844→                        onClick={handleNewConversation}
+   845→                        aria-label="Nouvelle conversation"
+   846→                      >
+   847→                        <PlusCircle className="h-4 w-4" />
+   848→                      </Button>
+   849→                    </TooltipTrigger>
+   850→                    <TooltipContent side="bottom" className="text-xs">
+   851→                      Nouvelle conversation
+   852→                    </TooltipContent>
+   853→                  </Tooltip>
+   854→                </TooltipProvider>
+   855→
+   856→                {moduleName && (
+   857→                  <Badge
+   858→                    variant="secondary"
+   859→                    className="hidden sm:inline-flex text-[10px] font-medium px-2 py-0.5 bg-primary/10 text-primary border-primary/20"
+   860→                  >
+   861→                    {moduleName}
+   862→                  </Badge>
+   863→                )}
+   864→                <Button
+   865→                  variant="ghost"
+   866→                  size="icon"
+   867→                  className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+   868→                  onClick={() => setIsOpen(false)}
+   869→                  aria-label="Fermer l'assistant"
+   870→                >
+   871→                  <X className="h-4 w-4" />
+   872→                </Button>
+   873→              </div>
+   874→            </div>
+   875→
+   876→            {/* ─── Messages Area ─── */}
+   877→            <div
+   878→              ref={scrollRef}
+   879→              className="flex-1 overflow-y-auto px-4 py-4 space-y-4 scroll-smooth"
+   880→              style={{ scrollbarWidth: 'thin' }}
+   881→            >
+   882→              {messages.map((msg) => (
+   883→                <motion.div
+   884→                  key={msg.id}
+   885→                  initial={{ opacity: 0, y: 8 }}
+   886→                  animate={{ opacity: 1, y: 0 }}
+   887→                  transition={{ duration: 0.25 }}
+   888→                  className={cn(
+   889→                    'group/message flex items-end gap-2.5',
+   890→                    msg.role === 'user' && 'flex-row-reverse',
+   891→                  )}
+   892→                  onMouseEnter={() => setHoveredMsgId(msg.id)}
+   893→                  onMouseLeave={() => setHoveredMsgId(null)}
+   894→                >
+   895→                  {/* Avatar */}
+   896→                  {msg.role === 'assistant' && (
+   897→                    <Avatar className="h-7 w-7 shrink-0 border border-primary/20">
+   898→                      <AvatarFallback className="bg-gradient-to-br from-teal-500 to-teal-700 text-white text-[10px] font-bold">
+   899→                        IA
+   900→                      </AvatarFallback>
+   901→                    </Avatar>
+   902→                  )}
+   903→
+   904→                  {/* Message bubble */}
+   905→                  <div className="relative max-w-[78%]">
+   906→                    <div
+   907→                      className={cn(
+   908→                        'rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed',
+   909→                        msg.role === 'user'
+   910→                          ? 'bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-br-md'
+   911→                          : 'bg-muted text-foreground rounded-bl-md',
+   912→                      )}
+   913→                    >
+   914→                      {msg.role === 'assistant' ? (
+   915→                        <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 prose-h3:text-sm prose-strong:text-foreground">
+   916→                          <ReactMarkdown>{msg.content}</ReactMarkdown>
+   917→                        </div>
+   918→                      ) : (
+   919→                        <p className="whitespace-pre-wrap">{msg.content}</p>
+   920→                      )}
+   921→                    </div>
+   922→
+   923→                    {/* Message actions — only on assistant messages */}
+   924→                    {msg.role === 'assistant' && msg.id !== 'greeting' && hoveredMsgId === msg.id && (
+   925→                      <motion.div
+   926→                        initial={{ opacity: 0, y: 2 }}
+   927→                        animate={{ opacity: 1, y: 0 }}
+   928→                        className="absolute -bottom-6 left-2 flex items-center gap-0.5"
+   929→                      >
+   930→                        <CopyButton content={msg.content} />
+   931→                        {lastMessageIsAssistant && msg.id === messages[messages.length - 1]?.id && (
+   932→                          <TooltipProvider delayDuration={300}>
+   933→                            <Tooltip>
+   934→                              <TooltipTrigger asChild>
+   935→                                <button
+   936→                                  onClick={handleRegenerate}
+   937→                                  disabled={isTyping}
+   938→                                  className={cn(
+   939→                                    'p-1 rounded-md transition-all duration-200 cursor-pointer',
+   940→                                    'text-muted-foreground/70 hover:text-foreground hover:bg-muted/80',
+   941→                                    'disabled:opacity-40 disabled:cursor-not-allowed',
+   942→                                  )}
+   943→                                  aria-label="Régénérer la réponse"
+   944→                                >
+   945→                                  <RefreshCw className={cn('h-3.5 w-3.5', isTyping && 'animate-spin')} />
+   946→                                </button>
+   947→                              </TooltipTrigger>
+   948→                              <TooltipContent side="top" className="text-xs">
+   949→                                Régénérer
+   950→                              </TooltipContent>
+   951→                            </Tooltip>
+   952→                          </TooltipProvider>
+   953→                        )}
+   954→                      </motion.div>
+   955→                    )}
+   956→                  </div>
+   957→
+   958→                  {/* User avatar */}
+   959→                  {msg.role === 'user' && (
+   960→                    <Avatar className="h-7 w-7 shrink-0 border border-border">
+   961→                      <AvatarFallback className="bg-muted text-[10px] font-semibold text-muted-foreground">
+   962→                        {useBureauStore.getState().userInitials}
+   963→                      </AvatarFallback>
+   964→                    </Avatar>
+   965→                  )}
+   966→                </motion.div>
+   967→              ))}
+   968→
+   969→              {/* Typing indicator */}
+   970→              {isTyping && (
+   971→                <motion.div
+   972→                  initial={{ opacity: 0, y: 8 }}
+   973→                  animate={{ opacity: 1, y: 0 }}
+   974→                >
+   975→                  <TypingIndicator />
+   976→                </motion.div>
+   977→              )}
+   978→            </div>
+   979→
+   980→            {/* ─── Quick Actions Bar (show only if few messages and not typing) ─── */}
+   981→            {messages.length <= 3 && !isTyping && quickActions.length > 0 && (
+   982→              <div className="px-4 pb-1.5">
+   983→                <div className="flex flex-wrap gap-1.5">
+   984→                  {quickActions.map((action) => (
+   985→                    <motion.button
+   986→                      key={action.label}
+   987→                      whileHover={{ scale: 1.03 }}
+   988→                      whileTap={{ scale: 0.97 }}
+   989→                      onClick={() => handleQuickAction(action.prompt)}
+   990→                      className={cn(
+   991→                        'flex items-center gap-1.5 text-[11px] leading-tight',
+   992→                        'px-2.5 py-1.5 rounded-full',
+   993→                        'bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-900/20 dark:to-emerald-900/20',
+   994→                        'text-teal-700 dark:text-teal-300',
+   995→                        'border border-teal-200/50 dark:border-teal-700/30',
+   996→                        'hover:border-teal-300 dark:hover:border-teal-600/50',
+   997→                        'transition-colors cursor-pointer',
+   998→                      )}
+   999→                    >
+  1000→                      {action.icon}
+  1001→                      {action.label}
+  1002→                    </motion.button>
+  1003→                  ))}
+  1004→                </div>
+  1005→              </div>
+  1006→            )}
+  1007→
+  1008→            {/* ─── Suggestions (show only if few messages and not typing) ─── */}
+  1009→            {messages.length <= 2 && !isTyping && (
+  1010→              <div className="px-4 pb-2">
+  1011→                <div className="flex flex-wrap gap-1.5">
+  1012→                  {moduleSuggestions.map((suggestion) => (
+  1013→                    <motion.button
+  1014→                      key={suggestion}
+  1015→                      whileHover={{ scale: 1.03 }}
+  1016→                      whileTap={{ scale: 0.97 }}
+  1017→                      onClick={() => handleSuggestionClick(suggestion)}
+  1018→                      className="text-[11px] leading-tight px-2.5 py-1.5 rounded-full bg-primary/8 text-primary hover:bg-primary/15 border border-primary/15 transition-colors cursor-pointer"
+  1019→                    >
+  1020→                      {suggestion}
+  1021→                    </motion.button>
+  1022→                  ))}
+  1023→                </div>
+  1024→              </div>
+  1025→            )}
+  1026→
+  1027→            {/* ─── Input Area ─── */}
+  1028→            <div className="border-t border-border/50 bg-white/80 dark:bg-[#1A1D28]/80 backdrop-blur-md px-4 py-3">
+  1029→              <form onSubmit={handleSubmit} className="flex items-center gap-2">
+  1030→                <Input
+  1031→                  ref={inputRef}
+  1032→                  value={input}
+  1033→                  onChange={(e) => setInput(e.target.value)}
+  1034→                  placeholder="Posez votre question..."
+  1035→                  disabled={isTyping}
+  1036→                  className="flex-1 h-9 text-sm bg-muted/60 border-transparent focus:bg-background focus:border-border rounded-full px-4"
+  1037→                  aria-label="Message de l'assistant IA"
+  1038→                />
+  1039→                <Button
+  1040→                  type="submit"
+  1041→                  size="icon"
+  1042→                  disabled={!input.trim() || isTyping}
+  1043→                  className={cn(
+  1044→                    'h-9 w-9 rounded-full shrink-0 transition-all duration-200',
+  1045→                    'bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700',
+  1046→                    'text-white shadow-sm',
+  1047→                    'disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none',
+  1048→                  )}
+  1049→                  aria-label="Envoyer le message"
+  1050→                >
+  1051→                  {isTyping ? (
+  1052→                    <Loader2 className="h-4 w-4 animate-spin" />
+  1053→                  ) : (
+  1054→                    <Send className="h-4 w-4" />
+  1055→                  )}
+  1056→                </Button>
+  1057→              </form>
+  1058→              <p className="mt-1.5 text-center text-[10px] text-muted-foreground/60">
+  1059→                IA CreaPulse — Réponses générées automatiquement
+  1060→              </p>
+  1061→            </div>
+  1062→          </motion.div>
+  1063→        )}
+  1064→      </AnimatePresence>
+  1065→    </>,
+  1066→    portalContainer
+  1067→  ) : null
+  1068→}
+  1069→
+  1070→

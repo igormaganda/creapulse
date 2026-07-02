@@ -14,7 +14,9 @@ const createExportSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const token = getTokenFromHeader(request)
+    const cookieToken = request.cookies.get('session')?.value
+    const headerToken = getTokenFromHeader(request)
+    const token = cookieToken || headerToken
     if (!token) return Errors.unauthorized('Token manquant')
 
     const payload = await verifyToken(token)
@@ -44,7 +46,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const token = getTokenFromHeader(request)
+    const cookieToken = request.cookies.get('session')?.value
+    const headerToken = getTokenFromHeader(request)
+    const token = cookieToken || headerToken
     if (!token) return Errors.unauthorized('Token manquant')
 
     const payload = await verifyToken(token)

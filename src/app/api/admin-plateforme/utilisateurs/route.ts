@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     const tenantId = searchParams.get('tenantId') || ''
     const organizationId = searchParams.get('organizationId') || ''
     const page = parseInt(searchParams.get('page') || '1', 10)
-    const limit = parseInt(searchParams.get('limit') || '20', 10)
+    const limit = Math.min(100, parseInt(searchParams.get('limit') || '20', 10))
 
     // Construire la clause where dynamiquement
     const where: Record<string, unknown> = {}
@@ -212,10 +212,16 @@ export async function POST(request: NextRequest) {
 
       // Créer le profil de rôle
       if (data.role === 'COUNSELOR') {
+        if (!data.organizationId || data.organizationId.trim() === '') {
+          return Errors.validation(
+            { field: 'organizationId', message: 'L\'organisation est requise pour un conseiller' },
+            'organizationId est requis pour le rôle COUNSELOR',
+          )
+        }
         await tx.counselor.create({
           data: {
             userId: newUser.id,
-            organizationId: data.organizationId || '',
+            organizationId: data.organizationId,
             name: fullName,
           },
         })
@@ -290,6 +296,11 @@ export async function PUT(request: NextRequest) {
     })
     if (!existingUser) {
       return Errors.notFound('Utilisateur')
+    }
+
+    // Cross-tenant check
+    if (existingUser.tenantId !== admin.tenantId) {
+      return Errors.forbidden('Vous ne pouvez pas modifier un utilisateur d\'une autre organisation')
     }
 
     // Si changement d'email, vérifier l'unicité
@@ -418,6 +429,11 @@ export async function DELETE(request: NextRequest) {
     const user = await db.user.findUnique({ where: { id: userId } })
     if (!user) {
       return Errors.notFound('Utilisateur')
+    }
+
+    // Cross-tenant check
+    if (user.tenantId !== admin.tenantId) {
+      return Errors.forbidden('Vous ne pouvez pas modifier un utilisateur d\'une autre organisation')
     }
 
     if (!user.isActive) {

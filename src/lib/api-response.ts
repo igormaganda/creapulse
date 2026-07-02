@@ -134,6 +134,15 @@ export const Errors = {
 
   database: (message = 'Database operation failed') =>
     error(ErrorCode.DATABASE_ERROR, message, 500),
+
+  tooManyRequests: (message = 'Too many requests') =>
+    error(ErrorCode.RATE_LIMITED, message, 429),
+
+  badRequest: (message = 'Bad request') =>
+    error(ErrorCode.INVALID_INPUT, message, 400),
+
+  unprocessableEntity: (message = 'Unprocessable entity') =>
+    error(ErrorCode.VALIDATION_ERROR, message, 422),
 }
 
 /**
@@ -169,14 +178,16 @@ export function handleApiError(err: unknown): NextResponse<ApiError> {
       case 'P2002':
         return error(
           ErrorCode.VALIDATION_ERROR,
-          'A unique constraint was violated',
+          'A record with this value already exists',
           409,
-          prismaErr.meta,
+          process.env.NODE_ENV === 'development' ? prismaErr.meta : undefined,
         )
       case 'P2025':
         return Errors.notFound('Record')
       case 'P2003':
-        return error(ErrorCode.VALIDATION_ERROR, 'Related record not found', 400, prismaErr.meta)
+        return error(ErrorCode.VALIDATION_ERROR, 'Related record not found', 400,
+          process.env.NODE_ENV === 'development' ? prismaErr.meta : undefined,
+        )
     }
   }
 

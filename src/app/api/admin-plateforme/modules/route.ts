@@ -120,6 +120,11 @@ export async function PUT(request: NextRequest) {
       return Errors.notFound('Module')
     }
 
+    // Verify tenant ownership
+    if (existingModule.tenantId !== admin.tenantId) {
+      return Errors.forbidden('Vous ne pouvez pas modifier un module d\'une autre organisation')
+    }
+
     const updatedModule = await db.$transaction(async (tx) => {
       const mod = await tx.appModule.update({
         where: { id: data.moduleId },

@@ -85,12 +85,13 @@ export async function GET(request: NextRequest) {
     const section = searchParams.get('section')
     if (section === 'paa') {
       // Use first tenant or admin's tenant for PAA config
-      const tenantForPaa = await db.tenant.findFirst({
+      const tenantForPaa = await db.tenant.findUnique({
         where: { id: admin.tenantId },
         select: { id: true, settings: true },
-      }) || await db.tenant.findFirst({
-        select: { id: true, settings: true },
       })
+      if (!tenantForPaa) {
+        return Errors.notFound('Organisation')
+      }
 
       const currentSettings = (tenantForPaa?.settings as Record<string, unknown>) || {}
       const paaConfig = (currentSettings.paa as Record<string, unknown>) || DEFAULT_PAA_CONFIG
@@ -178,12 +179,7 @@ export async function PATCH(request: NextRequest) {
       where: { id: targetTenantId },
     })
     if (!existingTenant) {
-      // Fallback: find any tenant
-      const fallbackTenant = await db.tenant.findFirst({ select: { id: true } })
-      if (!fallbackTenant) {
-        return Errors.notFound('Tenant')
-      }
-      targetTenantId = fallbackTenant.id
+      return Errors.notFound('Organisation')
     }
 
     const updatedPaaConfig = await db.$transaction(async (tx) => {

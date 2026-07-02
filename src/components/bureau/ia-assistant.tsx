@@ -25,6 +25,8 @@ import {
   ListChecks,
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
+import rehypeSanitize from 'rehype-sanitize'
+import { authFetch } from '@/lib/auth-fetch'
 
 /* ─── Types ─── */
 
@@ -619,7 +621,7 @@ export function IAAssistant() {
 
       const moduleData = getModuleData()
 
-      const response = await fetch('/api/ia', {
+      const response = await authFetch('/api/ia', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -726,7 +728,7 @@ export function IAAssistant() {
 
       const moduleData = getModuleData()
 
-      const response = await fetch('/api/ia', {
+      const response = await authFetch('/api/ia', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -913,7 +915,7 @@ export function IAAssistant() {
                     >
                       {msg.role === 'assistant' ? (
                         <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 prose-h3:text-sm prose-strong:text-foreground">
-                          <ReactMarkdown>{msg.content}</ReactMarkdown>
+                          <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{msg.content}</ReactMarkdown>
                         </div>
                       ) : (
                         <p className="whitespace-pre-wrap">{msg.content}</p>

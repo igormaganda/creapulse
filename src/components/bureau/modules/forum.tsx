@@ -38,6 +38,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DemoBadge, SkeletonPulse } from '@/lib/hooks/use-api-data'
+import { authFetch } from '@/lib/auth-fetch'
 
 // ─── Types ───────────────────────────────────
 
@@ -613,12 +614,9 @@ function DiscussionDetail({
     setIsSubmitting(true)
     let apiSuccess = false
     try {
-      const token = localStorage.getItem('creapulse-token')
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (token) headers['Authorization'] = `Bearer ${token}`
-      const res = await fetch(`/api/forum/${discussion.id}`, {
+      const res = await authFetch(`/api/forum/${discussion.id}`, {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: replyText, parentId: replyingTo?.id || null }),
       })
       if (res.ok) apiSuccess = true
@@ -830,12 +828,9 @@ function NewDiscussionDialog({
       .filter(t => t.length > 0)
     let apiSuccess = false
     try {
-      const token = localStorage.getItem('creapulse-token')
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (token) headers['Authorization'] = `Bearer ${token}`
-      const res = await fetch('/api/forum', {
+      const res = await authFetch('/api/forum', {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: title.trim(), categoryId, content: content.trim(), tags }),
       })
       if (res.ok) apiSuccess = true
@@ -970,11 +965,8 @@ export function ForumModule() {
   useEffect(() => {
     const fetchDiscussions = async () => {
       try {
-        const token = localStorage.getItem('creapulse-token')
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-        if (token) headers['Authorization'] = `Bearer ${token}`
         const params = new URLSearchParams({ sort: 'recent', limit: '20' })
-        const res = await fetch(`/api/forum?${params.toString()}`, { headers })
+        const res = await authFetch(`/api/forum?${params.toString()}`)
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const json = await res.json()
         if (json.success && json.data?.discussions?.length > 0) {
@@ -1003,10 +995,7 @@ export function ForumModule() {
     // For API data, fetch full detail
     setIsFetchingDetail(true)
     try {
-      const token = localStorage.getItem('creapulse-token')
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (token) headers['Authorization'] = `Bearer ${token}`
-      const res = await fetch(`/api/forum/${discussion.id}`, { headers })
+      const res = await authFetch(`/api/forum/${discussion.id}`)
       if (res.ok) {
         const json = await res.json()
         if (json.success && json.data) {

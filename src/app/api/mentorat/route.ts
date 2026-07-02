@@ -4,7 +4,7 @@
 // POST /api/mentorat           — Send mentorship request
 // ============================================
 
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { db } from '@/lib/db'
 import { success, Errors, handleApiError, error } from '@/lib/api-response'
@@ -23,11 +23,12 @@ const MentorRequestSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const auth = await withAuth(request, { roles: ['BENEFICIARY', 'COUNSELOR', 'ADMIN'] })
-    if (!auth) return
+    if (!auth || auth instanceof NextResponse) return auth
     const { payload } = auth
 
-    // Fetch all mentors with their user profiles
+    // Fetch mentors scoped to the user's tenant
     const mentors = await db.mentor.findMany({
+      where: { user: { tenantId: payload.tenantId } },
       include: {
         user: {
           select: { firstName: true, lastName: true, email: true, avatarUrl: true },
@@ -111,7 +112,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const auth = await withAuth(request, { roles: ['BENEFICIARY', 'COUNSELOR', 'ADMIN'] })
-    if (!auth) return
+    if (!auth || auth instanceof NextResponse) return auth
     const { payload } = auth
 
     const body = await request.json()

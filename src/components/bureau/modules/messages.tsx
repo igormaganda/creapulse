@@ -19,6 +19,7 @@ import {
   MessagesSquare,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { authFetch } from '@/lib/auth-fetch'
 
 // ─── Types ───────────────────────────────────
 
@@ -299,7 +300,7 @@ export function MessagesModule() {
   const fetchConversations = useCallback(async () => {
     try {
       setIsLoadingConvos(true)
-      const res = await fetch('/api/messages')
+      const res = await authFetch('/api/messages')
       if (!res.ok) throw new Error('Erreur de chargement')
       const json = await res.json()
       if (json.success) {
@@ -320,7 +321,7 @@ export function MessagesModule() {
   const fetchMessages = useCallback(async (conversationId: string) => {
     try {
       setIsLoadingMessages(true)
-      const res = await fetch(`/api/messages/${conversationId}?limit=50`)
+      const res = await authFetch(`/api/messages/${conversationId}?limit=50`)
       if (!res.ok) throw new Error('Erreur de chargement')
       const json = await res.json()
       if (json.success) {
@@ -351,7 +352,7 @@ export function MessagesModule() {
 
     try {
       setIsSending(true)
-      const res = await fetch(`/api/messages/${selectedConvId}`, {
+      const res = await authFetch(`/api/messages/${selectedConvId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: messageInput.trim() }),
