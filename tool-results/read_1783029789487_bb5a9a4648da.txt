@@ -1,0 +1,1238 @@
+     1→# CreaPulse V2 — Pipeline Stratégie : Architecture Complète
+     2→
+     3→> **Version** : 2.0  
+     4→> **Dernière mise à jour** : Juillet 2025  
+     5→> **Portée** : Menu Stratégie — Business Plan · BMC · Pitch Deck · Simulateurs  
+     6→
+     7→---
+     8→
+     9→## Table des matières
+    10→
+    11→1. [Vue d'ensemble](#1-vue-densemble)
+    12→2. [Organisation logique du menu Stratégie](#2-organisation-logique-du-menu-stratégie)
+    13→3. [Les briques d'alimentation (Parcours)](#3-les-briques-dalimentation-parcours)
+    14→4. [Les 7 modules de la section Stratégie](#4-les-7-modules-de-la-section-stratégie)
+    15→   - 4.1 [Marché (Analyse de Marché)](#41-marché-analyse-de-marché)
+    16→   - 4.2 [Juridique (Analyse Juridique)](#42-juridique-analyse-juridique)
+    17→   - 4.3 [Financier (Prévisions Financières)](#43-financier-prévisions-financières)
+    18→   - 4.4 [CreaSim (Simulateur Financier)](#44-creasim-simulateur-financier)
+    19→   - 4.5 [Business Model Canvas (BMC)](#45-business-model-canvas-bmc)
+    20→   - 4.6 [Business Plan](#46-business-plan)
+    21→   - 4.7 [Pitch Deck](#47-pitch-deck)
+    22→5. [Pipeline de données complet](#5-pipeline-de-données-complet)
+    23→6. [Le Business Plan en détail](#6-le-business-plan-en-détail)
+    24→7. [Synchronisation inter-modules](#7-synchronisation-inter-modules)
+    25→8. [Intégration IA](#8-intégration-ia)
+    26→9. [Calcul de progression](#9-calcul-de-progression)
+    27→10. [Exports et livrables](#10-exports-et-livrables)
+    28→11. [Architecture technique](#11-architecture-technique)
+    29→12. [Modèle de données (Prisma)](#12-modèle-de-données-prisma)
+    30→13. [Annexe : mapping complet des fichiers](#13-annexe--mapping-complet-des-fichiers)
+    31→
+    32→---
+    33→
+    34→## 1. Vue d'ensemble
+    35→
+    36→### Philosophie du pipeline
+    37→
+    38→Le menu **Stratégie** de CreaPulse V2 est construit autour d'un **pipeline de données en entonnoir** où chaque module produit des données qui alimentent les modules suivants :
+    39→
+    40→```
+    41→┌─────────────────────────────────────────────────────────────────┐
+    42→│                     PARCOURS (Amont)                             │
+    43→│  Mon Projet ──→ Vision ──→ Profil Créateur                      │
+    44→│  (Projet, Secteur, Cible)  (Objectifs, Valeurs)                 │
+    45→└──────────────────────┬──────────────────────────────────────────┘
+    46→                       │  "Générer depuis le Parcours"
+    47→                       ▼
+    48→┌─────────────────────────────────────────────────────────────────┐
+    49→│                  STRATÉGIE — Simulateurs                         │
+    50→│  Marché ──→ Juridique ──→ Financier ──→ CreaSim                 │
+    51→│  (Marché, SWOT)   (Statut)   (3 ans)      (Marges mensuelles)   │
+    52→└──────────────────────┬──────────────────────────────────────────┘
+    53→                       │  "Synchroniser les simulateurs"
+    54→                       ▼
+    55→┌─────────────────────────────────────────────────────────────────┐
+    56→│              BUSINESS PLAN (Hub central — 24 sections)            │
+    57→│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐           │
+    58→│  │Présenta. │ │  Marché  │ │ Finances │ │Opérations│           │
+    59→│  │ 5 sect.  │ │  6 sect. │ │  6 sect. │ │  7 sect. │           │
+    60→│  └──────────┘ └──────────┘ └──────────┘ └──────────┘           │
+    61→└──────┬───────────────────┬──────────────────────┬───────────────┘
+    62→       │                   │                      │
+    63→       ▼                   ▼                      ▼
+    64→┌──────────────┐   ┌──────────────┐       ┌──────────────┐
+    65→│  BMC Canvas   │   │  Pitch Deck  │       │  Export PDF  │
+    66→│  9 blocs IA  │   │  8 slides IA │       │  PPTX / PDF  │
+    67→└──────────────┘   └──────────────┘       └──────────────┘
+    68→```
+    69→
+    70→### Flux utilisateur typique
+    71→
+    72→1. **Parcours** : L'utilisateur remplit son projet (Mon Projet) et sa vision → alimentation automatique du BP
+    73→2. **Stratégie — Simulateurs** : L'utilisateur utilise les 4 simulateurs (Marché, Juridique, Financier, CreaSim) → synchronisation dans le BP
+    74→3. **Business Plan** : L'utilisateur finalise les 24 sections, avec suggestions IA par section
+    75→4. **BMC + Pitch Deck** : Génération automatique depuis le BP finalisé, avec raffinement IA
+    76→5. **Exports** : PDF du BP, HTML/PDF du BMC, PPTX du Pitch Deck
+    77→
+    78→---
+    79→
+    80→## 2. Organisation logique du menu Stratégie
+    81→
+    82→### Navigation dans le Bureau Virtuel
+    83→
+    84→Le Bureau Virtuel est organisé en **5 sections principales**, chacune contenant des modules :
+    85→
+    86→| Section | Icon | Modules | Rôle |
+    87→|---------|------|---------|-----|
+    88→| **Parcours** | `Compass` | profil-createur, mon-projet, vision, pepites, riasec, kiviat, bilan-ia, creascope | Connaître le porteur et son projet |
+    89→| **Stratégie** | `Target` | marche, juridique, financier, creasim, bmc, business-plan, pitch-deck | Construire le business |
+    90→| **Écosystème** | `Network` | annuaire, forum, messages, mentorat | S'entourer |
+    91→| **Pilotage** | `Gauge` | tremplin, passeport, certifications, téléchargements, vie privée | Piloter et certifier |
+    92→
+    93→### Ordre recommandé dans la section Stratégie
+    94→
+    95→L'ordre des modules dans le sidebar est **intentionnellement ordonnancé** pour refléter le pipeline :
+    96→
+    97→```
+    98→1. 📊 Marché         → Comprendre le marché (SWOT, concurrents, segmentation)
+    99→2. ⚖️  Juridique      → Choisir son statut légal (SAS, SARL, EURL, etc.)
+   100→3. 💰 Financier      → Projeter sur 3 ans (CA, charges, rentabilité)
+   101→4. 📈 CreaSim (IA)   → Simuler au mois le mois (marges, seuil de rentabilité)
+   102→5. 🧩 BMC            → Synthétiser en 9 blocs le modèle économique
+   103→6. 📄 Business Plan  → Rédiger le document complet (24 sections)
+   104→7. 🎤 Pitch Deck     → Préparer la présentation investisseurs (8 slides)
+   105→```
+   106→
+   107→**Logique** : Les modules 1-4 sont des **simulateurs d'entrée** qui produisent des données. Les modules 5-7 sont des **documents de sortie** qui consomment ces données.
+   108→
+   109→### Vue d'ensemble du menu (SectionOverview)
+   110→
+   111→Quand l'utilisateur clique sur "Stratégie" sans sélectionner de module, une grille de **7 cartes** s'affiche montrant chaque module avec :
+   112→- Son nom et icône
+   113→- Son état de complétion (via l'API `/api/progress`)
+   114→- Un bouton d'accès direct
+   115→
+   116→---
+   117→
+   118→## 3. Les briques d'alimentation (Parcours)
+   119→
+   120→Avant d'entrer dans la Stratégie, le **Parcours** du créateur alimente le pipeline avec des données fondamentales.
+   121→
+   122→### 3.1 Mon Projet (`mon-projet.tsx`)
+   123→
+   124→**5 étapes du formulaire :**
+   125→
+   126→| Étape | Champs | Destination dans le BP |
+   127→|-------|--------|------------------------|
+   128→| 1. Identité | projectTitle, projectSector, projectDescription, projectStage | `resume`, `historique` |
+   129→| 2. Marché | primaryTarget, secondaryTarget, problemSolved, competitiveAdvantage, marketSize | `segmentation`, `etude-marche` |
+   130→| 3. Économie | revenueSources[], revenueYear1/2/3, initialInvestment, financingNeed | `financement`, `compte-resultat` |
+   131→| 4. Équipe | teamType, associateCount, motivation, keyCompetencies[] | `equipe`, `associes` |
+   132→| 5. Résumé | Score de maturité /100, récapitulatif complet | — |
+   133→
+   134→**API** : `GET/PUT /api/projet` → stocké dans `CreatorJourney`
+   135→
+   136→### 3.2 Vision (`vision.tsx`)
+   137→
+   138→| Section | Champs | Destination dans le BP |
+   139→|---------|--------|------------------------|
+   140→| Énoncé de vision | visionStatement (vision à 5 ans) | `vision` |
+   141→| Motivation & Impact | motivation, desiredImpact | `valeurs` |
+   142→| Objectifs stratégiques | objectives[] (title, description, priority, deadline) | `vision` |
+   143→| Valeurs fondamentales | coreValues[] (max 5 parmi 15 prédéfinies) | `valeurs` |
+   144→| Jalons | milestones (6 mois, 1 an, 3 ans, 5 ans) | `calendrier` |
+   145→
+   146→**API** : `GET/PUT /api/vision` → stocké dans `CreatorJourney.visionAnswers`
+   147→
+   148→### 3.3 Action "Générer depuis le Parcours"
+   149→
+   150→Dans l'éditeur Business Plan, le bouton **"Générer depuis le Parcours"** appelle `POST /api/business-plan` avec `action: 'generate-from-parcours'`. Cela :
+   151→
+   152→1. Récupère en parallèle : `User`, `Beneficiary`, `CreatorJourney`, `RiasecResult[]`, `KiviatResult[]`, `ModuleResult[]`
+   153→2. Construit un prompt LLM avec tout ce contexte
+   154→3. Génère 8 sections BP (resume, equipe, historique, vision, valeurs, + 3 sections projet)
+   155→4. **Ne surcharge pas** les sections déjà remplies — fusion seulement
+   156→
+   157→---
+   158→
+   159→## 4. Les 7 modules de la section Stratégie
+   160→
+   161→---
+   162→
+   163→### 4.1 Marché (Analyse de Marché)
+   164→
+   165→**Fichier** : `src/components/bureau/modules/marche.tsx` (~895 lignes)  
+   166→**API** : `GET/PUT/POST /api/marche`  
+   167→**LocalStorage** : `creapulse-marche`
+   168→
+   169→#### Interface utilisateur
+   170→
+   171→- **4 cartes KPI** : CA potentiel, Marge concurrentielle, Coût acquisition client, Score attractivité
+   172→- **Camembert (Recharts)** : Répartition des parts de marché
+   173→- **5 sliders de simulateur** : Taille du marché, Part de marché, Concurrents, Budget marketing, Potentiel de croissance
+   174→- **Jauge SVG animée** : Indicateur de croissance
+   175→- **SWOT 4 quadrants** : Forces / Faiblesses / Opportunités / Menaces (4 textareas)
+   176→- **Synthèse IA** : Carte affichant l'analyse générée par l'IA
+   177→
+   178→#### Types de données
+   179→
+   180→```typescript
+   181→interface SimulateurData {
+   182→  tailleMarche: number      // défaut: 1 000 000 €
+   183→  partDeMarche: number      // défaut: 5 %
+   184→  concurrents: number       // défaut: 10
+   185→  budgetMarketing: number    // défaut: 5 000 €/mois
+   186→  potentielCroissance: number // défaut: 50 %
+   187→}
+   188→
+   189→interface SwotData {
+   190→  strengths: string
+   191→  weaknesses: string
+   192→  opportunities: string
+   193→  threats: string
+   194→}
+   195→```
+   196→
+   197→#### Actions IA
+   198→
+   199→- `POST /api/marche` avec `action: 'ai-analyze-market'` → Analyse complète du marché par l'IA
+   200→- `POST /api/marche` avec `action: 'ai-autofill'` → Remplissage automatique de tous les champs
+   201→
+   202→#### Synchronisation vers le BP
+   203→
+   204→À chaque sauvegarde, le module appelle `PUT /api/business-plan` avec `action: 'sync-simulators'`, ce qui injecte les données dans les sections BP :
+   205→- `etude-marche` ← secteur, taille du marché, potentiel
+   206→- `segmentation` ← cible
+   207→- `concurrence` ← nombre de concurrents, avantage compétitif
+   208→- `strategie-marketing` ← budget marketing, part de marché
+   209→- `plan-commercial` ← données commerciales
+   210→- `swot` ← les 4 quadrants SWOT
+   211→
+   212→---
+   213→
+   214→### 4.2 Juridique (Analyse Juridique)
+   215→
+   216→**Fichier** : `src/components/bureau/modules/juridique.tsx` (~905 lignes)  
+   217→**API** : `GET/PUT/POST /api/juridique`  
+   218→**LocalStorage** : `creapulse-juridique`
+   219→
+   220→#### Interface utilisateur
+   221→
+   222→- **5 cartes de statut** : SAS, SARL, EURL, Auto-entrepreneur, SASU (sélection visuelle)
+   223→- **4 sliders** : CA prévisionnel, Nombre d'associés, Capital social, Réduction ACRE
+   224→- **4 cartes résultat** : Régime fiscal, Charges sociales, Plafond TVA, Éligibilité ACRE
+   225→- **Graphique comparatif (Recharts)** : Barres de comparaison des charges sociales
+   226→- **Carte détaillée** : Avantages/Désavantages du statut sélectionné
+   227→
+   228→#### Types de données
+   229→
+   230→```typescript
+   231→type StatutJuridique = 'SAS' | 'SARL' | 'EURL' | 'Auto-entrepreneur' | 'SASU'
+   232→
+   233→interface SimulateurJuridique {
+   234→  statut: StatutJuridique      // défaut: SARL
+   235→  caPrev: number              // défaut: 50 000 €
+   236→  associes: number            // défaut: 2
+   237→  capitalSocial: number        // défaut: 1 000 €
+   238→  reductionCharges: number    // défaut: 50 %
+   239→}
+   240→```
+   241→
+   242→#### Moteur de recommandation
+   243→
+   244→Le module inclut un **moteur de scoring basé sur des règles** (pas d'IA) qui évalue 5 statuts selon 7 critères :
+   245→
+   246→| Critère | Question |
+   247→|---------|----------|
+   248→| Type d'activité | Commerciale, artisanale, libérale, services |
+   249→| Nombre d'associés | Solo, 2-10, 10+ |
+   250→| Capital initial | <1 000 €, 1 000-10 000 €, >10 000 € |
+   251→| CA prévisionnel | <50 000 €, 50 000-150 000 €, >150 000 € |
+   252→| Préférence de responsabilité | Limitée, illimitée |
+   253→| Régime social | TNS, Assimilé-salarié |
+   254→| Plans de croissance | Stable, modéré, ambitieux |
+   255→
+   256→#### Actions IA
+   257→
+   258→- `POST /api/juridique` avec `action: 'ai-suggest'` → Suggestion pour une question spécifique
+   259→- `POST /api/juridique` avec `action: 'ai-autofill'` → Remplissage automatique des 7 questions
+   260→
+   261→#### Synchronisation vers le BP
+   262→
+   263→Le module synchronise les données juridiques dans la section BP `statut-juridique` (statut recommandé, régime fiscal, charges sociales, TVA, ACRE).
+   264→
+   265→---
+   266→
+   267→### 4.3 Financier (Prévisions Financières)
+   268→
+   269→**Fichier** : `src/components/bureau/modules/financier.tsx` (~747 lignes)  
+   270→**API** : `GET/PUT/POST /api/financier`  
+   271→**LocalStorage** : `creapulse-financier-sim`
+   272→
+   273→#### Interface utilisateur
+   274→
+   275→- **5 cartes KPI** : CA Année 1/2, Charges A1, Résultat A1, Investissement, Cumulé 3 ans
+   276→- **4 sliders** : CA A1, Croissance annuelle, Charges A1, Investissement
+   277→- **Calculs en temps réel** : Marge nette A1/A3, Seuil de rentabilité
+   278→- **3 jauges de rentabilité (Recharts RadialBarChart)**
+   279→- **Graphique barres 3 ans** : CA vs Charges par année
+   280→- **Tableau de synthèse 3 ans**
+   281→
+   282→#### Types de données
+   283→
+   284→```typescript
+   285→// 4 entrées (sliders)
+   286→year1Revenue: number       // défaut: 100 000 €
+   287→growthRate: number         // défaut: 15 %
+   288→year1Expenses: number      // défaut: 70 000 €
+   289→initialInvestment: number  // défaut: 30 000 €
+   290→
+   291→// Calculs automatiques
+   292→year2Revenue = year1Revenue × (1 + growthRate/100)
+   293→year3Revenue = year2Revenue × (1 + growthRate/100)
+   294→expenseGrowth = growthRate / 200
+   295→year2Expenses = year1Expenses × (1 + expenseGrowth)
+   296→year3Expenses = year2Expenses × (1 + expenseGrowth)
+   297→margeNetteA1 = (year1Revenue - year1Expenses) / year1Revenue × 100
+   298→seuilRentabiliteMois = initialInvestment / margeNetteMensuelle
+   299→```
+   300→
+   301→#### Synchronisation vers le BP
+   302→
+   303→Les projections financières synchronisent **5 sections BP** :
+   304→- `financement` ← Plan de financement (sources + montants)
+   305→- `compte-resultat` ← CA et charges année 1/2/3
+   306→- `tresorerie` ← Plan de trésorerie mensuel
+   307→- `seuil-rentabilite` ← Seuil de rentabilité calculé
+   308→- `bilan` ← Bilan prévisionnel
+   309→
+   310→---
+   311→
+   312→### 4.4 CreaSim (Simulateur Financier Mensuel)
+   313→
+   314→**Fichier** : `src/components/bureau/modules/creasim.tsx` (~1 050 lignes)  
+   315→**API** : `GET/POST /api/creasim`  
+   316→**Badge** : `IA` dans le sidebar
+   317→
+   318→#### Interface utilisateur
+   319→
+   320→- **5 cartes KPI trafic** : Marge brute, Marge nette, Seuil de rentabilité, CA mensuel, Rentabilité A1
+   321→- **7 sliders** : CA mensuel, Charges fixes (ajoutables/supprimables), Taux charges variables, Prix de vente unitaire, Coût unitaire, Investissement initial, Taux de marge cible
+   322→- **4 jauges SVG circulaires**
+   323→- **Graphique aires 12 mois (Recharts)** : CA vs Charges mensuelles
+   324→- **3 cartes de rentabilité annuelle** : CA/Charges/Marge par année
+   325→
+   326→#### Types de données
+   327→
+   328→```typescript
+   329→interface SimulationInputs {
+   330→  monthlyRevenue: number         // défaut: 5 000 €
+   331→  fixedCharges: FixedCharge[]     // défaut: [{Loyer: 800}, {Assurances: 150}, {Abonnements: 100}]
+   332→  variableChargesRate: number    // défaut: 30 %
+   333→  averageSellingPrice: number    // défaut: 100 €
+   334→  unitCost: number               // défaut: 40 €
+   335→  initialInvestment: number      // défaut: 15 000 €
+   336→  targetMarginRate: number       // défaut: 40 %
+   337→}
+   338→
+   339→interface SimulationResults {
+   340→  fixedChargesTotal: number
+   341→  variableChargesAmount: number
+   342→  totalCharges: number
+   343→  grossMarginAmount: number
+   344→  grossMarginRate: number
+   345→  netMarginAmount: number
+   346→  netMarginRate: number
+   347→  monthlyBreakeven: number       // CA minimum pour couvrir les charges
+   348→  breakevenMonths: number        // Mois pour atteindre le seuil
+   349→  profitability1Y/2Y/3Y: number  // Rentabilité cumulée
+   350→  year1/2/3Revenue: number
+   351→  year1/2/3Expenses: number
+   352→}
+   353→```
+   354→
+   355→#### Synchronisation vers le BP
+   356→
+   357→Le CreaSim synchronise dans la section BP `seuil-rentabilite` avec les données de marge et seuil calculés au mois le mois. Il alimente aussi les projections 3 ans dans les sections financières du BP.
+   358→
+   359→---
+   360→
+   361→### 4.5 Business Model Canvas (BMC)
+   362→
+   363→**Fichier** : `src/components/bureau/modules/bmc.tsx` (~495 lignes)  
+   364→**API** : `GET/PUT/POST /api/bmc`  
+   365→**Badge** : `Nouveau` dans le sidebar
+   366→
+   367→#### Interface utilisateur
+   368→
+   369→- **Grille 9 blocs** en layout standard du BMC :
+   370→  ```
+   371→  ┌──────────────┬──────────────┬──────────────┐
+   372→  │ Partenaires  │  Activités   │  Ressources  │
+   373→  │    Clés      │    Clés      │    Clés      │
+   374→  ├──────────────┴──────────────┴──────────────┤
+   375→  │          Proposition de Valeur              │
+   376→  ├──────────────┬──────────────┬──────────────┤
+   377→  │  Relations   │   Canaux     │  Segments    │
+   378→  │   Clients    │              │   Clients    │
+   379→  ├──────────────┴──────────────┴──────────────┤
+   380→  │ Structure des Coûts │ Sources de Revenus   │
+   381→  └─────────────────────┴──────────────────────┘
+   382→  ```
+   383→- **Indicateur par bloc** : ✓ (rempli) ou ○ (vide) + compteur de caractères
+   384→- **Badge de statut** : `DRAFT` → `GENERATED` → `REFINED`
+   385→- **Auto-save** au blur avec debounce de 1.5 secondes
+   386→
+   387→#### Les 9 blocs
+   388→
+   389→| ID Frontend | Clé Backend | Titre |
+   390→|-------------|-------------|-------|
+   391→| `partenaires-cles` | `partenairesCles` | Partenaires Clés |
+   392→| `activites-cles` | `activitesCles` | Activités Clés |
+   393→| `ressources-cles` | `ressourcesCles` | Ressources Clés |
+   394→| `proposition-valeur` | `propositionValeur` | Proposition de Valeur |
+   395→| `relations-clients` | `relationsClients` | Relations Clients |
+   396→| `canaux` | `canaux` | Canaux |
+   397→| `segments-clients` | `segmentsClients` | Segments Clients |
+   398→| `structure-couts` | `structureCouts` | Structure des Coûts |
+   399→| `sources-revenus` | `sourcesRevenus` | Sources de Revenus |
+   400→
+   401→#### États du BMC
+   402→
+   403→```typescript
+   404→type BmcStatus = 'DRAFT' | 'GENERATED' | 'REFINED'
+   405→```
+   406→
+   407→| État | Signification |
+   408→|------|---------------|
+   409→| `DRAFT` | Aucune génération IA effectuée |
+   410→| `GENERATED` | Canvas généré une fois depuis le BP |
+   411→| `REFINED` | Blocs individuellement raffinés par l'IA |
+   412→
+   413→#### Actions IA
+   414→
+   415→1. **"Générer avec l'IA"** (depuis le BP) : `POST /api/bmc` avec `action: 'generate-from-bp'`  
+   416→   → Récupère le contexte du BP + tous les simulateurs + parcours → génère les 9 blocs en un appel LLM → sauvegarde automatiquement
+   417→
+   418→2. **Suggestion par bloc** : `POST /api/bmc` avec `action: 'ai-suggest-block'` + `blockId`  
+   419→   → Suggestion IA pour un seul bloc, l'utilisateur peut accepter ou modifier
+   420→
+   421→#### Export
+   422→
+   423→- **PDF** : `GET /api/export/bmc` → Page HTML A4 paysage (print-to-PDF) avec branding CreaPulse
+   424→- **Export démo** : `GET /api/export/demo/bmc` → Même format sans authentification
+   425→
+   426→---
+   427→
+   428→### 4.6 Business Plan
+   429→
+   430→**Fichier** : `src/components/bureau/modules/business-plan.tsx` (~1 000+ lignes)  
+   431→**API** : `GET/PUT/POST /api/business-plan`  
+   432→**LocalStorage** : `creapulse-bp`
+   433→
+   434→> **Le Business Plan est le HUB CENTRAL du pipeline Stratégie.** Toutes les données des autres modules convergent ici.
+   435→
+   436→#### Architecture de l'éditeur
+   437→
+   438→```
+   439→┌─────────────────────────────────────────────────────────┐
+   440→│  Sidebar gauche (sections)          │  Zone d'édition  │
+   441→│  ┌─────────────────────────┐        │  principale      │
+   442→│  │ ▼ Présentation (5)      │        │                   │
+   443→│  │   • Résumé opér.  ✓    │        │  [Titre section]  │
+   444→│  │   • Équipe        ✓    │        │                   │
+   445→│  │   • Historique    ○    │        │  [Champ éditable] │
+   446→│  │   • Vision         ✓   │        │  ou [Tableau]     │
+   447→│  │   • Valeurs        ○   │        │  ou [SWOT 4 quad] │
+   448→│  │ ▼ Marché (6)           │        │  ou [Timeline]    │
+   449→│  │   • Étude marché   ✓   │        │                   │
+   450→│  │   • Segmentation   ○   │        │  [Bouton IA]      │
+   451→│  │   • Concurrence    ✓   │        │  "Suggérer"       │
+   452→│  │   • ...               │        │                   │
+   453→│  │ ▼ Finances (6)        │        │                   │
+   454→│  │ ▼ Opérations (7)      │        │                   │
+   455→│  └─────────────────────────┘        │                   │
+   456→│  [Barre de progression]             │                   │
+   457→│  [Pipeline Status]                  │                   │
+   458→└─────────────────────────────────────────────────────────┘
+   459→```
+   460→
+   461→#### Les 24 sections — Structure complète
+   462→
+   463→##### Onglet PRÉSENTATION (5 sections)
+   464→
+   465→| ID | Titre | Type | IA | Source pipeline |
+   466→|----|-------|------|-----|-----------------|
+   467→| `resume` | Résumé opérationnel | `textarea` | ✅ | Parcours |
+   468→| `equipe` | Présentation de l'équipe | `textarea` | ✅ | Parcours |
+   469→| `historique` | Historique et contexte | `textarea` | ✅ | Parcours |
+   470→| `vision` | Vision et mission | `textarea` | ✅ | Parcours |
+   471→| `valeurs` | Valeurs et engagements | `textarea` | ✅ | Parcours |
+   472→
+   473→##### Onglet MARCHÉ (6 sections)
+   474→
+   475→| ID | Titre | Type | IA | Source pipeline |
+   476→|----|-------|------|-----|-----------------|
+   477→| `etude-marche` | Étude de marché | `textarea` | ✅ | Marché |
+   478→| `segmentation` | Segmentation client | `textarea` | ✅ | Marché |
+   479→| `concurrence` | Analyse concurrentielle | `textarea` | ✅ | Marché |
+   480→| `strategie-marketing` | Stratégie marketing | `textarea` | ✅ | Marché |
+   481→| `plan-commercial` | Plan commercial | `textarea` | ✅ | Marché |
+   482→| `swot` | Analyse SWOT | `swot` (4 quadrants) | ✅ | Marché |
+   483→
+   484→##### Onglet FINANCES (6 sections)
+   485→
+   486→| ID | Titre | Type | IA | Source pipeline |
+   487→|----|-------|------|-----|-----------------|
+   488→| `financement` | Plan de financement initial | `financing-table` | ❌ | Financier |
+   489→| `compte-resultat` | Compte de résultat prévisionnel | `result-table` (3 ans) | ❌ | Financier |
+   490→| `tresorerie` | Plan de trésorerie | `treasury-table` (12 mois) | ❌ | Financier |
+   491→| `seuil-rentabilite` | Seuil de rentabilité | `textarea` | ❌ | CreaSim |
+   492→| `investissements` | Investissements | `investments-list` | ❌ | Financier |
+   493→| `bilan` | Bilan prévisionnel | `bilan-table` | ❌ | Financier |
+   494→
+   495→##### Onglet OPÉRATIONS (7 sections)
+   496→
+   497→| ID | Titre | Type | IA | Source pipeline |
+   498→|----|-------|------|-----|-----------------|
+   499→| `statut-juridique` | Statut juridique | `select` | ❌ | Juridique |
+   500→| `localisation` | Localisation et implantation | `textarea` | ✅ | Manuel |
+   501→| `organisation` | Organisation et moyens humains | `textarea` | ✅ | Manuel |
+   502→| `production` | Catalogue produits / services | `products-list` | ❌ | Manuel |
+   503→| `associes` | Associés et répartition du capital | `associates-list` | ❌ | Manuel |
+   504→| `cogerants` | Co-gérance | `cogerants-list` | ❌ | Manuel |
+   505→| `calendrier` | Calendrier de réalisation | `timeline` | ❌ | Parcours |
+   506→
+   507→#### Types de rendu par section
+   508→
+   509→```typescript
+   510→type SectionType =
+   511→  | 'textarea'        // Champ texte libre (Markdown)
+   512→  | 'swot'            // 4 quadrants : forces, faiblesses, opportunités, menaces
+   513→  | 'financing-table' // Tableau : { id, source, montant }
+   514→  | 'result-table'    // Tableau 3 ans : { year1, year2, year3 } chacun avec ca, charges, resultat
+   515→  | 'treasury-table'  // Tableau 12 mois : { month, encaissements, decaissements, solde }
+   516→  | 'investments-list' // Liste : { id, name, amount }
+   517→  | 'bilan-table'     // Tableau bilan : actif (immobilisations, stocks, créances, trésorerie) + passif
+   518→  | 'select'          // Sélecteur de statut juridique
+   519→  | 'timeline'        // Liste de jalons : { id, title, date, completed }
+   520→  | 'products-list'   // Liste produits : { id, nom, description, prixVente, coutUnitaire, quantiteMensuelle, marge }
+   521→  | 'associates-list' // Liste associés : { id, nom, prenom, role, nombreParts, pourcentage, apportCapital }
+   522→  | 'cogerants-list'   // Liste co-gérants : { id, nom, prenom, fonction, email, telephone }
+   523→```
+   524→
+   525→#### Barre de statut Pipeline
+   526→
+   527→Le BP affiche 5 badges qui indiquent quelles sources de données ont été synchronisées :
+   528→
+   529→```
+   530→[Parcours ✓] [Marché ✓] [Financier ○] [Juridique ✓] [CreaSim ○]
+   531→```
+   532→
+   533→Chaque badge est vert (✓) si les données de cette source sont présentes dans le BP, gris (○) sinon. La détection utilise l'API `/api/pipeline-status`.
+   534→
+   535→#### Actions principales
+   536→
+   537→| Action | API | Description |
+   538→|--------|-----|-------------|
+   539→| Charger | `GET /api/business-plan` | Récupère les 24 sections + projectContext |
+   540→| Sauvegarder | `PUT /api/business-plan` | Sauvegarde toutes les sections (upsert) |
+   541→| Suggérer IA | `POST` + `action: 'ai-suggest'` | Suggestion IA pour une section spécifique |
+   542→| Générer Parcours | `POST` + `action: 'generate-from-parcours'` | Remplit les 5 sections Présentation depuis Mon Projet + Vision |
+   543→| Synchroniser | `POST` + `action: 'sync-simulators'` | Fusionne les données de Marché, Juridique, Financier, CreaSim |
+   544→| Exporter PDF | `GET /api/export/business-plan` | Génère le PDF complet |
+   545→
+   546→#### Score du BP
+   547→
+   548→```typescript
+   549→bpScore = (sectionsRemplies / 24) × 100
+   550→```
+   551→
+   552→Une section est considérée "remplie" si son contenu est non vide (string non vide, array avec ≥1 élément, object avec ≥1 clé non vide).
+   553→
+   554→#### Cycle de vie du BP (BpStatus)
+   555→
+   556→```
+   557→NOT_STARTED → IN_PROGRESS → GENERATING → DRAFT → REVIEW → VALIDATED → EXPORTED
+   558→```
+   559→
+   560→| Statut | Signification |
+   561→|--------|---------------|
+   562→| `NOT_STARTED` | Aucune section remplie |
+   563→| `IN_PROGRESS` | Au moins 1 section en cours |
+   564→| `GENERATING` | Génération IA en cours |
+   565→| `DRAFT` | Première sauvegarde complète |
+   566→| `REVIEW` | En cours de révision |
+   567→| `VALIDATED` | Validé (par le conseiller) |
+   568→| `EXPORTED` | PDF exporté |
+   569→
+   570→---
+   571→
+   572→### 4.7 Pitch Deck
+   573→
+   574→**Fichier** : `src/components/bureau/modules/pitch-deck.tsx` (~796 lignes)  
+   575→**API** : `GET/PUT/POST /api/pitch-deck`  
+   576→**LocalStorage** : `creapulse-pitch-deck`
+   577→
+   578→#### Interface utilisateur
+   579→
+   580→- **Éditeur slide par slide** : Navigation entre les 8 slides
+   581→- **Barre colorée** par slide (couleur distinctive)
+   582→- **Points de navigation** et miniatures de slides
+   583→- **Cartes de membres d'équipe** (CRUD) sur la slide Team
+   584→- **Champs Ask** : Montant de financement + Utilisation des fonds
+   585→
+   586→#### Les 8 slides
+   587→
+   588→| # | ID Frontend | Clé Backend | Titre | Couleur |
+   589→|---|-------------|-------------|-------|---------|
+   590→| 1 | `problem` | `probleme` | Problème | `bg-red-500` |
+   591→| 2 | `solution` | `solution` | Solution | `bg-amber-500` |
+   592→| 3 | `market` | `marche` | Marché | `bg-[#00838F]` |
+   593→| 4 | `business-model` | `businessModel` | Business Model | `bg-green-500` |
+   594→| 5 | `traction` | `traction` | Traction | `bg-purple-500` |
+   595→| 6 | `team` | `equipe` | Équipe | `bg-sky-500` |
+   596→| 7 | `financial` | `financier` | Financier | `bg-[#FF6B35]` |
+   597→| 8 | `ask` | `ask` | Ask | `bg-pink-500` |
+   598→
+   599→#### Types de données
+   600→
+   601→```typescript
+   602→interface SlideData {
+   603→  id: string
+   604→  title: string
+   605→  content: string              // Markdown
+   606→  teamMembers?: TeamMember[]   // Slide "team" uniquement : { id, name, role, bio }
+   607→  fundingAmount?: string       // Slide "ask" uniquement
+   608→  useOfFunds?: string          // Slide "ask" uniquement
+   609→}
+   610→```
+   611→
+   612→#### Persistance
+   613→
+   614→Le Pitch Deck est stocké dans le modèle **`ZeroDraft`** de Prisma :
+   615→- `content` = `JSON.stringify({ slides: [...] })`
+   616→- `wordCount` = calculé automatiquement
+   617→- `projectTitle` = titre du projet
+   618→
+   619→#### Actions IA
+   620→
+   621→1. **"Générer avec l'IA"** (depuis le BP) : `POST /api/pitch-deck` avec `action: 'generate-from-bp'`  
+   622→   → Récupère le contexte du BP + BMC + tous les simulateurs → génère les 8 slides en un appel LLM
+   623→
+   624→2. **Suggestion par slide** : `POST /api/pitch-deck` avec `action: 'ai-suggest-slide'` + `slideKey`  
+   625→   → Suggestion IA pour une seule slide
+   626→
+   627→#### Export
+   628→
+   629→- **PPTX** : `GET /api/export/pitch-deck` → Présentation PowerPoint 16:9 (PptxGenJS) avec branding CreaPulse
+   630→- **TXT** : Export texte brut
+   631→
+   632→---
+   633→
+   634→## 5. Pipeline de données complet
+   635→
+   636→### Diagramme de flux
+   637→
+   638→```
+   639→                    ┌─────────────────┐
+   640→                    │   MON PROJET    │  projectTitle, sector, description
+   641→                    │   (Parcours)    │  targetAudience, revenueSources
+   642→                    └────────┬────────┘
+   643→                             │
+   644→                    ┌────────┴────────┐
+   645→                    │     VISION      │  visionStatement, objectives
+   646→                    │   (Parcours)    │  coreValues, milestones
+   647→                    └────────┬────────┘
+   648→                             │
+   649→          ┌──────────────────┼──────────────────┐
+   650→          │                  │                  │
+   651→          ▼                  ▼                  ▼
+   652→   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+   653→   │   MARCHÉ     │  │  JURIDIQUE   │  │  FINANCIER   │
+   654→   │  Simulateur  │  │  Simulateur  │  │  Simulateur  │
+   655→   │  + SWOT      │  │  5 statuts   │  │  3 ans       │
+   656→   └──────┬───────┘  └──────┬───────┘  └──────┬───────┘
+   657→          │                 │                  │
+   658→   ┌──────┴───────┐         │           ┌──────┴───────┐
+   659→   │   CREASIM    │         │           │              │
+   660→   │  Simulateur  │         │           │              │
+   661→   │  Mensuel IA  │         │           │              │
+   662→   └──────┬───────┘         │           │              │
+   663→          │                 │           │              │
+   664→          └─────────┬───────┴───────────┘              │
+   665→                    │                                │
+   666→                    ▼                                │
+   667→          ┌──────────────────┐                       │
+   668→          │  BUSINESS PLAN   │◄──────────────────────┘
+   669→          │  Hub Central     │  sync-simulators
+   670→          │  24 sections     │  + generate-from-parcours
+   671→          └────────┬─────────┘
+   672→                   │
+   673→          ┌────────┴─────────┐
+   674→          │                  │
+   675→          ▼                  ▼
+   676→   ┌──────────────┐  ┌──────────────┐
+   677→   │  BMC Canvas   │  │  PITCH DECK  │
+   678→   │  9 blocs     │  │  8 slides    │
+   679→   │  generate    │  │  generate    │
+   680→   │  -from-bp    │  │  -from-bp    │
+   681→   └──────┬───────┘  └──────┬───────┘
+   682→          │                  │
+   683→          ▼                  ▼
+   684→   ┌──────────────┐  ┌──────────────┐
+   685→   │  Export PDF  │  │  Export PPTX │
+   686→   │  / HTML      │  │              │
+   687→   └──────────────┘  └──────────────┘
+   688→```
+   689→
+   690→### Mapping section BP → source de données
+   691→
+   692→Ce mapping est géré par l'API `/api/pipeline-status` :
+   693→
+   694→| Section BP | Source primaire | Source secondaire |
+   695→|-----------|-----------------|-------------------|
+   696→| `resume` | Parcours | IA (suggest) |
+   697→| `equipe` | Parcours | IA (suggest) |
+   698→| `historique` | Parcours | IA (suggest) |
+   699→| `vision` | Parcours | IA (suggest) |
+   700→| `valeurs` | Parcours | IA (suggest) |
+   701→| `etude-marche` | Marché | IA (suggest) |
+   702→| `segmentation` | Marché | IA (suggest) |
+   703→| `concurrence` | Marché | IA (suggest) |
+   704→| `strategie-marketing` | Marché | IA (suggest) |
+   705→| `plan-commercial` | Marché | IA (suggest) |
+   706→| `swot` | Marché | IA (suggest) |
+   707→| `financement` | Financier | Manuel |
+   708→| `compte-resultat` | Financier | Manuel |
+   709→| `tresorerie` | Financier | Manuel |
+   710→| `seuil-rentabilite` | CreaSim | IA (suggest) |
+   711→| `investissements` | Financier | Manuel |
+   712→| `bilan` | Financier | Manuel |
+   713→| `statut-juridique` | Juridique | Manuel |
+   714→| `localisation` | Manuel | IA (suggest) |
+   715→| `organisation` | Manuel | IA (suggest) |
+   716→| `production` | Manuel | — |
+   717→| `associes` | Manuel | — |
+   718→| `cogerants` | Manuel | — |
+   719→| `calendrier` | Parcours | — |
+   720→
+   721→---
+   722→
+   723→## 6. Le Business Plan en détail
+   724→
+   725→### Structure du JSON `bpSections`
+   726→
+   727→Les 24 sections sont stockées dans un seul champ JSON `CreatorJourney.bpSections` de type `Record<string, unknown>` :
+   728→
+   729→```json
+   730→{
+   731→  "resume": "Texte libre du résumé opérationnel...",
+   732→  "equipe": "Description de l'équipe fondatrice...",
+   733→  "historique": "Contexte et historique du projet...",
+   734→  "vision": "Notre vision à 5 ans est de...",
+   735→  "valeurs": "Nos valeurs fondamentales sont...",
+   736→  "etude-marche": "Le marché de la restauration rapide...",
+   737→  "segmentation": "Notre client cible est...",
+   738→  "concurrence": "Les concurrents directs sont...",
+   739→  "strategie-marketing": "Notre stratégie marketing repose sur...",
+   740→  "plan-commercial": "Le plan commercial prévoit...",
+   741→  "swot": {
+   742→    "strengths": "Force 1, Force 2...",
+   743→    "weaknesses": "Faiblesse 1...",
+   744→    "opportunities": "Opportunité 1...",
+   745→    "threats": "Menace 1..."
+   746→  },
+   747→  "financement": [
+   748→    { "id": "1", "source": "Apport personnel", "montant": 15000 },
+   749→    { "id": "2", "source": "Prêt bancaire", "montant": 30000 }
+   750→  ],
+   751→  "compte-resultat": {
+   752→    "year1": { "ca": 100000, "charges": 70000, "resultat": 30000 },
+   753→    "year2": { "ca": 115000, "charges": 75250, "resultat": 39750 },
+   754→    "year3": { "ca": 132250, "charges": 80762, "resultat": 51488 }
+   755→  },
+   756→  "tresorerie": [
+   757→    { "month": "Janvier", "encaissements": 8333, "decaissements": 5833, "solde": 2500 }
+   758→  ],
+   759→  "seuil-rentabilite": "Le seuil de rentabilité est atteint au bout de 6 mois...",
+   760→  "investissements": [
+   761→    { "id": "1", "name": "Matériel informatique", "amount": 5000 }
+   762→  ],
+   763→  "bilan": {
+   764→    "actif": { "immobilisations": 15000, "stocks": 2000, "creances": 5000, "tresorerie": 8000 },
+   765→    "passif": { "capital": 20000, "emprunts": 10000, "fournisseurs": 3000, "autresDettes": 2000 }
+   766→  },
+   767→  "statut-juridique": "SARL",
+   768→  "localisation": "Paris 11e arrondissement...",
+   769→  "organisation": "L'équipe sera composée de...",
+   770→  "production": [
+   771→    { "id": "1", "nom": "Service A", "prixVente": 100, "coutUnitaire": 40, "quantiteMensuelle": 50, "marge": 60 }
+   772→  ],
+   773→  "associes": [
+   774→    { "id": "1", "nom": "Dupont", "prenom": "Marie", "role": "Gérante", "nombreParts": 50, "pourcentage": 60, "apportCapital": 15000 }
+   775→  ],
+   776→  "cogerants": [
+   777→    { "id": "1", "nom": "Martin", "prenom": "Jean", "fonction": "Directeur technique" }
+   778→  ],
+   779→  "calendrier": [
+   780→    { "id": "1", "title": "Création société", "date": "2025-01-15", "completed": false }
+   781→  ]
+   782→}
+   783→```
+   784→
+   785→### API Business Plan — Détail des endpoints
+   786→
+   787→#### `GET /api/business-plan`
+   788→
+   789→Retourne :
+   790→```json
+   791→{
+   792→  "sections": { "...24 sections..." },
+   793→  "bpStatus": "DRAFT",
+   794→  "bpScore": 62,
+   795→  "projectContext": {
+   796→    "projectTitle": "Mon Restaurant",
+   797→    "sector": "Restauration",
+   798→    "targetAudience": "Professionnels urbains"
+   799→  }
+   800→}
+   801→```
+   802→
+   803→#### `PUT /api/business-plan`
+   804→
+   805→Corps : `{ "sections": {...}, "bpStatus": "DRAFT" }`  
+   806→Action : Upsert de toutes les sections dans `CreatorJourney.bpSections`. Met à jour `bpScore`.
+   807→
+   808→#### `POST /api/business-plan` — Actions IA
+   809→
+   810→##### Action `ai-suggest`
+   811→
+   812→```json
+   813→{
+   814→  "action": "ai-suggest",
+   815→  "sectionId": "etude-marche",
+   816→  "sectionTitle": "Étude de marché",
+   817→  "existingContent": "Le marché de...",
+   818→  "projectContext": { "projectTitle": "...", "sector": "..." }
+   819→}
+   820→```
+   821→
+   822→→ Retourne une suggestion IA pour cette section spécifique.
+   823→
+   824→##### Action `generate-from-parcours`
+   825→
+   826→```json
+   827→{ "action": "generate-from-parcours" }
+   828→```
+   829→
+   830→→ Collecte TOUTES les données du parcours (User, Beneficiary, CreatorJourney, RIASEC, Kiviat, ModuleResults), construit un prompt LLM, génère les 5 sections de Présentation. **Ne surcharge pas** les sections déjà remplies.
+   831→
+   832→##### Action `sync-simulators`
+   833→
+   834→```json
+   835→{ "action": "sync-simulators" }
+   836→```
+   837→
+   838→→ Récupère en parallèle les données de 5 simulateurs :
+   839→1. `MarketAnalysis` → sections marche
+   840→2. `FinancialForecast` → sections finances
+   841→3. `CreaSimSimulation` → seuil de rentabilité
+   842→4. `JuridiqueAnalysis` → statut juridique
+   843→5. `BusinessModelCanvas` → (lecture seule, pas de fusion)
+   844→
+   845→Fusion intelligente : les données des simulateurs remplacent uniquement les sections vides ou non modifiées manuellement.
+   846→
+   847→---
+   848→
+   849→## 7. Synchronisation inter-modules
+   850→
+   851→### Mécanisme de synchronisation
+   852→
+   853→La synchronisation entre modules fonctionne via le pattern **"Producteur → Consommateur via API"** :
+   854→
+   855→1. **Chaque simulateur** (Marché, Juridique, Financier, CreaSim) sauvegarde ses données dans sa propre table Prisma
+   856→2. **Après chaque sauvegarde**, le simulateur appelle `POST /api/business-plan` avec `action: 'sync-simulators'`
+   857→3. **L'API BP** récupère les données des 5 tables en parallèle (`Promise.all`) et les mappe aux sections BP
+   858→4. **Fusion non-destructive** : les sections déjà remplies manuellement ne sont pas écrasées
+   859→
+   860→### Flux de synchronisation
+   861→
+   862→```
+   863→┌──────────┐  save()   ┌──────────────────┐  read()   ┌──────────────┐
+   864→│  Marché   │────────→│  MarketAnalysis    │────────→│  BP Section  │
+   865→│  Module   │         │  (Prisma table)   │         │  etude-marche│
+   866→└──────────┘         └──────────────────┘         └──────────────┘
+   867→                                                           ▲
+   868→┌──────────┐  save()   ┌──────────────────┐  sync()   ┌────┴─────────┐
+   869→│Juridique │────────→│ JuridiqueAnalysis  │────────→│  Business    │
+   870→│  Module   │         │  (Prisma table)   │         │  Plan API    │
+   871→└──────────┘         └──────────────────┘         └──────────────┘
+   872→                                                           ▲
+   873→┌──────────┐  save()   ┌──────────────────┐  sync()          │
+   874→│Financier │────────→│ FinancialForecast  │────────→         │
+   875→│  Module   │         │  (Prisma table)   │                  │
+   876→└──────────┘         └──────────────────┘                  │
+   877→                                                           │
+   878→┌──────────┐  save()   ┌──────────────────┐  sync()          │
+   879→│ CreaSim  │────────→│ CreaSimSimulation  │────────→         │
+   880→│  Module   │         │  (Prisma table)   │                  │
+   881→└──────────┘         └──────────────────┘                  │
+   882→                                                           │
+   883→                                                   ┌───────┴───────┐
+   884→                                                   │ CreatorJourney │
+   885→                                                   │ bpSections JSON│
+   886→                                                   └───────────────┘
+   887→```
+   888→
+   889→### Ordre recommandé de remplissage
+   890→
+   891→| Étape | Action | Résultat |
+   892→|-------|--------|----------|
+   893→| 1 | Remplir Mon Projet (Parcours) | 5 sections Présentation alimentées |
+   894→| 2 | Remplir Vision (Parcours) | Sections vision, valeurs, calendrier alimentées |
+   895→| 3 | Utiliser le simulateur Marché | 6 sections Marché alimentées via sync |
+   896→| 4 | Utiliser le simulateur Juridique | Section statut-juridique alimentée |
+   897→| 5 | Utiliser le simulateur Financier | 5 sections Finances alimentées via sync |
+   898→| 6 | Utiliser CreaSim | Section seuil-rentabilite alimentée |
+   899→| 7 | Compléter les sections manuelles | localisation, organisation, production, associes, cogerants |
+   900→| 8 | Lancer les suggestions IA | Enrichissement de chaque section |
+   901→| 9 | Générer le BMC | 9 blocs depuis le BP complet |
+   902→| 10 | Générer le Pitch Deck | 8 slides depuis le BP + BMC |
+   903→
+   904→---
+   905→
+   906→## 8. Intégration IA
+   907→
+   908→### Pattern d'intégration
+   909→
+   910→Tous les modules utilisent le même pattern d'appel IA via `callZAI()` (sdk `z-ai-web-dev-sdk`) :
+   911→
+   912→```typescript
+   913→// Pattern standard
+   914→const result = await callZAI({
+   915→  prompt: `...prompt avec contexte...`,
+   916→  temperature: 0.7,
+   917→  max_tokens: 2000,
+   918→});
+   919→
+   920→if (result.success) {
+   921→  const content = result.content;
+   922→  // Utiliser parseJSONFromAI() pour les réponses JSON
+   923→} else {
+   924→  // Retourne un message d'indisponibilité (jamais d'erreur 500)
+   925→  return aiUnavailableResponse();
+   926→}
+   927→```
+   928→
+   929→### Paramètres IA par module
+   930→
+   931→| Module | Température | Max Tokens | Format réponse |
+   932→|--------|-------------|------------|---------------|
+   933→| Business Plan (section) | 0.7 | 1 200 | Markdown |
+   934→| Business Plan (parcours) | 0.7 | 3 000 | JSON |
+   935→| BMC (complet) | 0.7 | 2 500 | JSON (9 blocs) |
+   936→| BMC (par bloc) | 0.7 | 800 | Texte |
+   937→| Pitch Deck (complet) | 0.7 | 2 500 | JSON (8 slides) |
+   938→| Pitch Deck (par slide) | 0.7 | 800 | Texte |
+   939→| Marché (analyse) | 0.7 | 800-2 000 | JSON / Texte |
+   940→| Juridique (suggest) | 0.7 | 400 | JSON |
+   941→| Juridique (autofill) | 0.7 | 600 | JSON |
+   942→| Financier (synthèse) | 0.7 | 3 000 | Markdown (5 sections) |
+   943→| Bilan IA | 0.5 | 2 000 | JSON |
+   944→
+   945→### Garde-fous IA
+   946→
+   947→- **Aucune erreur 500** : En cas d'indisponibilité de l'IA, un message graceful est retourné
+   948→- **Non-destructif** : Les suggestions IA ne remplacent jamais le contenu existant (sauf demande explicite)
+   949→- **Parse JSON** : Utilisation de `parseJSONFromAI()` pour extraire le JSON des réponses LLM
+   950→- **Context enrichi** : Chaque prompt inclut le contexte du projet (titre, secteur, cible) pour des réponses pertinentes
+   951→
+   952→---
+   953→
+   954→## 9. Calcul de progression
+   955→
+   956→### API `/api/progress`
+   957→
+   958→L'API retourne la progression sous cette forme :
+   959→
+   960→```json
+   961→{
+   962→  "parcours": {
+   963→    "progress": 60,
+   964→    "modules": {
+   965→      "profil-createur": true,
+   966→      "mon-projet": true,
+   967→      "vision": true,
+   968→      "riasec": true,
+   969→      "kiviat": true,
+   970→      "bilan-ia": false
+   971→    }
+   972→  },
+   973→  "strategie": {
+   974→    "progress": 45,
+   975→    "modules": {
+   976→      "marche": true,
+   977→      "juridique": true,
+   978→      "financier": false,
+   979→      "creasim": false,
+   980→      "bmc": false,
+   981→      "business-plan": false,
+   982→      "pitch-deck": false
+   983→    }
+   984→  },
+   985→  "global": 51
+   986→}
+   987→```
+   988→
+   989→### Critères de complétion — Stratégie (7 modules)
+   990→
+   991→| Module | Critère de complétion |
+   992→|--------|----------------------|
+   993→| `marche` | `sector` ET `targetAudience` non vides dans `MarketAnalysis` |
+   994→| `juridique` | `recommendedStatus` non vide dans `JuridiqueAnalysis` |
+   995→| `financier` | `year1Revenue` ET `year1Expenses` non null dans `FinancialForecast` |
+   996→| `creasim` | `monthlyRevenue` > 0 dans `CreaSimSimulation` |
+   997→| `bmc` | ≥ 5 des 9 blocs non vides dans `BusinessModelCanvas` |
+   998→| `business-plan` | `bpStatus` ∈ {DRAFT, REVIEW, VALIDATED, EXPORTED} ET `bpScore` > 50 |
+   999→| `pitch-deck` | `ZeroDraft.content` contient ≥ 8 séparateurs `---` |
+  1000→
+  1001→### Formule de progression globale
+  1002→
+  1003→```
+  1004→progression_globale = Math.round(progression_parcours × 0.4 + progression_stratégie × 0.6)
+  1005→```
+  1006→
+  1007→**La stratégie compte pour 60%** de la progression globale, reflétant son importance dans le parcours créateur.
+  1008→
+  1009→### Indicateurs visuels
+  1010→
+  1011→- **Sidebar** : Cercle de progression par section (Parcours, Stratégie, etc.)
+  1012→- **SectionOverview** : Cartes avec badges de complétion par module
+  1013→- **Business Plan** : Barre de progression + score /100 + pipeline status badges
+  1014→
+  1015→---
+  1016→
+  1017→## 10. Exports et livrables
+  1018→
+  1019→### Formats d'export disponibles
+  1020→
+  1021→| Livrable | Format | API | Technologie |
+  1022→|----------|--------|-----|-------------|
+  1023→| Business Plan | PDF | `GET /api/export/business-plan` | PDFKit (`pdf-utils.ts`) |
+  1024→| Business Plan (démo) | PDF | `GET /api/export/demo/business-plan` | PDFKit (utilisateur démo) |
+  1025→| BMC | HTML (print-to-PDF) | `GET /api/export/bmc` | HTML statique A4 paysage |
+  1026→| BMC (démo) | HTML | `GET /api/export/demo/bmc` | HTML statique |
+  1027→| Pitch Deck | PPTX | `GET /api/export/pitch-deck` | PptxGenJS |
+  1028→| Suivi CreaSim | PDF | `GET /api/export/suivi-creasim` | PDFKit |
+  1029→| Suivi Tremplin | PDF | `GET /api/export/suivi-tremplin` | PDFKit |
+  1030→| Suivi Parcours | PDF | `GET /api/export/suivi-parcours` | PDFKit |
+  1031→| Suivi Kiviat | PDF | `GET /api/export/suivi-kiviat` | PDFKit |
+  1032→| Bilan CréaScope | PDF | `POST /api/export/bilan-creascope` | PDFKit |
+  1033→| Passeport | JSON | `GET /api/export/passeport` | JSON (data) |
+  1034→
+  1035→### Exports démo (landing page)
+  1036→
+  1037→La section PDF showcase sur la home page (`pdf-showcase-section.tsx`) propose 6 exports démo téléchargeables sans authentification :
+  1038→
+  1039→| Type | Titre | Pages |
+  1040→|------|-------|-------|
+  1041→| `suivi-parcours` | Suivi de Parcours Complet | ~8 |
+  1042→| `suivi-kiviat` | Compétences Kiviat | ~4 |
+  1043→| `suivi-tremplin` | Évaluation Tremplin | ~5 |
+  1044→| `suivi-creasim` | Simulation Financière | ~6 |
+  1045→| `bmc` | Business Model Canvas | 1 (A4 paysage) |
+  1046→| `business-plan` | Business Plan Complet | ~15-20 |
+  1047→
+  1048→Ces exports utilisent l'utilisateur démo `beneficiaire-demo-001` avec des données pré-remplies.
+  1049→
+  1050→---
+  1051→
+  1052→## 11. Architecture technique
+  1053→
+  1054→### Pattern Frontend
+  1055→
+  1056→| Aspect | Implémentation |
+  1057→|--------|---------------|
+  1058→| **Framework** | Next.js 16 + App Router |
+  1059→| **Routing bureau** | Zustand (`useBureauStore`) — PAS de routing fichier |
+  1060→| **État local** | `useState` + `localStorage` par module |
+  1061→| **Stores Zustand** | 3 stores seulement : `useBureauStore`, `useAuthStore`, `useNotificationStore` |
+  1062→| **Appels API** | `fetch()` directs (pas de TanStack Query pour les modules) |
+  1063→| **UI** | Tailwind CSS 4 + shadcn/ui + Recharts + Lucide icons |
+  1064→| **Animations** | Framer Motion (transitions entre modules) |
+  1065→| **Composants dynamiques** | `next/dynamic` avec code splitting |
+  1066→
+  1067→### Pattern Backend
+  1068→
+  1069→| Aspect | Implémentation |
+  1070→|--------|---------------|
+  1071→| **API Routes** | App Router (`src/app/api/...`) |
+  1072→| **Base de données** | PostgreSQL + Prisma ORM |
+  1073→| **Authentification** | JWT (jose) + bcryptjs — cookie `session` |
+  1074→| **IA** | `callZAI()` via `z-ai-web-dev-sdk` |
+  1075→| **PDF** | PDFKit via `@/lib/pdf-utils.ts` |
+  1076→| **PPTX** | PptxGenJS |
+  1077→| **Validation** | Schémas Zod inline dans chaque route |
+  1078→
+  1079→### Clés localStorage
+  1080→
+  1081→| Clé | Module |
+  1082→|-----|--------|
+  1083→| `creapulse-bp` | Business Plan |
+  1084→| `creapulse-bmc` | BMC |
+  1085→| `creapulse-pitch-deck` | Pitch Deck |
+  1086→| `creapulse-marche` | Marché |
+  1087→| `creapulse-financier-sim` | Financier |
+  1088→| `creapulse-juridique` | Juridique |
+  1089→| `creapulse-tremplin` | Tremplin |
+  1090→| `creapulse-mon-projet` | Mon Projet |
+  1091→| `creapulse-vision` | Vision |
+  1092→| `creapulse-auth` | Authentification |
+  1093→| `creapulse-bureau` | Navigation bureau |
+  1094→
+  1095→---
+  1096→
+  1097→## 12. Modèle de données (Prisma)
+  1098→
+  1099→### Tables impliquées dans la stratégie
+  1100→
+  1101→```
+  1102→┌──────────────────┐
+  1103→│  CreatorJourney   │  ← Table centrale de la stratégie
+  1104→│  bpSections: Json │     Contient les 24 sections du BP
+  1105→│  bpStatus: enum   │     NOT_STARTED → EXPORTED
+  1106→│  bpScore: Int     │     (0-100)
+  1107→│  bpGeneratedAt    │
+  1108→│  bpValidatedAt    │
+  1109→│  bpValidatedBy    │
+  1110→│  tremplinStatus   │
+  1111→│  tremplinScore    │
+  1112→│  projectTitle     │
+  1113→│  projectSector    │
+  1114→│  visionAnswers    │
+  1115→└──────────────────┘
+  1116→        │ 1:1
+  1117→        ▼
+  1118→┌──────────────────┐
+  1119→│  BusinessModel    │
+  1120→│    Canvas         │  9 colonnes de blocs
+  1121→│  partenairesCles  │  + status (DRAFT/GENERATED/REFINED)
+  1122→│  activitesCles    │  + generatedFromBp
+  1123→│  ressourcesCles   │  + generatedAt
+  1124→│  propositionValeur│
+  1125→│  relationsClients │
+  1126→│  canaux            │
+  1127→│  segmentsClients  │
+  1128→│  structureCouts   │
+  1129→│  sourcesRevenus   │
+  1130→└──────────────────┘
+  1131→
+  1132→┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+  1133→│  MarketAnalysis   │  │FinancialForecast │  │CreaSimSimulation │
+  1134→│  sector           │  │ year1/2/3Revenue │  │ monthlyRevenue   │
+  1135→│  marketSize       │  │ year1/2/3Expenses│  │ fixedCharges     │
+  1136→│  targetAudience   │  │ breakevenMonth   │  │ variableRate     │
+  1137→│  trends: Json[]   │  │ initialInvestment│  │ breakevenMonths  │
+  1138→│  competitors: Json│  │ aiSynthesis      │  │ aiAnalysis       │
+  1139→│  swot: Json?      │  └──────────────────┘  └──────────────────┘
+  1140→│  aiSynthesis      │
+  1141→└──────────────────┘
+  1142→
+  1143→┌──────────────────┐  ┌──────────────────┐
+  1144→│JuridiqueAnalysis │  │   ZeroDraft      │  ← Stockage du Pitch Deck
+  1145→│  recommendedStatus│ │ content: JSON    │     (slides stringifiés)
+  1146→│  fiscalRegime     │ │ projectTitle     │
+  1147→│  legalStructure   │ │ wordCount        │
+  1148→│  socialCharges    │ │ status           │
+  1149→└──────────────────┘  └──────────────────┘
+  1150→```
+  1151→
+  1152→### Enums stratégiques
+  1153→
+  1154→```prisma
+  1155→enum BpStatus {
+  1156→  NOT_STARTED | IN_PROGRESS | GENERATING | DRAFT | REVIEW | VALIDATED | EXPORTED
+  1157→}
+  1158→
+  1159→enum TremplinStatus {
+  1160→  NOT_STARTED | IN_PROGRESS | COMPLETED | GO | NO_GO
+  1161→}
+  1162→
+  1163→enum TremplinDecision {
+  1164→  GO | GO_CONDITIONAL | NO_GO | PENDING
+  1165→}
+  1166→
+  1167→enum DraftStatus {
+  1168→  DRAFT | GENERATING | READY | REFINED
+  1169→}
+  1170→
+  1171→enum JourneyPhase {
+  1172→  DISCOVERY | PROFILING | MODELING | STRATEGY | ECOSYSTEM | LAUNCH | POST_CREATION
+  1173→}
+  1174→```
+  1175→
+  1176→---
+  1177→
+  1178→## 13. Annexe : mapping complet des fichiers
+  1179→
+  1180→### Composants Frontend
+  1181→
+  1182→| Fichier | Lignes | Composant | Section |
+  1183→|---------|--------|-----------|---------|
+  1184→| `src/components/bureau/bureau-store.ts` | 73 | `useBureauStore` | Core |
+  1185→| `src/components/bureau/sidebar.tsx` | 477 | `Sidebar`, `MobileSidebar` | Navigation |
+  1186→| `src/components/bureau/topbar.tsx` | 237 | `TopBar` | Navigation |
+  1187→| `src/components/bureau/bureau-layout.tsx` | 378 | `BureauLayout`, `BureauContent` | Core |
+  1188→| `src/components/bureau/modules/marche.tsx` | 895 | `MarcheModule` | **Stratégie** |
+  1189→| `src/components/bureau/modules/juridique.tsx` | 905 | `JuridiqueModule` | **Stratégie** |
+  1190→| `src/components/bureau/modules/financier.tsx` | 747 | `FinancierModule` | **Stratégie** |
+  1191→| `src/components/bureau/modules/creasim.tsx` | 1 050 | `CreaSim` | **Stratégie** |
+  1192→| `src/components/bureau/modules/bmc.tsx` | 495 | `BusinessModelCanvasModule` | **Stratégie** |
+  1193→| `src/components/bureau/modules/business-plan.tsx` | 1 000+ | `BusinessPlanModule` | **Stratégie** |
+  1194→| `src/components/bureau/modules/pitch-deck.tsx` | 796 | `PitchDeckModule` | **Stratégie** |
+  1195→| `src/components/bureau/modules/tremplin.tsx` | 799 | `Tremplin` | Pilotage |
+  1196→| `src/components/bureau/modules/mon-projet.tsx` | 1 100+ | `MonProjet` | Parcours |
+  1197→| `src/components/bureau/modules/vision.tsx` | 936 | `VisionModule` | Parcours |
+  1198→
+  1199→### API Routes Stratégie
+  1200→
+  1201→| Route | Méthodes | Fichier | Lignes |
+  1202→|-------|----------|---------|---------|
+  1203→| `/api/business-plan` | GET, PUT, POST | `api/business-plan/route.ts` | 868 |
+  1204→| `/api/bmc` | GET, PUT, POST | `api/bmc/route.ts` | 593 |
+  1205→| `/api/pitch-deck` | GET, PUT, POST | `api/pitch-deck/route.ts` | 500 |
+  1206→| `/api/financier` | GET, PUT, POST | `api/financier/route.ts` | 313 |
+  1207→| `/api/creasim` | GET, POST, PUT | `api/creasim/route.ts` | 211 |
+  1208→| `/api/marche` | GET, PUT, POST | `api/marche/route.ts` | 388 |
+  1209→| `/api/juridique` | GET, POST | `api/juridique/route.ts` | 401 |
+  1210→| `/api/tremplin` | GET, POST | `api/tremplin/route.ts` | 149 |
+  1211→| `/api/projet` | GET, PUT | `api/projet/route.ts` | 170 |
+  1212→| `/api/vision` | GET, PUT | `api/vision/route.ts` | 135 |
+  1213→| `/api/pipeline-status` | GET | `api/pipeline-status/route.ts` | 203 |
+  1214→| `/api/progress` | GET | `api/progress/route.ts` | 252 |
+  1215→| `/api/ia` | POST | `api/ia/route.ts` | 197 |
+  1216→| `/api/bilan` | GET, POST | `api/bilan/route.ts` | 605 |
+  1217→
+  1218→### API Routes Export
+  1219→
+  1220→| Route | Méthode | Fichier |
+  1221→|-------|---------|---------|
+  1222→| `/api/export/business-plan` | GET | `api/export/business-plan/route.ts` |
+  1223→| `/api/export/bmc` | GET | `api/export/bmc/route.ts` |
+  1224→| `/api/export/pitch-deck` | GET | `api/export/pitch-deck/route.ts` |
+  1225→| `/api/export/suivi-creasim` | GET | `api/export/suivi-creasim/route.ts` |
+  1226→| `/api/export/suivi-tremplin` | GET | `api/export/suivi-tremplin/route.ts` |
+  1227→| `/api/export/suivi-parcours` | GET | `api/export/suivi-parcours/route.ts` |
+  1228→| `/api/export/suivi-kiviat` | GET | `api/export/suivi-kiviat/route.ts` |
+  1229→| `/api/export/passeport` | GET | `api/export/passeport/route.ts` |
+  1230→| `/api/export/bilan-creascope` | POST | `api/export/bilan-creascope/route.ts` |
+  1231→| `/api/export/demo/[type]` | GET | `api/export/demo/[type]/route.ts` |
+  1232→| `/api/export/demo/list` | GET | `api/export/demo/list/route.ts` |
+  1233→
+  1234→---
+  1235→
+  1236→> **Fin du document** — CreaPulse V2 Pipeline Stratégie  
+  1237→> Ce document couvre l'intégralité du flux de la section Stratégie, de l'alimentation par le Parcours jusqu'à l'export final du Business Plan, BMC et Pitch Deck.
+  1238→
