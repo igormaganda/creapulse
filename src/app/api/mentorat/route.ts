@@ -1,7 +1,8 @@
 // ============================================
 // CreaPulse V2 — Mentorat API
-// GET  /api/mentorat           — List available mentors + user requests
-// POST /api/mentorat           — Send mentorship request
+// GET    /api/mentorat           — List available mentors + user requests
+// POST   /api/mentorat           — Send mentorship request
+// PATCH  /api/mentorat           — Accept/reject request, end mentorship
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -9,6 +10,10 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { success, Errors, handleApiError, error } from '@/lib/api-response'
 import { withAuth } from '@/lib/api-auth'
+import { createNotification } from '@/lib/notifications'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/mentorat')
 
 // ─── Validation schemas ────────────────────
 
@@ -160,10 +165,193 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // Fire-and-forget: notify the mentor about the new request
+    db.user.findUnique({ where: { id: payload.userId }, select: { firstName: true, lastName: true } })
+      .then((u) => {
+        const name = [u?.firstName, u?.lastName].filter(Boolean).join(' ') || 'Un bénéficiaire'
+        return createNotification({
+          userId: mentor.userId,
+          title: 'Nouvelle demande de mentorat',
+          content: `${name} vous a envoyé une demande de mentorat`,
+          type: 'ACTION_REQUIRED',
+          link: '/bureau/mentorat',
+        })
+      }).catch(() => {})
+
     return success(
       { id: mentorRequest.id, status: mentorRequest.status },
       'Demande de mentorat envoyée avec succès'
     )
+  } catch (err) {
+    return handleApiError(err)
+  }
+}
+
+// ─── PATCH: Accept/reject request, end mentorship ──
+
+const patchSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('accept-request'),
+    requestId: z.string().min(1),
+  }),
+  z.object({
+    action: z.literal('reject-request'),
+    requestId: z.string().min(1),
+  }),
+  z.object({
+    action: z.literal('end-mentorship'),
+    mentorshipId: z.string().min(1),
+  }),
+])
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const auth = await withAuth(request, { roles: ['COUNSELOR', 'ADMIN'] })
+    if (!auth || auth instanceof NextResponse) return auth
+    const { payload } = auth
+
+    const body = await request.json()
+    const parsed = patchSchema.safeParse(body)
+    if (!parsed.success) {
+      return Errors.validation(parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })))
+    }
+
+    if (parsed.data.action === 'accept-request') {
+      const { requestId } = parsed.data
+
+      const mentorshipRequest = await db.mentorshipRequest.findUnique({
+        where: { id: requestId },
+        include: {
+          mentor: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } } },
+          mentee: { select: { id: true, firstName: true, lastName: true, email: true, tenantId: true } },
+        },
+      })
+      if (!mentorshipRequest) return Errors.notFound('Demande de mentorat')
+      if (mentorshipRequest.status !== 'PENDING') {
+        return error('INVALID_STATUS', 'Cette demande a déjà été traitée', 409)
+      }
+
+      // Accept the request
+      await db.mentorshipRequest.update({
+        where: { id: requestId },
+        data: { status: 'ACCEPTED' },
+      })
+
+      // Create active mentorship
+      const mentorship = await db.mentorship.create({
+        data: {
+          mentorId: mentorshipRequest.mentorId,
+          menteeId: mentorshipRequest.menteeId,
+          status: 'ACTIVE',
+        },
+      })
+
+      const mentorName = [mentorshipRequest.mentor.user.firstName, mentorshipRequest.mentor.user.lastName].filter(Boolean).join(' ')
+      const menteeName = [mentorshipRequest.mentee.firstName, mentorshipRequest.mentee.lastName].filter(Boolean).join(' ')
+
+      // Fire-and-forget: notify the beneficiary
+      createNotification({
+        userId: mentorshipRequest.menteeId,
+        title: 'Mentor assigné',
+        content: 'Un mentor vous a été assigné',
+        type: 'SUCCESS',
+        link: '/bureau/mentorat',
+      }).catch(() => {})
+
+      // Fire-and-forget: notify the mentor
+      createNotification({
+        userId: mentorshipRequest.mentor.user.id,
+        title: 'Nouveau mentoré',
+        content: `Vous avez accepté la demande de ${menteeName || 'un bénéficiaire'}`,
+        type: 'SUCCESS',
+        link: '/bureau/mentorat',
+      }).catch(() => {})
+
+      // Fire-and-forget: email to beneficiary
+      import('@/lib/email').then(({ sendMentorAssignedEmail }) => {
+        sendMentorAssignedEmail(mentorshipRequest.mentee.email, mentorName).catch(() => {})
+      }).catch(() => {})
+
+      log.info('Mentorship request accepted', { requestId, mentorId: mentorshipRequest.mentorId, menteeId: mentorshipRequest.menteeId })
+
+      return success({ id: mentorship.id }, 'Mentorat accepté avec succès')
+    }
+
+    if (parsed.data.action === 'reject-request') {
+      const { requestId } = parsed.data
+
+      const mentorshipRequest = await db.mentorshipRequest.findUnique({
+        where: { id: requestId },
+        include: { mentee: { select: { id: true, firstName: true, lastName: true } } },
+      })
+      if (!mentorshipRequest) return Errors.notFound('Demande de mentorat')
+      if (mentorshipRequest.status !== 'PENDING') {
+        return error('INVALID_STATUS', 'Cette demande a déjà été traitée', 409)
+      }
+
+      await db.mentorshipRequest.update({
+        where: { id: requestId },
+        data: { status: 'REJECTED' },
+      })
+
+      // Fire-and-forget: notify the mentee
+      createNotification({
+        userId: mentorshipRequest.menteeId,
+        title: 'Demande de mentorat',
+        content: 'Votre demande de mentorat a été refusée',
+        type: 'WARNING',
+        link: '/bureau/mentorat',
+      }).catch(() => {})
+
+      return success(null, 'Demande refusée')
+    }
+
+    if (parsed.data.action === 'end-mentorship') {
+      const { mentorshipId } = parsed.data
+
+      const mentorship = await db.mentorship.findUnique({
+        where: { id: mentorshipId },
+        include: {
+          mentor: { include: { user: { select: { id: true, firstName: true, lastName: true } } } },
+          mentee: { select: { id: true, firstName: true, lastName: true } },
+        },
+      })
+      if (!mentorship) return Errors.notFound('Mentorat')
+      if (mentorship.status !== 'ACTIVE') {
+        return error('INVALID_STATUS', 'Ce mentorat n\'est pas actif', 409)
+      }
+
+      await db.mentorship.update({
+        where: { id: mentorshipId },
+        data: { status: 'ENDED', endedAt: new Date() },
+      })
+
+      // Fire-and-forget: notify both parties
+      const mentorName = [mentorship.mentor.user.firstName, mentorship.mentor.user.lastName].filter(Boolean).join(' ')
+      const menteeName = [mentorship.mentee.firstName, mentorship.mentee.lastName].filter(Boolean).join(' ')
+
+      createNotification({
+        userId: mentorship.menteeId,
+        title: 'Mentorat terminé',
+        content: `Votre mentorat avec ${mentorName} est terminé`,
+        type: 'INFO',
+        link: '/bureau/mentorat',
+      }).catch(() => {})
+
+      createNotification({
+        userId: mentorship.mentor.user.id,
+        title: 'Mentorat terminé',
+        content: `Votre mentorat avec ${menteeName} est terminé`,
+        type: 'INFO',
+        link: '/bureau/mentorat',
+      }).catch(() => {})
+
+      log.info('Mentorship ended', { mentorshipId })
+
+      return success(null, 'Mentorat terminé')
+    }
+
+    return Errors.validation([])
   } catch (err) {
     return handleApiError(err)
   }

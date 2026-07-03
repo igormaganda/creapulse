@@ -1,0 +1,1071 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+     4→     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→     5→import { cn } from '@/lib/utils'
+     6→     6→import {
+     7→     7→  MessageCircle,
+     8→     8→  Send,
+     9→     9→  Search,
+    10→    10→  ArrowLeft,
+    11→    11→  Check,
+    12→    12→  CheckCheck,
+    13→    13→  Paperclip,
+    14→    14→  Smile,
+    15→    15→  Mic,
+    16→    16→  Plus,
+    17→    17→  Clock,
+    18→    18→  MessageSquareOff,
+    19→    19→  MessagesSquare,
+    20→    20→} from 'lucide-react'
+    21→    21→import { toast } from 'sonner'
+    22→    22→import { authFetch } from '@/lib/auth-fetch'
+    23→    23→
+    24→    24→// ─── Types ───────────────────────────────────
+    25→    25→
+    26→    26→interface Participant {
+    27→    27→  id: string
+    28→    28→  firstName: string | null
+    29→    29→  lastName: string | null
+    30→    30→  avatarUrl: string | null
+    31→    31→  role: string
+    32→    32→}
+    33→    33→
+    34→    34→interface Conversation {
+    35→    35→  id: string
+    36→    36→  otherParticipant: Participant
+    37→    37→  lastMessage: string | null
+    38→    38→  lastMessageAt: string
+    39→    39→  unreadCount: number
+    40→    40→  createdAt: string
+    41→    41→  isTyping?: boolean
+    42→    42→}
+    43→    43→
+    44→    44→interface Message {
+    45→    45→  id: string
+    46→    46→  content: string
+    47→    47→  senderId: string
+    48→    48→  sender: Participant
+    49→    49→  isRead: boolean
+    50→    50→  readAt: string | null
+    51→    51→  createdAt: string
+    52→    52→  isOwn: boolean
+    53→    53→}
+    54→    54→
+    55→    55→type DateGroup = 'Aujourd\'hui' | 'Hier' | 'Plus ancien'
+    56→    56→
+    57→    57→// ─── Constants ──────────────────────────────
+    58→    58→
+    59→    59→const ROLE_LABELS: Record<string, string> = {
+    60→    60→  ADMIN: 'Admin',
+    61→    61→  COUNSELOR: 'Conseiller',
+    62→    62→  BENEFICIARY: 'Beneficiaire',
+    63→    63→}
+    64→    64→
+    65→    65→const AVATAR_COLORS = [
+    66→    66→  'bg-teal-500',
+    67→    67→  'bg-amber-500',
+    68→    68→  'bg-coral-500',
+    69→    69→  'bg-purple-500',
+    70→    70→  'bg-green-500',
+    71→    71→  'bg-sky-500',
+    72→    72→  'bg-rose-500',
+    73→    73→  'bg-indigo-500',
+    74→    74→]
+    75→    75→
+    76→    76→const EMOJI_LIST = [
+    77→    77→  '😊', '😂', '❤️', '👍', '🎉', '🔥', '💯', '✨',
+    78→    78→  '🙏', '💪', '👋', '🤝', '💡', '⭐', '🎯', '🚀',
+    79→    79→  '😍', '🥰', '😎', '🤩', '💬', '📌', '✅', '❌',
+    80→    80→]
+    81→    81→
+    82→    82→const MAX_CHARS = 1000
+    83→    83→
+    84→    84→// ─── Helpers ─────────────────────────────────
+    85→    85→
+    86→    86→function getInitials(participant: Participant): string {
+    87→    87→  const f = participant.firstName?.charAt(0)?.toUpperCase() || ''
+    88→    88→  const l = participant.lastName?.charAt(0)?.toUpperCase() || ''
+    89→    89→  return f + l || '?'
+    90→    90→}
+    91→    91→
+    92→    92→function getAvatarColor(id: string): string {
+    93→    93→  let hash = 0
+    94→    94→  for (let i = 0; i < id.length; i++) {
+    95→    95→    hash = id.charCodeAt(i) + ((hash << 5) - hash)
+    96→    96→  }
+    97→    97→  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
+    98→    98→}
+    99→    99→
+   100→   100→function formatRelativeTime(dateStr: string): string {
+   101→   101→  const date = new Date(dateStr)
+   102→   102→  const now = new Date()
+   103→   103→  const diffMs = now.getTime() - date.getTime()
+   104→   104→  const diffMin = Math.floor(diffMs / 60000)
+   105→   105→  const diffH = Math.floor(diffMs / 3600000)
+   106→   106→  const diffD = Math.floor(diffMs / 86400000)
+   107→   107→
+   108→   108→  if (diffMin < 1) return "A l'instant"
+   109→   109→  if (diffMin < 60) return `Il y a ${diffMin} min`
+   110→   110→  if (diffH < 24) return `Il y a ${diffH}h`
+   111→   111→  if (diffD < 7) return `Il y a ${diffD}j`
+   112→   112→  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+   113→   113→}
+   114→   114→
+   115→   115→function formatExactTime(dateStr: string): string {
+   116→   116→  return new Date(dateStr).toLocaleTimeString('fr-FR', {
+   117→   117→    hour: '2-digit',
+   118→   118→    minute: '2-digit',
+   119→   119→    second: '2-digit',
+   120→   120→  })
+   121→   121→}
+   122→   122→
+   123→   123→function formatMessageTime(dateStr: string): string {
+   124→   124→  return new Date(dateStr).toLocaleTimeString('fr-FR', {
+   125→   125→    hour: '2-digit',
+   126→   126→    minute: '2-digit',
+   127→   127→  })
+   128→   128→}
+   129→   129→
+   130→   130→function formatDateGroup(dateStr: string): string {
+   131→   131→  const date = new Date(dateStr)
+   132→   132→  const now = new Date()
+   133→   133→  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+   134→   134→  const msgDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+   135→   135→  const yesterday = new Date(today)
+   136→   136→  yesterday.setDate(yesterday.getDate() - 1)
+   137→   137→
+   138→   138→  if (msgDate.getTime() === today.getTime()) return "Aujourd'hui"
+   139→   139→  if (msgDate.getTime() === yesterday.getTime()) return 'Hier'
+   140→   140→  return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+   141→   141→}
+   142→   142→
+   143→   143→function getConvoDateGroup(dateStr: string): DateGroup {
+   144→   144→  const date = new Date(dateStr)
+   145→   145→  const now = new Date()
+   146→   146→  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+   147→   147→  const msgDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+   148→   148→  const yesterday = new Date(today)
+   149→   149→  yesterday.setDate(yesterday.getDate() - 1)
+   150→   150→
+   151→   151→  if (msgDate.getTime() === today.getTime()) return "Aujourd'hui"
+   152→   152→  if (msgDate.getTime() === yesterday.getTime()) return 'Hier'
+   153→   153→  return 'Plus ancien'
+   154→   154→}
+   155→   155→
+   156→   156→function getOnlineStatus(lastActivityAt: string): { label: string; isOnline: boolean } {
+   157→   157→  const date = new Date(lastActivityAt)
+   158→   158→  const now = new Date()
+   159→   159→  const diffMs = now.getTime() - date.getTime()
+   160→   160→  const diffMin = Math.floor(diffMs / 60000)
+   161→   161→
+   162→   162→  if (diffMin < 5) {
+   163→   163→    return { label: 'En ligne', isOnline: true }
+   164→   164→  }
+   165→   165→  if (diffMin < 60) {
+   166→   166→    return { label: `Vu il y a ${diffMin} min`, isOnline: false }
+   167→   167→  }
+   168→   168→  const diffH = Math.floor(diffMs / 3600000)
+   169→   169→  if (diffH < 24) {
+   170→   170→    return { label: `Vu il y a ${diffH}h`, isOnline: false }
+   171→   171→  }
+   172→   172→  return { label: 'Hors ligne', isOnline: false }
+   173→   173→}
+   174→   174→
+   175→   175→function truncateSmart(text: string, maxLength: number): string {
+   176→   176→  if (!text || text.length <= maxLength) return text
+   177→   177→  return text.slice(0, maxLength).trimEnd() + '...'
+   178→   178→}
+   179→   179→
+   180→   180→// ─── Typing Indicator Component ─────────────
+   181→   181→
+   182→   182→function TypingIndicator() {
+   183→   183→  return (
+   184→   184→    <div className="flex items-center gap-1 px-1">
+   185→   185→      <motion.span
+   186→   186→        className="inline-block h-1.5 w-1.5 rounded-full bg-coral-400"
+   187→   187→        animate={{ y: [0, -4, 0] }}
+   188→   188→        transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
+   189→   189→      />
+   190→   190→      <motion.span
+   191→   191→        className="inline-block h-1.5 w-1.5 rounded-full bg-coral-400"
+   192→   192→        animate={{ y: [0, -4, 0] }}
+   193→   193→        transition={{ duration: 0.6, repeat: Infinity, delay: 0.15 }}
+   194→   194→      />
+   195→   195→      <motion.span
+   196→   196→        className="inline-block h-1.5 w-1.5 rounded-full bg-coral-400"
+   197→   197→        animate={{ y: [0, -4, 0] }}
+   198→   198→        transition={{ duration: 0.6, repeat: Infinity, delay: 0.3 }}
+   199→   199→      />
+   200→   200→    </div>
+   201→   201→  )
+   202→   202→}
+   203→   203→
+   204→   204→// ─── Emoji Picker Component ─────────────────
+   205→   205→
+   206→   206→function EmojiPicker({
+   207→   207→  onSelect,
+   208→   208→  onClose,
+   209→   209→}: {
+   210→   210→  onSelect: (emoji: string) => void
+   211→   211→  onClose: () => void
+   212→   212→}) {
+   213→   213→  const ref = useRef<HTMLDivElement>(null)
+   214→   214→
+   215→   215→  useEffect(() => {
+   216→   216→    function handleClickOutside(e: MouseEvent) {
+   217→   217→      if (ref.current && !ref.current.contains(e.target as Node)) {
+   218→   218→        onClose()
+   219→   219→      }
+   220→   220→    }
+   221→   221→    document.addEventListener('mousedown', handleClickOutside)
+   222→   222→    return () => document.removeEventListener('mousedown', handleClickOutside)
+   223→   223→  }, [onClose])
+   224→   224→
+   225→   225→  return (
+   226→   226→    <motion.div
+   227→   227→      ref={ref}
+   228→   228→      initial={{ opacity: 0, y: 8, scale: 0.95 }}
+   229→   229→      animate={{ opacity: 1, y: 0, scale: 1 }}
+   230→   230→      exit={{ opacity: 0, y: 8, scale: 0.95 }}
+   231→   231→      transition={{ duration: 0.15 }}
+   232→   232→      className="absolute bottom-full right-0 mb-2 rounded-2xl border border-border bg-background p-3 shadow-xl dark:bg-card"
+   233→   233→    >
+   234→   234→      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+   235→   235→        Emoji
+   236→   236→      </p>
+   237→   237→      <div className="grid grid-cols-6 gap-1">
+   238→   238→        {EMOJI_LIST.map((emoji) => (
+   239→   239→          <button
+   240→   240→            key={emoji}
+   241→   241→            onClick={() => onSelect(emoji)}
+   242→   242→            className="flex h-9 w-9 items-center justify-center rounded-lg text-lg hover:bg-muted transition-colors active:scale-90"
+   243→   243→          >
+   244→   244→            {emoji}
+   245→   245→          </button>
+   246→   246→        ))}
+   247→   247→      </div>
+   248→   248→    </motion.div>
+   249→   249→  )
+   250→   250→}
+   251→   251→
+   252→   252→// ─── Main Component ──────────────────────────
+   253→   253→
+   254→   254→export function MessagesModule() {
+   255→   255→  const [conversations, setConversations] = useState<Conversation[]>([])
+   256→   256→  const [selectedConvId, setSelectedConvId] = useState<string | null>(null)
+   257→   257→  const [messages, setMessages] = useState<Message[]>([])
+   258→   258→  const [searchQuery, setSearchQuery] = useState('')
+   259→   259→  const [messageInput, setMessageInput] = useState('')
+   260→   260→  const [isLoadingConvos, setIsLoadingConvos] = useState(true)
+   261→   261→  const [isLoadingMessages, setIsLoadingMessages] = useState(false)
+   262→   262→  const [isSending, setIsSending] = useState(false)
+   263→   263→  const [mobileShowMessages, setMobileShowMessages] = useState(false)
+   264→   264→  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+   265→   265→  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null)
+   266→   266→
+   267→   267→  const messagesEndRef = useRef<HTMLDivElement>(null)
+   268→   268→  const textareaRef = useRef<HTMLTextAreaElement>(null)
+   269→   269→
+   270→   270→  const selectedConv = conversations.find((c) => c.id === selectedConvId)
+   271→   271→
+   272→   272→  // ─── Filter conversations by search ───────
+   273→   273→  const filteredConversations = conversations.filter((conv) => {
+   274→   274→    if (!searchQuery.trim()) return true
+   275→   275→    const name = `${conv.otherParticipant.firstName || ''} ${conv.otherParticipant.lastName || ''}`.toLowerCase()
+   276→   276→    return name.includes(searchQuery.toLowerCase())
+   277→   277→  })
+   278→   278→
+   279→   279→  // ─── Group conversations by date ──────────
+   280→   280→  const groupedConversations = useMemo(() => {
+   281→   281→    const groups: { label: DateGroup; conversations: Conversation[] }[] = []
+   282→   282→    const order: DateGroup[] = ["Aujourd'hui", 'Hier', 'Plus ancien']
+   283→   283→
+   284→   284→    filteredConversations.forEach((conv) => {
+   285→   285→      const group = getConvoDateGroup(conv.lastMessageAt)
+   286→   286→      const existing = groups.find((g) => g.label === group)
+   287→   287→      if (existing) {
+   288→   288→        existing.conversations.push(conv)
+   289→   289→      } else {
+   290→   290→        groups.push({ label: group, conversations: [conv] })
+   291→   291→      }
+   292→   292→    })
+   293→   293→
+   294→   294→    return order
+   295→   295→      .map((label) => groups.find((g) => g.label === label))
+   296→   296→      .filter(Boolean) as { label: DateGroup; conversations: Conversation[] }[]
+   297→   297→  }, [filteredConversations])
+   298→   298→
+   299→   299→  // ─── Fetch conversations ─────────────────
+   300→   300→  const fetchConversations = useCallback(async () => {
+   301→   301→    try {
+   302→   302→      setIsLoadingConvos(true)
+   303→   303→      const res = await authFetch('/api/messages')
+   304→   304→      if (!res.ok) throw new Error('Erreur de chargement')
+   305→   305→      const json = await res.json()
+   306→   306→      if (json.success) {
+   307→   307→        setConversations(json.data.conversations)
+   308→   308→      }
+   309→   309→    } catch {
+   310→   310→      toast.error('Erreur de chargement des conversations')
+   311→   311→    } finally {
+   312→   312→      setIsLoadingConvos(false)
+   313→   313→    }
+   314→   314→  }, [])
+   315→   315→
+   316→   316→  useEffect(() => {
+   317→   317→    fetchConversations()
+   318→   318→  }, [fetchConversations])
+   319→   319→
+   320→   320→  // ─── Fetch messages ───────────────────────
+   321→   321→  const fetchMessages = useCallback(async (conversationId: string) => {
+   322→   322→    try {
+   323→   323→      setIsLoadingMessages(true)
+   324→   324→      const res = await authFetch(`/api/messages/${conversationId}?limit=50`)
+   325→   325→      if (!res.ok) throw new Error('Erreur de chargement')
+   326→   326→      const json = await res.json()
+   327→   327→      if (json.success) {
+   328→   328→        setMessages(json.data.messages)
+   329→   329→      }
+   330→   330→    } catch {
+   331→   331→      toast.error('Erreur de chargement des messages')
+   332→   332→    } finally {
+   333→   333→      setIsLoadingMessages(false)
+   334→   334→    }
+   335→   335→  }, [])
+   336→   336→
+   337→   337→  useEffect(() => {
+   338→   338→    if (selectedConvId) {
+   339→   339→      fetchMessages(selectedConvId)
+   340→   340→      setMobileShowMessages(true)
+   341→   341→    }
+   342→   342→  }, [selectedConvId, fetchMessages])
+   343→   343→
+   344→   344→  // ─── Auto-scroll ──────────────────────────
+   345→   345→  useEffect(() => {
+   346→   346→    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+   347→   347→  }, [messages])
+   348→   348→
+   349→   349→  // ─── Send message ──────────────────────────
+   350→   350→  const sendMessage = async () => {
+   351→   351→    if (!messageInput.trim() || !selectedConvId || isSending) return
+   352→   352→
+   353→   353→    try {
+   354→   354→      setIsSending(true)
+   355→   355→      const res = await authFetch(`/api/messages/${selectedConvId}`, {
+   356→   356→        method: 'POST',
+   357→   357→        headers: { 'Content-Type': 'application/json' },
+   358→   358→        body: JSON.stringify({ content: messageInput.trim() }),
+   359→   359→      })
+   360→   360→
+   361→   361→      if (!res.ok) throw new Error("Erreur d'envoi")
+   362→   362→      const json = await res.json()
+   363→   363→
+   364→   364→      if (json.success) {
+   365→   365→        setMessages((prev) => [...prev, json.data.message])
+   366→   366→        setMessageInput('')
+   367→   367→        setShowEmojiPicker(false)
+   368→   368→        setConversations((prev) =>
+   369→   369→          prev.map((c) =>
+   370→   370→            c.id === selectedConvId
+   371→   371→              ? { ...c, lastMessage: messageInput.trim().slice(0, 200), lastMessageAt: new Date().toISOString() }
+   372→   372→              : c
+   373→   373→          )
+   374→   374→        )
+   375→   375→        if (textareaRef.current) {
+   376→   376→          textareaRef.current.style.height = 'auto'
+   377→   377→        }
+   378→   378→      }
+   379→   379→    } catch {
+   380→   380→      toast.error("Erreur lors de l'envoi du message")
+   381→   381→    } finally {
+   382→   382→      setIsSending(false)
+   383→   383→    }
+   384→   384→  }
+   385→   385→
+   386→   386→  // ─── Handle textarea ──────────────────────
+   387→   387→  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+   388→   388→    const val = e.target.value
+   389→   389→    if (val.length > MAX_CHARS) return
+   390→   390→    setMessageInput(val)
+   391→   391→    const ta = e.target
+   392→   392→    ta.style.height = 'auto'
+   393→   393→    ta.style.height = `${Math.min(ta.scrollHeight, 120)}px`
+   394→   394→  }
+   395→   395→
+   396→   396→  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+   397→   397→    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+   398→   398→      e.preventDefault()
+   399→   399→      sendMessage()
+   400→   400→    }
+   401→   401→  }
+   402→   402→
+   403→   403→  const handleEmojiSelect = (emoji: string) => {
+   404→   404→    const newVal = messageInput + emoji
+   405→   405→    if (newVal.length > MAX_CHARS) return
+   406→   406→    setMessageInput(newVal)
+   407→   407→    setShowEmojiPicker(false)
+   408→   408→    textareaRef.current?.focus()
+   409→   409→  }
+   410→   410→
+   411→   411→  // ─── Select conversation ──────────────────
+   412→   412→  const selectConversation = (convId: string) => {
+   413→   413→    setSelectedConvId(convId)
+   414→   414→    setConversations((prev) =>
+   415→   415→      prev.map((c) => (c.id === convId ? { ...c, unreadCount: 0 } : c))
+   416→   416→    )
+   417→   417→  }
+   418→   418→
+   419→   419→  // ─── Group messages by date ────────────────
+   420→   420→  const groupedMessages: { label: string; messages: Message[] }[] = []
+   421→   421→  messages.forEach((msg) => {
+   422→   422→    const label = formatDateGroup(msg.createdAt)
+   423→   423→    const last = groupedMessages[groupedMessages.length - 1]
+   424→   424→    if (last && last.label === label) {
+   425→   425→      last.messages.push(msg)
+   426→   426→    } else {
+   427→   427→      groupedMessages.push({ label, messages: [msg] })
+   428→   428→    }
+   429→   429→  })
+   430→   430→
+   431→   431→  // ─── Compute consecutive sender groups ─────
+   432→   432→  // For each group, determine if each msg is first/last in a consecutive run from the same sender
+   433→   433→  function getConsecutiveFlags(msgs: Message[]): { isFirstInGroup: boolean; isLastInGroup: boolean }[] {
+   434→   434→    return msgs.map((msg, i) => {
+   435→   435→      const prev = msgs[i - 1]
+   436→   436→      const next = msgs[i + 1]
+   437→   437→      const isFirstInGroup = !prev || prev.senderId !== msg.senderId || prev.isOwn !== msg.isOwn
+   438→   438→      const isLastInGroup = !next || next.senderId !== msg.senderId || next.isOwn !== msg.isOwn
+   439→   439→      return { isFirstInGroup, isLastInGroup }
+   440→   440→    })
+   441→   441→  }
+   442→   442→
+   443→   443→  const onlineStatus = selectedConv ? getOnlineStatus(selectedConv.lastMessageAt) : null
+   444→   444→
+   445→   445→  return (
+   446→   446→    <div className="flex h-full overflow-hidden rounded-2xl border border-border bg-background shadow-sm dark:border-border/50">
+   447→   447→      {/* ═══ Left Panel: Conversations List ═══ */}
+   448→   448→      <motion.div
+   449→   449→        initial={{ opacity: 0, x: -20 }}
+   450→   450→        animate={{ opacity: 1, x: 0 }}
+   451→   451→        transition={{ duration: 0.3 }}
+   452→   452→        className={cn(
+   453→   453→          'flex w-full flex-col border-r border-border bg-background',
+   454→   454→          'md:w-80 lg:w-96',
+   455→   455→          mobileShowMessages && selectedConvId ? 'hidden md:flex' : 'flex'
+   456→   456→        )}
+   457→   457→      >
+   458→   458→        {/* ── Header ── */}
+   459→   459→        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+   460→   460→          <div className="flex items-center gap-3">
+   461→   461→            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 shadow-md shadow-teal-500/20">
+   462→   462→              <MessageCircle className="h-5 w-5 text-white" />
+   463→   463→            </div>
+   464→   464→            <div>
+   465→   465→              <h2 className="text-base font-bold text-foreground">Messages</h2>
+   466→   466→              <p className="text-[11px] text-muted-foreground">
+   467→   467→                {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
+   468→   468→              </p>
+   469→   469→            </div>
+   470→   470→          </div>
+   471→   471→          <button
+   472→   472→            onClick={() => toast.info('Creation de conversation — bientot disponible')}
+   473→   473→            className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-muted/50 text-muted-foreground transition-all hover:bg-teal-50 hover:text-teal-600 hover:border-teal-200 active:scale-95 dark:hover:bg-teal-900/20 dark:hover:text-teal-400 dark:hover:border-teal-800/40"
+   474→   474→            aria-label="Nouvelle conversation"
+   475→   475→          >
+   476→   476→            <Plus className="h-4 w-4" />
+   477→   477→          </button>
+   478→   478→        </div>
+   479→   479→
+   480→   480→        {/* ── Search bar ── */}
+   481→   481→        <div className="border-b border-border px-3 py-2.5">
+   482→   482→          <div className="relative">
+   483→   483→            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   484→   484→            <input
+   485→   485→              type="text"
+   486→   486→              placeholder="Rechercher une conversation..."
+   487→   487→              value={searchQuery}
+   488→   488→              onChange={(e) => setSearchQuery(e.target.value)}
+   489→   489→              className="w-full rounded-xl border border-border bg-muted/40 py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground transition-colors focus:border-teal-400 focus:bg-background focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:bg-muted/20 dark:focus:border-teal-500/50"
+   490→   490→            />
+   491→   491→          </div>
+   492→   492→        </div>
+   493→   493→
+   494→   494→        {/* ── Conversations list ── */}
+   495→   495→        <div className="flex-1 overflow-y-auto scrollbar-thin">
+   496→   496→          {isLoadingConvos ? (
+   497→   497→            <div className="flex flex-col items-center justify-center gap-3 py-16">
+   498→   498→              <div className="h-7 w-7 animate-spin rounded-full border-2 border-teal-500 border-t-transparent" />
+   499→   499→              <p className="text-xs text-muted-foreground">Chargement...</p>
+   500→   500→            </div>
+   501→   501→          ) : filteredConversations.length === 0 ? (
+   502→   502→            /* ── Empty state: No conversations ── */
+   503→   503→            <div className="flex flex-col items-center justify-center px-6 py-16">
+   504→   504→              <motion.div
+   505→   505→                initial={{ opacity: 0, y: 10 }}
+   506→   506→                animate={{ opacity: 1, y: 0 }}
+   507→   507→                transition={{ duration: 0.5 }}
+   508→   508→                className="relative mb-5"
+   509→   509→              >
+   510→   510→                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/20 dark:to-teal-800/10">
+   511→   511→                  <MessagesSquare className="h-8 w-8 text-teal-500" />
+   512→   512→                </div>
+   513→   513→                <motion.div
+   514→   514→                  animate={{ scale: [1, 1.1, 1] }}
+   515→   515→                  transition={{ duration: 2, repeat: Infinity }}
+   516→   516→                  className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-coral-500 shadow-md"
+   517→   517→                >
+   518→   518→                  <MessageCircle className="h-3 w-3 text-white" />
+   519→   519→                </motion.div>
+   520→   520→              </motion.div>
+   521→   521→              <p className="text-sm font-semibold text-foreground">
+   522→   522→                {searchQuery ? 'Aucun resultat' : 'Aucune conversation'}
+   523→   523→              </p>
+   524→   524→              <p className="mt-1.5 max-w-[200px] text-center text-xs leading-relaxed text-muted-foreground">
+   525→   525→                {searchQuery
+   526→   526→                  ? 'Essayez un autre terme de recherche'
+   527→   527→                  : 'Commencez une nouvelle conversation pour echanger avec votre equipe'}
+   528→   528→              </p>
+   529→   529→            </div>
+   530→   530→          ) : (
+   531→   531→            <div className="py-2">
+   532→   532→              {groupedConversations.map((group) => (
+   533→   533→                <div key={group.label}>
+   534→   534→                  {/* Date section label */}
+   535→   535→                  <div className="px-4 pt-3 pb-1.5">
+   536→   536→                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+   537→   537→                      {group.label}
+   538→   538→                    </span>
+   539→   539→                  </div>
+   540→   540→                  {group.conversations.map((conv, idx) => {
+   541→   541→                    const isActive = conv.id === selectedConvId
+   542→   542→                    const initials = getInitials(conv.otherParticipant)
+   543→   543→                    const color = getAvatarColor(conv.otherParticipant.id)
+   544→   544→                    const fullName = `${conv.otherParticipant.firstName || ''} ${conv.otherParticipant.lastName || ''}`.trim() || 'Utilisateur'
+   545→   545→                    const hasUnread = conv.unreadCount > 0
+   546→   546→
+   547→   547→                    return (
+   548→   548→                      <motion.button
+   549→   549→                        key={conv.id}
+   550→   550→                        initial={{ opacity: 0, y: 6 }}
+   551→   551→                        animate={{ opacity: 1, y: 0 }}
+   552→   552→                        transition={{ duration: 0.2, delay: idx * 0.03 }}
+   553→   553→                        onClick={() => selectConversation(conv.id)}
+   554→   554→                        className={cn(
+   555→   555→                          'group relative flex w-full items-start gap-3 px-4 py-3 text-left transition-all duration-200',
+   556→   556→                          isActive
+   557→   557→                            ? 'bg-teal-50/80 dark:bg-teal-900/15'
+   558→   558→                            : 'hover:bg-muted/50 dark:hover:bg-muted/20'
+   559→   559→                        )}
+   560→   560→                      >
+   561→   561→                        {/* Left accent bar for unread */}
+   562→   562→                        {hasUnread && (
+   563→   563→                          <motion.div
+   564→   564→                            layoutId={`accent-${conv.id}`}
+   565→   565→                            className="absolute left-0 top-1/2 h-8 w-[3px] -translate-y-1/2 rounded-r-full bg-coral-500"
+   566→   566→                          />
+   567→   567→                        )}
+   568→   568→
+   569→   569→                        {/* Active indicator bar */}
+   570→   570→                        {isActive && !hasUnread && (
+   571→   571→                          <div className="absolute left-0 top-1/2 h-8 w-[3px] -translate-y-1/2 rounded-r-full bg-teal-500" />
+   572→   572→                        )}
+   573→   573→
+   574→   574→                        {/* Avatar */}
+   575→   575→                        <div className="relative shrink-0">
+   576→   576→                          <div
+   577→   577→                            className={cn(
+   578→   578→                              'flex h-11 w-11 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm transition-transform group-hover:scale-105',
+   579→   579→                              color
+   580→   580→                            )}
+   581→   581→                          >
+   582→   582→                            {initials}
+   583→   583→                          </div>
+   584→   584→                          {/* Online dot */}
+   585→   585→                          {getOnlineStatus(conv.lastMessageAt).isOnline && (
+   586→   586→                            <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5">
+   587→   587→                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+   588→   588→                              <span className="relative inline-flex h-3.5 w-3.5 rounded-full border-2 border-background bg-green-500 dark:border-background" />
+   589→   589→                            </span>
+   590→   590→                          )}
+   591→   591→                        </div>
+   592→   592→
+   593→   593→                        {/* Content */}
+   594→   594→                        <div className="min-w-0 flex-1">
+   595→   595→                          <div className="flex items-center justify-between gap-2">
+   596→   596→                            <div className="flex items-center gap-1.5 min-w-0">
+   597→   597→                              <span
+   598→   598→                                className={cn(
+   599→   599→                                  'truncate text-sm',
+   600→   600→                                  hasUnread ? 'font-bold text-foreground' : 'font-semibold text-foreground/90'
+   601→   601→                                )}
+   602→   602→                              >
+   603→   603→                                {fullName}
+   604→   604→                              </span>
+   605→   605→                              <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground dark:bg-muted/60">
+   606→   606→                                {ROLE_LABELS[conv.otherParticipant.role] || conv.otherParticipant.role}
+   607→   607→                              </span>
+   608→   608→                            </div>
+   609→   609→                            <span className={cn(
+   610→   610→                              'shrink-0 text-[10px]',
+   611→   611→                              hasUnread ? 'font-semibold text-coral-500' : 'text-muted-foreground'
+   612→   612→                            )}>
+   613→   613→                              {formatRelativeTime(conv.lastMessageAt)}
+   614→   614→                            </span>
+   615→   615→                          </div>
+   616→   616→
+   617→   617→                          <div className="mt-0.5 flex items-center justify-between gap-2">
+   618→   618→                            {conv.isTyping ? (
+   619→   619→                              <div className="flex items-center gap-2">
+   620→   620→                                <span className="text-[11px] font-medium text-coral-500">Ecrit...</span>
+   621→   621→                                <TypingIndicator />
+   622→   622→                              </div>
+   623→   623→                            ) : (
+   624→   624→                              <p className={cn(
+   625→   625→                                'flex-1 truncate text-xs leading-relaxed',
+   626→   626→                                hasUnread ? 'font-medium text-foreground/80' : 'text-muted-foreground'
+   627→   627→                              )}>
+   628→   628→                                {truncateSmart(conv.lastMessage || 'Aucun message', 42)}
+   629→   629→                              </p>
+   630→   630→                            )}
+   631→   631→                            {hasUnread && (
+   632→   632→                              <motion.span
+   633→   633→                                initial={{ scale: 0.8 }}
+   634→   634→                                animate={{ scale: 1 }}
+   635→   635→                                className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-coral-500 px-1.5 text-[10px] font-bold text-white shadow-sm"
+   636→   636→                              >
+   637→   637→                                {conv.unreadCount > 9 ? '9+' : conv.unreadCount}
+   638→   638→                              </motion.span>
+   639→   639→                            )}
+   640→   640→                          </div>
+   641→   641→                        </div>
+   642→   642→                      </motion.button>
+   643→   643→                    )
+   644→   644→                  })}
+   645→   645→                </div>
+   646→   646→              ))}
+   647→   647→            </div>
+   648→   648→          )}
+   649→   649→        </div>
+   650→   650→      </motion.div>
+   651→   651→
+   652→   652→      {/* ═══ Right Panel: Message View ═══ */}
+   653→   653→      <motion.div
+   654→   654→        initial={{ opacity: 0 }}
+   655→   655→        animate={{ opacity: 1 }}
+   656→   656→        transition={{ duration: 0.3 }}
+   657→   657→        className={cn(
+   658→   658→          'flex flex-1 flex-col bg-muted/20 dark:bg-muted/5',
+   659→   659→          !mobileShowMessages && selectedConvId ? 'hidden md:flex' : 'flex'
+   660→   660→        )}
+   661→   661→      >
+   662→   662→        {selectedConv ? (
+   663→   663→          <>
+   664→   664→            {/* ── Chat header ── */}
+   665→   665→            <div className="glass-card flex items-center gap-3 border-b border-border px-4 py-3">
+   666→   666→              {/* Mobile back button */}
+   667→   667→              <button
+   668→   668→                onClick={() => {
+   669→   669→                  setMobileShowMessages(false)
+   670→   670→                  setSelectedConvId(null)
+   671→   671→                }}
+   672→   672→                className="mr-1 flex h-9 w-9 items-center justify-center rounded-xl transition-colors hover:bg-muted md:hidden"
+   673→   673→                aria-label="Retour"
+   674→   674→              >
+   675→   675→                <ArrowLeft className="h-4 w-4 text-foreground" />
+   676→   676→              </button>
+   677→   677→
+   678→   678→              {/* Avatar */}
+   679→   679→              <div className="relative shrink-0">
+   680→   680→                <div
+   681→   681→                  className={cn(
+   682→   682→                    'flex h-11 w-11 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm',
+   683→   683→                    getAvatarColor(selectedConv.otherParticipant.id)
+   684→   684→                  )}
+   685→   685→                >
+   686→   686→                  {getInitials(selectedConv.otherParticipant)}
+   687→   687→                </div>
+   688→   688→                {/* Online dot with ping */}
+   689→   689→                {onlineStatus?.isOnline && (
+   690→   690→                  <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5">
+   691→   691→                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+   692→   692→                    <span className="relative inline-flex h-3.5 w-3.5 rounded-full border-2 border-background bg-green-500 dark:border-background" />
+   693→   693→                  </span>
+   694→   694→                )}
+   695→   695→              </div>
+   696→   696→
+   697→   697→              {/* Info */}
+   698→   698→              <div className="min-w-0 flex-1">
+   699→   699→                <p className="truncate text-sm font-bold text-foreground">
+   700→   700→                  {`${selectedConv.otherParticipant.firstName || ''} ${selectedConv.otherParticipant.lastName || ''}`.trim() || 'Utilisateur'}
+   701→   701→                </p>
+   702→   702→                <div className="flex items-center gap-1.5">
+   703→   703→                  {onlineStatus?.isOnline ? (
+   704→   704→                    <>
+   705→   705→                      <span className="flex h-2 w-2 rounded-full bg-green-500" />
+   706→   706→                      <span className="text-xs font-medium text-green-600 dark:text-green-400">
+   707→   707→                        En ligne
+   708→   708→                      </span>
+   709→   709→                    </>
+   710→   710→                  ) : (
+   711→   711→                    <>
+   712→   712→                      <Clock className="h-3 w-3 text-muted-foreground/60" />
+   713→   713→                      <span className="text-xs text-muted-foreground">
+   714→   714→                        {onlineStatus?.label || 'Hors ligne'}
+   715→   715→                      </span>
+   716→   716→                    </>
+   717→   717→                  )}
+   718→   718→                  <span className="text-muted-foreground/40">·</span>
+   719→   719→                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">
+   720→   720→                    {ROLE_LABELS[selectedConv.otherParticipant.role] || selectedConv.otherParticipant.role}
+   721→   721→                  </span>
+   722→   722→                </div>
+   723→   723→              </div>
+   724→   724→            </div>
+   725→   725→
+   726→   726→            {/* ── Messages area ── */}
+   727→   727→            <div className="scrollbar-thin flex-1 overflow-y-auto px-4 py-4">
+   728→   728→              {isLoadingMessages ? (
+   729→   729→                <div className="flex flex-col items-center justify-center gap-3 py-16">
+   730→   730→                  <div className="h-7 w-7 animate-spin rounded-full border-2 border-teal-500 border-t-transparent" />
+   731→   731→                  <p className="text-xs text-muted-foreground">Chargement des messages...</p>
+   732→   732→                </div>
+   733→   733→              ) : messages.length === 0 ? (
+   734→   734→                /* ── Empty state: No messages ── */
+   735→   735→                <div className="flex flex-col items-center justify-center py-16">
+   736→   736→                  <motion.div
+   737→   737→                    initial={{ opacity: 0, y: 10 }}
+   738→   738→                    animate={{ opacity: 1, y: 0 }}
+   739→   739→                    transition={{ duration: 0.5 }}
+   740→   740→                    className="relative mb-5"
+   741→   741→                  >
+   742→   742→                    <motion.div
+   743→   743→                      animate={{ y: [0, -6, 0] }}
+   744→   744→                      transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+   745→   745→                      className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-teal-50 to-teal-100/50 dark:from-teal-900/20 dark:to-teal-800/10"
+   746→   746→                    >
+   747→   747→                      <MessageCircle className="h-10 w-10 text-teal-500" />
+   748→   748→                    </motion.div>
+   749→   749→                    <motion.div
+   750→   750→                      initial={{ scale: 0 }}
+   751→   751→                      animate={{ scale: 1 }}
+   752→   752→                      transition={{ delay: 0.3, type: 'spring', stiffness: 200 }}
+   753→   753→                      className="absolute -right-1 -bottom-1 flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-teal-600 shadow-lg shadow-teal-500/30"
+   754→   754→                    >
+   755→   755→                      <Send className="h-4 w-4 text-white" />
+   756→   756→                    </motion.div>
+   757→   757→                  </motion.div>
+   758→   758→                  <h3 className="text-sm font-bold text-foreground">Debut de la conversation</h3>
+   759→   759→                  <p className="mt-1 max-w-[220px] text-center text-xs leading-relaxed text-muted-foreground">
+   760→   760→                    Envoyez le premier message pour demarrer l&apos;echangement
+   761→   761→                  </p>
+   762→   762→                </div>
+   763→   763→              ) : (
+   764→   764→                <div className="space-y-3">
+   765→   765→                  {groupedMessages.map((group) => {
+   766→   766→                    const flags = getConsecutiveFlags(group.messages)
+   767→   767→                    return (
+   768→   768→                      <div key={group.label}>
+   769→   769→                        {/* ── Date separator: pill with border lines ── */}
+   770→   770→                        <div className="flex items-center gap-3 py-2">
+   771→   771→                          <div className="h-px flex-1 bg-border/60 dark:bg-border/30" />
+   772→   772→                          <span className="shrink-0 rounded-full border border-border/60 bg-muted/60 px-4 py-1 text-[11px] font-semibold text-muted-foreground dark:border-border/30 dark:bg-muted/20">
+   773→   773→                            {group.label}
+   774→   774→                          </span>
+   775→   775→                          <div className="h-px flex-1 bg-border/60 dark:bg-border/30" />
+   776→   776→                        </div>
+   777→   777→
+   778→   778→                        {/* ── Messages in this group ── */}
+   779→   779→                        <div className="space-y-1">
+   780→   780→                          {group.messages.map((msg, msgIdx) => {
+   781→   781→                            const isOwn = msg.isOwn
+   782→   782→                            const { isFirstInGroup, isLastInGroup } = flags[msgIdx]
+   783→   783→                            const isHovered = hoveredMessageId === msg.id
+   784→   784→
+   785→   785→                            return (
+   786→   786→                              <motion.div
+   787→   787→                                key={msg.id}
+   788→   788→                                initial={{ opacity: 0, y: 6 }}
+   789→   789→                                animate={{ opacity: 1, y: 0 }}
+   790→   790→                                transition={{ duration: 0.2 }}
+   791→   791→                                onMouseEnter={() => setHoveredMessageId(msg.id)}
+   792→   792→                                onMouseLeave={() => setHoveredMessageId(null)}
+   793→   793→                                className={cn(
+   794→   794→                                  'flex gap-2',
+   795→   795→                                  isOwn ? 'flex-row-reverse' : 'flex-row',
+   796→   796→                                  isFirstInGroup && !isLastInGroup ? 'mt-3' : '',
+   797→   797→                                  isLastInGroup && !isFirstInGroup ? 'mb-1' : ''
+   798→   798→                                )}
+   799→   799→                              >
+   800→   800→                                {/* Avatar for received: show only for first in group */}
+   801→   801→                                {!isOwn && (
+   802→   802→                                  <div className="w-8 shrink-0">
+   803→   803→                                    {isFirstInGroup ? (
+   804→   804→                                      <div
+   805→   805→                                        className={cn(
+   806→   806→                                          'flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-bold text-white',
+   807→   807→                                          getAvatarColor(msg.senderId)
+   808→   808→                                        )}
+   809→   809→                                      >
+   810→   810→                                        {getInitials(msg.sender)}
+   811→   811→                                      </div>
+   812→   812→                                    ) : (
+   813→   813→                                      <div className="w-8" />
+   814→   814→                                    )}
+   815→   815→                                  </div>
+   816→   816→                                )}
+   817→   817→
+   818→   818→                                {/* Bubble wrapper */}
+   819→   819→                                <div className={cn('max-w-[75%] md:max-w-[60%]')}>
+   820→   820→                                  {/* Sender name: show only for first in group (received) */}
+   821→   821→                                  {!isOwn && isFirstInGroup && (
+   822→   822→                                    <p className="mb-1 px-1 text-[11px] font-semibold text-muted-foreground">
+   823→   823→                                      {msg.sender.firstName} {msg.sender.lastName}
+   824→   824→                                    </p>
+   825→   825→                                  )}
+   826→   826→
+   827→   827→                                  {/* Message bubble */}
+   828→   828→                                  <div
+   829→   829→                                    className={cn(
+   830→   830→                                      'relative rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-sm transition-shadow',
+   831→   831→                                      isOwn
+   832→   832→                                        ? cn(
+   833→   833→                                            'bg-gradient-to-br from-teal-500 to-teal-600 text-white',
+   834→   834→                                            isFirstInGroup ? 'rounded-br-lg' : 'rounded-br-lg',
+   835→   835→                                            isLastInGroup ? 'rounded-tr-lg' : 'rounded-tr-lg',
+   836→   836→                                            'hover:shadow-md hover:shadow-teal-500/10'
+   837→   837→                                          )
+   838→   838→                                        : cn(
+   839→   839→                                            'border border-border bg-white text-foreground dark:border-border/50 dark:bg-card dark:text-foreground',
+   840→   840→                                            isFirstInGroup ? 'rounded-bl-lg' : 'rounded-bl-lg',
+   841→   841→                                            isLastInGroup ? 'rounded-tl-lg' : 'rounded-tl-lg',
+   842→   842→                                            'hover:shadow-md hover:shadow-black/5 dark:hover:shadow-black/20'
+   843→   843→                                          )
+   844→   844→                                    )}
+   845→   845→                                  >
+   846→   846→                                    {/* Hover time tooltip for own messages */}
+   847→   847→                                    {isOwn && isHovered && (
+   848→   848→                                      <div className="absolute -left-1 top-1/2 -translate-x-full -translate-y-1/2 whitespace-nowrap rounded-lg bg-foreground px-2 py-1 text-[10px] text-background shadow-md">
+   849→   849→                                        {formatExactTime(msg.createdAt)}
+   850→   850→                                        <div className="absolute -right-0.5 top-1/2 -translate-y-1/2 border-4 border-transparent border-l-foreground" />
+   851→   851→                                      </div>
+   852→   852→                                    )}
+   853→   853→                                    {/* Hover time tooltip for received messages */}
+   854→   854→                                    {!isOwn && isHovered && (
+   855→   855→                                      <div className="absolute -right-1 top-1/2 -translate-x-full -translate-y-1/2 whitespace-nowrap rounded-lg bg-foreground px-2 py-1 text-[10px] text-background shadow-md">
+   856→   856→                                        {formatExactTime(msg.createdAt)}
+   857→   857→                                        <div className="absolute -left-0.5 top-1/2 -translate-y-1/2 border-4 border-transparent border-r-foreground" />
+   858→   858→                                      </div>
+   859→   859→                                    )}
+   860→   860→                                    {msg.content}
+   861→   861→                                  </div>
+   862→   862→
+   863→   863→                                  {/* Time + read receipt */}
+   864→   864→                                  <div
+   865→   865→                                    className={cn(
+   866→   866→                                      'mt-0.5 flex items-center gap-1 px-1',
+   867→   867→                                      isOwn ? 'justify-end' : 'justify-start'
+   868→   868→                                    )}
+   869→   869→                                  >
+   870→   870→                                    <AnimatePresence>
+   871→   871→                                      {(isLastInGroup || isHovered) && (
+   872→   872→                                        <motion.span
+   873→   873→                                          initial={{ opacity: 0 }}
+   874→   874→                                          animate={{ opacity: 1 }}
+   875→   875→                                          exit={{ opacity: 0 }}
+   876→   876→                                          className="text-[10px] text-muted-foreground/60"
+   877→   877→                                        >
+   878→   878→                                          {formatMessageTime(msg.createdAt)}
+   879→   879→                                        </motion.span>
+   880→   880→                                      )}
+   881→   881→                                    </AnimatePresence>
+   882→   882→                                    {isOwn && (
+   883→   883→                                      msg.isRead ? (
+   884→   884→                                        <CheckCheck className="h-3.5 w-3.5 text-teal-500" />
+   885→   885→                                      ) : (
+   886→   886→                                        <Check className="h-3.5 w-3.5 text-muted-foreground/40" />
+   887→   887→                                      )
+   888→   888→                                    )}
+   889→   889→                                  </div>
+   890→   890→                                </div>
+   891→   891→                              </motion.div>
+   892→   892→                            )
+   893→   893→                          })}
+   894→   894→                        </div>
+   895→   895→                      </div>
+   896→   896→                    )
+   897→   897→                  })}
+   898→   898→                </div>
+   899→   899→              )}
+   900→   900→              <div ref={messagesEndRef} />
+   901→   901→            </div>
+   902→   902→
+   903→   903→            {/* ── Input area ── */}
+   904→   904→            <div className="border-t border-border bg-background px-3 pb-3 pt-2 dark:bg-card/50">
+   905→   905→              <div className="relative flex items-end gap-2">
+   906→   906→                {/* Emoji picker */}
+   907→   907→                <AnimatePresence>
+   908→   908→                  {showEmojiPicker && (
+   909→   909→                    <EmojiPicker
+   910→   910→                      onSelect={handleEmojiSelect}
+   911→   911→                      onClose={() => setShowEmojiPicker(false)}
+   912→   912→                    />
+   913→   913→                  )}
+   914→   914→                </AnimatePresence>
+   915→   915→
+   916→   916→                {/* Attachment button */}
+   917→   917→                <button
+   918→   918→                  onClick={() => toast.info('Piece jointe — bientot disponible')}
+   919→   919→                  className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-muted hover:text-foreground active:scale-95"
+   920→   920→                  aria-label="Joindre un fichier"
+   921→   921→                >
+   922→   922→                  <Paperclip className="h-4.5 w-4.5" />
+   923→   923→                </button>
+   924→   924→
+   925→   925→                {/* Text input */}
+   926→   926→                <div className="flex-1">
+   927→   927→                  <textarea
+   928→   928→                    ref={textareaRef}
+   929→   929→                    value={messageInput}
+   930→   930→                    onChange={handleTextareaChange}
+   931→   931→                    onKeyDown={handleKeyDown}
+   932→   932→                    placeholder="Ecrire un message..."
+   933→   933→                    rows={1}
+   934→   934→                    className="w-full resize-none rounded-2xl border border-border bg-muted/40 px-4 py-2.5 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground transition-all focus:border-teal-400 focus:bg-background focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:bg-muted/20 dark:focus:border-teal-500/50"
+   935→   935→                    style={{ maxHeight: '120px' }}
+   936→   936→                  />
+   937→   937→                </div>
+   938→   938→
+   939→   939→                {/* Emoji button */}
+   940→   940→                <button
+   941→   941→                  onClick={() => setShowEmojiPicker((prev) => !prev)}
+   942→   942→                  className={cn(
+   943→   943→                    'mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all active:scale-95',
+   944→   944→                    showEmojiPicker
+   945→   945→                      ? 'bg-coral-50 text-coral-500 dark:bg-coral-900/20 dark:text-coral-400'
+   946→   946→                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+   947→   947→                  )}
+   948→   948→                  aria-label="Emoji"
+   949→   949→                >
+   950→   950→                  <Smile className="h-4.5 w-4.5" />
+   951→   951→                </button>
+   952→   952→
+   953→   953→                {/* Voice message button */}
+   954→   954→                <button
+   955→   955→                  onClick={() => toast.info('Message vocal — bientot disponible')}
+   956→   956→                  className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-muted hover:text-foreground active:scale-95"
+   957→   957→                  aria-label="Message vocal"
+   958→   958→                >
+   959→   959→                  <Mic className="h-4.5 w-4.5" />
+   960→   960→                </button>
+   961→   961→
+   962→   962→                {/* Send button */}
+   963→   963→                <button
+   964→   964→                  onClick={sendMessage}
+   965→   965→                  disabled={!messageInput.trim() || isSending}
+   966→   966→                  className={cn(
+   967→   967→                    'mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all duration-200',
+   968→   968→                    messageInput.trim() && !isSending
+   969→   969→                      ? 'bg-gradient-to-br from-teal-500 to-teal-600 text-white shadow-lg shadow-teal-500/25 hover:shadow-xl hover:shadow-teal-500/35 active:scale-95 hover:scale-105'
+   970→   970→                      : 'cursor-not-allowed bg-muted text-muted-foreground/40'
+   971→   971→                  )}
+   972→   972→                  aria-label="Envoyer"
+   973→   973→                >
+   974→   974→                  {isSending ? (
+   975→   975→                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+   976→   976→                  ) : (
+   977→   977→                    <Send className="h-4 w-4" />
+   978→   978→                  )}
+   979→   979→                </button>
+   980→   980→              </div>
+   981→   981→
+   982→   982→              {/* Character counter + hint */}
+   983→   983→              <div className="mt-1.5 flex items-center justify-between px-1">
+   984→   984→                <p className="text-[10px] text-muted-foreground/50">
+   985→   985→                  ⌘+Entrée pour envoyer
+   986→   986→                </p>
+   987→   987→                <p className={cn(
+   988→   988→                  'text-[10px] tabular-nums transition-colors',
+   989→   989→                  messageInput.length > MAX_CHARS * 0.9
+   990→   990→                    ? 'font-semibold text-coral-500'
+   991→   991→                    : 'text-muted-foreground/40'
+   992→   992→                )}>
+   993→   993→                  {messageInput.length}/{MAX_CHARS}
+   994→   994→                </p>
+   995→   995→              </div>
+   996→   996→            </div>
+   997→   997→          </>
+   998→   998→        ) : (
+   999→   999→          /* ═══ Empty state: No conversation selected ═══ */
+  1000→  1000→          <div className="flex flex-1 flex-col items-center justify-center p-6">
+  1001→  1001→            <AnimatePresence mode="wait">
+  1002→  1002→              <motion.div
+  1003→  1003→                initial={{ opacity: 0, scale: 0.9 }}
+  1004→  1004→                animate={{ opacity: 1, scale: 1 }}
+  1005→  1005→                exit={{ opacity: 0, scale: 0.9 }}
+  1006→  1006→                transition={{ duration: 0.4 }}
+  1007→  1007→                className="flex flex-col items-center"
+  1008→  1008→              >
+  1009→  1009→                {/* Animated empty state icon */}
+  1010→  1010→                <motion.div
+  1011→  1011→                  animate={{ y: [0, -8, 0] }}
+  1012→  1012→                  transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+  1013→  1013→                  className="relative mb-6"
+  1014→  1014→                >
+  1015→  1015→                  <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-teal-50 to-teal-100/50 dark:from-teal-900/20 dark:to-teal-800/10">
+  1016→  1016→                    <MessageCircle className="h-12 w-12 text-teal-500" />
+  1017→  1017→                  </div>
+  1018→  1018→
+  1019→  1019→                  {/* Floating badge */}
+  1020→  1020→                  <motion.div
+  1021→  1021→                    animate={{ scale: [1, 1.15, 1], rotate: [0, 5, -5, 0] }}
+  1022→  1022→                    transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+  1023→  1023→                    className="absolute -right-2 -top-2 flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-coral-500 to-coral-600 shadow-lg shadow-coral-500/30"
+  1024→  1024→                  >
+  1025→  1025→                    <MessageSquareOff className="h-4 w-4 text-white" />
+  1026→  1026→                  </motion.div>
+  1027→  1027→
+  1028→  1028→                  {/* Floating send icon */}
+  1029→  1029→                  <motion.div
+  1030→  1030→                    animate={{ y: [0, -4, 0], x: [0, 2, 0] }}
+  1031→  1031→                    transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+  1032→  1032→                    className="absolute -bottom-1 -left-1 flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-teal-600 shadow-lg shadow-teal-500/30"
+  1033→  1033→                  >
+  1034→  1034→                    <Send className="h-3.5 w-3.5 text-white" />
+  1035→  1035→                  </motion.div>
+  1036→  1036→                </motion.div>
+  1037→  1037→
+  1038→  1038→                <h3 className="text-lg font-bold text-foreground">
+  1039→  1039→                  Selectionnez une conversation
+  1040→  1040→                </h3>
+  1041→  1041→                <p className="mt-2 max-w-[280px] text-center text-sm leading-relaxed text-muted-foreground">
+  1042→  1042→                  Choisissez une conversation dans la liste pour commencer a echanger avec vos collaborateurs
+  1043→  1043→                </p>
+  1044→  1044→
+  1045→  1045→                {/* Decorative dots */}
+  1046→  1046→                <div className="mt-8 flex items-center gap-2">
+  1047→  1047→                  <motion.div
+  1048→  1048→                    animate={{ opacity: [0.3, 1, 0.3] }}
+  1049→  1049→                    transition={{ duration: 2, repeat: Infinity, delay: 0 }}
+  1050→  1050→                    className="h-1.5 w-1.5 rounded-full bg-teal-400"
+  1051→  1051→                  />
+  1052→  1052→                  <motion.div
+  1053→  1053→                    animate={{ opacity: [0.3, 1, 0.3] }}
+  1054→  1054→                    transition={{ duration: 2, repeat: Infinity, delay: 0.3 }}
+  1055→  1055→                    className="h-1.5 w-1.5 rounded-full bg-teal-400"
+  1056→  1056→                  />
+  1057→  1057→                  <motion.div
+  1058→  1058→                    animate={{ opacity: [0.3, 1, 0.3] }}
+  1059→  1059→                    transition={{ duration: 2, repeat: Infinity, delay: 0.6 }}
+  1060→  1060→                    className="h-1.5 w-1.5 rounded-full bg-teal-400"
+  1061→  1061→                  />
+  1062→  1062→                </div>
+  1063→  1063→              </motion.div>
+  1064→  1064→            </AnimatePresence>
+  1065→  1065→          </div>
+  1066→  1066→        )}
+  1067→  1067→      </motion.div>
+  1068→  1068→    </div>
+  1069→  1069→  )
+  1070→  1070→}
+  1071→  1071→

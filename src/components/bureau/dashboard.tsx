@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useBureauStore, type BureauSection } from './bureau-store'
 import { cn } from '@/lib/utils'
@@ -180,24 +180,23 @@ function formatRelativeTime(iso: string | null): string {
 export function Dashboard() {
   const { userName, setSection, setModule } = useBureauStore()
   const [activityExpanded, setActivityExpanded] = useState(false)
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<number>(Date.now())
 
-  /* ─── Scan all modules from localStorage (sync, once on mount) ─── */
-  const scan: FullScanResult = useMemo(() => {
-    try {
-      return scanAllModules()
-    } catch (err) {
-      console.warn('[Dashboard] module-scanner failed, using empty scan', err)
-      return {
-        modules: [],
-        sections: [],
-        totalModules: 38,
-        startedModules: 0,
-        completedModules: 0,
-        globalProgress: 0,
-        lastActivity: null,
-        recommendedNext: [],
-      }
+  /* ─── Scan all modules from localStorage (sync, refresh every 60s) ─── */
+  const [scan, setScan] = useState<FullScanResult>(() => {
+    try { return scanAllModules() } catch {
+      return { modules: [], sections: [], totalModules: 38, startedModules: 0, completedModules: 0, globalProgress: 0, lastActivity: null, recommendedNext: [] }
     }
+  })
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      try {
+        setScan(scanAllModules())
+        setLastRefreshedAt(Date.now())
+      } catch { /* ignore */ }
+    }, 60000)
+    return () => clearInterval(id)
   }, [])
 
   /* ─── Derived data ─── */
@@ -435,6 +434,9 @@ export function Dashboard() {
                 </h1>
                 <p className="mt-1 text-sm text-white/80 md:text-base">
                   {bannerMessage}
+                </p>
+                <p className="mt-1 text-xs text-white/50">
+                  MAJ : il y a {Math.max(0, Math.floor((Date.now() - lastRefreshedAt) / 1000))}s
                 </p>
               </div>
               {firstRecommended && (

@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { success, Errors, handleApiError } from '@/lib/api-response'
 import { withAuth } from '@/lib/api-auth'
+import { createNotification } from '@/lib/notifications'
 
 // ─── Validation schemas ────────────────────
 
@@ -127,6 +128,17 @@ export async function PATCH(request: NextRequest) {
       where: { id: milestoneId },
       data: updateData,
     })
+
+    // Fire-and-forget: notify on milestone completion
+    if (updated.status === 'COMPLETED') {
+      createNotification({
+        userId: payload.userId,
+        title: 'Jalon atteint',
+        content: `Jalon atteint : ${updated.label || 'Jalon PAA'}`,
+        type: 'MILESTONE',
+        link: '/bureau/paa',
+      }).catch(() => {})
+    }
 
     return success(updated, 'Jalon mis à jour')
   } catch (err) {

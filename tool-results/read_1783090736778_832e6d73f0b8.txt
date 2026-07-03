@@ -1,0 +1,685 @@
+  2001→              Ajouter
+  2002→            </Button>
+  2003→            <Button variant="ghost" size="sm" onClick={() => { setShowForm(false); resetForm() }}>
+  2004→              Annuler
+  2005→            </Button>
+  2006→          </div>
+  2007→        </div>
+  2008→      )}
+  2009→    </div>
+  2010→  )
+  2011→}
+  2012→
+  2013→// ─── Co-gérants List ──────────────────────────
+  2014→
+  2015→function CogerantsList({ value, onChange }: { value: Cogerant[]; onChange: (v: Cogerant[]) => void }) {
+  2016→  const [showForm, setShowForm] = useState(false)
+  2017→  const [form, setForm] = useState({ nom: '', prenom: '', fonction: '', email: '', telephone: '' })
+  2018→
+  2019→  const resetForm = () => setForm({ nom: '', prenom: '', fonction: '', email: '', telephone: '' })
+  2020→
+  2021→  const add = () => {
+  2022→    if (!form.nom.trim() || !form.prenom.trim()) return
+  2023→    onChange([...value, {
+  2024→      id: genId(),
+  2025→      nom: form.nom.trim(),
+  2026→      prenom: form.prenom.trim(),
+  2027→      fonction: form.fonction.trim(),
+  2028→      email: form.email.trim(),
+  2029→      telephone: form.telephone.trim(),
+  2030→    }])
+  2031→    resetForm()
+  2032→    setShowForm(false)
+  2033→  }
+  2034→
+  2035→  const remove = (id: string) => onChange(value.filter((c) => c.id !== id))
+  2036→  const update = (id: string, field: keyof Cogerant, val: string) => {
+  2037→    onChange(value.map((c) => (c.id === id ? { ...c, [field]: val } : c)))
+  2038→  }
+  2039→
+  2040→  return (
+  2041→    <div className="space-y-4">
+  2042→      {/* Info banner when no co-gérants */}
+  2043→      {value.length === 0 && !showForm && (
+  2044→        <div className="rounded-lg border bg-muted/30 p-4 text-center space-y-2">
+  2045→          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FF6B35]/10 mx-auto">
+  2046→            <UserCheck className="h-5 w-5 text-[#FF6B35]" />
+  2047→          </div>
+  2048→          <p className="text-sm text-muted-foreground">
+  2049→            Ajoutez les co-gérants de votre entreprise pour définir leurs rôles et responsabilités.
+  2050→          </p>
+  2051→        </div>
+  2052→      )}
+  2053→
+  2054→      {/* Co-gérants list */}
+  2055→      {value.length > 0 && (
+  2056→        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+  2057→          {value.map((cog, idx) => (
+  2058→            <div key={cog.id} className="rounded-lg border p-4 space-y-3 group">
+  2059→              <div className="flex items-start justify-between gap-2">
+  2060→                <div className="flex items-center gap-2">
+  2061→                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FF6B35]/10 text-[#FF6B35] text-sm font-bold">
+  2062→                    {idx + 1}
+  2063→                  </div>
+  2064→                  <div className="flex-1 min-w-0">
+  2065→                    <div className="flex items-center gap-1.5">
+  2066→                      <Input
+  2067→                        value={cog.prenom}
+  2068→                        onChange={(e) => update(cog.id, 'prenom', e.target.value)}
+  2069→                        className="h-7 text-sm font-semibold border-0 shadow-none focus-visible:ring-0 p-0 w-24"
+  2070→                        placeholder="Prénom..."
+  2071→                      />
+  2072→                      <Input
+  2073→                        value={cog.nom}
+  2074→                        onChange={(e) => update(cog.id, 'nom', e.target.value)}
+  2075→                        className="h-7 text-sm font-semibold border-0 shadow-none focus-visible:ring-0 p-0 w-32"
+  2076→                        placeholder="Nom..."
+  2077→                      />
+  2078→                    </div>
+  2079→                    <Input
+  2080→                      value={cog.fonction}
+  2081→                      onChange={(e) => update(cog.id, 'fonction', e.target.value)}
+  2082→                      className="h-6 text-xs text-muted-foreground border-0 shadow-none focus-visible:ring-0 p-0 mt-0.5"
+  2083→                      placeholder="Fonction (ex: Co-gérant, Directeur technique...)"
+  2084→                    />
+  2085→                  </div>
+  2086→                </div>
+  2087→                <Button
+  2088→                  variant="ghost"
+  2089→                  size="sm"
+  2090→                  className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 shrink-0"
+  2091→                  onClick={() => remove(cog.id)}
+  2092→                >
+  2093→                  <Trash2 className="h-3.5 w-3.5" />
+  2094→                </Button>
+  2095→              </div>
+  2096→              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+  2097→                <div>
+  2098→                  <Label className="text-[10px] text-muted-foreground">Email</Label>
+  2099→                  <Input
+  2100→                    type="email"
+  2101→                    value={cog.email}
+  2102→                    onChange={(e) => update(cog.id, 'email', e.target.value)}
+  2103→                    className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0"
+  2104→                    placeholder="email@exemple.com"
+  2105→                  />
+  2106→                </div>
+  2107→                <div>
+  2108→                  <Label className="text-[10px] text-muted-foreground">Téléphone</Label>
+  2109→                  <Input
+  2110→                    type="tel"
+  2111→                    value={cog.telephone}
+  2112→                    onChange={(e) => update(cog.id, 'telephone', e.target.value)}
+  2113→                    className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0"
+  2114→                    placeholder="06 00 00 00 00"
+  2115→                  />
+  2116→                </div>
+  2117→              </div>
+  2118→            </div>
+  2119→          ))}
+  2120→        </div>
+  2121→      )}
+  2122→
+  2123→      {/* Add co-gérant button / form */}
+  2124→      {!showForm ? (
+  2125→        <Button variant="outline" size="sm" className="gap-1.5 w-full border-dashed" onClick={() => setShowForm(true)}>
+  2126→          <Plus className="h-3.5 w-3.5" />
+  2127→          Ajouter un co-gérant
+  2128→        </Button>
+  2129→      ) : (
+  2130→        <div className="rounded-lg border border-[#FF6B35]/30 bg-[#FF6B35]/5 p-4 space-y-3">
+  2131→          <p className="text-sm font-semibold text-foreground">Nouveau co-gérant</p>
+  2132→          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+  2133→            <div>
+  2134→              <Label className="text-xs">Prénom *</Label>
+  2135→              <Input
+  2136→                value={form.prenom}
+  2137→                onChange={(e) => setForm(f => ({ ...f, prenom: e.target.value }))}
+  2138→                placeholder="Prénom..."
+  2139→                className="h-9 text-sm"
+  2140→                autoFocus
+  2141→              />
+  2142→            </div>
+  2143→            <div>
+  2144→              <Label className="text-xs">Nom *</Label>
+  2145→              <Input
+  2146→                value={form.nom}
+  2147→                onChange={(e) => setForm(f => ({ ...f, nom: e.target.value }))}
+  2148→                placeholder="Nom..."
+  2149→                className="h-9 text-sm"
+  2150→              />
+  2151→            </div>
+  2152→            <div>
+  2153→              <Label className="text-xs">Fonction</Label>
+  2154→              <Input
+  2155→                value={form.fonction}
+  2156→                onChange={(e) => setForm(f => ({ ...f, fonction: e.target.value }))}
+  2157→                placeholder="Ex: Co-gérant, Directeur..."
+  2158→                className="h-9 text-sm"
+  2159→              />
+  2160→            </div>
+  2161→            <div>
+  2162→              <Label className="text-xs">Email</Label>
+  2163→              <Input
+  2164→                type="email"
+  2165→                value={form.email}
+  2166→                onChange={(e) => setForm(f => ({ ...f, email: e.target.value }))}
+  2167→                placeholder="email@exemple.com"
+  2168→                className="h-9 text-sm"
+  2169→              />
+  2170→            </div>
+  2171→            <div className="md:col-span-2">
+  2172→              <Label className="text-xs">Téléphone</Label>
+  2173→              <Input
+  2174→                type="tel"
+  2175→                value={form.telephone}
+  2176→                onChange={(e) => setForm(f => ({ ...f, telephone: e.target.value }))}
+  2177→                placeholder="06 00 00 00 00"
+  2178→                className="h-9 text-sm"
+  2179→              />
+  2180→            </div>
+  2181→          </div>
+  2182→          <div className="flex items-center gap-2">
+  2183→            <Button size="sm" className="bg-[#FF6B35] hover:bg-[#FF6B35]/90 text-white" onClick={add} disabled={!form.nom.trim() || !form.prenom.trim()}>
+  2184→              <Plus className="h-3.5 w-3.5 mr-1" />
+  2185→              Ajouter
+  2186→            </Button>
+  2187→            <Button variant="ghost" size="sm" onClick={() => { setShowForm(false); resetForm() }}>
+  2188→              Annuler
+  2189→            </Button>
+  2190→          </div>
+  2191→        </div>
+  2192→      )}
+  2193→    </div>
+  2194→  )
+  2195→}
+  2196→
+  2197→// ─── Financing Table ──────────────────────────
+  2198→
+  2199→function FinancingTable({ value, onChange }: { value: FinancingRow[]; onChange: (v: FinancingRow[]) => void }) {
+  2200→  const [newSource, setNewSource] = useState('')
+  2201→  const [newMontant, setNewMontant] = useState('')
+  2202→
+  2203→  const addRow = () => {
+  2204→    if (!newSource.trim() || !newMontant) return
+  2205→    const montant = parseFloat(newMontant)
+  2206→    if (isNaN(montant)) return
+  2207→    onChange([...value, { id: genId(), source: newSource.trim(), montant }])
+  2208→    setNewSource('')
+  2209→    setNewMontant('')
+  2210→  }
+  2211→
+  2212→  const removeRow = (id: string) => onChange(value.filter((r) => r.id !== id))
+  2213→  const updateRow = (id: string, field: 'source' | 'montant', val: string | number) => {
+  2214→    onChange(value.map((r) => (r.id === id ? { ...r, [field]: val } : r)))
+  2215→  }
+  2216→
+  2217→  const total = value.reduce((s, r) => s + r.montant, 0)
+  2218→
+  2219→  return (
+  2220→    <div className="space-y-3">
+  2221→      <div className="rounded-lg border overflow-hidden">
+  2222→        <div className="overflow-x-auto">
+  2223→        <table className="w-full text-sm" aria-label="Tableau des sources de financement">
+  2224→          <thead>
+  2225→            <tr className="bg-muted/50 border-b">
+  2226→              <th scope="col" className="text-left py-2 px-3 font-medium">Source de financement</th>
+  2227→              <th scope="col" className="text-right py-2 px-3 font-medium w-36">Montant (€)</th>
+  2228→              <th scope="col" className="w-10"></th>
+  2229→            </tr>
+  2230→          </thead>
+  2231→          <tbody>
+  2232→            {value.map((row) => (
+  2233→              <tr key={row.id} className="border-b last:border-0 group">
+  2234→                <td className="py-2 px-3">
+  2235→                  <Input
+  2236→                    value={row.source}
+  2237→                    onChange={(e) => updateRow(row.id, 'source', e.target.value)}
+  2238→                    className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0"
+  2239→                    placeholder="Ex: Apport personnel..."
+  2240→                  />
+  2241→                </td>
+  2242→                <td className="py-2 px-3">
+  2243→                  <div className="relative">
+  2244→                    <Input
+  2245→                      type="number"
+  2246→                      value={row.montant || ''}
+  2247→                      onChange={(e) => updateRow(row.id, 'montant', parseFloat(e.target.value) || 0)}
+  2248→                      className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0 text-right pr-7"
+  2249→                      placeholder="0"
+  2250→                    />
+  2251→                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+  2252→                  </div>
+  2253→                </td>
+  2254→                <td className="py-2 px-1">
+  2255→                  <Button
+  2256→                    variant="ghost"
+  2257→                    size="sm"
+  2258→                    className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500"
+  2259→                    onClick={() => removeRow(row.id)}
+  2260→                  >
+  2261→                    <Trash2 className="h-3.5 w-3.5" />
+  2262→                  </Button>
+  2263→                </td>
+  2264→              </tr>
+  2265→            ))}
+  2266→          </tbody>
+  2267→          {value.length > 0 && (
+  2268→            <tfoot>
+  2269→              <tr className="bg-muted/50 font-semibold">
+  2270→                <td className="py-2 px-3">Total</td>
+  2271→                <td className="py-2 px-3 text-right">{formatCurrency(total)}</td>
+  2272→                <td></td>
+  2273→              </tr>
+  2274→            </tfoot>
+  2275→          )}
+  2276→        </table>
+  2277→        </div>
+  2278→      </div>
+  2279→      <div className="flex items-center gap-2">
+  2280→        <Input
+  2281→          placeholder="Source..."
+  2282→          value={newSource}
+  2283→          onChange={(e) => setNewSource(e.target.value)}
+  2284→          className="flex-1 h-8 text-sm"
+  2285→          onKeyDown={(e) => e.key === 'Enter' && addRow()}
+  2286→        />
+  2287→        <div className="relative w-28">
+  2288→          <Input
+  2289→            type="number"
+  2290→            placeholder="0"
+  2291→            value={newMontant}
+  2292→            onChange={(e) => setNewMontant(e.target.value)}
+  2293→            className="pr-7 h-8 text-sm"
+  2294→            onKeyDown={(e) => e.key === 'Enter' && addRow()}
+  2295→          />
+  2296→          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+  2297→        </div>
+  2298→        <Button variant="outline" size="sm" className="h-8 w-8 p-0 shrink-0" onClick={addRow} disabled={!newSource.trim() || !newMontant}>
+  2299→          <Plus className="h-3.5 w-3.5" />
+  2300→        </Button>
+  2301→      </div>
+  2302→    </div>
+  2303→  )
+  2304→}
+  2305→
+  2306→// ─── Result Table (3-year P&L) ───────────────
+  2307→
+  2308→function ResultTable({ value, onChange }: {
+  2309→  value: Record<string, Record<string, number>>
+  2310→  onChange: (v: Record<string, Record<string, number>>) => void
+  2311→}) {
+  2312→  const years = ['year1', 'year2', 'year3']
+  2313→  const labels: Record<string, string> = { year1: 'Année 1', year2: 'Année 2', year3: 'Année 3' }
+  2314→  const fields = [
+  2315→    { key: 'ca', label: 'Chiffre d\'affaires' },
+  2316→    { key: 'charges', label: 'Charges totales' },
+  2317→    { key: 'resultat', label: 'Résultat net' },
+  2318→  ]
+  2319→
+  2320→  const update = (year: string, field: string, val: number) => {
+  2321→    onChange({
+  2322→      ...value,
+  2323→      [year]: { ...value[year], [field]: val },
+  2324→    })
+  2325→  }
+  2326→
+  2327→  return (
+  2328→    <div className="rounded-lg border overflow-x-auto">
+  2329→      <table className="w-full text-sm" aria-label="Compte de résultat prévisionnel">
+  2330→        <thead>
+  2331→          <tr className="bg-muted/50 border-b">
+  2332→            <th scope="col" className="text-left py-2 px-3 font-medium min-w-[140px]"></th>
+  2333→            {years.map((y) => (
+  2334→              <th key={y} scope="col" className="text-right py-2 px-3 font-medium min-w-[120px]">{labels[y]}</th>
+  2335→            ))}
+  2336→          </tr>
+  2337→        </thead>
+  2338→        <tbody>
+  2339→          {fields.map((f) => (
+  2340→            <tr key={f.key} className={cn('border-b last:border-0', f.key === 'resultat' && 'font-semibold bg-muted/30')}>
+  2341→              <td className="py-2 px-3">{f.label}</td>
+  2342→              {years.map((y) => (
+  2343→                <td key={y} className="py-2 px-3">
+  2344→                  <div className="relative">
+  2345→                    <Input
+  2346→                      type="number"
+  2347→                      value={value[y]?.[f.key] || ''}
+  2348→                      onChange={(e) => update(y, f.key, parseFloat(e.target.value) || 0)}
+  2349→                      className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0 text-right pr-7"
+  2350→                      placeholder="0"
+  2351→                    />
+  2352→                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+  2353→                  </div>
+  2354→                </td>
+  2355→              ))}
+  2356→            </tr>
+  2357→          ))}
+  2358→        </tbody>
+  2359→      </table>
+  2360→    </div>
+  2361→  )
+  2362→}
+  2363→
+  2364→// ─── Treasury Table (12 months) ──────────────
+  2365→
+  2366→function TreasuryTable({ value, onChange }: { value: TreasuryMonth[]; onChange: (v: TreasuryMonth[]) => void }) {
+  2367→  const updateMonth = (idx: number, field: 'encaissements' | 'decaissements', val: number) => {
+  2368→    const newVal = [...value]
+  2369→    newVal[idx] = { ...newVal[idx], [field]: val }
+  2370→    // Recalculate solde
+  2371→    newVal[idx].solde = (newVal[idx].encaissements - newVal[idx].decaissements) + (idx > 0 ? newVal[idx - 1].solde : 0)
+  2372→    // Recalculate subsequent soldes
+  2373→    for (let i = idx + 1; i < newVal.length; i++) {
+  2374→      newVal[i].solde = (newVal[i].encaissements - newVal[i].decaissements) + newVal[i - 1].solde
+  2375→    }
+  2376→    onChange(newVal)
+  2377→  }
+  2378→
+  2379→  return (
+  2380→    <div className="rounded-lg border overflow-x-auto">
+  2381→      <table className="w-full text-sm" aria-label="Plan de trésorerie mensuel">
+  2382→        <thead>
+  2383→          <tr className="bg-muted/50 border-b">
+  2384→            <th scope="col" className="text-left py-2 px-3 font-medium sticky left-0 bg-muted/50 z-10 min-w-[50px]">Mois</th>
+  2385→            <th scope="col" className="text-right py-2 px-3 font-medium min-w-[110px]">Encaissements</th>
+  2386→            <th scope="col" className="text-right py-2 px-3 font-medium min-w-[110px]">Décaissements</th>
+  2387→            <th scope="col" className="text-right py-2 px-3 font-medium min-w-[110px]">Solde cumulé</th>
+  2388→          </tr>
+  2389→        </thead>
+  2390→        <tbody>
+  2391→          {value.map((m, idx) => (
+  2392→            <tr key={m.month} className={cn('border-b last:border-0', m.solde < 0 && 'bg-red-50/50 dark:bg-red-900/5')}>
+  2393→              <td className="py-1.5 px-3 font-medium sticky left-0 bg-background z-10">{m.month}</td>
+  2394→              <td className="py-1.5 px-3">
+  2395→                <div className="relative">
+  2396→                  <Input
+  2397→                    type="number"
+  2398→                    value={m.encaissements || ''}
+  2399→                    onChange={(e) => updateMonth(idx, 'encaissements', parseFloat(e.target.value) || 0)}
+  2400→                    className="h-7 text-sm border-0 shadow-none focus-visible:ring-0 p-0 text-right pr-7"
+  2401→                    placeholder="0"
+  2402→                  />
+  2403→                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">€</span>
+  2404→                </div>
+  2405→              </td>
+  2406→              <td className="py-1.5 px-3">
+  2407→                <div className="relative">
+  2408→                  <Input
+  2409→                    type="number"
+  2410→                    value={m.decaissements || ''}
+  2411→                    onChange={(e) => updateMonth(idx, 'decaissements', parseFloat(e.target.value) || 0)}
+  2412→                    className="h-7 text-sm border-0 shadow-none focus-visible:ring-0 p-0 text-right pr-7"
+  2413→                    placeholder="0"
+  2414→                  />
+  2415→                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">€</span>
+  2416→                </div>
+  2417→              </td>
+  2418→              <td className={cn('py-1.5 px-3 text-right font-medium', m.solde < 0 ? 'text-red-500' : 'text-green-600 dark:text-green-400')}>
+  2419→                {formatCurrency(m.solde)}
+  2420→              </td>
+  2421→            </tr>
+  2422→          ))}
+  2423→        </tbody>
+  2424→      </table>
+  2425→    </div>
+  2426→  )
+  2427→}
+  2428→
+  2429→// ─── Investments List ────────────────────────
+  2430→
+  2431→function InvestmentsList({ value, onChange }: { value: Investment[]; onChange: (v: Investment[]) => void }) {
+  2432→  const [newName, setNewName] = useState('')
+  2433→  const [newAmount, setNewAmount] = useState('')
+  2434→
+  2435→  const add = () => {
+  2436→    if (!newName.trim() || !newAmount) return
+  2437→    const amount = parseFloat(newAmount)
+  2438→    if (isNaN(amount)) return
+  2439→    onChange([...value, { id: genId(), name: newName.trim(), amount }])
+  2440→    setNewName('')
+  2441→    setNewAmount('')
+  2442→  }
+  2443→
+  2444→  const remove = (id: string) => onChange(value.filter((i) => i.id !== id))
+  2445→  const update = (id: string, field: 'name' | 'amount', val: string | number) => {
+  2446→    onChange(value.map((i) => (i.id === id ? { ...i, [field]: val } : i)))
+  2447→  }
+  2448→
+  2449→  const total = value.reduce((s, i) => s + i.amount, 0)
+  2450→
+  2451→  return (
+  2452→    <div className="space-y-3">
+  2453→      {value.length > 0 && (
+  2454→        <div className="space-y-2 max-h-64 overflow-y-auto">
+  2455→          {value.map((inv) => (
+  2456→            <div key={inv.id} className="flex items-center gap-2 group rounded-lg border p-2">
+  2457→              <Input
+  2458→                value={inv.name}
+  2459→                onChange={(e) => update(inv.id, 'name', e.target.value)}
+  2460→                className="flex-1 h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0"
+  2461→                placeholder="Nom de l'investissement..."
+  2462→              />
+  2463→              <div className="relative w-28">
+  2464→                <Input
+  2465→                  type="number"
+  2466→                  value={inv.amount || ''}
+  2467→                  onChange={(e) => update(inv.id, 'amount', parseFloat(e.target.value) || 0)}
+  2468→                  className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0 text-right pr-7"
+  2469→                  placeholder="0"
+  2470→                />
+  2471→                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+  2472→              </div>
+  2473→              <Button
+  2474→                variant="ghost"
+  2475→                size="sm"
+  2476→                className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500"
+  2477→                onClick={() => remove(inv.id)}
+  2478→              >
+  2479→                <Trash2 className="h-3.5 w-3.5" />
+  2480→              </Button>
+  2481→            </div>
+  2482→          ))}
+  2483→          <div className="flex items-center justify-between text-sm px-2">
+  2484→            <span className="text-muted-foreground">Total investissements</span>
+  2485→            <span className="font-semibold text-foreground">{formatCurrency(total)}</span>
+  2486→          </div>
+  2487→        </div>
+  2488→      )}
+  2489→      <div className="flex items-center gap-2">
+  2490→        <Input
+  2491→          placeholder="Nouvel investissement..."
+  2492→          value={newName}
+  2493→          onChange={(e) => setNewName(e.target.value)}
+  2494→          className="flex-1 h-8 text-sm"
+  2495→          onKeyDown={(e) => e.key === 'Enter' && add()}
+  2496→        />
+  2497→        <div className="relative w-28">
+  2498→          <Input
+  2499→            type="number"
+  2500→            placeholder="0"
+  2501→            value={newAmount}
+  2502→            onChange={(e) => setNewAmount(e.target.value)}
+  2503→            className="pr-7 h-8 text-sm"
+  2504→            onKeyDown={(e) => e.key === 'Enter' && add()}
+  2505→          />
+  2506→          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+  2507→        </div>
+  2508→        <Button variant="outline" size="sm" className="h-8 w-8 p-0 shrink-0" onClick={add} disabled={!newName.trim() || !newAmount}>
+  2509→          <Plus className="h-3.5 w-3.5" />
+  2510→        </Button>
+  2511→      </div>
+  2512→    </div>
+  2513→  )
+  2514→}
+  2515→
+  2516→// ─── Bilan Table ─────────────────────────────
+  2517→
+  2518→function BilanTable({ value, onChange }: {
+  2519→  value: Record<string, Record<string, number>>
+  2520→  onChange: (v: Record<string, Record<string, number>>) => void
+  2521→}) {
+  2522→  const update = (section: string, field: string, val: number) => {
+  2523→    onChange({
+  2524→      ...value,
+  2525→      [section]: { ...value[section], [field]: val },
+  2526→    })
+  2527→  }
+  2528→
+  2529→  const actif = value.actif || {}
+  2530→  const passif = value.passif || {}
+  2531→  const totalActif = (actif.immobilisations || 0) + (actif.stocks || 0) + (actif.creances || 0) + (actif.tresorerie || 0)
+  2532→  const totalPassif = (passif.capital || 0) + (passif.emprunts || 0) + (passif.fournisseurs || 0) + (passif.autresDettes || 0)
+  2533→  const equilibré = totalActif === totalPassif
+  2534→
+  2535→  const fields = (section: string, items: { key: string; label: string }[]) => (
+  2536→    items.map(({ key, label }) => (
+  2537→      <tr key={key} className="border-b last:border-0">
+  2538→        <td className="py-1.5 px-3">{label}</td>
+  2539→        <td className="py-1.5 px-3">
+  2540→          <div className="relative">
+  2541→            <Input
+  2542→              type="number"
+  2543→              value={value[section]?.[key] || ''}
+  2544→              onChange={(e) => update(section, key, parseFloat(e.target.value) || 0)}
+  2545→              className="h-7 text-sm border-0 shadow-none focus-visible:ring-0 p-0 text-right pr-7"
+  2546→              placeholder="0"
+  2547→            />
+  2548→            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">€</span>
+  2549→          </div>
+  2550→        </td>
+  2551→      </tr>
+  2552→    ))
+  2553→  )
+  2554→
+  2555→  return (
+  2556→    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  2557→      <div className="rounded-lg border overflow-hidden">
+  2558→        <div className="bg-[#00838F]/10 px-3 py-2 font-semibold text-sm text-[#00838F]">Actif</div>
+  2559→        <div className="overflow-x-auto">
+  2560→        <table className="w-full text-sm" aria-label="Bilan comptable - Actif">
+  2561→          <tbody>{fields('actif', [
+  2562→            { key: 'immobilisations', label: 'Immobilisations' },
+  2563→            { key: 'stocks', label: 'Stocks' },
+  2564→            { key: 'creances', label: 'Créances clients' },
+  2565→            { key: 'tresorerie', label: 'Trésorerie' },
+  2566→          ])}</tbody>
+  2567→          <tfoot>
+  2568→            <tr className="font-semibold bg-muted/50">
+  2569→              <td className="py-2 px-3">Total actif</td>
+  2570→              <td className="py-2 px-3 text-right">{formatCurrency(totalActif)}</td>
+  2571→            </tr>
+  2572→          </tfoot>
+  2573→        </table>
+  2574→        </div>
+  2575→      </div>
+  2576→      <div className="rounded-lg border overflow-hidden">
+  2577→        <div className="bg-[#FF6B35]/10 px-3 py-2 font-semibold text-sm text-[#FF6B35]">Passif</div>
+  2578→        <div className="overflow-x-auto">
+  2579→        <table className="w-full text-sm" aria-label="Bilan comptable - Passif">
+  2580→          <tbody>{fields('passif', [
+  2581→            { key: 'capital', label: 'Capital social' },
+  2582→            { key: 'emprunts', label: 'Emprunts' },
+  2583→            { key: 'fournisseurs', label: 'Dettes fournisseurs' },
+  2584→            { key: 'autresDettes', label: 'Autres dettes' },
+  2585→          ])}</tbody>
+  2586→          <tfoot>
+  2587→            <tr className="font-semibold bg-muted/50">
+  2588→              <td className="py-2 px-3">Total passif</td>
+  2589→              <td className="py-2 px-3 text-right">{formatCurrency(totalPassif)}</td>
+  2590→            </tr>
+  2591→          </tfoot>
+  2592→        </table>
+  2593→        </div>
+  2594→      </div>
+  2595→      {!equilibré && (
+  2596→        <div className="md:col-span-2 flex items-center gap-2 text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/10 rounded-lg p-3">
+  2597→          <span>⚠️</span>
+  2598→          <span>Le bilan n&apos;est pas équilibré. Écart : {formatCurrency(totalActif - totalPassif)}</span>
+  2599→        </div>
+  2600→      )}
+  2601→    </div>
+  2602→  )
+  2603→}
+  2604→
+  2605→// ─── Timeline View ───────────────────────────
+  2606→
+  2607→function TimelineView({ value, onChange }: { value: Milestone[]; onChange: (v: Milestone[]) => void }) {
+  2608→  const [newTitle, setNewTitle] = useState('')
+  2609→  const [newDate, setNewDate] = useState('')
+  2610→
+  2611→  const add = () => {
+  2612→    if (!newTitle.trim() || !newDate) return
+  2613→    onChange([...value, { id: genId(), title: newTitle.trim(), date: newDate, completed: false }])
+  2614→    setNewTitle('')
+  2615→    setNewDate('')
+  2616→  }
+  2617→
+  2618→  const toggle = (id: string) => onChange(value.map((m) => m.id === id ? { ...m, completed: !m.completed } : m))
+  2619→  const remove = (id: string) => onChange(value.filter((m) => m.id !== id))
+  2620→
+  2621→  const sorted = [...value].sort((a, b) => a.date.localeCompare(b.date))
+  2622→
+  2623→  return (
+  2624→    <div className="space-y-4">
+  2625→      {sorted.length > 0 && (
+  2626→        <div className="relative">
+  2627→          <div className="absolute left-3.5 top-0 bottom-0 w-px bg-border" />
+  2628→          <div className="space-y-3">
+  2629→            {sorted.map((m) => (
+  2630→              <div key={m.id} className="flex items-start gap-3 relative group">
+  2631→                <button
+  2632→                  onClick={() => toggle(m.id)}
+  2633→                  className={cn(
+  2634→                    'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 transition-colors z-10',
+  2635→                    m.completed
+  2636→                      ? 'bg-green-500 border-green-500 text-white'
+  2637→                      : 'bg-background border-muted-foreground/30 hover:border-[#00838F]',
+  2638→                  )}
+  2639→                >
+  2640→                  {m.completed ? <Check className="h-3.5 w-3.5" /> : <span className="h-2 w-2 rounded-full bg-muted-foreground/40" />}
+  2641→                </button>
+  2642→                <div className="flex-1 min-w-0 rounded-lg border p-3 group-hover:border-[#00838F]/30 transition-colors">
+  2643→                  <div className="flex items-start justify-between gap-2">
+  2644→                    <div>
+  2645→                      <p className={cn('text-sm font-medium', m.completed && 'line-through text-muted-foreground')}>{m.title}</p>
+  2646→                      <p className="text-xs text-muted-foreground mt-0.5">{m.date}</p>
+  2647→                    </div>
+  2648→                    <Button
+  2649→                      variant="ghost"
+  2650→                      size="sm"
+  2651→                      className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 shrink-0"
+  2652→                      onClick={() => remove(m.id)}
+  2653→                    >
+  2654→                      <Trash2 className="h-3 w-3" />
+  2655→                    </Button>
+  2656→                  </div>
+  2657→                </div>
+  2658→              </div>
+  2659→            ))}
+  2660→          </div>
+  2661→        </div>
+  2662→      )}
+  2663→      <Separator />
+  2664→      <div className="flex items-center gap-2">
+  2665→        <Input
+  2666→          type="date"
+  2667→          value={newDate}
+  2668→          onChange={(e) => setNewDate(e.target.value)}
+  2669→          className="w-40 h-8 text-sm"
+  2670→        />
+  2671→        <Input
+  2672→          placeholder="Nouveau jalon..."
+  2673→          value={newTitle}
+  2674→          onChange={(e) => setNewTitle(e.target.value)}
+  2675→          className="flex-1 h-8 text-sm"
+  2676→          onKeyDown={(e) => e.key === 'Enter' && add()}
+  2677→        />
+  2678→        <Button variant="outline" size="sm" className="h-8 w-8 p-0 shrink-0" onClick={add} disabled={!newTitle.trim() || !newDate}>
+  2679→          <Plus className="h-3.5 w-3.5" />
+  2680→        </Button>
+  2681→      </div>
+  2682→    </div>
+  2683→  )
+  2684→}
+  2685→

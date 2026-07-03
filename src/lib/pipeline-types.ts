@@ -48,6 +48,7 @@ export interface PipelineV3ApiResponse {
   sectionProvenance: BpSectionProvenance[]
   health: PipelineHealth
   recommendations: PipelineRecommendation[]
+  warnings?: { type: 'warning' | 'info'; sectionId: string; message: string; source: string; suggestion: string }[]
 }
 
 // Section weights for quality scoring (shared between client and server)

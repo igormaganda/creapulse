@@ -1,11 +1,14 @@
 // ============================================
 // CreaPulse V2 — Business Plan IA API
 // GET    /api/business-plan           — Retrieve saved BP sections
-// PUT    /api/business-plan           — Save BP sections
+// PUT    /api/business-plan           — Save BP sections (bulk or single)
 // POST   /api/business-plan           — AI actions:
 //   action=ai-suggest                — Section-level AI suggestion
 //   action=generate-from-parcours    — Generate full BP from Parcours data
 //   action=sync-simulators           — Sync simulator data into BP sections
+// ============================================
+// Pipeline V4 additions: bpSectionMeta, per-section timestamps,
+//   auto-snapshots, save-section action
 // ============================================
 
 import { NextRequest } from 'next/server'
@@ -15,6 +18,11 @@ import { verifyToken } from '@/lib/auth'
 import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
 import { callZAI, parseJSONFromAI, getZAIErrorMessage, aiUnavailableResponse, aiErrorResponse } from '@/lib/zai-helper'
+import type { DataSource } from '@/lib/pipeline-types'
+import { createNotification } from '@/lib/notifications'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('api/business-plan')
 
 // ─── Validation Schemas ──────────────────────
 
@@ -44,6 +52,121 @@ const saveBpSchema = z.object({
   sections: z.record(z.string(), z.unknown()).optional(),
   bpStatus: z.enum(['NOT_STARTED', 'IN_PROGRESS', 'DRAFT', 'SUBMITTED']).optional(),
 })
+
+// ─── bpSectionMeta Types (Pipeline V4) ───────
+
+export interface SectionMetaEntry {
+  source: DataSource
+  lastModified: string
+  manuallyEditedAt: string | null
+  syncedAt: string | null
+  wordCount: number
+  version: number
+}
+
+export type BpSectionMeta = Record<string, SectionMetaEntry>
+
+// ─── Helpers ─────────────────────────────────
+
+function isFilled(value: unknown): boolean {
+  if (value === null || value === undefined) return false
+  if (typeof value === 'string') return value.trim().length > 0
+  if (Array.isArray(value)) return value.length > 0
+  if (typeof value === 'object') {
+    return Object.values(value).some((v) =>
+      typeof v === 'string' && v.trim().length > 0 ||
+      typeof v === 'number' && v !== 0 ||
+      Array.isArray(v) && v.length > 0
+    )
+  }
+  return false
+}
+
+function computeWordCount(value: unknown): number {
+  if (typeof value === 'string') return value.trim().split(/\s+/).filter(Boolean).length
+  return 0
+}
+
+const SYNC_SOURCES: DataSource[] = ['marche', 'financier', 'juridique', 'creasim', 'parcours']
+
+function buildSectionMetaForManual(
+  existingMeta: BpSectionMeta,
+  sectionId: string,
+  content: unknown,
+): SectionMetaEntry {
+  const prev = existingMeta[sectionId]
+  return {
+    source: 'manual' as DataSource,
+    lastModified: new Date().toISOString(),
+    manuallyEditedAt: new Date().toISOString(),
+    syncedAt: prev?.syncedAt ?? null,
+    wordCount: computeWordCount(content),
+    version: (prev?.version ?? 0) + 1,
+  }
+}
+
+function buildSectionMetaForSync(
+  existingMeta: BpSectionMeta,
+  sectionId: string,
+  content: unknown,
+  source: 'marche' | 'financier' | 'juridique' | 'creasim' | 'parcours',
+): SectionMetaEntry {
+  const prev = existingMeta[sectionId]
+  return {
+    source,
+    lastModified: new Date().toISOString(),
+    manuallyEditedAt: prev?.manuallyEditedAt ?? null,
+    syncedAt: new Date().toISOString(),
+    wordCount: computeWordCount(content),
+    version: (prev?.version ?? 0) + 1,
+  }
+}
+
+/** Auto-create a snapshot if last one is older than 5 minutes (debounce) */
+async function maybeAutoSnapshot(
+  userId: string,
+  journeyId: string,
+  tenantId: string,
+  bpSections: Record<string, unknown>,
+  bpProjectContext: Record<string, unknown> | null,
+  trigger: 'auto' | 'ai-generate' = 'auto',
+) {
+  try {
+    const lastSnapshot = await db.bpSnapshot.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true, version: true },
+    })
+    const fiveMinAgo = new Date(Date.now() - 5 * 60_000)
+    if (lastSnapshot && lastSnapshot.createdAt > fiveMinAgo) return
+
+    const sectionCount = Object.values(bpSections).filter(isFilled).length
+    const wordCount = Object.values(bpSections).reduce(
+      (sum: number, v) => sum + computeWordCount(v), 0,
+    )
+    const version: number = (lastSnapshot?.version ?? 0) + 1
+    const now = new Date()
+    const label = `V${version} — ${now.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })} ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+
+    await db.bpSnapshot.create({
+      data: {
+        userId,
+        tenantId,
+        creatorJourneyId: journeyId,
+        bpSections: bpSections as Prisma.InputJsonValue,
+        bpProjectContext: (bpProjectContext ?? {}) as Prisma.InputJsonValue,
+        version,
+        label,
+        trigger,
+        sectionCount,
+        wordCount,
+      },
+    })
+  } catch (err) {
+    // Non-critical: log but don't fail the parent operation
+    console.error('[AutoSnapshot] Failed to create auto-snapshot:', err)
+  }
+}
 
 // ─── Helper: Auth from request ───────────────
 
@@ -139,13 +262,84 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// ─── PUT: Save business plan ─────────────────
+// ─── PUT: Save business plan (bulk or single) ──
 
 export async function PUT(request: NextRequest) {
   try {
     const payload = await getAuth(request)
-
     const body = await request.json()
+
+    // ── Single-section save: action=save-section ──
+    if (body.action === 'save-section') {
+      const { sectionId, content } = body
+      if (!sectionId || content === undefined) {
+        return Errors.validation([{ field: 'sectionId/content', message: 'sectionId et content sont requis' }])
+      }
+
+      const existingJourney = await db.creatorJourney.findUnique({
+        where: { userId: payload.userId },
+        select: {
+          id: true, bpSections: true, bpSectionMeta: true,
+          bpStatus: true, bpScore: true, userId: true,
+          user: { select: { tenantId: true } },
+        },
+      })
+
+      const existingSections = (existingJourney?.bpSections as Record<string, unknown>) ?? {}
+      const existingMeta = (existingJourney?.bpSectionMeta as unknown as BpSectionMeta) ?? {}
+
+      // Update the section
+      existingSections[sectionId] = content
+
+      // Update metadata for this section only
+      existingMeta[sectionId] = buildSectionMetaForManual(existingMeta, sectionId, content)
+
+      // Recalculate bpScore
+      const filledSections = Object.values(existingSections).filter(isFilled).length
+      const bpScore = Math.min(100, Math.round((filledSections / 24) * 100))
+
+      let status = existingJourney?.bpStatus ?? 'IN_PROGRESS'
+      if (filledSections === 0) status = 'NOT_STARTED'
+      else if (filledSections === 24) status = 'DRAFT'
+      else status = 'IN_PROGRESS'
+
+      const journey = await db.creatorJourney.upsert({
+        where: { userId: payload.userId },
+        create: {
+          userId: payload.userId,
+          bpSections: existingSections as Prisma.InputJsonValue,
+          bpSectionMeta: existingMeta as unknown as Prisma.InputJsonValue,
+          bpStatus: status as 'NOT_STARTED' | 'IN_PROGRESS' | 'GENERATING' | 'DRAFT' | 'REVIEW' | 'VALIDATED' | 'EXPORTED',
+          bpScore,
+        },
+        update: {
+          bpSections: existingSections as Prisma.InputJsonValue,
+          bpSectionMeta: existingMeta as unknown as Prisma.InputJsonValue,
+          bpStatus: status as 'NOT_STARTED' | 'IN_PROGRESS' | 'GENERATING' | 'DRAFT' | 'REVIEW' | 'VALIDATED' | 'EXPORTED',
+          bpScore,
+        },
+      })
+
+      // ── Auto-snapshot: debounced to 5 min ──
+      const sectionTenantId = existingJourney?.user?.tenantId
+      if (sectionTenantId) {
+        maybeAutoSnapshot(payload.userId, journey.id, sectionTenantId, existingSections, null, 'auto')
+      }
+
+      return success(
+        {
+          id: journey.id,
+          sectionId,
+          meta: existingMeta[sectionId],
+          bpScore,
+          filledSections,
+          totalSections: 24,
+        },
+        'Section sauvegardée avec succès',
+      )
+    }
+
+    // ── Bulk save (existing logic) ──
     const parsed = saveBpSchema.safeParse(body)
 
     if (!parsed.success) {
@@ -159,40 +353,124 @@ export async function PUT(request: NextRequest) {
 
     const { sections, bpStatus } = parsed.data
 
-    // Calculate completion
+    // Read existing bpSectionMeta for metadata merge
+    const previousJourney = await db.creatorJourney.findUnique({
+      where: { userId: payload.userId },
+      select: {
+        bpSectionMeta: true, bpStatus: true, bpSections: true, userId: true,
+        user: { select: { tenantId: true, firstName: true, lastName: true } },
+      },
+    })
+    const existingMeta = (previousJourney?.bpSectionMeta as unknown as BpSectionMeta) ?? {}
+    const updatedMeta: BpSectionMeta = { ...existingMeta }
+    const previousStatus = previousJourney?.bpStatus ?? null
+    const userTenantId = previousJourney?.user?.tenantId
+
+    // Calculate completion & update metadata for all provided sections
     const filledSections = sections
-      ? Object.values(sections).filter(
-          (v) =>
-            typeof v === 'string' && v.trim().length > 0 ||
-            typeof v === 'object' && v !== null && !Array.isArray(v) && Object.keys(v).length > 0 ||
-            Array.isArray(v) && v.length > 0,
-        ).length
+      ? Object.values(sections).filter(isFilled).length
       : 0
     const totalSections = 24
     const bpScore = Math.min(100, Math.round((filledSections / totalSections) * 100))
 
-    // Determine status
-    let status = (bpStatus ?? 'IN_PROGRESS') as string
-    if (filledSections === 0) status = 'NOT_STARTED'
-    else if (filledSections === totalSections) status = 'DRAFT'
-    else status = 'IN_PROGRESS'
+    // Update bpSectionMeta for each non-empty section
+    if (sections) {
+      for (const [sectionId, content] of Object.entries(sections)) {
+        if (isFilled(content)) {
+          updatedMeta[sectionId] = buildSectionMetaForManual(existingMeta, sectionId, content)
+        }
+      }
+    }
 
-    // Upsert CreatorJourney bp fields
+    // Determine status — preserve SUBMITTED when explicitly requested
+    let status: string = bpStatus ?? 'IN_PROGRESS'
+    if (status !== 'SUBMITTED') {
+      if (filledSections === 0) status = 'NOT_STARTED'
+      else if (filledSections === totalSections) status = 'DRAFT'
+      else status = 'IN_PROGRESS'
+    }
+
+    // Upsert CreatorJourney bp fields (now includes bpSectionMeta)
     const journey = await db.creatorJourney.upsert({
       where: { userId: payload.userId },
       create: {
         userId: payload.userId,
         bpSections: (sections ?? {}) as Prisma.InputJsonValue,
+        bpSectionMeta: updatedMeta as unknown as Prisma.InputJsonValue,
         bpStatus: status as 'NOT_STARTED' | 'IN_PROGRESS' | 'GENERATING' | 'DRAFT' | 'REVIEW' | 'VALIDATED' | 'EXPORTED',
         bpScore,
       },
       update: {
         bpSections: (sections ?? {}) as Prisma.InputJsonValue,
+        bpSectionMeta: updatedMeta as unknown as Prisma.InputJsonValue,
         bpStatus: status as 'NOT_STARTED' | 'IN_PROGRESS' | 'GENERATING' | 'DRAFT' | 'REVIEW' | 'VALIDATED' | 'EXPORTED',
         bpScore,
         bpGeneratedAt: new Date(),
       },
     })
+
+    // ── Auto-snapshot: debounced to 5 min ──
+    if (sections && Object.keys(sections).length > 0 && userTenantId) {
+      const projectContext = previousJourney ? {
+        projectTitle: (previousJourney as any).projectTitle ?? null,
+        projectSector: (previousJourney as any).projectSector ?? null,
+      } : null
+      maybeAutoSnapshot(payload.userId, journey.id, userTenantId, sections ?? {}, projectContext, 'auto')
+    }
+
+    // ── Fire-and-forget notifications on status change ──
+    if (previousStatus && previousStatus !== status) {
+      const statusLabel = status === 'NOT_STARTED' ? 'Non démarré'
+        : status === 'IN_PROGRESS' ? 'En cours'
+        : status === 'DRAFT' ? 'Brouillon'
+        : status === 'SUBMITTED' ? 'Soumis'
+        : status
+
+      createNotification({
+        userId: payload.userId,
+        title: 'Business plan mis à jour',
+        content: `Votre business plan a été mis à jour — statut : ${statusLabel}`,
+        type: 'INFO',
+        link: '/bureau/business-plan',
+      }).catch(() => {})
+
+      // If SUBMITTED, notify all COUNSELOR users in the same tenant
+      if (status === 'SUBMITTED' && userTenantId) {
+        const beneficiaryName = [previousJourney?.user?.firstName, previousJourney?.user?.lastName].filter(Boolean).join(' ') || 'Un bénéficiaire'
+
+        // Fetch counselors + send notifications (fire-and-forget)
+        db.user.findMany({
+          where: { tenantId: userTenantId, role: 'COUNSELOR', isActive: true },
+          select: { id: true, email: true, firstName: true },
+        }).then((counselors) => {
+          const notificationPromises = counselors.map((c) =>
+            createNotification({
+              userId: c.id,
+              title: 'Business plan à reviewer',
+              content: `${beneficiaryName} a soumis son business plan pour review`,
+              type: 'ACTION_REQUIRED',
+              link: '/admin-centre/business-plan',
+            })
+          )
+          return Promise.all(notificationPromises)
+        }).catch(() => {})
+
+        // Send email to counselors (fire-and-forget)
+        import('@/lib/email').then(({ sendBpSubmittedEmail }) => {
+          db.user.findMany({
+            where: { tenantId: userTenantId, role: 'COUNSELOR', isActive: true },
+            select: { email: true, firstName: true },
+          }).then((counselors) => {
+            const beneficiaryFirstName = previousJourney?.user?.firstName || ''
+            counselors.forEach((c) => {
+              sendBpSubmittedEmail(beneficiaryFirstName, c.email, c.firstName || '').catch(() => {})
+            })
+          }).catch(() => {})
+        }).catch(() => {})
+
+        log.info('BP submitted', { userId: payload.userId, beneficiaryName })
+      }
+    }
 
     return success(
       {
@@ -364,6 +642,7 @@ async function handleGenerateFromParcours(userId: string) {
         creationMotivation: true,
         visionAnswers: true,
         bpSections: true,
+        bpSectionMeta: true,
       },
     }),
     db.riasecResult.findMany({
@@ -508,7 +787,9 @@ Tu dois répondre UNIQUEMENT avec un objet JSON valide (pas de markdown, pas de 
 
   // 6. Merge into existing bpSections (don't overwrite filled sections)
   const existingSections = (journey?.bpSections as Record<string, unknown>) ?? {}
+  const existingMeta = (journey?.bpSectionMeta as unknown as BpSectionMeta) ?? {}
   const mergedSections = { ...existingSections }
+  const updatedMeta = { ...existingMeta }
 
   for (const [key, value] of Object.entries(generatedSections)) {
     const existing = mergedSections[key]
@@ -518,34 +799,43 @@ Tu dois répondre UNIQUEMENT avec un objet JSON valide (pas de markdown, pas de 
 
     if (isEmpty && typeof value === 'string' && value.trim()) {
       mergedSections[key] = value
+      // Mark as generated from parcours
+      updatedMeta[key] = buildSectionMetaForSync(existingMeta, key, value, 'parcours')
     }
   }
 
   // 7. Recalculate bpScore
-  const filledCount = Object.values(mergedSections).filter((v) =>
-    typeof v === 'string' && v.trim().length > 0 ||
-    typeof v === 'object' && v !== null && !Array.isArray(v) && Object.keys(v).length > 0 ||
-    Array.isArray(v) && (v as unknown[]).length > 0,
-  ).length
+  const filledCount = Object.values(mergedSections).filter(isFilled).length
   const bpScore = Math.min(100, Math.round((filledCount / 24) * 100))
 
-  // 8. Update CreatorJourney
-  await db.creatorJourney.upsert({
+  // 8. Update CreatorJourney (including bpSectionMeta)
+  const savedJourney = await db.creatorJourney.upsert({
     where: { userId },
     create: {
       userId,
       bpSections: mergedSections as Prisma.InputJsonValue,
+      bpSectionMeta: updatedMeta as unknown as Prisma.InputJsonValue,
       bpStatus: 'DRAFT',
       bpScore,
       bpGeneratedAt: new Date(),
     },
     update: {
       bpSections: mergedSections as Prisma.InputJsonValue,
+      bpSectionMeta: updatedMeta as unknown as Prisma.InputJsonValue,
       bpStatus: 'DRAFT',
       bpScore,
       bpGeneratedAt: new Date(),
     },
   })
+
+  // Auto-snapshot after AI generation
+  const userForTenant = await db.user.findUnique({ where: { id: userId }, select: { tenantId: true } })
+  if (userForTenant?.tenantId) {
+    maybeAutoSnapshot(userId, savedJourney.id, userForTenant.tenantId, mergedSections, {
+      projectTitle: journey?.projectTitle,
+      projectSector: journey?.projectSector,
+    }, 'ai-generate')
+  }
 
   // 9. Count what was generated vs skipped
   const generatedKeys = Object.keys(generatedSections).filter(
@@ -570,28 +860,33 @@ Tu dois répondre UNIQUEMENT avec un objet JSON valide (pas de markdown, pas de 
 // ─── POST action: Sync Simulators (P1-2) ────
 
 async function handleSyncSimulators(userId: string) {
-  // 1. Fetch existing BP sections
+  // 1. Fetch existing BP sections and metadata
   const journey = await db.creatorJourney.findUnique({
     where: { userId },
-    select: { bpSections: true },
+    select: { bpSections: true, bpSectionMeta: true },
   })
 
   const existingSections = (journey?.bpSections as Record<string, unknown>) ?? {}
   const mergedSections = { ...existingSections }
+  const sectionMeta = (journey?.bpSectionMeta as unknown as BpSectionMeta) ?? {}
 
-  // Track what was synced vs skipped
-  const synced: { section: string; source: string }[] = []
+  // Track what was synced vs skipped (with source key for meta)
+  const synced: { section: string; source: string; sourceKey?: DataSource }[] = []
   const skipped: { section: string; source: string; reason: string }[] = []
 
   // Helper: only fill empty sections
-  function fillSection(key: string, value: string, source: string) {
+  function fillSection(key: string, value: string, source: string, sourceKey?: DataSource) {
     const existing = mergedSections[key]
     const isEmpty = existing === null || existing === undefined ||
       (typeof existing === 'string' && existing.trim() === '')
 
     if (isEmpty && value.trim()) {
       mergedSections[key] = value
-      synced.push({ section: key, source })
+      synced.push({ section: key, source, sourceKey })
+      // Update section metadata with sync source
+      if (sourceKey) {
+        sectionMeta[key] = buildSectionMetaForSync(sectionMeta, key, value, sourceKey as 'marche' | 'juridique' | 'financier' | 'creasim' | 'parcours')
+      }
     } else if (!isEmpty) {
       skipped.push({ section: key, source, reason: 'Déjà renseigné par l\'utilisateur' })
     }
@@ -628,7 +923,7 @@ async function handleSyncSimulators(userId: string) {
     }
 
     if (parts.length > 0) {
-      fillSection('etude-marche', `## Étude de marché\n\n${parts.join('\n\n')}`, 'Analyse de marché')
+      fillSection('etude-marche', `## Étude de marché\n\n${parts.join('\n\n')}`, 'Analyse de marché', 'marche')
     } else {
       skipped.push({ section: 'etude-marche', source: 'Analyse de marché', reason: 'Données insuffisantes' })
     }
@@ -640,7 +935,7 @@ async function handleSyncSimulators(userId: string) {
         const comp = c as Record<string, string>
         return `### Concurrent ${i + 1}\n${Object.entries(comp).map(([k, v]) => `- **${k}** : ${v}`).join('\n')}`
       })
-      fillSection('concurrence', `## Analyse concurrentielle\n\n${compParts.join('\n\n')}`, 'Analyse de marché')
+      fillSection('concurrence', `## Analyse concurrentielle\n\n${compParts.join('\n\n')}`, 'Analyse de marché', 'marche')
     } else {
       skipped.push({ section: 'concurrence', source: 'Analyse de marché', reason: 'Aucun concurrent identifié' })
     }
@@ -650,7 +945,7 @@ async function handleSyncSimulators(userId: string) {
     if (marketAnalysis.opportunities) swotParts.push(`### Opportunités\n${marketAnalysis.opportunities}`)
     if (marketAnalysis.threats) swotParts.push(`### Menaces\n${marketAnalysis.threats}`)
     if (swotParts.length > 0) {
-      fillSection('swot', `## Analyse SWOT\n\n${swotParts.join('\n\n')}`, 'Analyse de marché')
+      fillSection('swot', `## Analyse SWOT\n\n${swotParts.join('\n\n')}`, 'Analyse de marché', 'marche')
     } else {
       skipped.push({ section: 'swot', source: 'Analyse de marché', reason: 'Données insuffisantes' })
     }
@@ -675,7 +970,7 @@ async function handleSyncSimulators(userId: string) {
     if (financialForecast.initialInvestment) finParts.push(`**Investissement initial** : ${financialForecast.initialInvestment.toLocaleString('fr-FR')} €`)
 
     if (finParts.length > 0) {
-      fillSection('financement', `## Plan financier (synthèse)\n\n${finParts.join('\n\n')}`, 'Prévisions financières')
+      fillSection('financement', `## Plan financier (synthèse)\n\n${finParts.join('\n\n')}`, 'Prévisions financières', 'financier')
     } else {
       skipped.push({ section: 'financement', source: 'Prévisions financières', reason: 'Données insuffisantes' })
     }
@@ -697,7 +992,7 @@ async function handleSyncSimulators(userId: string) {
       }
     }
     if (plParts.length > 0) {
-      fillSection('compte-resultat', `## Compte de résultat prévisionnel (3 ans)\n\n${plParts.join('\n\n')}`, 'Prévisions financières')
+      fillSection('compte-resultat', `## Compte de résultat prévisionnel (3 ans)\n\n${plParts.join('\n\n')}`, 'Prévisions financières', 'financier')
     } else {
       skipped.push({ section: 'compte-resultat', source: 'Prévisions financières', reason: 'Données insuffisantes' })
     }
@@ -708,6 +1003,7 @@ async function handleSyncSimulators(userId: string) {
         'investissements',
         `## Investissements\n\n**Investissement initial** : ${financialForecast.initialInvestment.toLocaleString('fr-FR')} €\n\n*Cette donnée provient du module Prévisions Financières. Détaillez les postes d'investissement (matériel, logiciel, caution, etc.) pour compléter cette section.*`,
         'Prévisions financières',
+        'financier',
       )
     } else {
       skipped.push({ section: 'investissements', source: 'Prévisions financières', reason: 'Aucun investissement renseigné' })
@@ -754,7 +1050,7 @@ async function handleSyncSimulators(userId: string) {
     }
 
     if (rentParts.length > 0) {
-      fillSection('seuil-rentabilite', `## Analyse de rentabilité (CreaSim)\n\n${rentParts.join('\n\n')}`, 'CreaSim')
+      fillSection('seuil-rentabilite', `## Analyse de rentabilité (CreaSim)\n\n${rentParts.join('\n\n')}`, 'CreaSim', 'creasim')
     } else {
       skipped.push({ section: 'seuil-rentabilite', source: 'CreaSim', reason: 'Données insuffisantes' })
     }
@@ -779,7 +1075,7 @@ async function handleSyncSimulators(userId: string) {
     }
 
     if (jurParts.length > 0) {
-      fillSection('statut-juridique', `## Statut juridique\n\n${jurParts.join('\n\n')}`, 'Analyse juridique')
+      fillSection('statut-juridique', `## Statut juridique\n\n${jurParts.join('\n\n')}`, 'Analyse juridique', 'juridique')
     } else {
       skipped.push({ section: 'statut-juridique', source: 'Analyse juridique', reason: 'Données insuffisantes' })
     }
@@ -817,12 +1113,8 @@ async function handleSyncSimulators(userId: string) {
     skipped.push({ section: 'businessModelCanvas', source: 'Business Model Canvas', reason: 'Simulation non complétée' })
   }
 
-  // 8. Recalculate bpScore and save
-  const filledCount = Object.values(mergedSections).filter((v) =>
-    typeof v === 'string' && v.trim().length > 0 ||
-    typeof v === 'object' && v !== null && !Array.isArray(v) && Object.keys(v).length > 0 ||
-    Array.isArray(v) && (v as unknown[]).length > 0,
-  ).length
+  // 8. Recalculate bpScore and save (including bpSectionMeta)
+  const filledCount = Object.values(mergedSections).filter(isFilled).length
   const totalSections = 24
   const bpScore = Math.min(100, Math.round((filledCount / totalSections) * 100))
 
@@ -831,11 +1123,13 @@ async function handleSyncSimulators(userId: string) {
     create: {
       userId,
       bpSections: mergedSections as Prisma.InputJsonValue,
+      bpSectionMeta: sectionMeta as unknown as Prisma.InputJsonValue,
       bpScore,
       bpGeneratedAt: new Date(),
     },
     update: {
       bpSections: mergedSections as Prisma.InputJsonValue,
+      bpSectionMeta: sectionMeta as unknown as Prisma.InputJsonValue,
       bpScore,
       bpGeneratedAt: new Date(),
     },

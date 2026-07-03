@@ -1,7 +1,11 @@
 // ============================================
 // CreaPulse V3 — Pipeline Engine API
-// GET  /api/pipeline-v3  — Full pipeline status + recommendations
+// GET  /api/pipeline-v3  — Full pipeline status + recommendations + warnings
 // POST /api/pipeline-v3  — Incremental module sync + actions
+//   action=sync-module   — Sync a single simulator module → BP
+//   action=refresh       — Rebuild full pipeline status
+//   action=get-timestamps — Return full bpSectionMeta
+//   action=cross-validate — Run cross-module consistency checks
 // ============================================
 
 import { NextRequest } from 'next/server'
@@ -20,6 +24,7 @@ import type {
   PipelineHealth,
 } from '@/lib/pipeline-types'
 import { SECTION_WEIGHTS, SECTION_SOURCE_MAP } from '@/lib/pipeline-types'
+import type { BpSectionMeta, SectionMetaEntry } from '@/app/api/business-plan/route'
 
 // ─── Validation ───
 
@@ -32,7 +37,17 @@ const refreshSchema = z.object({
   action: z.literal('refresh'),
 })
 
-const pipelineActionSchema = z.discriminatedUnion('action', [syncModuleSchema, refreshSchema])
+const getTimestampsSchema = z.object({
+  action: z.literal('get-timestamps'),
+})
+
+const crossValidateSchema = z.object({
+  action: z.literal('cross-validate'),
+})
+
+const pipelineActionSchema = z.discriminatedUnion('action', [
+  syncModuleSchema, refreshSchema, getTimestampsSchema, crossValidateSchema,
+])
 
 // ─── Auth helper ───
 
@@ -164,6 +179,7 @@ function computeModules(
 function computeProvenance(
   bpSections: Record<string, unknown>,
   hasMarche: boolean, hasJuridique: boolean, hasFinancier: boolean, hasCreaSim: boolean,
+  bpSectionMeta: BpSectionMeta | null,
 ): BpSectionProvenance[] {
   const provenance: BpSectionProvenance[] = []
   const allSectionIds = Object.keys(SECTION_SOURCE_MAP)
@@ -172,16 +188,26 @@ function computeProvenance(
     const content = bpSections[sectionId]
     const filled = isFilled(content)
     const possibleSources = SECTION_SOURCE_MAP[sectionId] || ['manual']
+    const meta = bpSectionMeta?.[sectionId]
 
     let source: DataSource = 'empty'
     if (filled) {
-      // Heuristic: if the source module has data and this is a mapped section, attribute it
-      if (hasMarche && possibleSources.includes('marche')) source = 'marche'
-      else if (hasJuridique && possibleSources.includes('juridique')) source = 'juridique'
-      else if (hasFinancier && possibleSources.includes('financier')) source = 'financier'
-      else if (hasCreaSim && possibleSources.includes('creasim')) source = 'creasim'
-      else if (possibleSources.includes('parcours')) source = 'parcours'
-      else source = 'manual'
+      // Prefer bpSectionMeta source if available and accurate
+      if (meta && meta.source !== 'empty' && meta.source !== 'manual') {
+        source = meta.source
+      } else if (hasMarche && possibleSources.includes('marche')) {
+        source = 'marche'
+      } else if (hasJuridique && possibleSources.includes('juridique')) {
+        source = 'juridique'
+      } else if (hasFinancier && possibleSources.includes('financier')) {
+        source = 'financier'
+      } else if (hasCreaSim && possibleSources.includes('creasim')) {
+        source = 'creasim'
+      } else if (possibleSources.includes('parcours')) {
+        source = 'parcours'
+      } else {
+        source = 'manual'
+      }
     }
 
     provenance.push({
@@ -189,7 +215,7 @@ function computeProvenance(
       source,
       filled,
       wordCount: wordCount(content),
-      lastModified: null, // Could be added with bpModifiedAt per section in V4
+      lastModified: meta?.lastModified ?? null,
     })
   }
 
@@ -336,17 +362,29 @@ function computeHealth(
 async function syncSingleModule(userId: string, module: 'marche' | 'juridique' | 'financier' | 'creasim') {
   const journey = await db.creatorJourney.findUnique({
     where: { userId },
-    select: { bpSections: true },
+    select: { bpSections: true, bpSectionMeta: true },
   })
   const existingSections = (journey?.bpSections as Record<string, unknown>) ?? {}
+  const existingMeta = (journey?.bpSectionMeta as BpSectionMeta) ?? {}
   const merged = { ...existingSections }
+  const sectionMeta = { ...existingMeta }
   const syncedSections: string[] = []
 
-  function fillIfEmpty(key: string, value: string) {
+  function fillIfEmpty(key: string, value: string, source: 'marche' | 'juridique' | 'financier' | 'creasim') {
     const existing = merged[key]
     const isEmpty = existing === null || existing === undefined || (typeof existing === 'string' && existing.trim() === '')
     if (isEmpty && value.trim()) {
       merged[key] = value
+      // Update per-section metadata for sync
+      const prev = sectionMeta[key]
+      sectionMeta[key] = {
+        source,
+        lastModified: new Date().toISOString(),
+        manuallyEditedAt: prev?.manuallyEditedAt ?? null,
+        syncedAt: new Date().toISOString(),
+        wordCount: value.trim().split(/\s+/).filter(Boolean).length,
+        version: (prev?.version ?? 0) + 1,
+      }
       syncedSections.push(key)
     }
   }
@@ -364,7 +402,7 @@ async function syncSingleModule(userId: string, module: 'marche' | 'juridique' |
         if (market.aiSynthesis) parts.push(`**Synthèse IA** : ${market.aiSynthesis}`)
         const trends = market.trends as unknown[]
         if (Array.isArray(trends) && trends.length > 0) parts.push(`**Tendances** : ${trends.join(', ')}`)
-        if (parts.length > 0) fillIfEmpty('etude-marche', `## Étude de marché\n\n${parts.join('\n\n')}`)
+        if (parts.length > 0) fillIfEmpty('etude-marche', `## Étude de marché\n\n${parts.join('\n\n')}`, 'marche')
 
         const competitors = market.competitors as unknown[]
         if (Array.isArray(competitors) && competitors.length > 0) {
@@ -372,7 +410,7 @@ async function syncSingleModule(userId: string, module: 'marche' | 'juridique' |
             const comp = c as Record<string, string>
             return `### Concurrent ${i + 1}\n${Object.entries(comp).map(([k, v]) => `- **${k}** : ${v}`).join('\n')}`
           })
-          fillIfEmpty('concurrence', `## Analyse concurrentielle\n\n${compParts.join('\n\n')}`)
+          fillIfEmpty('concurrence', `## Analyse concurrentielle\n\n${compParts.join('\n\n')}`, 'marche')
         }
       }
       break
@@ -392,7 +430,7 @@ async function syncSingleModule(userId: string, module: 'marche' | 'juridique' |
           })
           parts.push(`**Charges sociales** :\n${items.join('\n')}`)
         }
-        if (parts.length > 0) fillIfEmpty('statut-juridique', `## Statut juridique\n\n${parts.join('\n\n')}`)
+        if (parts.length > 0) fillIfEmpty('statut-juridique', `## Statut juridique\n\n${parts.join('\n\n')}`, 'juridique')
       }
       break
     }
@@ -409,7 +447,7 @@ async function syncSingleModule(userId: string, module: 'marche' | 'juridique' |
         if (fin.year3Expenses) parts.push(`**Charges Année 3** : ${fmtEur(fin.year3Expenses)} €`)
         if (fin.breakevenMonth) parts.push(`**Seuil de rentabilité** : Mois ${fin.breakevenMonth}`)
         if (fin.initialInvestment) parts.push(`**Investissement initial** : ${fmtEur(fin.initialInvestment)} €`)
-        if (parts.length > 0) fillIfEmpty('financement', `## Plan financier (synthèse)\n\n${parts.join('\n\n')}`)
+        if (parts.length > 0) fillIfEmpty('financement', `## Plan financier (synthèse)\n\n${parts.join('\n\n')}`, 'financier')
 
         const years = [
           { year: 1, rev: fin.year1Revenue, exp: fin.year1Expenses },
@@ -423,7 +461,7 @@ async function syncSingleModule(userId: string, module: 'marche' | 'juridique' |
             plParts.push(`### Année ${y.year}\n- CA : ${fmtEur(rev)} €\n- Charges : ${fmtEur(exp)} €\n- **Résultat net** : ${fmtEur(result)} € ${result >= 0 ? '✅' : '⚠️'}`)
           }
         }
-        if (plParts.length > 0) fillIfEmpty('compte-resultat', `## Compte de résultat prévisionnel\n\n${plParts.join('\n\n')}`)
+        if (plParts.length > 0) fillIfEmpty('compte-resultat', `## Compte de résultat prévisionnel\n\n${plParts.join('\n\n')}`, 'financier')
       }
       break
     }
@@ -441,7 +479,7 @@ async function syncSingleModule(userId: string, module: 'marche' | 'juridique' |
         if (cs.profitability1Y != null) parts.push(`**Rentabilité A1** : ${fmtEur(cs.profitability1Y)} €`)
         if (cs.profitability2Y != null) parts.push(`**Rentabilité A2** : ${fmtEur(cs.profitability2Y)} €`)
         if (cs.profitability3Y != null) parts.push(`**Rentabilité A3** : ${fmtEur(cs.profitability3Y)} €`)
-        if (parts.length > 0) fillIfEmpty('seuil-rentabilite', `## Analyse de rentabilité (CreaSim)\n\n${parts.join('\n\n')}`)
+        if (parts.length > 0) fillIfEmpty('seuil-rentabilite', `## Analyse de rentabilité (CreaSim)\n\n${parts.join('\n\n')}`, 'creasim')
       }
       break
     }
@@ -458,12 +496,123 @@ async function syncSingleModule(userId: string, module: 'marche' | 'juridique' |
 
     await db.creatorJourney.upsert({
       where: { userId },
-      create: { userId, bpSections: merged as Prisma.InputJsonValue, bpScore, bpGeneratedAt: new Date() },
-      update: { bpSections: merged as Prisma.InputJsonValue, bpScore, bpGeneratedAt: new Date() },
+      create: { userId, bpSections: merged as Prisma.InputJsonValue, bpSectionMeta: sectionMeta as Prisma.InputJsonValue, bpScore, bpGeneratedAt: new Date() },
+      update: { bpSections: merged as Prisma.InputJsonValue, bpSectionMeta: sectionMeta as Prisma.InputJsonValue, bpScore, bpGeneratedAt: new Date() },
     })
   }
 
   return { syncedSections, module }
+}
+
+// ─── Cross-module validation (Task 9.2) ───
+
+interface CrossValidationWarning {
+  type: 'warning' | 'info'
+  sectionId: string
+  message: string
+  source: string
+  suggestion: string
+}
+
+async function computeCrossValidationWarnings(
+  userId: string,
+  bpSections: Record<string, unknown>,
+  bpSectionMeta: BpSectionMeta | null,
+  marketAnalysis: { sector?: string | null; updatedAt?: Date | null } | null,
+  juridiqueAnalysis: { recommendedStatus?: string | null; updatedAt?: Date | null } | null,
+  financialForecast: { year1Revenue?: number | null; year1Expenses?: number | null; updatedAt?: Date | null } | null,
+  creasimSimulation: { monthlyRevenue?: number | null; updatedAt?: Date | null } | null,
+): Promise<CrossValidationWarning[]> {
+  const warnings: CrossValidationWarning[] = []
+
+  // 1. CA mismatch: BP compte-resultat vs FinancialForecast year1Revenue
+  const crContent = typeof bpSections['compte-resultat'] === 'string' ? bpSections['compte-resultat'] : ''
+  if (crContent && financialForecast?.year1Revenue) {
+    // Extract CA values from BP text (look for "CA" patterns with numbers)
+    const caPattern = /CA[^0-9]*(\d[\d\s,.]*)\s*€/gi
+    const matches = crContent.match(caPattern)
+    if (matches && matches.length > 0) {
+      // Parse the first CA value from BP text
+      const parsedCa = parseFloat(matches[0].replace(/[^\d.,]/g, '').replace(/\s/g, '').replace(',', '.'))
+      if (!isNaN(parsedCa) && Math.abs(parsedCa - financialForecast.year1Revenue) > financialForecast.year1Revenue * 0.05) {
+        warnings.push({
+          type: 'warning',
+          sectionId: 'compte-resultat',
+          message: `Le CA Année 1 dans le BP (${parsedCa.toLocaleString('fr-FR')} €) diffère de celui du module Financier (${financialForecast.year1Revenue.toLocaleString('fr-FR')} €).`,
+          source: 'financier',
+          suggestion: 'Resynchronisez les données financières ou corrigez manuellement le compte de résultat.',
+        })
+      }
+    }
+  }
+
+  // 2. Statut juridique mismatch: BP statut-juridique vs JuridiqueAnalysis
+  const sjContent = typeof bpSections['statut-juridique'] === 'string' ? bpSections['statut-juridique'] : ''
+  if (sjContent && juridiqueAnalysis?.recommendedStatus) {
+    const recommended = juridiqueAnalysis.recommendedStatus.toLowerCase()
+    const bpHasStatus = recommended.split(/[\s,;]+/).some(
+      (word) => word.length > 3 && sjContent.toLowerCase().includes(word),
+    )
+    if (!bpHasStatus) {
+      warnings.push({
+        type: 'warning',
+        sectionId: 'statut-juridique',
+        message: `Le statut juridique recommandé (${juridiqueAnalysis.recommendedStatus}) ne semble pas présent dans la section du BP.`,
+        source: 'juridique',
+        suggestion: 'Resynchronisez les données juridiques ou mettez à jour le statut juridique dans le BP.',
+      })
+    }
+  }
+
+  // 3. Empty sourced sections: previously synced but now empty
+  if (bpSectionMeta) {
+    const syncSources: DataSource[] = ['marche', 'financier', 'juridique', 'creasim', 'parcours']
+    for (const [sectionId, meta] of Object.entries(bpSectionMeta)) {
+      if (syncSources.includes(meta.source)) {
+        const content = bpSections[sectionId]
+        const isEmpty = content === null || content === undefined ||
+          (typeof content === 'string' && content.trim() === '')
+        if (isEmpty) {
+          warnings.push({
+            type: 'warning',
+            sectionId,
+            message: `Cette section était synchronisée depuis ${meta.source} mais est maintenant vide.`,
+            source: meta.source,
+            suggestion: 'Resynchronisez le module source ou restaurez le contenu depuis un snapshot.',
+          })
+        }
+      }
+    }
+  }
+
+  // 4. Stale sync: synced > 7 days ago and source module updated since
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+  if (bpSectionMeta) {
+    const moduleUpdateMap: Record<string, Date | null> = {
+      marche: marketAnalysis?.updatedAt ?? null,
+      financier: financialForecast?.updatedAt ?? null,
+      juridique: juridiqueAnalysis?.updatedAt ?? null,
+      creasim: creasimSimulation?.updatedAt ?? null,
+    }
+
+    for (const [sectionId, meta] of Object.entries(bpSectionMeta)) {
+      if (meta.syncedAt && moduleUpdateMap[meta.source]) {
+        const syncedDate = new Date(meta.syncedAt)
+        const moduleUpdateDate = moduleUpdateMap[meta.source]!
+        if (syncedDate < sevenDaysAgo && moduleUpdateDate > syncedDate) {
+          warnings.push({
+            type: 'info',
+            sectionId,
+            message: `Synchronisée il y a plus de 7 jours depuis ${meta.source}. Le module source a été mis à jour depuis.`,
+            source: meta.source,
+            suggestion: 'Resynchronisez cette section pour bénéficier des dernières données.',
+          })
+        }
+      }
+    }
+  }
+
+  return warnings
 }
 
 // ─── Build full pipeline response ───
@@ -482,7 +631,7 @@ async function buildPipelineResponse(userId: string) {
   ] = await Promise.all([
     db.creatorJourney.findUnique({
       where: { userId },
-      select: { bpSections: true, bpStatus: true, bpScore: true, projectTitle: true, projectSector: true, updatedAt: true },
+      select: { bpSections: true, bpSectionMeta: true, bpStatus: true, bpScore: true, projectTitle: true, projectSector: true, updatedAt: true },
     }),
     db.marketAnalysis.findUnique({ where: { userId }, select: { sector: true, targetAudience: true, updatedAt: true } }),
     db.juridiqueAnalysis.findUnique({ where: { userId }, select: { recommendedStatus: true, updatedAt: true } }),
@@ -509,6 +658,7 @@ async function buildPipelineResponse(userId: string) {
   ])
 
   const bpSections = (journey?.bpSections as Record<string, unknown>) ?? {}
+  const bpSectionMeta = (journey?.bpSectionMeta as BpSectionMeta) ?? null
   const hasParcours = !!(parcoursData?.projectTitle) || !!(parcoursData?.visionAnswers && typeof parcoursData.visionAnswers === 'object' && Object.keys(parcoursData.visionAnswers).length > 0)
   const hasMarche = !!(marketAnalysis?.sector && marketAnalysis?.targetAudience)
   const hasJuridique = !!juridiqueAnalysis?.recommendedStatus
@@ -521,8 +671,8 @@ async function buildPipelineResponse(userId: string) {
     creasimSimulation, bmc, bpSections, journey?.updatedAt ?? null, pitchDeck,
   )
 
-  // Compute provenance
-  const sectionProvenance = computeProvenance(bpSections, hasMarche, hasJuridique, hasFinancier, hasCreaSim)
+  // Compute provenance (now with bpSectionMeta for lastModified)
+  const sectionProvenance = computeProvenance(bpSections, hasMarche, hasJuridique, hasFinancier, hasCreaSim, bpSectionMeta)
 
   // Compute health
   const health = computeHealth(modules, sectionProvenance)
@@ -530,7 +680,13 @@ async function buildPipelineResponse(userId: string) {
   // Compute recommendations
   const recommendations = computeRecommendations(modules, hasParcours)
 
-  return { modules, sectionProvenance, health, recommendations }
+  // Cross-module validation warnings (Task 9.2)
+  const warnings = await computeCrossValidationWarnings(
+    userId, bpSections, bpSectionMeta,
+    marketAnalysis, juridiqueAnalysis, financialForecast, creasimSimulation,
+  )
+
+  return { modules, sectionProvenance, health, recommendations, warnings }
 }
 
 // ─── GET: Full pipeline status ──────────────
@@ -576,6 +732,39 @@ export async function POST(request: NextRequest) {
       case 'refresh': {
         const data = await buildPipelineResponse(payload.userId)
         return success(data, 'Pipeline V3 rafraîchi')
+      }
+      case 'get-timestamps': {
+        const journey = await db.creatorJourney.findUnique({
+          where: { userId: payload.userId },
+          select: { bpSectionMeta: true },
+        })
+        const meta = (journey?.bpSectionMeta as BpSectionMeta) ?? {}
+        return success({ timestamps: meta }, 'Timestamps des sections chargés')
+      }
+      case 'cross-validate': {
+        // Full cross-validation with fresh data
+        const [
+          journey, marketAnalysis, juridiqueAnalysis,
+          financialForecast, creasimSimulation,
+        ] = await Promise.all([
+          db.creatorJourney.findUnique({
+            where: { userId: payload.userId },
+            select: { bpSections: true, bpSectionMeta: true },
+          }),
+          db.marketAnalysis.findUnique({ where: { userId: payload.userId }, select: { updatedAt: true } }),
+          db.juridiqueAnalysis.findUnique({ where: { userId: payload.userId }, select: { recommendedStatus: true, updatedAt: true } }),
+          db.financialForecast.findUnique({ where: { userId: payload.userId }, select: { year1Revenue: true, year1Expenses: true, updatedAt: true } }),
+          db.creaSimSimulation.findUnique({ where: { userId: payload.userId }, select: { monthlyRevenue: true, updatedAt: true } }),
+        ])
+
+        const bpSections = (journey?.bpSections as Record<string, unknown>) ?? {}
+        const bpSectionMeta = (journey?.bpSectionMeta as BpSectionMeta) ?? null
+
+        const warnings = await computeCrossValidationWarnings(
+          payload.userId, bpSections, bpSectionMeta,
+          marketAnalysis, juridiqueAnalysis, financialForecast, creasimSimulation,
+        )
+        return success({ warnings }, `${warnings.length} alerte(s) de cohérence détectée(s)`)
       }
     }
   } catch (err) {

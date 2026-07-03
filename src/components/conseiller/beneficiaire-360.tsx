@@ -33,6 +33,7 @@ import {
   TrendingUp,
   Loader2,
   CircleDot,
+  AlertTriangle,
 } from 'lucide-react'
 
 /* ─── Types ─── */
@@ -68,6 +69,25 @@ interface Livrable {
   generatedAt: string | null
 }
 
+interface PipelineModule {
+  code: string
+  label: string
+  status: 'not_started' | 'in_progress' | 'completed'
+  score: number | null
+  lastActivity: string | null
+}
+
+interface PipelineData {
+  beneficiaryId: string
+  projectTitle: string | null
+  globalProgress: number
+  bpStatus: string
+  bpScore: number | null
+  modules: PipelineModule[]
+  pipelineWarnings: number
+  lastActiveAt: string | null
+}
+
 interface Beneficiary360Data {
   beneficiaire: Beneficiary
   kiviatScores: KiviatScore[]
@@ -82,11 +102,7 @@ interface Beneficiary360Data {
     statusLabel: string
     notes: string
   }>
-  moduleCompletion: Array<{
-    moduleName: string
-    status: 'completed' | 'in_progress' | 'not_started'
-    score: number
-  }>
+  pipeline: PipelineData | null
   journeyData: {
     currentPhase: string
     progressPercent: number
@@ -255,7 +271,7 @@ function ModuleCard({
 }: {
   name: string
   status: 'completed' | 'in_progress' | 'not_started'
-  score: number
+  score: number | null
 }) {
   const statusConfig = {
     completed: { label: 'Terminé', color: 'bg-emerald-500 text-white', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
@@ -263,6 +279,7 @@ function ModuleCard({
     not_started: { label: 'Non commencé', color: 'bg-muted text-muted-foreground', badge: 'bg-muted text-muted-foreground border-border' },
   }
   const cfg = statusConfig[status]
+  const displayScore = score ?? 0
 
   return (
     <div className="flex items-center gap-3 rounded-lg border p-3">
@@ -278,8 +295,8 @@ function ModuleCard({
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-foreground truncate">{name}</p>
         <div className="flex items-center gap-2 mt-1">
-          <Progress value={score} className="h-1.5 flex-1" />
-          <span className="text-xs text-muted-foreground shrink-0">{score}%</span>
+          <Progress value={displayScore} className="h-1.5 flex-1" />
+          <span className="text-xs text-muted-foreground shrink-0">{displayScore}%</span>
         </div>
       </div>
       <Badge variant="outline" className={cfg.badge}>{cfg.label}</Badge>
@@ -491,32 +508,44 @@ export function Beneficiaire360Sheet({
         }
       }
 
-      // Build module completion mock based on progress
-      const moduleNames = ['Découverte entrepreneuriale', 'Profilage RIASEC', 'Idéation & Créativité', 'Business Model Canvas', 'Business Plan', 'Stratégie financière']
-      const moduleCompletion = moduleNames.map((name, i) => {
-        const threshold = (i / moduleNames.length) * 100
-        const status = benef.progress >= threshold + 16
-          ? 'completed' as const
-          : benef.progress >= threshold
-            ? 'in_progress' as const
-            : 'not_started' as const
-        const score = status === 'completed' ? 100 : status === 'in_progress' ? Math.min(90, Math.round((benef.progress - threshold) / 16 * 100)) : 0
-        return { moduleName: name, status, score }
-      })
+      // Fetch pipeline data from the new API
+      let pipelineData: PipelineData | null = null
+      try {
+        const pipelineRes = await authFetch(`/api/conseiller/${beneficiaryId}/pipeline`)
+        if (pipelineRes.ok) {
+          const pipelineJson = await pipelineRes.json()
+          if (pipelineJson.success && pipelineJson.data) {
+            pipelineData = pipelineJson.data
+          }
+        }
+      } catch {
+        // Pipeline fetch failed — continue without it
+      }
+
+      // Derive journey data from pipeline if available, otherwise use beneficiary fields
+      const journeyData = pipelineData
+        ? {
+            currentPhase: benef.journeyPhase,
+            progressPercent: pipelineData.globalProgress,
+            projectTitle: pipelineData.projectTitle || benef.projectTitle,
+            projectSector: benef.sector,
+            bpStatus: pipelineData.bpStatus,
+          }
+        : {
+            currentPhase: benef.journeyPhase,
+            progressPercent: benef.progress,
+            projectTitle: benef.projectTitle,
+            projectSector: benef.sector,
+            bpStatus: 'NOT_STARTED' as const,
+          }
 
       setData360({
         beneficiaire: benef,
         kiviatScores,
         livrables: benLivrables,
         recentInterviews: benEntretiens,
-        moduleCompletion,
-        journeyData: {
-          currentPhase: benef.journeyPhase,
-          progressPercent: benef.progress,
-          projectTitle: benef.projectTitle,
-          projectSector: benef.sector,
-          bpStatus: 'NOT_STARTED',
-        },
+        pipeline: pipelineData,
+        journeyData,
       })
     } catch (err) {
       setError('Erreur lors du chargement des données')
@@ -743,6 +772,17 @@ export function Beneficiaire360Sheet({
                       </Card>
                     </div>
 
+                    {/* Pipeline warnings alert */}
+                    {data360.pipeline && data360.pipeline.pipelineWarnings > 0 && (
+                      <div className="flex gap-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                        <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-amber-800 dark:text-amber-300">{data360.pipeline.pipelineWarnings} alerte{data360.pipeline.pipelineWarnings > 1 ? 's' : ''} de parcours</p>
+                          <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">Des incohérences ont été détectées entre les modules. Vérifiez l&apos;avancement global.</p>
+                        </div>
+                      </div>
+                    )}
+
                     {/* PAA Program progress */}
                     <Card>
                       <CardHeader className="pb-3">
@@ -754,16 +794,23 @@ export function Beneficiaire360Sheet({
                       <CardContent className="space-y-4">
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-muted-foreground">Progression globale</span>
-                          <span className="text-lg font-bold text-foreground">{selectedBeneficiary.progress}%</span>
+                          <span className="text-lg font-bold text-foreground">{data360.pipeline?.globalProgress ?? selectedBeneficiary.progress}%</span>
                         </div>
-                        <Progress value={selectedBeneficiary.progress} className="h-2.5" />
-                        <div className="text-xs text-muted-foreground">
-                          Phase actuelle : <span className="font-medium text-foreground">{selectedBeneficiary.journeyPhase}</span>
+                        <Progress value={data360.pipeline?.globalProgress ?? selectedBeneficiary.progress} className="h-2.5" />
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            Phase actuelle : <span className="font-medium text-foreground">{selectedBeneficiary.journeyPhase}</span>
+                          </span>
+                          {data360.pipeline?.bpScore != null && (
+                            <span className="text-xs text-muted-foreground">
+                              Score BP : <span className="font-medium text-foreground">{data360.pipeline.bpScore}/100</span>
+                            </span>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
 
-                    {/* Module completion */}
+                    {/* Module completion — real pipeline data */}
                     <Card>
                       <CardHeader className="pb-3">
                         <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -772,9 +819,22 @@ export function Beneficiaire360Sheet({
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-2">
-                        {data360.moduleCompletion.map((mod) => (
-                          <ModuleCard key={mod.moduleName} {...mod} />
-                        ))}
+                        {data360.pipeline?.modules && data360.pipeline.modules.length > 0 ? (
+                          data360.pipeline.modules
+                            .filter((m) => m.status !== 'not_started')
+                            .map((mod) => (
+                              <ModuleCard
+                                key={mod.code}
+                                name={mod.label}
+                                status={mod.status}
+                                score={mod.score}
+                              />
+                            ))
+                        ) : (
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            Aucun module commencé. Le bénéficiaire n&apos;a pas encore d&apos;activité enregistrée.
+                          </p>
+                        )}
                       </CardContent>
                     </Card>
                   </TabsContent>

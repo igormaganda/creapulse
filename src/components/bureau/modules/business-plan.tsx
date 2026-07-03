@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import rehypeSanitize from 'rehype-sanitize'
 
@@ -15,6 +15,16 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Progress } from '@/components/ui/progress'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogFooter,
+} from '@/components/ui/alert-dialog'
 import {
   Select,
   SelectContent,
@@ -56,9 +66,12 @@ import {
   Package,
   UserCheck,
   Crown,
+  AlertTriangle,
+  History,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { authFetch } from '@/lib/auth-fetch'
 import { BusinessPlanPdf } from '@/components/bureau/export/business-plan-pdf'
 
 // ─── Section Definitions ─────────────────────
@@ -203,6 +216,25 @@ interface BpSections {
   [key: string]: unknown
 }
 
+// ─── P9 Types ───────────────────────────────
+
+interface QualityResult {
+  score: number
+  pertinence: number
+  profondeur: number
+  coherence: number
+  recommendations: string[]
+}
+
+interface Snapshot {
+  id: string
+  version: string
+  createdAt: string
+  trigger: 'manual' | 'auto' | 'sync'
+  sectionsCount: number
+  wordCount: number
+}
+
 // ─── Default data ───────────────────────────
 
 function genId(): string {
@@ -267,6 +299,27 @@ function formatCurrency(value: number): string {
   }).format(value)
 }
 
+function formatRelativeTime(iso: string): string {
+  const now = Date.now()
+  const then = new Date(iso).getTime()
+  const diffMs = now - then
+  const seconds = Math.floor(diffMs / 1000)
+  const minutes = Math.floor(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+
+  if (seconds < 60) return 'à l\'instant'
+  if (minutes < 60) return `il y a ${minutes} min`
+  if (hours < 24) return `il y a ${hours}h`
+  if (days < 7) return `il y a ${days}j`
+
+  return new Date(iso).toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
 // ─── Main Component ─────────────────────────
 
 interface PipelineStatus {
@@ -299,6 +352,18 @@ export function BusinessPlanModule() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [projectContext, setProjectContext] = useState<Record<string, string | null> | null>(null)
   const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus>(DEFAULT_PIPELINE)
+
+  // ─── P9 state ─────────────────────────────
+  const [sectionTimestamps, setSectionTimestamps] = useState<Record<string, { lastModified?: string }>>({})
+  const [sectionWarnings, setSectionWarnings] = useState<Record<string, string>>({})
+  const [qualityResults, setQualityResults] = useState<Record<string, QualityResult>>({})
+  const [qualityLoading, setQualityLoading] = useState<string | null>(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([])
+  const [snapshotsLoading, setSnapshotsLoading] = useState(false)
+  const [restoreTarget, setRestoreTarget] = useState<Snapshot | null>(null)
+  const [isSavingSnapshot, setIsSavingSnapshot] = useState(false)
+  const [isRestoring, setIsRestoring] = useState(false)
 
 
   // ─── Load data on mount ──────────────────
@@ -334,6 +399,43 @@ export function BusinessPlanModule() {
       setIsLoading(false)
     }
     load()
+  }, [])
+
+  // ─── P9: Fetch timestamps on mount ──────
+  useEffect(() => {
+    async function fetchTimestamps() {
+      try {
+        const res = await authFetch('/api/pipeline-v3?action=get-timestamps')
+        if (res.ok) {
+          const json = await res.json()
+          if (json.success && json.data?.timestamps) {
+            setSectionTimestamps(json.data.timestamps as Record<string, { lastModified?: string }>)
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    fetchTimestamps()
+  }, [])
+
+  // ─── P9: Fetch cross-validate warnings on mount ──
+  useEffect(() => {
+    async function fetchWarnings() {
+      try {
+        const res = await authFetch('/api/pipeline-v3?action=cross-validate')
+        if (res.ok) {
+          const json = await res.json()
+          if (json.success && json.data?.warnings) {
+            const raw = json.data.warnings as Record<string, string[] | string>
+            const mapped: Record<string, string> = {}
+            for (const [key, val] of Object.entries(raw)) {
+              mapped[key] = Array.isArray(val) ? val[0] : val
+            }
+            setSectionWarnings(mapped)
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    fetchWarnings()
   }, [])
 
   // ─── Auto-save to localStorage ──────────
@@ -492,6 +594,107 @@ export function BusinessPlanModule() {
     setExportPdfOpen(true)
   }, [])
 
+  // ─── P9: AI Quality Evaluation ──────────
+  const handleEvaluateQuality = useCallback(async (sectionDef: SectionDef) => {
+    setQualityLoading(sectionDef.id)
+    try {
+      const content = typeof sections[sectionDef.id] === 'string'
+        ? sections[sectionDef.id] as string
+        : JSON.stringify(sections[sectionDef.id])
+      const res = await authFetch('/api/business-plan/quality', {
+        method: 'POST',
+        body: JSON.stringify({
+          sectionId: sectionDef.id,
+          content,
+          sectionType: sectionDef.type,
+        }),
+      })
+      const json = await res.json()
+      if (json.success && json.data) {
+        setQualityResults(prev => ({
+          ...prev,
+          [sectionDef.id]: json.data as QualityResult,
+        }))
+      } else {
+        toast.error(json.error?.message || 'Erreur lors de l\'évaluation')
+      }
+    } catch {
+      toast.error('Erreur de connexion au serveur')
+    } finally {
+      setQualityLoading(null)
+    }
+  }, [sections])
+
+  // ─── P9: Load snapshots ──────────────────
+  const handleLoadSnapshots = useCallback(async () => {
+    setSnapshotsLoading(true)
+    try {
+      const res = await authFetch('/api/business-plan/snapshots')
+      if (res.ok) {
+        const json = await res.json()
+        if (json.success && json.data?.snapshots) {
+          setSnapshots(json.data.snapshots as Snapshot[])
+        }
+      }
+    } catch { /* ignore */ } finally {
+      setSnapshotsLoading(false)
+    }
+  }, [])
+
+  // ─── P9: Save manual snapshot ────────────
+  const handleSaveSnapshot = useCallback(async () => {
+    setIsSavingSnapshot(true)
+    try {
+      const res = await authFetch('/api/business-plan/snapshots', {
+        method: 'POST',
+        body: JSON.stringify({ trigger: 'manual' }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('Sauvegarde créée avec succès')
+        handleLoadSnapshots()
+      } else {
+        toast.error(json.error?.message || 'Erreur lors de la sauvegarde')
+      }
+    } catch {
+      toast.error('Erreur de connexion au serveur')
+    } finally {
+      setIsSavingSnapshot(false)
+    }
+  }, [handleLoadSnapshots])
+
+  // ─── P9: Restore snapshot ────────────────
+  const handleRestoreSnapshot = useCallback(async (snapshot: Snapshot) => {
+    setIsRestoring(true)
+    try {
+      const res = await authFetch('/api/business-plan/snapshots', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'restore', snapshotId: snapshot.id }),
+      })
+      const json = await res.json()
+      if (json.success && json.data?.sections) {
+        const merged = { ...DEFAULT_SECTIONS, ...json.data.sections }
+        setSections(merged)
+        localStorage.setItem('creapulse-bp', JSON.stringify(merged))
+        toast.success(`Version "${snapshot.version}" restaurée avec succès`)
+        setHistoryOpen(false)
+        setRestoreTarget(null)
+      } else {
+        toast.error(json.error?.message || 'Erreur lors de la restauration')
+      }
+    } catch {
+      toast.error('Erreur de connexion au serveur')
+    } finally {
+      setIsRestoring(false)
+    }
+  }, [])
+
+  // ─── P9: Open history & load ─────────────
+  const handleOpenHistory = useCallback(() => {
+    setHistoryOpen(true)
+    handleLoadSnapshots()
+  }, [handleLoadSnapshots])
+
   // ─── Section finder ─────────────────────
   const findSectionDef = useCallback((id: string): SectionDef | undefined => {
     return ALL_SECTIONS.find((s) => s.id === id)
@@ -535,22 +738,38 @@ export function BusinessPlanModule() {
       case 'textarea':
         return (
           <div className="space-y-3">
-            {sectionDef.hasAiSuggestion && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {sectionDef.hasAiSuggestion && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 border-[#FFB74D]/40 text-[#FFB74D] hover:bg-[#FFB74D]/10 hover:text-[#FFB74D]"
+                  onClick={() => handleAiSuggest(sectionDef)}
+                  disabled={aiLoading === sectionDef.id}
+                >
+                  {aiLoading === sectionDef.id ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5" />
+                  )}
+                  Aide IA
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-1.5 border-[#FFB74D]/40 text-[#FFB74D] hover:bg-[#FFB74D]/10 hover:text-[#FFB74D]"
-                onClick={() => handleAiSuggest(sectionDef)}
-                disabled={aiLoading === sectionDef.id}
+                className="gap-1.5 border-[#00838F]/40 text-[#00838F] hover:bg-[#00838F]/10 hover:text-[#00838F]"
+                onClick={() => handleEvaluateQuality(sectionDef)}
+                disabled={qualityLoading === sectionDef.id}
               >
-                {aiLoading === sectionDef.id ? (
+                {qualityLoading === sectionDef.id ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
                   <Sparkles className="h-3.5 w-3.5" />
                 )}
-                Aide IA
+                Évaluer
               </Button>
-            )}
+            </div>
             <Textarea
               value={(val as string) || ''}
               onChange={(e) => updateSection(sectionDef.id, e.target.value)}
@@ -573,6 +792,68 @@ export function BusinessPlanModule() {
                 <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{val as string}</ReactMarkdown>
               </div>
             )}
+            {/* P9: Quality results */}
+            <AnimatePresence>
+              {qualityResults[sectionDef.id] && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="rounded-lg border bg-muted/30 p-4 space-y-3 overflow-hidden"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold">Qualité</span>
+                    <Badge className={cn(
+                      'text-xs font-bold',
+                      qualityResults[sectionDef.id].score >= 7
+                        ? 'bg-green-500/20 text-green-600 border-green-500/30'
+                        : qualityResults[sectionDef.id].score >= 4
+                          ? 'bg-amber-500/20 text-amber-600 border-amber-500/30'
+                          : 'bg-red-500/20 text-red-600 border-red-500/30',
+                    )}>
+                      {qualityResults[sectionDef.id].score}/10
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: 'Pertinence', value: qualityResults[sectionDef.id].pertinence },
+                      { label: 'Profondeur', value: qualityResults[sectionDef.id].profondeur },
+                      { label: 'Cohérence', value: qualityResults[sectionDef.id].coherence },
+                    ].map((sub) => (
+                      <div key={sub.label} className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-muted-foreground">{sub.label}</span>
+                          <span className="text-[10px] font-medium">{sub.value}/10</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${sub.value * 10}%` }}
+                            className={cn(
+                              'h-full rounded-full',
+                              sub.value >= 7 ? 'bg-green-500' : sub.value >= 4 ? 'bg-amber-500' : 'bg-red-500',
+                            )}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {qualityResults[sectionDef.id].recommendations.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">Recommandations</p>
+                      <ul className="space-y-0.5">
+                        {qualityResults[sectionDef.id].recommendations.map((r, i) => (
+                          <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                            <span className="text-[#00838F] mt-0.5">•</span>
+                            <span>{r}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         )
 
@@ -737,6 +1018,8 @@ export function BusinessPlanModule() {
                     const filled = isSectionFilled(s.id, sections[s.id])
                     const isActive = activeSection === s.id
                     const Icon = s.icon
+                    const ts = sectionTimestamps[s.id]?.lastModified
+                    const warning = sectionWarnings[s.id]
                     return (
                       <Tooltip key={s.id}>
                         <TooltipTrigger asChild>
@@ -757,7 +1040,24 @@ export function BusinessPlanModule() {
                             )}
                             {!sidebarCollapsed && <Icon className="h-3.5 w-3.5 shrink-0" />}
                             {!sidebarCollapsed && (
-                              <span className="truncate">{s.title}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1">
+                                  {warning && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />
+                                      </TooltipTrigger>
+                                      <TooltipContent side="right" className="text-xs max-w-[200px]">
+                                        {warning}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                  <span className="truncate">{s.title}</span>
+                                  {ts && (
+                                    <span className="text-xs text-muted-foreground ml-1">{formatRelativeTime(ts)}</span>
+                                  )}
+                                </div>
+                              </div>
                             )}
                           </button>
                         </TooltipTrigger>
@@ -831,6 +1131,24 @@ export function BusinessPlanModule() {
                   <Eye className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Prévisualiser</span>
                 </Button>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={handleOpenHistory}>
+                  <History className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Historique</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={handleSaveSnapshot}
+                  disabled={isSavingSnapshot}
+                >
+                  {isSavingSnapshot ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Save className="h-3.5 w-3.5" />
+                  )}
+                  <span className="hidden sm:inline">Sauvegarder</span>
+                </Button>
                 <Button
                   size="sm"
                   className="gap-1.5 bg-[#00838F] hover:bg-[#00838F]/90 text-white"
@@ -842,7 +1160,7 @@ export function BusinessPlanModule() {
                   ) : (
                     <Save className="h-3.5 w-3.5" />
                   )}
-                  <span className="hidden sm:inline">Sauvegarder</span>
+                  <span className="hidden sm:inline">Enregistrer</span>
                 </Button>
               </div>
             </div>
@@ -1112,6 +1430,114 @@ export function BusinessPlanModule() {
             <BusinessPlanPdf onClose={() => setExportPdfOpen(false)} />
           </DialogContent>
         </Dialog>
+
+        {/* ═══ P9: Version History Dialog ═══ */}
+        <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <History className="h-5 w-5 text-[#00838F]" />
+                Historique des versions
+              </DialogTitle>
+              <DialogDescription>
+                Restaurez une version antérieure de votre business plan
+              </DialogDescription>
+            </DialogHeader>
+            <ScrollArea className="flex-1 pr-4">
+              {snapshotsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : snapshots.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <History className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">Aucune version sauvegardée</p>
+                  <p className="text-xs mt-1">Cliquez sur "Sauvegarder" pour créer un point de restauration</p>
+                </div>
+              ) : (
+                <div className="space-y-2 pb-4">
+                  {snapshots.map((snap) => (
+                    <div
+                      key={snap.id}
+                      className="flex items-center gap-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold truncate">{snap.version}</span>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              'text-[10px] px-1.5 py-0 h-5',
+                              snap.trigger === 'manual'
+                                ? 'bg-blue-500/10 text-blue-600 border-blue-500/30'
+                                : snap.trigger === 'sync'
+                                  ? 'bg-purple-500/10 text-purple-600 border-purple-500/30'
+                                  : 'bg-muted text-muted-foreground',
+                            )}
+                          >
+                            {snap.trigger === 'manual' ? 'Manuel' : snap.trigger === 'sync' ? 'Sync' : 'Auto'}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(snap.createdAt).toLocaleString('fr-FR', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {snap.sectionsCount} sections · {snap.wordCount} mots
+                          </span>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        onClick={() => setRestoreTarget(snap)}
+                      >
+                        Restaurer
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
+
+        {/* ═══ P9: Restore Confirmation AlertDialog ═══ */}
+        <AlertDialog open={!!restoreTarget} onOpenChange={(open) => { if (!open) setRestoreTarget(null) }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Restaurer cette version ?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Vous allez restaurer la version <span className="font-semibold">{restoreTarget?.version}</span> du{' '}
+                {restoreTarget ? new Date(restoreTarget.createdAt).toLocaleString('fr-FR') : ''}.
+                Le contenu actuel sera remplacé. Cette action est irréversible.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isRestoring}>Annuler</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault()
+                  if (restoreTarget) handleRestoreSnapshot(restoreTarget)
+                }}
+                disabled={isRestoring || !restoreTarget}
+                className="bg-[#00838F] hover:bg-[#00838F]/90 text-white"
+              >
+                {isRestoring ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : null}
+                Restaurer
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </motion.div>
     </TooltipProvider>
   )

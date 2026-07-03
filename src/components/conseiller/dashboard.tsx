@@ -232,6 +232,7 @@ export function ConseillerDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [vue360Open, setVue360Open] = useState(false)
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<number>(Date.now())
 
   const fetchStats = useCallback(async () => {
     setLoading(true)
@@ -253,6 +254,15 @@ export function ConseillerDashboard() {
 
   useEffect(() => {
     fetchStats()
+  }, [fetchStats])
+
+  // ─── Auto-refresh every 60s ───
+  useEffect(() => {
+    const id = setInterval(() => {
+      fetchStats()
+      setLastRefreshedAt(Date.now())
+    }, 60000)
+    return () => clearInterval(id)
   }, [fetchStats])
 
   const greetingHour = new Date().getHours()
@@ -322,6 +332,9 @@ export function ConseillerDashboard() {
             </h1>
             <p className="mt-1 text-white/60 text-sm md:text-base">
               {formatDate(new Date())} — Voici un aperçu de votre activité
+            </p>
+            <p className="text-xs text-white/40">
+              MAJ : il y a {Math.max(0, Math.floor((Date.now() - lastRefreshedAt) / 1000))}s
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">

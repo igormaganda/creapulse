@@ -10,6 +10,7 @@ import { db } from '@/lib/db'
 import type { Prisma } from '@prisma/client'
 import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
 import { verifyToken, AuthError } from '@/lib/auth'
+import { createNotification } from '@/lib/notifications'
 
 // ─── Validation schemas ────────────────────
 
@@ -161,6 +162,15 @@ export async function POST(request: NextRequest) {
           completedAt: new Date(),
         },
       })
+
+      // Fire-and-forget: notify beneficiary on assessment completion
+      createNotification({
+        userId: payload.userId,
+        title: 'Module complété',
+        content: 'Félicitations ! Vous avez complété le module Tremplin',
+        type: 'SUCCESS',
+        link: '/bureau/tremplin',
+      }).catch(() => {})
     }
 
     return success(

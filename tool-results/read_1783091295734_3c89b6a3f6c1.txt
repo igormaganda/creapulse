@@ -1,0 +1,917 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→import { useMemo, useState } from 'react'
+     4→     4→import { motion } from 'framer-motion'
+     5→     5→import { useBureauStore, type BureauSection } from './bureau-store'
+     6→     6→import { cn } from '@/lib/utils'
+     7→     7→import { Button } from '@/components/ui/button'
+     8→     8→import {
+     9→     9→  Card,
+    10→    10→  CardContent,
+    11→    11→  CardDescription,
+    12→    12→  CardHeader,
+    13→    13→  CardTitle,
+    14→    14→} from '@/components/ui/card'
+    15→    15→import { Badge } from '@/components/ui/badge'
+    16→    16→import { Progress } from '@/components/ui/progress'
+    17→    17→import { Separator } from '@/components/ui/separator'
+    18→    18→import { ScrollArea } from '@/components/ui/scroll-area'
+    19→    19→import {
+    20→    20→  Tooltip,
+    21→    21→  TooltipContent,
+    22→    22→  TooltipProvider,
+    23→    23→  TooltipTrigger,
+    24→    24→} from '@/components/ui/tooltip'
+    25→    25→import {
+    26→    26→  Lightbulb,
+    27→    27→  Calculator,
+    28→    28→  FileText,
+    29→    29→  Target,
+    30→    30→  TrendingUp,
+    31→    31→  ArrowRight,
+    32→    32→  CheckCircle2,
+    33→    33→  Sparkles,
+    34→    34→  FlaskConical,
+    35→    35→  Scale,
+    36→    36→  Presentation,
+    37→    37→  ChevronDown,
+    38→    38→  ChevronUp,
+    39→    39→  Award,
+    40→    40→  Lock,
+    41→    41→  Play,
+    42→    42→} from 'lucide-react'
+    43→    43→import type { LucideIcon } from 'lucide-react'
+    44→    44→import { SkeletonPulse } from '@/lib/hooks/use-api-data'
+    45→    45→import { scanAllModules, type FullScanResult } from '@/lib/module-scanner'
+    46→    46→import { SECTION_META, getModuleDef, MODULE_REGISTRY } from '@/lib/module-registry'
+    47→    47→
+    48→    48→/* ─── Animation variants ─── */
+    49→    49→const containerVariants = {
+    50→    50→  hidden: { opacity: 0 },
+    51→    51→  visible: {
+    52→    52→    opacity: 1,
+    53→    53→    transition: { staggerChildren: 0.06, delayChildren: 0.05 },
+    54→    54→  },
+    55→    55→} as const
+    56→    56→
+    57→    57→const itemVariants = {
+    58→    58→  hidden: { opacity: 0, y: 16 },
+    59→    59→  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' as const } },
+    60→    60→} as const
+    61→    61→
+    62→    62→/* ─── Section color map ─── */
+    63→    63→const SECTION_COLORS: Record<string, {
+    64→    64→  border: string
+    65→    65→  bg: string
+    66→    66→  iconColor: string
+    67→    67→  progressColor: string
+    68→    68→  badge: string
+    69→    69→}> = {
+    70→    70→  parcours: {
+    71→    71→    border: 'border-teal-500',
+    72→    72→    bg: 'bg-teal-50 dark:bg-teal-900/20',
+    73→    73→    iconColor: 'text-teal-600 dark:text-teal-400',
+    74→    74→    progressColor: '[&>div]:bg-teal-500',
+    75→    75→    badge: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
+    76→    76→  },
+    77→    77→  strategie: {
+    78→    78→    border: 'border-amber-500',
+    79→    79→    bg: 'bg-amber-50 dark:bg-amber-900/20',
+    80→    80→    iconColor: 'text-amber-600 dark:text-amber-400',
+    81→    81→    progressColor: '[&>div]:bg-amber-500',
+    82→    82→    badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    83→    83→  },
+    84→    84→  ecosysteme: {
+    85→    85→    border: 'border-emerald-500',
+    86→    86→    bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+    87→    87→    iconColor: 'text-emerald-600 dark:text-emerald-400',
+    88→    88→    progressColor: '[&>div]:bg-emerald-500',
+    89→    89→    badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+    90→    90→  },
+    91→    91→  pilotage: {
+    92→    92→    border: 'border-rose-500',
+    93→    93→    bg: 'bg-rose-50 dark:bg-rose-900/20',
+    94→    94→    iconColor: 'text-rose-600 dark:text-rose-400',
+    95→    95→    progressColor: '[&>div]:bg-rose-500',
+    96→    96→    badge: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
+    97→    97→  },
+    98→    98→}
+    99→    99→
+   100→   100→/* ─── Quick Actions config (kept, with module codes for status lookup) ─── */
+   101→   101→const QUICK_ACTIONS = [
+   102→   102→  {
+   103→   103→    label: 'Démarrer un diagnostic',
+   104→   104→    description: 'Testez la viabilité de votre projet',
+   105→   105→    icon: FlaskConical,
+   106→   106→    color: 'bg-teal-50 dark:bg-teal-900/30',
+   107→   107→    iconColor: 'text-primary',
+   108→   108→    module: 'riasec',
+   109→   109→    section: 'parcours' as BureauSection,
+   110→   110→  },
+   111→   111→  {
+   112→   112→    label: 'Simuler mes finances',
+   113→   113→    description: 'Estimez charges et rentabilité',
+   114→   114→    icon: Calculator,
+   115→   115→    color: 'bg-coral-50 dark:bg-coral-900/20',
+   116→   116→    iconColor: 'text-coral-500',
+   117→   117→    module: 'creasim',
+   118→   118→    section: 'strategie' as BureauSection,
+   119→   119→  },
+   120→   120→  {
+   121→   121→    label: 'Rédiger mon Business Plan',
+   122→   122→    description: 'Génération assistée par IA',
+   123→   123→    icon: FileText,
+   124→   124→    color: 'bg-amber-50 dark:bg-amber-900/20',
+   125→   125→    iconColor: 'text-amber-500',
+   126→   126→    module: 'business-plan',
+   127→   127→    section: 'strategie' as BureauSection,
+   128→   128→  },
+   129→   129→  {
+   130→   130→    label: 'Analyser mon marché',
+   131→   131→    description: 'Étude de marché ciblée',
+   132→   132→    icon: TrendingUp,
+   133→   133→    color: 'bg-green-50 dark:bg-green-900/20',
+   134→   134→    iconColor: 'text-green-600 dark:text-green-400',
+   135→   135→    module: 'marche',
+   136→   136→    section: 'strategie' as BureauSection,
+   137→   137→  },
+   138→   138→  {
+   139→   139→    label: 'Mon profil juridique',
+   140→   140→    description: 'Choisissez votre statut',
+   141→   141→    icon: Scale,
+   142→   142→    color: 'bg-purple-50 dark:bg-purple-900/20',
+   143→   143→    iconColor: 'text-purple-600 dark:text-purple-400',
+   144→   144→    module: 'juridique',
+   145→   145→    section: 'strategie' as BureauSection,
+   146→   146→  },
+   147→   147→  {
+   148→   148→    label: 'Créer mon Pitch Deck',
+   149→   149→    description: 'Présentation pour investisseurs',
+   150→   150→    icon: Presentation,
+   151→   151→    color: 'bg-indigo-50 dark:bg-indigo-900/20',
+   152→   152→    iconColor: 'text-indigo-600 dark:text-indigo-400',
+   153→   153→    module: 'pitch-deck',
+   154→   154→    section: 'strategie' as BureauSection,
+   155→   155→  },
+   156→   156→]
+   157→   157→
+   158→   158→/* ─── Helper: format relative time ─── */
+   159→   159→function formatRelativeTime(iso: string | null): string {
+   160→   160→  if (!iso) return ''
+   161→   161→  try {
+   162→   162→    const date = new Date(iso)
+   163→   163→    const now = new Date()
+   164→   164→    const diffMs = now.getTime() - date.getTime()
+   165→   165→    const diffMin = Math.floor(diffMs / 60000)
+   166→   166→    const diffH = Math.floor(diffMs / 3600000)
+   167→   167→    const diffD = Math.floor(diffMs / 86400000)
+   168→   168→
+   169→   169→    if (diffMin < 1) return "À l'instant"
+   170→   170→    if (diffMin < 60) return `Il y a ${diffMin} min`
+   171→   171→    if (diffH < 24) return `Il y a ${diffH}h`
+   172→   172→    if (diffD < 7) return `Il y a ${diffD}j`
+   173→   173→    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+   174→   174→  } catch {
+   175→   175→    return ''
+   176→   176→  }
+   177→   177→}
+   178→   178→
+   179→   179→/* ─── Dashboard Component ─── */
+   180→   180→export function Dashboard() {
+   181→   181→  const { userName, setSection, setModule } = useBureauStore()
+   182→   182→  const [activityExpanded, setActivityExpanded] = useState(false)
+   183→   183→
+   184→   184→  /* ─── Scan all modules from localStorage (sync, once on mount) ─── */
+   185→   185→  const scan: FullScanResult = useMemo(() => {
+   186→   186→    try {
+   187→   187→      return scanAllModules()
+   188→   188→    } catch (err) {
+   189→   189→      console.warn('[Dashboard] module-scanner failed, using empty scan', err)
+   190→   190→      return {
+   191→   191→        modules: [],
+   192→   192→        sections: [],
+   193→   193→        totalModules: 38,
+   194→   194→        startedModules: 0,
+   195→   195→        completedModules: 0,
+   196→   196→        globalProgress: 0,
+   197→   197→        lastActivity: null,
+   198→   198→        recommendedNext: [],
+   199→   199→      }
+   200→   200→    }
+   201→   201→  }, [])
+   202→   202→
+   203→   203→  /* ─── Derived data ─── */
+   204→   204→  const greeting = useMemo(() => {
+   205→   205→    const hour = new Date().getHours()
+   206→   206→    if (hour < 12) return 'Bonjour'
+   207→   207→    if (hour < 18) return 'Bon après-midi'
+   208→   208→    return 'Bonsoir'
+   209→   209→  }, [])
+   210→   210→
+   211→   211→  // Active modules (started or completed), sorted by lastActivity desc
+   212→   212→  const activeModules = useMemo(() => {
+   213→   213→    return scan.modules
+   214→   214→      .filter((m) => m.status !== 'not_started')
+   215→   215→      .sort((a, b) => {
+   216→   216→        if (a.lastActivity && b.lastActivity) {
+   217→   217→          return new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime()
+   218→   218→        }
+   219→   219→        if (a.lastActivity) return -1
+   220→   220→        if (b.lastActivity) return 1
+   221→   221→        return b.completionPercent - a.completionPercent
+   222→   222→      })
+   223→   223→  }, [scan.modules])
+   224→   224→
+   225→   225→  // Build a status lookup map for quick actions
+   226→   226→  const moduleStatusMap = useMemo(() => {
+   227→   227→    const map: Record<string, 'not_started' | 'in_progress' | 'completed'> = {}
+   228→   228→    for (const m of scan.modules) {
+   229→   229→      map[m.code] = m.status
+   230→   230→    }
+   231→   231→    return map
+   232→   232→  }, [scan.modules])
+   233→   233→
+   234→   234→  // Section progress lookup
+   235→   235→  const sectionProgressMap = useMemo(() => {
+   236→   236→    const map: Record<string, { progress: number; started: number; completed: number; total: number }> = {}
+   237→   237→    for (const s of scan.sections) {
+   238→   238→      map[s.section] = {
+   239→   239→        progress: s.progressPercent,
+   240→   240→        started: s.startedModules,
+   241→   241→        completed: s.completedModules,
+   242→   242→        total: s.totalModules,
+   243→   243→      }
+   244→   244→    }
+   245→   245→    return map
+   246→   246→  }, [scan.sections])
+   247→   247→
+   248→   248→  // Get section modules for badge display
+   249→   249→  const sectionActiveModulesMap = useMemo(() => {
+   250→   250→    const map: Record<string, typeof scan.modules> = {}
+   251→   251→    for (const s of scan.sections) {
+   252→   252→      map[s.section] = s.modules
+   253→   253→        .filter((m) => m.status !== 'not_started')
+   254→   254→        .sort((a, b) => b.completionPercent - a.completionPercent)
+   255→   255→    }
+   256→   256→    return map
+   257→   257→  }, [scan.sections])
+   258→   258→
+   259→   259→  // Navigate to a module
+   260→   260→  const handleNavigate = (section: BureauSection, module: string) => {
+   261→   261→    setSection(section)
+   262→   262→    setModule(module)
+   263→   263→  }
+   264→   264→
+   265→   265→  // Navigate to a section
+   266→   266→  const handleSectionClick = (section: BureauSection) => {
+   267→   267→    setSection(section)
+   268→   268→    setModule(null)
+   269→   269→  }
+   270→   270→
+   271→   271→  // First recommended module for the "Reprendre" button
+   272→   272→  const firstRecommended = scan.recommendedNext[0]
+   273→   273→  const moduleDefForRec = firstRecommended ? getModuleDef(firstRecommended.code) : null
+   274→   274→
+   275→   275→  /* ─── Banner message based on progress ─── */
+   276→   276→  const bannerMessage = useMemo(() => {
+   277→   277→    if (scan.globalProgress === 0) {
+   278→   278→      return 'Bienvenue ! Commencez votre parcours entrepreneurial'
+   279→   279→    }
+   280→   280→    if (scan.globalProgress >= 100) {
+   281→   281→      return 'Félicitations ! Vous avez complété votre parcours'
+   282→   282→    }
+   283→   283→    return `Vous avez accompli ${scan.globalProgress}% de votre parcours`
+   284→   284→  }, [scan.globalProgress])
+   285→   285→
+   286→   286→  /* ─── Pipeline stages (dynamic) ─── */
+   287→   287→  const pipelineStages = useMemo(() => {
+   288→   288→    const parcours = sectionProgressMap['parcours'] ?? { progress: 0, started: 0, completed: 0, total: 8 }
+   289→   289→    const strategie = sectionProgressMap['strategie'] ?? { progress: 0, started: 0, completed: 0, total: 13 }
+   290→   290→    const financierModule = scan.modules.find((m) => m.code === 'financier')
+   291→   291→    const financierProgress = financierModule?.completionPercent ?? 0
+   292→   292→    const pilotage = sectionProgressMap['pilotage'] ?? { progress: 0, started: 0, completed: 0, total: 10 }
+   293→   293→
+   294→   294→    // Determine parcours module names for tasks
+   295→   295→    const parcoursTasks = scan.sections
+   296→   296→      .find((s) => s.section === 'parcours')
+   297→   297→      ?.modules.slice(0, 3).map((m) => m.label) ?? ['Profil créateur', 'Mon projet', 'Vision']
+   298→   298→
+   299→   299→    // Strategie tasks
+   300→   300→    const strategieTasks = scan.sections
+   301→   301→      .find((s) => s.section === 'strategie')
+   302→   302→      ?.modules.slice(0, 3).map((m) => m.label) ?? ['Marché', 'Juridique', 'Vision']
+   303→   303→
+   304→   304→    // Active tasks in strategie (in_progress modules)
+   305→   305→    const strategieActive = scan.sections
+   306→   306→      .find((s) => s.section === 'strategie')
+   307→   307→      ?.modules.filter((m) => m.status === 'in_progress').map((m) => m.label) ?? []
+   308→   308→
+   309→   309→    // Financier tasks
+   310→   310→    const financierTasks = ['CreaSim', 'Business Plan', 'Financier']
+   311→   311→    const financierActive = financierModule?.status === 'in_progress' ? ['Financier'] : []
+   312→   312→
+   313→   313→    // Pilotage tasks
+   314→   314→    const pilotageTasks = ['Tremplin', 'Passeport', 'Certifications']
+   315→   315→
+   316→   316→    return [
+   317→   317→      {
+   318→   318→        id: 'idee',
+   319→   319→        label: 'Idée',
+   320→   320→        icon: Lightbulb as LucideIcon,
+   321→   321→        status: parcours.progress >= 80 ? 'done' as const : parcours.progress > 0 ? 'active' as const : 'upcoming' as const,
+   322→   322→        color: parcours.progress >= 80
+   323→   323→          ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20'
+   324→   324→          : parcours.progress > 0
+   325→   325→            ? 'border-primary bg-primary/5 dark:bg-primary/10'
+   326→   326→            : 'border-neutral-200 dark:border-neutral-700',
+   327→   327→        iconColor: parcours.progress >= 80
+   328→   328→          ? 'text-teal-600 dark:text-teal-400'
+   329→   329→          : parcours.progress > 0
+   330→   330→            ? 'text-primary'
+   331→   331→            : 'text-muted-foreground',
+   332→   332→        tasks: parcoursTasks,
+   333→   333→        activeTasks: parcours.progress > 0 && parcours.progress < 80 ? [parcoursTasks[0]] : [],
+   334→   334→        progress: parcours.progress,
+   335→   335→      },
+   336→   336→      {
+   337→   337→        id: 'structurer',
+   338→   338→        label: 'Structurer',
+   339→   339→        icon: Target as LucideIcon,
+   340→   340→        status: strategie.progress >= 80
+   341→   341→          ? 'done' as const
+   342→   342→          : strategie.progress > 0 || parcours.progress >= 50
+   343→   343→            ? 'active' as const
+   344→   344→            : 'locked' as const,
+   345→   345→        color: strategie.progress >= 80
+   346→   346→          ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20'
+   347→   347→          : strategie.progress > 0 || parcours.progress >= 50
+   348→   348→            ? 'border-primary bg-primary/5 dark:bg-primary/10'
+   349→   349→            : 'border-neutral-200 dark:border-neutral-700',
+   350→   350→        iconColor: strategie.progress >= 80
+   351→   351→          ? 'text-amber-600 dark:text-amber-400'
+   352→   352→          : strategie.progress > 0 || parcours.progress >= 50
+   353→   353→            ? 'text-primary'
+   354→   354→            : 'text-muted-foreground',
+   355→   355→        tasks: strategieTasks,
+   356→   356→        activeTasks: strategieActive.length > 0 ? strategieActive : (parcours.progress >= 50 ? [strategieTasks[0]] : []),
+   357→   357→        progress: strategie.progress,
+   358→   358→      },
+   359→   359→      {
+   360→   360→        id: 'financer',
+   361→   361→        label: 'Financer',
+   362→   362→        icon: Calculator as LucideIcon,
+   363→   363→        status: financierProgress >= 80
+   364→   364→          ? 'done' as const
+   365→   365→          : financierProgress > 0 || strategie.progress >= 50
+   366→   366→            ? 'active' as const
+   367→   367→            : 'locked' as const,
+   368→   368→        color: financierProgress >= 80
+   369→   369→          ? 'border-coral-500 bg-coral-50 dark:bg-coral-900/20'
+   370→   370→          : financierProgress > 0 || strategie.progress >= 50
+   371→   371→            ? 'border-primary bg-primary/5 dark:bg-primary/10'
+   372→   372→            : 'border-neutral-200 dark:border-neutral-700',
+   373→   373→        iconColor: financierProgress >= 80
+   374→   374→          ? 'text-coral-500'
+   375→   375→          : financierProgress > 0 || strategie.progress >= 50
+   376→   376→            ? 'text-primary'
+   377→   377→            : 'text-muted-foreground',
+   378→   378→        tasks: financierTasks,
+   379→   379→        activeTasks: financierActive,
+   380→   380→        progress: financierProgress,
+   381→   381→      },
+   382→   382→      {
+   383→   383→        id: 'lancer',
+   384→   384→        label: 'Lancer',
+   385→   385→        icon: Sparkles as LucideIcon,
+   386→   386→        status: pilotage.progress >= 80
+   387→   387→          ? 'done' as const
+   388→   388→          : strategie.progress >= 30
+   389→   389→            ? 'active' as const
+   390→   390→            : 'locked' as const,
+   391→   391→        color: pilotage.progress >= 80
+   392→   392→          ? 'border-rose-500 bg-rose-50 dark:bg-rose-900/20'
+   393→   393→          : strategie.progress >= 30
+   394→   394→            ? 'border-primary bg-primary/5 dark:bg-primary/10'
+   395→   395→            : 'border-neutral-200 dark:border-neutral-700',
+   396→   396→        iconColor: pilotage.progress >= 80
+   397→   397→          ? 'text-rose-600 dark:text-rose-400'
+   398→   398→          : strategie.progress >= 30
+   399→   399→            ? 'text-primary'
+   400→   400→            : 'text-muted-foreground',
+   401→   401→        tasks: pilotageTasks,
+   402→   402→        activeTasks: [],
+   403→   403→        progress: pilotage.progress,
+   404→   404→      },
+   405→   405→    ]
+   406→   406→  }, [scan, sectionProgressMap])
+   407→   407→
+   408→   408→  // Determine current pipeline step label
+   409→   409→  const currentPipelineStep = useMemo(() => {
+   410→   410→    const activeStage = pipelineStages.find((s) => s.status === 'active')
+   411→   411→    if (activeStage) return activeStage.label
+   412→   412→    const firstUpcoming = pipelineStages.find((s) => s.status === 'upcoming')
+   413→   413→    return firstUpcoming ? firstUpcoming.label : pipelineStages[0].label
+   414→   414→  }, [pipelineStages])
+   415→   415→
+   416→   416→  return (
+   417→   417→    <TooltipProvider delayDuration={300}>
+   418→   418→      <motion.div
+   419→   419→        variants={containerVariants}
+   420→   420→        initial="hidden"
+   421→   421→        animate="visible"
+   422→   422→        className="space-y-6 p-4 md:p-6 lg:p-8"
+   423→   423→      >
+   424→   424→        {/* ═══ 1. Welcome Banner ═══ */}
+   425→   425→        <motion.div variants={itemVariants}>
+   426→   426→          <div className="relative overflow-hidden rounded-2xl gradient-teal p-6 md:p-8 text-white">
+   427→   427→            {/* Background decoration */}
+   428→   428→            <div className="absolute -top-12 -right-12 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
+   429→   429→            <div className="absolute -bottom-8 -left-8 h-32 w-32 rounded-full bg-white/5 blur-xl" />
+   430→   430→
+   431→   431→            <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+   432→   432→              <div>
+   433→   433→                <h1 className="text-2xl font-bold md:text-3xl">
+   434→   434→                  {greeting}, {userName} 👋
+   435→   435→                </h1>
+   436→   436→                <p className="mt-1 text-sm text-white/80 md:text-base">
+   437→   437→                  {bannerMessage}
+   438→   438→                </p>
+   439→   439→              </div>
+   440→   440→              {firstRecommended && (
+   441→   441→                <div className="flex gap-2 shrink-0">
+   442→   442→                  <Button
+   443→   443→                    variant="secondary"
+   444→   444→                    size="sm"
+   445→   445→                    className="bg-white/20 backdrop-blur-sm border-white/30 text-white hover:bg-white/30 hover:text-white"
+   446→   446→                    onClick={() => handleNavigate(
+   447→   447→                      firstRecommended.section as BureauSection,
+   448→   448→                      firstRecommended.code,
+   449→   449→                    )}
+   450→   450→                  >
+   451→   451→                    {moduleDefForRec && <moduleDefForRec.icon className="mr-2 h-4 w-4" />}
+   452→   452→                    Reprendre
+   453→   453→                  </Button>
+   454→   454→                </div>
+   455→   455→              )}
+   456→   456→            </div>
+   457→   457→          </div>
+   458→   458→        </motion.div>
+   459→   459→
+   460→   460→        {/* ═══ 2. KPI Cards ═══ */}
+   461→   461→        <motion.div variants={itemVariants} className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+   462→   462→          {/* KPI 1: Progression globale */}
+   463→   463→          <Card className="transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+   464→   464→            <CardContent className="p-4">
+   465→   465→              <div className="flex items-start justify-between">
+   466→   466→                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 dark:bg-teal-900/30">
+   467→   467→                  <TrendingUp className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+   468→   468→                </div>
+   469→   469→              </div>
+   470→   470→              <div className="mt-3">
+   471→   471→                <p className="text-2xl font-bold text-foreground">
+   472→   472→                  {scan.globalProgress}
+   473→   473→                  <span className="text-sm font-normal text-muted-foreground ml-0.5">%</span>
+   474→   474→                </p>
+   475→   475→                <p className="mt-0.5 text-xs text-muted-foreground">Progression globale</p>
+   476→   476→              </div>
+   477→   477→              <Progress value={scan.globalProgress} className="mt-2 h-1.5 [&>div]:bg-teal-500" />
+   478→   478→            </CardContent>
+   479→   479→          </Card>
+   480→   480→
+   481→   481→          {/* KPI 2: Modules actifs */}
+   482→   482→          <Card className="transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+   483→   483→            <CardContent className="p-4">
+   484→   484→              <div className="flex items-start justify-between">
+   485→   485→                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 dark:bg-green-900/30">
+   486→   486→                  <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+   487→   487→                </div>
+   488→   488→              </div>
+   489→   489→              <div className="mt-3">
+   490→   490→                <p className="text-2xl font-bold text-foreground">
+   491→   491→                  {scan.startedModules}
+   492→   492→                  <span className="text-sm font-normal text-muted-foreground ml-0.5">/{scan.totalModules}</span>
+   493→   493→                </p>
+   494→   494→                <p className="mt-0.5 text-xs text-muted-foreground">Modules actifs</p>
+   495→   495→              </div>
+   496→   496→              <Progress
+   497→   497→                value={scan.totalModules > 0 ? Math.round((scan.startedModules / scan.totalModules) * 100) : 0}
+   498→   498→                className="mt-2 h-1.5 [&>div]:bg-green-500"
+   499→   499→              />
+   500→   500→            </CardContent>
+   501→   501→          </Card>
+   502→   502→
+   503→   503→          {/* KPI 3: Modules complétés */}
+   504→   504→          <Card className="transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+   505→   505→            <CardContent className="p-4">
+   506→   506→              <div className="flex items-start justify-between">
+   507→   507→                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-900/20">
+   508→   508→                  <Award className="h-5 w-5 text-amber-500" />
+   509→   509→                </div>
+   510→   510→              </div>
+   511→   511→              <div className="mt-3">
+   512→   512→                <p className="text-2xl font-bold text-foreground">
+   513→   513→                  {scan.completedModules}
+   514→   514→                </p>
+   515→   515→                <p className="mt-0.5 text-xs text-muted-foreground">Modules complétés</p>
+   516→   516→              </div>
+   517→   517→              <Progress
+   518→   518→                value={scan.totalModules > 0 ? Math.round((scan.completedModules / scan.totalModules) * 100) : 0}
+   519→   519→                className="mt-2 h-1.5 [&>div]:bg-amber-500"
+   520→   520→              />
+   521→   521→            </CardContent>
+   522→   522→          </Card>
+   523→   523→
+   524→   524→          {/* KPI 4: Recommandé */}
+   525→   525→          <Card className="transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
+   526→   526→            onClick={() => {
+   527→   527→              if (firstRecommended) {
+   528→   528→                handleNavigate(firstRecommended.section as BureauSection, firstRecommended.code)
+   529→   529→              }
+   530→   530→            }}
+   531→   531→          >
+   532→   532→            <CardContent className="p-4">
+   533→   533→              <div className="flex items-start justify-between">
+   534→   534→                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+   535→   535→                  <Sparkles className="h-5 w-5 text-primary" />
+   536→   536→                </div>
+   537→   537→              </div>
+   538→   538→              <div className="mt-3">
+   539→   539→                <p className="text-sm font-bold text-foreground truncate">
+   540→   540→                  {firstRecommended ? firstRecommended.label : 'Commencer'}
+   541→   541→                </p>
+   542→   542→                <p className="mt-0.5 text-xs text-muted-foreground">Recommandé</p>
+   543→   543→              </div>
+   544→   544→              {firstRecommended?.completionPercent != null && firstRecommended.completionPercent > 0 && (
+   545→   545→                <Progress value={firstRecommended.completionPercent} className="mt-2 h-1.5" />
+   546→   546→              )}
+   547→   547→            </CardContent>
+   548→   548→          </Card>
+   549→   549→        </motion.div>
+   550→   550→
+   551→   551→        {/* ═══ 3. Section Progress Grid ═══ */}
+   552→   552→        <motion.div variants={itemVariants}>
+   553→   553→          <h2 className="text-lg font-bold text-foreground mb-4">Progression par section</h2>
+   554→   554→          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+   555→   555→            {scan.sections.map((section) => {
+   556→   556→              const colors = SECTION_COLORS[section.section] ?? SECTION_COLORS.parcours
+   557→   557→              const meta = SECTION_META[section.section]
+   558→   558→              const SectionIcon = meta?.icon ?? Target
+   559→   559→              const activeMods = sectionActiveModulesMap[section.section] ?? []
+   560→   560→              const visibleMods = activeMods.slice(0, 3)
+   561→   561→              const overflowCount = activeMods.length - 3
+   562→   562→
+   563→   563→              return (
+   564→   564→                <Tooltip key={section.section}>
+   565→   565→                  <TooltipTrigger asChild>
+   566→   566→                    <Card
+   567→   567→                      className={cn(
+   568→   568→                        'cursor-pointer border-l-4 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5',
+   569→   569→                        colors.border,
+   570→   570→                      )}
+   571→   571→                      onClick={() => handleSectionClick(section.section as BureauSection)}
+   572→   572→                    >
+   573→   573→                      <CardContent className="p-4">
+   574→   574→                        <div className="flex items-center gap-2 mb-2">
+   575→   575→                          <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg', colors.bg)}>
+   576→   576→                            <SectionIcon className={cn('h-4 w-4', colors.iconColor)} />
+   577→   577→                          </div>
+   578→   578→                          <span className="text-sm font-semibold text-foreground">{section.label}</span>
+   579→   579→                        </div>
+   580→   580→                        <Progress
+   581→   581→                          value={section.progressPercent}
+   582→   582→                          className={cn('h-2 mb-2', colors.progressColor)}
+   583→   583→                        />
+   584→   584→                        <p className="text-xs text-muted-foreground mb-2">
+   585→   585→                          {section.startedModules}/{section.totalModules} modules
+   586→   586→                        </p>
+   587→   587→                        {visibleMods.length > 0 && (
+   588→   588→                          <div className="flex flex-wrap gap-1">
+   589→   589→                            {visibleMods.map((m) => (
+   590→   590→                              <span
+   591→   591→                                key={m.code}
+   592→   592→                                className={cn(
+   593→   593→                                  'inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium',
+   594→   594→                                  colors.badge,
+   595→   595→                                )}
+   596→   596→                              >
+   597→   597→                                {m.status === 'completed' && (
+   598→   598→                                  <CheckCircle2 className="mr-0.5 h-2.5 w-2.5" />
+   599→   599→                                )}
+   600→   600→                                {m.label}
+   601→   601→                              </span>
+   602→   602→                            ))}
+   603→   603→                            {overflowCount > 0 && (
+   604→   604→                              <span className="inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+   605→   605→                                +{overflowCount}
+   606→   606→                              </span>
+   607→   607→                            )}
+   608→   608→                          </div>
+   609→   609→                        )}
+   610→   610→                      </CardContent>
+   611→   611→                    </Card>
+   612→   612→                  </TooltipTrigger>
+   613→   613→                  <TooltipContent side="bottom">
+   614→   614→                    <p>{section.completedModules} complété{section.completedModules > 1 ? 's' : ''}, {section.startedModules - section.completedModules} en cours</p>
+   615→   615→                  </TooltipContent>
+   616→   616→                </Tooltip>
+   617→   617→              )
+   618→   618→            })}
+   619→   619→          </div>
+   620→   620→        </motion.div>
+   621→   621→
+   622→   622→        {/* ═══ 4. Recommended Next Steps ═══ */}
+   623→   623→        {scan.recommendedNext.length > 0 && (
+   624→   624→          <motion.div variants={itemVariants}>
+   625→   625→            <h2 className="text-lg font-bold text-foreground mb-4">Prochaines étapes recommandées</h2>
+   626→   626→            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+   627→   627→              {scan.recommendedNext.slice(0, 3).map((mod) => {
+   628→   628→                const def = getModuleDef(mod.code)
+   629→   629→                const ModIcon = def?.icon ?? Lightbulb
+   630→   630→                const isInProgress = mod.status === 'in_progress'
+   631→   631→
+   632→   632→                return (
+   633→   633→                  <motion.div
+   634→   634→                    key={mod.code}
+   635→   635→                    whileHover={{ scale: 1.02, y: -2 }}
+   636→   636→                    whileTap={{ scale: 0.98 }}
+   637→   637→                  >
+   638→   638→                    <Card
+   639→   639→                      className="group cursor-pointer transition-all duration-200 hover:shadow-md hover:border-primary/30"
+   640→   640→                      onClick={() => handleNavigate(mod.section as BureauSection, mod.code)}
+   641→   641→                    >
+   642→   642→                      <CardContent className="flex items-start gap-4 p-4">
+   643→   643→                        <div className={cn(
+   644→   644→                          'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl',
+   645→   645→                          def?.color ?? 'bg-primary/10 text-primary',
+   646→   646→                        )}>
+   647→   647→                          <ModIcon className="h-5 w-5" />
+   648→   648→                        </div>
+   649→   649→                        <div className="flex-1 min-w-0">
+   650→   650→                          <div className="flex items-center gap-2 mb-0.5">
+   651→   651→                            <p className="text-sm font-semibold text-foreground truncate">{mod.label}</p>
+   652→   652→                            {isInProgress ? (
+   653→   653→                              <Badge variant="secondary" className="text-[10px] shrink-0 bg-primary/10 text-primary">
+   654→   654→                                En cours
+   655→   655→                              </Badge>
+   656→   656→                            ) : (
+   657→   657→                              <Badge variant="outline" className="text-[10px] shrink-0">
+   658→   658→                                Nouveau
+   659→   659→                              </Badge>
+   660→   660→                            )}
+   661→   661→                          </div>
+   662→   662→                          {mod.dataSummary && (
+   663→   663→                            <p className="text-xs text-muted-foreground truncate">{mod.dataSummary}</p>
+   664→   664→                          )}
+   665→   665→                          {mod.completionPercent > 0 && (
+   666→   666→                            <Progress value={mod.completionPercent} className="mt-2 h-1" />
+   667→   667→                          )}
+   668→   668→                          <div className="mt-2">
+   669→   669→                            <Button
+   670→   670→                              variant="ghost"
+   671→   671→                              size="sm"
+   672→   672→                              className="h-7 text-xs text-primary hover:text-primary p-0"
+   673→   673→                            >
+   674→   674→                              {isInProgress ? (
+   675→   675→                                <>
+   676→   676→                                  <Play className="mr-1 h-3 w-3" />
+   677→   677→                                  Continuer
+   678→   678→                                </>
+   679→   679→                              ) : (
+   680→   680→                                <>
+   681→   681→                                  <Sparkles className="mr-1 h-3 w-3" />
+   682→   682→                                  Commencer
+   683→   683→                                </>
+   684→   684→                              )}
+   685→   685→                            </Button>
+   686→   686→                          </div>
+   687→   687→                        </div>
+   688→   688→                        <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0 shrink-0 mt-1" />
+   689→   689→                      </CardContent>
+   690→   690→                    </Card>
+   691→   691→                  </motion.div>
+   692→   692→                )
+   693→   693→              })}
+   694→   694→            </div>
+   695→   695→          </motion.div>
+   696→   696→        )}
+   697→   697→
+   698→   698→        {/* ═══ 5. Bottom Grid: Module Activity + Quick Actions ═══ */}
+   699→   699→        <motion.div variants={itemVariants} className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+   700→   700→          {/* Left card: Activité des modules */}
+   701→   701→          <Card>
+   702→   702→            <CardHeader className="pb-3">
+   703→   703→              <CardTitle className="text-base font-bold">Activité des modules</CardTitle>
+   704→   704→              <CardDescription>Modules en cours et complétés</CardDescription>
+   705→   705→            </CardHeader>
+   706→   706→            <CardContent>
+   707→   707→              {activeModules.length === 0 ? (
+   708→   708→                <div className="flex flex-col items-center justify-center py-8 text-center">
+   709→   709→                  <Lightbulb className="h-8 w-8 text-muted-foreground/40 mb-2" />
+   710→   710→                  <p className="text-sm text-muted-foreground">Aucun module démarré</p>
+   711→   711→                  <p className="text-xs text-muted-foreground/70 mt-1">Commencez par un diagnostic RIASEC</p>
+   712→   712→                </div>
+   713→   713→              ) : (
+   714→   714→                <>
+   715→   715→                  <ScrollArea className="max-h-80">
+   716→   716→                    <div className="space-y-3 pr-3">
+   717→   717→                      {activeModules.slice(0, activityExpanded ? undefined : 6).map((mod) => {
+   718→   718→                        const def = getModuleDef(mod.code)
+   719→   719→                        const ModIcon = def?.icon ?? Lightbulb
+   720→   720→                        const isCompleted = mod.status === 'completed'
+   721→   721→
+   722→   722→                        return (
+   723→   723→                          <div
+   724→   724→                            key={mod.code}
+   725→   725→                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+   726→   726→                            onClick={() => handleNavigate(mod.section as BureauSection, mod.code)}
+   727→   727→                          >
+   728→   728→                            <div className={cn(
+   729→   729→                              'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+   730→   730→                              def?.color ?? 'bg-primary/10 text-primary',
+   731→   731→                            )}>
+   732→   732→                              <ModIcon className="h-4 w-4" />
+   733→   733→                            </div>
+   734→   734→                            <div className="flex-1 min-w-0">
+   735→   735→                              <div className="flex items-center gap-2">
+   736→   736→                                <p className="text-sm font-medium text-foreground truncate">{mod.label}</p>
+   737→   737→                                {isCompleted ? (
+   738→   738→                                  <Badge variant="secondary" className="text-[10px] shrink-0 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+   739→   739→                                    Complété
+   740→   740→                                  </Badge>
+   741→   741→                                ) : (
+   742→   742→                                  <Badge variant="secondary" className="text-[10px] shrink-0 bg-primary/10 text-primary">
+   743→   743→                                    En cours
+   744→   744→                                  </Badge>
+   745→   745→                                )}
+   746→   746→                              </div>
+   747→   747→                              <div className="flex items-center gap-2 mt-0.5">
+   748→   748→                                {mod.dataSummary && (
+   749→   749→                                  <span className="text-xs text-muted-foreground truncate">{mod.dataSummary}</span>
+   750→   750→                                )}
+   751→   751→                              </div>
+   752→   752→                              <Progress value={mod.completionPercent} className="mt-1 h-1" />
+   753→   753→                            </div>
+   754→   754→                            <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
+   755→   755→                              {formatRelativeTime(mod.lastActivity)}
+   756→   756→                            </span>
+   757→   757→                          </div>
+   758→   758→                        )
+   759→   759→                      })}
+   760→   760→                    </div>
+   761→   761→                  </ScrollArea>
+   762→   762→                  {activeModules.length > 6 && (
+   763→   763→                    <Button
+   764→   764→                      variant="ghost"
+   765→   765→                      size="sm"
+   766→   766→                      className="w-full mt-2 text-xs text-muted-foreground hover:text-foreground"
+   767→   767→                      onClick={() => setActivityExpanded((e) => !e)}
+   768→   768→                    >
+   769→   769→                      {activityExpanded ? (
+   770→   770→                        <>
+   771→   771→                          <ChevronUp className="mr-1 h-3 w-3" />
+   772→   772→                          Voir moins
+   773→   773→                        </>
+   774→   774→                      ) : (
+   775→   775→                        <>
+   776→   776→                          <ChevronDown className="mr-1 h-3 w-3" />
+   777→   777→                          Voir tout ({activeModules.length} modules)
+   778→   778→                        </>
+   779→   779→                      )}
+   780→   780→                    </Button>
+   781→   781→                  )}
+   782→   782→                </>
+   783→   783→              )}
+   784→   784→            </CardContent>
+   785→   785→          </Card>
+   786→   786→
+   787→   787→          {/* Right card: Actions rapides */}
+   788→   788→          <Card>
+   789→   789→            <CardHeader className="pb-3">
+   790→   790→              <CardTitle className="text-base font-bold">Actions rapides</CardTitle>
+   791→   791→              <CardDescription>Accédez directement aux modules clés</CardDescription>
+   792→   792→            </CardHeader>
+   793→   793→            <CardContent>
+   794→   794→              <div className="space-y-2">
+   795→   795→                {QUICK_ACTIONS.map((action) => {
+   796→   796→                  const modStatus = moduleStatusMap[action.module] ?? 'not_started'
+   797→   797→                  const isStarted = modStatus !== 'not_started'
+   798→   798→                  const isCompleted = modStatus === 'completed'
+   799→   799→
+   800→   800→                  return (
+   801→   801→                    <div
+   802→   802→                      key={action.label}
+   803→   803→                      className="group flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all duration-200 hover:bg-muted/50"
+   804→   804→                      onClick={() => handleNavigate(action.section, action.module)}
+   805→   805→                    >
+   806→   806→                      <div className={cn(
+   807→   807→                        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors',
+   808→   808→                        action.color,
+   809→   809→                      )}>
+   810→   810→                        <action.icon className={cn('h-5 w-5', action.iconColor)} />
+   811→   811→                      </div>
+   812→   812→                      <div className="flex-1 min-w-0">
+   813→   813→                        <div className="flex items-center gap-2">
+   814→   814→                          <p className="text-sm font-semibold text-foreground">{action.label}</p>
+   815→   815→                          {/* Status indicator */}
+   816→   816→                          {isCompleted ? (
+   817→   817→                            <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+   818→   818→                          ) : isStarted ? (
+   819→   819→                            <div className="h-2 w-2 rounded-full bg-primary shrink-0" />
+   820→   820→                          ) : null}
+   821→   821→                        </div>
+   822→   822→                        <p className="text-xs text-muted-foreground">{action.description}</p>
+   823→   823→                      </div>
+   824→   824→                      <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0 shrink-0" />
+   825→   825→                    </div>
+   826→   826→                  )
+   827→   827→                })}
+   828→   828→              </div>
+   829→   829→            </CardContent>
+   830→   830→          </Card>
+   831→   831→        </motion.div>
+   832→   832→
+   833→   833→        {/* ═══ 6. Pipeline de création ═══ */}
+   834→   834→        <motion.div variants={itemVariants}>
+   835→   835→          <div className="flex items-center justify-between mb-4">
+   836→   836→            <h2 className="text-lg font-bold text-foreground">Pipeline de création</h2>
+   837→   837→            <Badge variant="secondary" className="text-xs">
+   838→   838→              Étape {pipelineStages.findIndex((s) => s.status === 'active') + 1 || pipelineStages.findIndex((s) => s.status === 'upcoming') + 1}/4 — {currentPipelineStep}
+   839→   839→            </Badge>
+   840→   840→          </div>
+   841→   841→          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+   842→   842→            {pipelineStages.map((stage, i) => (
+   843→   843→              <motion.div
+   844→   844→                key={stage.id}
+   845→   845→                initial={{ opacity: 0, y: 12 }}
+   846→   846→                animate={{ opacity: 1, y: 0 }}
+   847→   847→                transition={{ delay: 0.1 + i * 0.08 }}
+   848→   848→              >
+   849→   849→                <Card
+   850→   850→                  className={cn(
+   851→   851→                    'h-full border-l-4 transition-all duration-200 hover:shadow-md',
+   852→   852→                    stage.color,
+   853→   853→                    stage.status === 'locked' && 'opacity-60',
+   854→   854→                  )}
+   855→   855→                >
+   856→   856→                  <CardHeader className="p-4 pb-2">
+   857→   857→                    <div className="flex items-center justify-between">
+   858→   858→                      <div className="flex items-center gap-2">
+   859→   859→                        <stage.icon className={cn('h-4 w-4', stage.iconColor)} />
+   860→   860→                        <CardTitle className="text-sm font-semibold">{stage.label}</CardTitle>
+   861→   861→                      </div>
+   862→   862→                      {stage.status === 'done' && (
+   863→   863→                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+   864→   864→                      )}
+   865→   865→                      {stage.status === 'active' && (
+   866→   866→                        <span className="flex h-2 w-2 relative">
+   867→   867→                          <span className="absolute inline-flex h-2 w-2 animate-ping rounded-full bg-primary opacity-75" />
+   868→   868→                          <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+   869→   869→                        </span>
+   870→   870→                      )}
+   871→   871→                      {stage.status === 'locked' && (
+   872→   872→                        <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+   873→   873→                      )}
+   874→   874→                    </div>
+   875→   875→                    {/* Mini progress bar for active/done stages */}
+   876→   876→                    {(stage.status === 'active' || stage.status === 'done') && stage.progress > 0 && (
+   877→   877→                      <Progress value={stage.progress} className="mt-2 h-1" />
+   878→   878→                    )}
+   879→   879→                  </CardHeader>
+   880→   880→                  <CardContent className="p-4 pt-2">
+   881→   881→                    <ul className="space-y-1.5">
+   882→   882→                      {stage.tasks.map((task) => {
+   883→   883→                        const isActive = stage.activeTasks?.includes(task)
+   884→   884→                        const isDone = stage.status === 'done'
+   885→   885→                        return (
+   886→   886→                          <li key={task} className="flex items-center gap-2 text-xs">
+   887→   887→                            {isDone ? (
+   888→   888→                              <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
+   889→   889→                            ) : isActive ? (
+   890→   890→                              <div className="h-3 w-3 rounded-full border-2 border-primary shrink-0" />
+   891→   891→                            ) : stage.status === 'locked' ? (
+   892→   892→                              <Lock className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+   893→   893→                            ) : (
+   894→   894→                              <div className="h-3 w-3 rounded-full border border-neutral-300 dark:border-neutral-600 shrink-0" />
+   895→   895→                            )}
+   896→   896→                            <span className={cn(
+   897→   897→                              isDone && 'line-through text-muted-foreground',
+   898→   898→                              isActive && 'text-foreground font-medium',
+   899→   899→                              !isDone && !isActive && stage.status === 'locked' && 'text-muted-foreground/50',
+   900→   900→                              !isDone && !isActive && stage.status !== 'locked' && 'text-muted-foreground',
+   901→   901→                            )}>
+   902→   902→                              {task}
+   903→   903→                            </span>
+   904→   904→                          </li>
+   905→   905→                        )
+   906→   906→                      })}
+   907→   907→                    </ul>
+   908→   908→                  </CardContent>
+   909→   909→                </Card>
+   910→   910→              </motion.div>
+   911→   911→            ))}
+   912→   912→          </div>
+   913→   913→        </motion.div>
+   914→   914→      </motion.div>
+   915→   915→    </TooltipProvider>
+   916→   916→  )
+   917→   917→}

@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
 import { verifyToken, AuthError } from '@/lib/auth'
+import { createNotification } from '@/lib/notifications'
 
 // Helper: extract token from Authorization header or session cookie
 function getTokenFromRequest(request: NextRequest): string | null {
@@ -152,6 +153,15 @@ export async function POST(request: NextRequest) {
         completedAt: new Date(),
       },
     })
+
+    // Fire-and-forget: notify user on module completion
+    createNotification({
+      userId: payload.userId,
+      title: 'Module complété',
+      content: 'Félicitations ! Vous avez complété le module RIASEC',
+      type: 'SUCCESS',
+      link: '/bureau/riasec',
+    }).catch(() => {})
 
     return success(
       { saved: results.length, moduleScore: Math.round((totalScore / maxTotalScore) * 100) },

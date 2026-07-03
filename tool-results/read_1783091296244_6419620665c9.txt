@@ -1,0 +1,697 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→import { useState, useEffect, useCallback } from 'react'
+     4→     4→import { motion } from 'framer-motion'
+     5→     5→import { authFetch } from '@/lib/auth-fetch'
+     6→     6→import { useConseillerStore } from './conseiller-store'
+     7→     7→import { Beneficiaire360Sheet } from './beneficiaire-360'
+     8→     8→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     9→     9→import { Badge } from '@/components/ui/badge'
+    10→    10→import { Button } from '@/components/ui/button'
+    11→    11→import { Progress } from '@/components/ui/progress'
+    12→    12→import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+    13→    13→import { Separator } from '@/components/ui/separator'
+    14→    14→import { Skeleton } from '@/components/ui/skeleton'
+    15→    15→import {
+    16→    16→  Users,
+    17→    17→  MessageSquare,
+    18→    18→  FileText,
+    19→    19→  TrendingUp,
+    20→    20→  Calendar,
+    21→    21→  Clock,
+    22→    22→  ArrowRight,
+    23→    23→  Plus,
+    24→    24→  CheckCircle2,
+    25→    25→  AlertCircle,
+    26→    26→  UserPlus,
+    27→    27→  Eye,
+    28→    28→  Sparkles,
+    29→    29→  BarChart3,
+    30→    30→  Target,
+    31→    31→  RefreshCw,
+    32→    32→  BookOpen,
+    33→    33→  Loader2,
+    34→    34→  AlertTriangle,
+    35→    35→} from 'lucide-react'
+    36→    36→
+    37→    37→/* ─── Types ─── */
+    38→    38→
+    39→    39→interface Kpis {
+    40→    40→  beneficiairesActifs: number
+    41→    41→  entretiensCeMois: number
+    42→    42→  entretiensPrevus: number
+    43→    43→  livrablesEnAttente: number
+    44→    44→  progressionMoyenne: number
+    45→    45→  nouveauxCeMois: number
+    46→    46→}
+    47→    47→
+    48→    48→interface ActivityItem {
+    49→    49→  id: string
+    50→    50→  type: 'entretien' | 'livrable' | 'alerte' | 'inscription'
+    51→    51→  message: string
+    52→    52→  time: string
+    53→    53→}
+    54→    54→
+    55→    55→interface UpcomingRdv {
+    56→    56→  id: string
+    57→    57→  beneficiary: string
+    58→    58→  type: string
+    59→    59→  date: string
+    60→    60→  time: string
+    61→    61→}
+    62→    62→
+    63→    63→interface StatsData {
+    64→    64→  kpis: Kpis
+    65→    65→  activiteRecente: ActivityItem[]
+    66→    66→  prochainsRdv: UpcomingRdv[]
+    67→    67→  beneficiairesParPhase: Array<{ phase: string; count: number }>
+    68→    68→  repartitionTypeEntretiens: Array<{ type: string; count: number; color: string }>
+    69→    69→  repartitionStatut: Array<{ statut: string; count: number }>
+    70→    70→}
+    71→    71→
+    72→    72→/* ─── Helpers ─── */
+    73→    73→
+    74→    74→const formatDate = (d: Date) =>
+    75→    75→  d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    76→    76→
+    77→    77→function activityIcon(type: string) {
+    78→    78→  switch (type) {
+    79→    79→    case 'entretien': return { icon: CheckCircle2, color: 'text-emerald-600 bg-emerald-50' }
+    80→    80→    case 'livrable': return { icon: FileText, color: 'text-primary bg-primary/10' }
+    81→    81→    case 'alerte': return { icon: AlertCircle, color: 'text-amber-500 bg-amber-50' }
+    82→    82→    case 'inscription': return { icon: UserPlus, color: 'text-primary bg-primary/10' }
+    83→    83→    default: return { icon: Clock, color: 'text-muted-foreground bg-muted' }
+    84→    84→  }
+    85→    85→}
+    86→    86→
+    87→    87→function appointmentTypeColor(type: string) {
+    88→    88→  switch (type) {
+    89→    89→    case 'Suivi': return 'bg-primary'
+    90→    90→    case 'Bilan': return 'bg-coral-500'
+    91→    91→    case 'Atelier': return 'bg-amber-500'
+    92→    92→    default: return 'bg-muted-foreground'
+    93→    93→  }
+    94→    94→}
+    95→    95→
+    96→    96→/* ─── KPI Card Skeleton ─── */
+    97→    97→
+    98→    98→function KpiSkeleton() {
+    99→    99→  return (
+   100→   100→    <Card className="relative overflow-hidden">
+   101→   101→      <CardContent className="p-5">
+   102→   102→        <div className="flex items-start justify-between">
+   103→   103→          <div className="space-y-2 flex-1">
+   104→   104→            <Skeleton className="h-4 w-28" />
+   105→   105→            <Skeleton className="h-9 w-16" />
+   106→   106→            <Skeleton className="h-3 w-20" />
+   107→   107→          </div>
+   108→   108→          <Skeleton className="h-10 w-10 rounded-xl" />
+   109→   109→        </div>
+   110→   110→      </CardContent>
+   111→   111→    </Card>
+   112→   112→  )
+   113→   113→}
+   114→   114→
+   115→   115→/* ─── Activity Skeleton ─── */
+   116→   116→
+   117→   117→function ActivitySkeleton() {
+   118→   118→  return (
+   119→   119→    <div className="space-y-0">
+   120→   120→      {Array.from({ length: 4 }).map((_, i) => (
+   121→   121→        <div key={i}>
+   122→   122→          <div className="flex items-start gap-3 py-3">
+   123→   123→            <Skeleton className="h-9 w-9 rounded-lg shrink-0" />
+   124→   124→            <div className="flex-1 space-y-1.5">
+   125→   125→              <Skeleton className="h-4 w-full" />
+   126→   126→              <Skeleton className="h-3 w-20" />
+   127→   127→            </div>
+   128→   128→          </div>
+   129→   129→          {i < 3 && <Separator />}
+   130→   130→        </div>
+   131→   131→      ))}
+   132→   132→    </div>
+   133→   133→  )
+   134→   134→}
+   135→   135→
+   136→   136→/* ─── PAA PROGRAM OVERVIEW (CSS bar chart) ─── */
+   137→   137→
+   138→   138→function PAAOverview({
+   139→   139→  beneficiairesParPhase,
+   140→   140→  avgProgress,
+   141→   141→  atelierRate,
+   142→   142→  satisfaction,
+   143→   143→}: {
+   144→   144→  beneficiairesParPhase: Array<{ phase: string; count: number }>
+   145→   145→  avgProgress: number
+   146→   146→  atelierRate: number
+   147→   147→  satisfaction: number
+   148→   148→}) {
+   149→   149→  const maxCount = Math.max(...beneficiairesParPhase.map((p) => p.count), 1)
+   150→   150→
+   151→   151→  return (
+   152→   152→    <motion.div
+   153→   153→      initial={{ opacity: 0, y: 20 }}
+   154→   154→      animate={{ opacity: 1, y: 0 }}
+   155→   155→      transition={{ duration: 0.4, delay: 0.6 }}
+   156→   156→    >
+   157→   157→      <Card>
+   158→   158→        <CardHeader className="pb-3">
+   159→   159→          <div className="flex items-center justify-between">
+   160→   160→            <CardTitle className="text-base font-semibold flex items-center gap-2">
+   161→   161→              <BookOpen className="h-4 w-4 text-primary" />
+   162→   162→              Programme PAA — Vue d&apos;ensemble
+   163→   163→            </CardTitle>
+   164→   164→            <Badge variant="secondary" className="text-xs">
+   165→   165→              {beneficiairesParPhase.reduce((s, p) => s + p.count, 0)} bénéficiaires
+   166→   166→            </Badge>
+   167→   167→          </div>
+   168→   168→        </CardHeader>
+   169→   169→        <CardContent className="space-y-6">
+   170→   170→          {/* Mini KPIs row */}
+   171→   171→          <div className="grid grid-cols-3 gap-3">
+   172→   172→            <div className="text-center p-3 rounded-lg bg-primary/5 border border-primary/10">
+   173→   173→              <p className="text-2xl font-bold text-primary">{avgProgress}%</p>
+   174→   174→              <p className="text-xs text-muted-foreground mt-1">Progression moy.</p>
+   175→   175→            </div>
+   176→   176→            <div className="text-center p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+   177→   177→              <p className="text-2xl font-bold text-emerald-600">{atelierRate}%</p>
+   178→   178→              <p className="text-xs text-muted-foreground mt-1">Taux ateliers</p>
+   179→   179→            </div>
+   180→   180→            <div className="text-center p-3 rounded-lg bg-amber-50 border border-amber-200">
+   181→   181→              <p className="text-2xl font-bold text-amber-600">{satisfaction}/5</p>
+   182→   182→              <p className="text-xs text-muted-foreground mt-1">Satisfaction</p>
+   183→   183→            </div>
+   184→   184→          </div>
+   185→   185→
+   186→   186→          {/* Bar chart: beneficiaries per phase */}
+   187→   187→          {beneficiairesParPhase.length > 0 ? (
+   188→   188→            <div className="space-y-3">
+   189→   189→              <p className="text-sm font-medium text-foreground">Répartition par phase</p>
+   190→   190→              <div className="space-y-2">
+   191→   191→                {beneficiairesParPhase.map((phase, i) => {
+   192→   192→                  const width = Math.max(4, (phase.count / maxCount) * 100)
+   193→   193→                  const barColors = [
+   194→   194→                    'bg-amber-500', 'bg-primary', 'bg-primary',
+   195→   195→                    'bg-coral-500', 'bg-emerald-500', 'bg-emerald-500', 'bg-purple-500',
+   196→   196→                  ]
+   197→   197→                  return (
+   198→   198→                    <div key={phase.phase} className="flex items-center gap-3">
+   199→   199→                      <span className="text-xs text-muted-foreground w-28 text-right shrink-0 truncate">
+   200→   200→                        {phase.phase}
+   201→   201→                      </span>
+   202→   202→                      <div className="flex-1 h-6 bg-muted rounded-md overflow-hidden">
+   203→   203→                        <motion.div
+   204→   204→                          initial={{ width: 0 }}
+   205→   205→                          animate={{ width: `${width}%` }}
+   206→   206→                          transition={{ duration: 0.6, delay: 0.1 * i, ease: 'easeOut' }}
+   207→   207→                          className={`h-full rounded-md ${barColors[i % barColors.length]}`}
+   208→   208→                        />
+   209→   209→                      </div>
+   210→   210→                      <span className="text-xs font-medium text-foreground w-6 text-right shrink-0">
+   211→   211→                        {phase.count}
+   212→   212→                      </span>
+   213→   213→                    </div>
+   214→   214→                  )
+   215→   215→                })}
+   216→   216→              </div>
+   217→   217→            </div>
+   218→   218→          ) : (
+   219→   219→            <p className="text-sm text-muted-foreground text-center py-4">Aucune donnée disponible</p>
+   220→   220→          )}
+   221→   221→        </CardContent>
+   222→   222→      </Card>
+   223→   223→    </motion.div>
+   224→   224→  )
+   225→   225→}
+   226→   226→
+   227→   227→/* ─── Dashboard Component ─── */
+   228→   228→
+   229→   229→export function ConseillerDashboard() {
+   230→   230→  const { conseillerName, setTab } = useConseillerStore()
+   231→   231→  const [stats, setStats] = useState<StatsData | null>(null)
+   232→   232→  const [loading, setLoading] = useState(true)
+   233→   233→  const [error, setError] = useState<string | null>(null)
+   234→   234→  const [vue360Open, setVue360Open] = useState(false)
+   235→   235→
+   236→   236→  const fetchStats = useCallback(async () => {
+   237→   237→    setLoading(true)
+   238→   238→    setError(null)
+   239→   239→    try {
+   240→   240→      const res = await authFetch('/api/conseiller/stats')
+   241→   241→      const json = await res.json()
+   242→   242→      if (json.success) {
+   243→   243→        setStats(json.data)
+   244→   244→      } else {
+   245→   245→        setError(json.error?.message || 'Erreur de chargement')
+   246→   246→      }
+   247→   247→    } catch {
+   248→   248→      setError('Erreur de connexion au serveur')
+   249→   249→    } finally {
+   250→   250→      setLoading(false)
+   251→   251→    }
+   252→   252→  }, [])
+   253→   253→
+   254→   254→  useEffect(() => {
+   255→   255→    fetchStats()
+   256→   256→  }, [fetchStats])
+   257→   257→
+   258→   258→  const greetingHour = new Date().getHours()
+   259→   259→  const greeting =
+   260→   260→    greetingHour < 12 ? 'Bonjour' : greetingHour < 18 ? 'Bon après-midi' : 'Bonsoir'
+   261→   261→
+   262→   262→  const kpiCards = stats
+   263→   263→    ? [
+   264→   264→        {
+   265→   265→          label: 'Bénéficiaires actifs',
+   266→   266→          value: stats.kpis.beneficiairesActifs,
+   267→   267→          icon: Users,
+   268→   268→          color: 'text-primary',
+   269→   269→          bg: 'bg-primary/10',
+   270→   270→          change: `+${stats.kpis.nouveauxCeMois} ce mois`,
+   271→   271→        },
+   272→   272→        {
+   273→   273→          label: 'Entretiens cette semaine',
+   274→   274→          value: stats.kpis.entretiensPrevus,
+   275→   275→          icon: MessageSquare,
+   276→   276→          color: 'text-coral-500',
+   277→   277→          bg: 'bg-coral-50',
+   278→   278→          change: `${stats.kpis.entretiensCeMois} ce mois`,
+   279→   279→        },
+   280→   280→        {
+   281→   281→          label: 'Livrables en attente',
+   282→   282→          value: stats.kpis.livrablesEnAttente,
+   283→   283→          icon: FileText,
+   284→   284→          color: 'text-amber-500',
+   285→   285→          bg: 'bg-amber-50',
+   286→   286→          change: stats.kpis.livrablesEnAttente > 0 ? 'À reviewer' : 'Tout à jour',
+   287→   287→        },
+   288→   288→        {
+   289→   289→          label: 'Progression moy. PAA',
+   290→   290→          value: stats.kpis.progressionMoyenne,
+   291→   291→          suffix: '%',
+   292→   292→          icon: TrendingUp,
+   293→   293→          color: 'text-emerald-600',
+   294→   294→          bg: 'bg-emerald-50',
+   295→   295→          change: stats.kpis.progressionMoyenne >= 50 ? 'Bonne progression' : 'À accélérer',
+   296→   296→        },
+   297→   297→        {
+   298→   298→          label: 'Alertes inactivité',
+   299→   299→          value: 0,
+   300→   300→          icon: AlertTriangle,
+   301→   301→          color: 'text-coral-500',
+   302→   302→          bg: 'bg-coral-50',
+   303→   303→          change: 'Aucune alerte',
+   304→   304→          hidden: true,
+   305→   305→        },
+   306→   306→      ].filter((k) => !k.hidden)
+   307→   307→    : []
+   308→   308→
+   309→   309→  return (
+   310→   310→    <div className="space-y-6">
+   311→   311→      {/* Greeting banner */}
+   312→   312→      <motion.div
+   313→   313→        initial={{ opacity: 0, y: -10 }}
+   314→   314→        animate={{ opacity: 1, y: 0 }}
+   315→   315→        transition={{ duration: 0.4 }}
+   316→   316→        className="rounded-2xl bg-gradient-to-r from-[#1A1A2E] to-[#16213E] p-6 md:p-8 text-white"
+   317→   317→      >
+   318→   318→        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+   319→   319→          <div>
+   320→   320→            <h1 className="text-2xl font-bold md:text-3xl">
+   321→   321→              {greeting}, {(conseillerName || '').split(' ')[0] || ''}
+   322→   322→            </h1>
+   323→   323→            <p className="mt-1 text-white/60 text-sm md:text-base">
+   324→   324→              {formatDate(new Date())} — Voici un aperçu de votre activité
+   325→   325→            </p>
+   326→   326→          </div>
+   327→   327→          <div className="flex items-center gap-2 flex-wrap">
+   328→   328→            <Button
+   329→   329→              variant="secondary"
+   330→   330→              size="sm"
+   331→   331→              className="bg-white/10 text-white hover:bg-white/15 border-0 gap-1.5"
+   332→   332→              onClick={() => setVue360Open(true)}
+   333→   333→            >
+   334→   334→              <Eye className="h-4 w-4" />
+   335→   335→              Vue 360°
+   336→   336→            </Button>
+   337→   337→            <Badge variant="secondary" className="bg-white/10 text-white hover:bg-white/15 border-0">
+   338→   338→              GIDEF Paris
+   339→   339→            </Badge>
+   340→   340→            <Badge variant="secondary" className="bg-white/10 text-white hover:bg-white/15 border-0">
+   341→   341→              Conseiller Senior
+   342→   342→            </Badge>
+   343→   343→          </div>
+   344→   344→        </div>
+   345→   345→      </motion.div>
+   346→   346→
+   347→   347→      {/* Error state */}
+   348→   348→      {error && (
+   349→   349→        <motion.div
+   350→   350→          initial={{ opacity: 0, y: -10 }}
+   351→   351→          animate={{ opacity: 1, y: 0 }}
+   352→   352→          className="flex items-center gap-3 rounded-lg border border-coral-200 bg-coral-50 p-4"
+   353→   353→        >
+   354→   354→          <AlertCircle className="h-5 w-5 text-coral-500 shrink-0" />
+   355→   355→          <div className="flex-1">
+   356→   356→            <p className="text-sm font-medium text-coral-800">Erreur de chargement</p>
+   357→   357→            <p className="text-xs text-coral-600">{error}</p>
+   358→   358→          </div>
+   359→   359→          <Button variant="outline" size="sm" onClick={fetchStats} className="shrink-0">
+   360→   360→            <RefreshCw className="h-3.5 w-3.5 mr-1" />
+   361→   361→            Réessayer
+   362→   362→          </Button>
+   363→   363→        </motion.div>
+   364→   364→      )}
+   365→   365→
+   366→   366→      {/* KPI Cards */}
+   367→   367→      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+   368→   368→        {loading
+   369→   369→          ? Array.from({ length: 4 }).map((_, i) => (
+   370→   370→              <motion.div
+   371→   371→                key={i}
+   372→   372→                initial={{ opacity: 0, y: 20 }}
+   373→   373→                animate={{ opacity: 1, y: 0 }}
+   374→   374→                transition={{ duration: 0.4, delay: i * 0.08 }}
+   375→   375→              >
+   376→   376→                <KpiSkeleton />
+   377→   377→              </motion.div>
+   378→   378→            ))
+   379→   379→          : kpiCards.map((kpi, i) => {
+   380→   380→              const Icon = kpi.icon
+   381→   381→              return (
+   382→   382→                <motion.div
+   383→   383→                  key={kpi.label}
+   384→   384→                  initial={{ opacity: 0, y: 20 }}
+   385→   385→                  animate={{ opacity: 1, y: 0 }}
+   386→   386→                  transition={{ duration: 0.4, delay: i * 0.08 }}
+   387→   387→                >
+   388→   388→                  <Card className="relative overflow-hidden hover:shadow-md transition-shadow">
+   389→   389→                    <CardContent className="p-5">
+   390→   390→                      <div className="flex items-start justify-between">
+   391→   391→                        <div>
+   392→   392→                          <p className="text-sm text-muted-foreground">{kpi.label}</p>
+   393→   393→                          <p className="mt-2 text-3xl font-bold text-foreground">
+   394→   394→                            {kpi.value}
+   395→   395→                            {'suffix' in kpi && kpi.suffix && (
+   396→   396→                              <span className="text-xl text-muted-foreground">{kpi.suffix}</span>
+   397→   397→                            )}
+   398→   398→                          </p>
+   399→   399→                          <p className="mt-1 text-xs text-muted-foreground">{kpi.change}</p>
+   400→   400→                        </div>
+   401→   401→                        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${kpi.bg}`}>
+   402→   402→                          <Icon className={`h-5 w-5 ${kpi.color}`} />
+   403→   403→                        </div>
+   404→   404→                      </div>
+   405→   405→                    </CardContent>
+   406→   406→                  </Card>
+   407→   407→                </motion.div>
+   408→   408→              )
+   409→   409→            })}
+   410→   410→      </div>
+   411→   411→
+   412→   412→      {/* Two-column: Recent activity + Upcoming appointments */}
+   413→   413→      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+   414→   414→        {/* Recent Activity — 3 columns */}
+   415→   415→        <motion.div
+   416→   416→          initial={{ opacity: 0, y: 20 }}
+   417→   417→          animate={{ opacity: 1, y: 0 }}
+   418→   418→          transition={{ duration: 0.4, delay: 0.3 }}
+   419→   419→          className="lg:col-span-3"
+   420→   420→        >
+   421→   421→          <Card className="h-full">
+   422→   422→            <CardHeader className="pb-3">
+   423→   423→              <div className="flex items-center justify-between">
+   424→   424→                <CardTitle className="text-base font-semibold">Activité récente</CardTitle>
+   425→   425→                {stats && (
+   426→   426→                  <Badge variant="secondary" className="text-xs">
+   427→   427→                    {stats.activiteRecente.length} événements
+   428→   428→                  </Badge>
+   429→   429→                )}
+   430→   430→              </div>
+   431→   431→            </CardHeader>
+   432→   432→            <CardContent className="space-y-0">
+   433→   433→              {loading ? (
+   434→   434→                <ActivitySkeleton />
+   435→   435→              ) : stats && stats.activiteRecente.length > 0 ? (
+   436→   436→                stats.activiteRecente.map((activity, i) => {
+   437→   437→                  const { icon: ActivityIcon, color } = activityIcon(activity.type)
+   438→   438→                  return (
+   439→   439→                    <div key={activity.id}>
+   440→   440→                      <div className="flex items-start gap-3 py-3">
+   441→   441→                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${color}`}>
+   442→   442→                          <ActivityIcon className="h-4 w-4" />
+   443→   443→                        </div>
+   444→   444→                        <div className="flex-1 min-w-0">
+   445→   445→                          <p className="text-sm text-foreground leading-snug">{activity.message}</p>
+   446→   446→                          <p className="mt-0.5 text-xs text-muted-foreground flex items-center gap-1">
+   447→   447→                            <Clock className="h-3 w-3" />
+   448→   448→                            {activity.time}
+   449→   449→                          </p>
+   450→   450→                        </div>
+   451→   451→                      </div>
+   452→   452→                      {i < stats.activiteRecente.length - 1 && <Separator />}
+   453→   453→                    </div>
+   454→   454→                  )
+   455→   455→                })
+   456→   456→              ) : (
+   457→   457→                <div className="text-center py-8">
+   458→   458→                  <Clock className="h-8 w-8 text-muted-foreground/40 mx-auto" />
+   459→   459→                  <p className="mt-2 text-sm text-muted-foreground">Aucune activité récente</p>
+   460→   460→                </div>
+   461→   461→              )}
+   462→   462→            </CardContent>
+   463→   463→            {!loading && stats && stats.activiteRecente.length > 0 && (
+   464→   464→              <div className="px-6 pb-4">
+   465→   465→                <Button
+   466→   466→                  variant="ghost"
+   467→   467→                  size="sm"
+   468→   468→                  className="w-full text-xs text-primary"
+   469→   469→                  onClick={() => setTab('entretiens')}
+   470→   470→                >
+   471→   471→                  Voir tout
+   472→   472→                  <ArrowRight className="ml-1 h-3 w-3" />
+   473→   473→                </Button>
+   474→   474→              </div>
+   475→   475→            )}
+   476→   476→          </Card>
+   477→   477→        </motion.div>
+   478→   478→
+   479→   479→        {/* Upcoming Appointments — 2 columns */}
+   480→   480→        <motion.div
+   481→   481→          initial={{ opacity: 0, y: 20 }}
+   482→   482→          animate={{ opacity: 1, y: 0 }}
+   483→   483→          transition={{ duration: 0.4, delay: 0.4 }}
+   484→   484→          className="lg:col-span-2"
+   485→   485→        >
+   486→   486→          <Card className="h-full">
+   487→   487→            <CardHeader className="pb-3">
+   488→   488→              <div className="flex items-center justify-between">
+   489→   489→                <CardTitle className="text-base font-semibold">Prochains RDV</CardTitle>
+   490→   490→                <Button
+   491→   491→                  variant="ghost"
+   492→   492→                  size="sm"
+   493→   493→                  className="text-xs text-primary"
+   494→   494→                  onClick={() => setTab('planning')}
+   495→   495→                >
+   496→   496→                  Voir tout
+   497→   497→                  <ArrowRight className="ml-1 h-3 w-3" />
+   498→   498→                </Button>
+   499→   499→              </div>
+   500→   500→            </CardHeader>
+   501→   501→            <CardContent className="space-y-0">
+   502→   502→              {loading ? (
+   503→   503→                <div className="space-y-0">
+   504→   504→                  {Array.from({ length: 3 }).map((_, i) => (
+   505→   505→                    <div key={i}>
+   506→   506→                      <div className="flex items-center gap-3 py-3">
+   507→   507→                        <Skeleton className="h-9 w-9 rounded-full shrink-0" />
+   508→   508→                        <div className="flex-1 space-y-1.5">
+   509→   509→                          <Skeleton className="h-4 w-32" />
+   510→   510→                          <Skeleton className="h-3 w-16" />
+   511→   511→                        </div>
+   512→   512→                        <div className="text-right space-y-1.5">
+   513→   513→                          <Skeleton className="h-3 w-20 ml-auto" />
+   514→   514→                          <Skeleton className="h-3 w-14 ml-auto" />
+   515→   515→                        </div>
+   516→   516→                      </div>
+   517→   517→                      {i < 2 && <Separator />}
+   518→   518→                    </div>
+   519→   519→                  ))}
+   520→   520→                </div>
+   521→   521→              ) : stats && stats.prochainsRdv.length > 0 ? (
+   522→   522→                stats.prochainsRdv.map((apt, i) => {
+   523→   523→                  const initials = apt.beneficiary
+   524→   524→                    .split(' ')
+   525→   525→                    .map((n) => n[0])
+   526→   526→                    .join('')
+   527→   527→                    .toUpperCase()
+   528→   528→                    .slice(0, 2)
+   529→   529→                  const colorClass = appointmentTypeColor(apt.type)
+   530→   530→                  return (
+   531→   531→                    <button
+   532→   532→                      key={apt.id}
+   533→   533→                      className="w-full text-left"
+   534→   534→                      onClick={() => setTab('planning')}
+   535→   535→                    >
+   536→   536→                      <div className="flex items-center gap-3 py-3 hover:bg-muted/30 -mx-2 px-2 rounded-lg transition-colors">
+   537→   537→                        <Avatar className="h-9 w-9 shrink-0">
+   538→   538→                          <AvatarFallback className={`${colorClass} text-white text-xs font-bold`}>
+   539→   539→                            {initials}
+   540→   540→                          </AvatarFallback>
+   541→   541→                        </Avatar>
+   542→   542→                        <div className="flex-1 min-w-0">
+   543→   543→                          <p className="text-sm font-medium text-foreground truncate">{apt.beneficiary}</p>
+   544→   544→                          <Badge
+   545→   545→                            variant="outline"
+   546→   546→                            className={`text-[10px] ${
+   547→   547→                              apt.type === 'Suivi'
+   548→   548→                                ? 'border-primary/20 bg-primary/5 text-primary'
+   549→   549→                                : apt.type === 'Bilan'
+   550→   550→                                  ? 'border-coral-200 bg-coral-50 text-coral-600'
+   551→   551→                                  : 'border-amber-200 bg-amber-50 text-amber-600'
+   552→   552→                            }`}
+   553→   553→                          >
+   554→   554→                            {apt.type}
+   555→   555→                          </Badge>
+   556→   556→                        </div>
+   557→   557→                        <div className="text-right shrink-0">
+   558→   558→                          <p className="text-xs font-medium text-foreground">{apt.date}</p>
+   559→   559→                          <p className="text-xs text-muted-foreground">{apt.time}</p>
+   560→   560→                        </div>
+   561→   561→                      </div>
+   562→   562→                      {i < stats.prochainsRdv.length - 1 && <Separator />}
+   563→   563→                    </button>
+   564→   564→                  )
+   565→   565→                })
+   566→   566→              ) : (
+   567→   567→                <div className="text-center py-8">
+   568→   568→                  <Calendar className="h-8 w-8 text-muted-foreground/40 mx-auto" />
+   569→   569→                  <p className="mt-2 text-sm text-muted-foreground">Aucun rendez-vous à venir</p>
+   570→   570→                </div>
+   571→   571→              )}
+   572→   572→            </CardContent>
+   573→   573→          </Card>
+   574→   574→        </motion.div>
+   575→   575→      </div>
+   576→   576→
+   577→   577→      {/* Quick actions */}
+   578→   578→      <motion.div
+   579→   579→        initial={{ opacity: 0, y: 20 }}
+   580→   580→        animate={{ opacity: 1, y: 0 }}
+   581→   581→        transition={{ duration: 0.4, delay: 0.5 }}
+   582→   582→      >
+   583→   583→        <Card>
+   584→   584→          <CardHeader className="pb-3">
+   585→   585→            <CardTitle className="text-base font-semibold">Actions rapides</CardTitle>
+   586→   586→          </CardHeader>
+   587→   587→          <CardContent>
+   588→   588→            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+   589→   589→              <Button
+   590→   590→                variant="outline"
+   591→   591→                className="h-auto flex items-center gap-3 p-4 justify-start hover:bg-primary/5 hover:border-primary/30 transition-colors"
+   592→   592→                onClick={() => setTab('entretiens')}
+   593→   593→              >
+   594→   594→                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 shrink-0">
+   595→   595→                  <Plus className="h-5 w-5 text-primary" />
+   596→   596→                </div>
+   597→   597→                <div className="text-left">
+   598→   598→                  <p className="text-sm font-medium text-foreground">Planifier un entretien</p>
+   599→   599→                  <p className="text-xs text-muted-foreground">Nouveau rendez-vous</p>
+   600→   600→                </div>
+   601→   601→              </Button>
+   602→   602→              <Button
+   603→   603→                variant="outline"
+   604→   604→                className="h-auto flex items-center gap-3 p-4 justify-start hover:bg-coral-50 hover:border-coral-200 transition-colors"
+   605→   605→                onClick={() => setTab('livrables')}
+   606→   606→              >
+   607→   607→                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-coral-50 shrink-0">
+   608→   608→                  <FileText className="h-5 w-5 text-coral-500" />
+   609→   609→                </div>
+   610→   610→                <div className="text-left">
+   611→   611→                  <p className="text-sm font-medium text-foreground">Voir les livrables</p>
+   612→   612→                  <p className="text-xs text-muted-foreground">
+   613→   613→                    {loading ? (
+   614→   614→                      <Loader2 className="h-3 w-3 animate-spin inline" />
+   615→   615→                    ) : stats ? (
+   616→   616→                      `${stats.kpis.livrablesEnAttente} en attente`
+   617→   617→                    ) : '—'}
+   618→   618→                  </p>
+   619→   619→                </div>
+   620→   620→              </Button>
+   621→   621→              <Button
+   622→   622→                variant="outline"
+   623→   623→                className="h-auto flex items-center gap-3 p-4 justify-start hover:bg-amber-50 hover:border-amber-200 transition-colors"
+   624→   624→                onClick={() => setTab('rapports')}
+   625→   625→              >
+   626→   626→                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 shrink-0">
+   627→   627→                  <BarChart3 className="h-5 w-5 text-amber-500" />
+   628→   628→                </div>
+   629→   629→                <div className="text-left">
+   630→   630→                  <p className="text-sm font-medium text-foreground">Rapport mensuel</p>
+   631→   631→                  <p className="text-xs text-muted-foreground">Générer un rapport</p>
+   632→   632→                </div>
+   633→   633→              </Button>
+   634→   634→              <Button
+   635→   635→                variant="outline"
+   636→   636→                className="h-auto flex items-center gap-3 p-4 justify-start hover:bg-emerald-50 hover:border-emerald-200 transition-colors"
+   637→   637→                onClick={() => setVue360Open(true)}
+   638→   638→              >
+   639→   639→                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 shrink-0">
+   640→   640→                  <Eye className="h-5 w-5 text-emerald-600" />
+   641→   641→                </div>
+   642→   642→                <div className="text-left">
+   643→   643→                  <p className="text-sm font-medium text-foreground">Vue 360° Bénéficiaire</p>
+   644→   644→                  <p className="text-xs text-muted-foreground">Parcours complet</p>
+   645→   645→                </div>
+   646→   646→              </Button>
+   647→   647→            </div>
+   648→   648→          </CardContent>
+   649→   649→        </Card>
+   650→   650→      </motion.div>
+   651→   651→
+   652→   652→      {/* PAA Program Overview */}
+   653→   653→      {loading ? (
+   654→   654→        <Card>
+   655→   655→          <CardContent className="p-6 space-y-4">
+   656→   656→            <Skeleton className="h-6 w-60" />
+   657→   657→            <div className="grid grid-cols-3 gap-3">
+   658→   658→              {[1, 2, 3].map((i) => (
+   659→   659→                <Skeleton key={i} className="h-20 w-full rounded-lg" />
+   660→   660→              ))}
+   661→   661→            </div>
+   662→   662→            <div className="space-y-3">
+   663→   663→              {Array.from({ length: 4 }).map((_, i) => (
+   664→   664→                <div key={i} className="flex items-center gap-3">
+   665→   665→                  <Skeleton className="h-4 w-28" />
+   666→   666→                  <Skeleton className="h-6 flex-1 rounded-md" />
+   667→   667→                  <Skeleton className="h-4 w-6" />
+   668→   668→                </div>
+   669→   669→              ))}
+   670→   670→            </div>
+   671→   671→          </CardContent>
+   672→   672→        </Card>
+   673→   673→      ) : stats ? (
+   674→   674→        <PAAOverview
+   675→   675→          beneficiairesParPhase={stats.beneficiairesParPhase}
+   676→   676→          avgProgress={stats.kpis.progressionMoyenne}
+   677→   677→          atelierRate={
+   678→   678→            stats.repartitionTypeEntretiens.length > 0
+   679→   679→              ? Math.round(
+   680→   680→                  (stats.repartitionTypeEntretiens.find((t) => t.type === 'Atelier')?.count || 0) /
+   681→   681→                    Math.max(stats.kpis.entretiensCeMois, 1) *
+   682→   682→                    100
+   683→   683→                )
+   684→   684→              : 0
+   685→   685→          }
+   686→   686→          satisfaction={4.2}
+   687→   687→        />
+   688→   688→      ) : null}
+   689→   689→
+   690→   690→      {/* 360° Beneficiary Sheet */}
+   691→   691→      <Beneficiaire360Sheet
+   692→   692→        open={vue360Open}
+   693→   693→        onOpenChange={setVue360Open}
+   694→   694→      />
+   695→   695→    </div>
+   696→   696→  )
+   697→   697→}

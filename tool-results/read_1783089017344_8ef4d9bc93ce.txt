@@ -1,0 +1,602 @@
+     1→     1→     1→// ============================================
+     2→     2→     2→// CreaPulse V2 — Business Plan IA API
+     3→     3→     3→// GET    /api/business-plan           — Retrieve saved BP sections
+     4→     4→     4→// PUT    /api/business-plan           — Save BP sections (bulk or single)
+     5→     5→     5→// POST   /api/business-plan           — AI actions:
+     6→     6→     6→//   action=ai-suggest                — Section-level AI suggestion
+     7→     7→     7→//   action=generate-from-parcours    — Generate full BP from Parcours data
+     8→     8→     8→//   action=sync-simulators           — Sync simulator data into BP sections
+     9→     9→     9→// ============================================
+    10→    10→    10→// Pipeline V4 additions: bpSectionMeta, per-section timestamps,
+    11→    11→    11→//   auto-snapshots, save-section action
+    12→    12→    12→// ============================================
+    13→    13→    13→
+    14→    14→    14→import { NextRequest } from 'next/server'
+    15→    15→    15→import { db } from '@/lib/db'
+    16→    16→    16→import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
+    17→    17→    17→import { verifyToken } from '@/lib/auth'
+    18→    18→    18→import { z } from 'zod'
+    19→    19→    19→import type { Prisma } from '@prisma/client'
+    20→    20→    20→import { callZAI, parseJSONFromAI, getZAIErrorMessage, aiUnavailableResponse, aiErrorResponse } from '@/lib/zai-helper'
+    21→    21→    21→import type { DataSource } from '@/lib/pipeline-types'
+    22→    22→    22→import { createNotification } from '@/lib/notifications'
+    23→    23→    23→import { createLogger } from '@/lib/logger'
+    24→    24→    24→
+    25→    25→    25→const log = createLogger('api/business-plan')
+    26→    26→    26→
+    27→    27→    27→// ─── Validation Schemas ──────────────────────
+    28→    28→    28→
+    29→    29→    29→const aiSuggestSchema = z.object({
+    30→    30→    30→  action: z.literal('ai-suggest'),
+    31→    31→    31→  sectionId: z.string(),
+    32→    32→    32→  sectionTitle: z.string(),
+    33→    33→    33→  existingContent: z.string().optional(),
+    34→    34→    34→  projectContext: z.string().optional(),
+    35→    35→    35→})
+    36→    36→    36→
+    37→    37→    37→const generateFromParcoursSchema = z.object({
+    38→    38→    38→  action: z.literal('generate-from-parcours'),
+    39→    39→    39→})
+    40→    40→    40→
+    41→    41→    41→const syncSimulatorsSchema = z.object({
+    42→    42→    42→  action: z.literal('sync-simulators'),
+    43→    43→    43→})
+    44→    44→    44→
+    45→    45→    45→const bpActionSchema = z.discriminatedUnion('action', [
+    46→    46→    46→  aiSuggestSchema,
+    47→    47→    47→  generateFromParcoursSchema,
+    48→    48→    48→  syncSimulatorsSchema,
+    49→    49→    49→])
+    50→    50→    50→
+    51→    51→    51→const saveBpSchema = z.object({
+    52→    52→    52→  sections: z.record(z.string(), z.unknown()).optional(),
+    53→    53→    53→  bpStatus: z.enum(['NOT_STARTED', 'IN_PROGRESS', 'DRAFT', 'SUBMITTED']).optional(),
+    54→    54→    54→})
+    55→    55→    55→
+    56→    56→    56→// ─── bpSectionMeta Types (Pipeline V4) ───────
+    57→    57→    57→
+    58→    58→    58→export interface SectionMetaEntry {
+    59→    59→    59→  source: DataSource
+    60→    60→    60→  lastModified: string
+    61→    61→    61→  manuallyEditedAt: string | null
+    62→    62→    62→  syncedAt: string | null
+    63→    63→    63→  wordCount: number
+    64→    64→    64→  version: number
+    65→    65→    65→}
+    66→    66→    66→
+    67→    67→    67→export type BpSectionMeta = Record<string, SectionMetaEntry>
+    68→    68→    68→
+    69→    69→    69→// ─── Helpers ─────────────────────────────────
+    70→    70→    70→
+    71→    71→    71→function isFilled(value: unknown): boolean {
+    72→    72→    72→  if (value === null || value === undefined) return false
+    73→    73→    73→  if (typeof value === 'string') return value.trim().length > 0
+    74→    74→    74→  if (Array.isArray(value)) return value.length > 0
+    75→    75→    75→  if (typeof value === 'object') {
+    76→    76→    76→    return Object.values(value).some((v) =>
+    77→    77→    77→      typeof v === 'string' && v.trim().length > 0 ||
+    78→    78→    78→      typeof v === 'number' && v !== 0 ||
+    79→    79→    79→      Array.isArray(v) && v.length > 0
+    80→    80→    80→    )
+    81→    81→    81→  }
+    82→    82→    82→  return false
+    83→    83→    83→}
+    84→    84→    84→
+    85→    85→    85→function computeWordCount(value: unknown): number {
+    86→    86→    86→  if (typeof value === 'string') return value.trim().split(/\s+/).filter(Boolean).length
+    87→    87→    87→  return 0
+    88→    88→    88→}
+    89→    89→    89→
+    90→    90→    90→const SYNC_SOURCES: DataSource[] = ['marche', 'financier', 'juridique', 'creasim', 'parcours']
+    91→    91→    91→
+    92→    92→    92→function buildSectionMetaForManual(
+    93→    93→    93→  existingMeta: BpSectionMeta,
+    94→    94→    94→  sectionId: string,
+    95→    95→    95→  content: unknown,
+    96→    96→    96→): SectionMetaEntry {
+    97→    97→    97→  const prev = existingMeta[sectionId]
+    98→    98→    98→  return {
+    99→    99→    99→    source: (prev && SYNC_SOURCES.includes(prev.source)) ? prev.source : 'manual',
+   100→   100→   100→    lastModified: new Date().toISOString(),
+   101→   101→   101→    manuallyEditedAt: new Date().toISOString(),
+   102→   102→   102→    syncedAt: prev?.syncedAt ?? null,
+   103→   103→   103→    wordCount: computeWordCount(content),
+   104→   104→   104→    version: (prev?.version ?? 0) + 1,
+   105→   105→   105→  }
+   106→   106→   106→}
+   107→   107→   107→
+   108→   108→   108→function buildSectionMetaForSync(
+   109→   109→   109→  existingMeta: BpSectionMeta,
+   110→   110→   110→  sectionId: string,
+   111→   111→   111→  content: unknown,
+   112→   112→   112→  source: 'marche' | 'financier' | 'juridique' | 'creasim' | 'parcours',
+   113→   113→   113→): SectionMetaEntry {
+   114→   114→   114→  const prev = existingMeta[sectionId]
+   115→   115→   115→  return {
+   116→   116→   116→    source,
+   117→   117→   117→    lastModified: new Date().toISOString(),
+   118→   118→   118→    manuallyEditedAt: prev?.manuallyEditedAt ?? null,
+   119→   119→   119→    syncedAt: new Date().toISOString(),
+   120→   120→   120→    wordCount: computeWordCount(content),
+   121→   121→   121→    version: (prev?.version ?? 0) + 1,
+   122→   122→   122→  }
+   123→   123→   123→}
+   124→   124→   124→
+   125→   125→   125→/** Auto-create a snapshot if last one is older than 5 minutes (debounce) */
+   126→   126→   126→async function maybeAutoSnapshot(
+   127→   127→   127→  userId: string,
+   128→   128→   128→  journeyId: string,
+   129→   129→   129→  tenantId: string,
+   130→   130→   130→  bpSections: Record<string, unknown>,
+   131→   131→   131→  bpProjectContext: Record<string, unknown> | null,
+   132→   132→   132→  trigger: 'auto' | 'ai-generate' = 'auto',
+   133→   133→   133→) {
+   134→   134→   134→  try {
+   135→   135→   135→    const lastSnapshot = await db.bpSnapshot.findFirst({
+   136→   136→   136→      where: { userId },
+   137→   137→   137→      orderBy: { createdAt: 'desc' },
+   138→   138→   138→      select: { createdAt: true, version: true },
+   139→   139→   139→    })
+   140→   140→   140→    const fiveMinAgo = new Date(Date.now() - 5 * 60_000)
+   141→   141→   141→    if (lastSnapshot && lastSnapshot.createdAt > fiveMinAgo) return
+   142→   142→   142→
+   143→   143→   143→    const sectionCount = Object.values(bpSections).filter(isFilled).length
+   144→   144→   144→    const wordCount = Object.values(bpSections).reduce(
+   145→   145→   145→      (sum: number, v) => sum + computeWordCount(v), 0,
+   146→   146→   146→    )
+   147→   147→   147→    const version: number = (lastSnapshot?.version ?? 0) + 1
+   148→   148→   148→    const now = new Date()
+   149→   149→   149→    const label = `V${version} — ${now.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })} ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+   150→   150→   150→
+   151→   151→   151→    await db.bpSnapshot.create({
+   152→   152→   152→      data: {
+   153→   153→   153→        userId,
+   154→   154→   154→        tenantId,
+   155→   155→   155→        creatorJourneyId: journeyId,
+   156→   156→   156→        bpSections: bpSections as Prisma.InputJsonValue,
+   157→   157→   157→        bpProjectContext: (bpProjectContext ?? {}) as Prisma.InputJsonValue,
+   158→   158→   158→        version,
+   159→   159→   159→        label,
+   160→   160→   160→        trigger,
+   161→   161→   161→        sectionCount,
+   162→   162→   162→        wordCount,
+   163→   163→   163→      },
+   164→   164→   164→    })
+   165→   165→   165→  } catch (err) {
+   166→   166→   166→    // Non-critical: log but don't fail the parent operation
+   167→   167→   167→    console.error('[AutoSnapshot] Failed to create auto-snapshot:', err)
+   168→   168→   168→  }
+   169→   169→   169→}
+   170→   170→   170→
+   171→   171→   171→// ─── Helper: Auth from request ───────────────
+   172→   172→   172→
+   173→   173→   173→async function getAuth(request: NextRequest) {
+   174→   174→   174→  const cookieToken = request.cookies.get('session')?.value
+   175→   175→   175→  const headerToken = getTokenFromHeader(request)
+   176→   176→   176→  const token = cookieToken || headerToken
+   177→   177→   177→  if (!token) throw Object.assign(new Error('No session token found'), { code: 'UNAUTHORIZED' })
+   178→   178→   178→  return verifyToken(token)
+   179→   179→   179→}
+   180→   180→   180→
+   181→   181→   181→// ─── Helper: Parse JSON from LLM response ───
+   182→   182→   182→
+   183→   183→   183→function parseJsonFromLLM(text: string): Record<string, string> | null {
+   184→   184→   184→  // Try direct JSON parse first
+   185→   185→   185→  try {
+   186→   186→   186→    const parsed = JSON.parse(text)
+   187→   187→   187→    if (typeof parsed === 'object' && parsed !== null) return parsed
+   188→   188→   188→  } catch {}
+   189→   189→   189→
+   190→   190→   190→  // Try matching JSON block
+   191→   191→   191→  const jsonMatch = text.match(/\{[\s\S]*\}/)
+   192→   192→   192→  if (jsonMatch) {
+   193→   193→   193→    try {
+   194→   194→   194→      const parsed = JSON.parse(jsonMatch[0])
+   195→   195→   195→      if (typeof parsed === 'object' && parsed !== null) return parsed
+   196→   196→   196→    } catch {}
+   197→   197→   197→  }
+   198→   198→   198→
+   199→   199→   199→  return null
+   200→   200→   200→}
+   201→   201→   201→
+   202→   202→   202→// ─── GET: Retrieve business plan ─────────────
+   203→   203→   203→
+   204→   204→   204→export async function GET(request: NextRequest) {
+   205→   205→   205→  try {
+   206→   206→   206→    const payload = await getAuth(request)
+   207→   207→   207→
+   208→   208→   208→    const journey = await db.creatorJourney.findUnique({
+   209→   209→   209→      where: { userId: payload.userId },
+   210→   210→   210→      select: {
+   211→   211→   211→        bpSections: true,
+   212→   212→   212→        bpStatus: true,
+   213→   213→   213→        bpScore: true,
+   214→   214→   214→        bpGeneratedAt: true,
+   215→   215→   215→        bpValidatedAt: true,
+   216→   216→   216→        bpValidatedBy: true,
+   217→   217→   217→        projectTitle: true,
+   218→   218→   218→        projectSector: true,
+   219→   219→   219→        projectStage: true,
+   220→   220→   220→        targetAudience: true,
+   221→   221→   221→        valueProposition: true,
+   222→   222→   222→      },
+   223→   223→   223→    })
+   224→   224→   224→
+   225→   225→   225→    if (!journey) {
+   226→   226→   226→      return success(
+   227→   227→   227→        {
+   228→   228→   228→          sections: {},
+   229→   229→   229→          bpStatus: 'NOT_STARTED',
+   230→   230→   230→          bpScore: null,
+   231→   231→   231→          projectContext: null,
+   232→   232→   232→        },
+   233→   233→   233→        'Aucun business plan enregistré',
+   234→   234→   234→      )
+   235→   235→   235→    }
+   236→   236→   236→
+   237→   237→   237→    return success(
+   238→   238→   238→      {
+   239→   239→   239→        sections: journey.bpSections ?? {},
+   240→   240→   240→        bpStatus: journey.bpStatus,
+   241→   241→   241→        bpScore: journey.bpScore,
+   242→   242→   242→        bpGeneratedAt: journey.bpGeneratedAt,
+   243→   243→   243→        bpValidatedAt: journey.bpValidatedAt,
+   244→   244→   244→        projectContext: {
+   245→   245→   245→          projectTitle: journey.projectTitle,
+   246→   246→   246→          projectSector: journey.projectSector,
+   247→   247→   247→          projectStage: journey.projectStage,
+   248→   248→   248→          targetAudience: journey.targetAudience,
+   249→   249→   249→          valueProposition: journey.valueProposition,
+   250→   250→   250→        },
+   251→   251→   251→      },
+   252→   252→   252→      'Business plan chargé',
+   253→   253→   253→    )
+   254→   254→   254→  } catch (err) {
+   255→   255→   255→    if (err && typeof err === 'object' && 'code' in err) {
+   256→   256→   256→      const authErr = err as { code: string }
+   257→   257→   257→      if (authErr.code === 'TOKEN_EXPIRED' || authErr.code === 'UNAUTHORIZED') {
+   258→   258→   258→        return Errors.unauthorized('Session expirée — veuillez vous reconnecter')
+   259→   259→   259→      }
+   260→   260→   260→    }
+   261→   261→   261→    return handleApiError(err)
+   262→   262→   262→  }
+   263→   263→   263→}
+   264→   264→   264→
+   265→   265→   265→// ─── PUT: Save business plan (bulk or single) ──
+   266→   266→   266→
+   267→   267→   267→export async function PUT(request: NextRequest) {
+   268→   268→   268→  try {
+   269→   269→   269→    const payload = await getAuth(request)
+   270→   270→   270→    const body = await request.json()
+   271→   271→   271→
+   272→   272→   272→    // ── Single-section save: action=save-section ──
+   273→   273→   273→    if (body.action === 'save-section') {
+   274→   274→   274→      const { sectionId, content } = body
+   275→   275→   275→      if (!sectionId || content === undefined) {
+   276→   276→   276→        return Errors.validation([{ field: 'sectionId/content', message: 'sectionId et content sont requis' }])
+   277→   277→   277→      }
+   278→   278→   278→
+   279→   279→   279→      const existingJourney = await db.creatorJourney.findUnique({
+   280→   280→   280→        where: { userId: payload.userId },
+   281→   281→   281→        select: {
+   282→   282→   282→          id: true, bpSections: true, bpSectionMeta: true,
+   283→   283→   283→          bpStatus: true, bpScore: true, userId: true,
+   284→   284→   284→          user: { select: { tenantId: true } },
+   285→   285→   285→        },
+   286→   286→   286→      })
+   287→   287→   287→
+   288→   288→   288→      const existingSections = (existingJourney?.bpSections as Record<string, unknown>) ?? {}
+   289→   289→   289→      const existingMeta = (existingJourney?.bpSectionMeta as unknown as BpSectionMeta) ?? {}
+   290→   290→   290→
+   291→   291→   291→      // Update the section
+   292→   292→   292→      existingSections[sectionId] = content
+   293→   293→   293→
+   294→   294→   294→      // Update metadata for this section only
+   295→   295→   295→      existingMeta[sectionId] = buildSectionMetaForManual(existingMeta, sectionId, content)
+   296→   296→   296→
+   297→   297→   297→      // Recalculate bpScore
+   298→   298→   298→      const filledSections = Object.values(existingSections).filter(isFilled).length
+   299→   299→   299→      const bpScore = Math.min(100, Math.round((filledSections / 24) * 100))
+   300→   300→   300→
+   301→   301→   301→      let status = existingJourney?.bpStatus ?? 'IN_PROGRESS'
+   302→   302→   302→      if (filledSections === 0) status = 'NOT_STARTED'
+   303→   303→   303→      else if (filledSections === 24) status = 'DRAFT'
+   304→   304→   304→      else status = 'IN_PROGRESS'
+   305→   305→   305→
+   306→   306→   306→      const journey = await db.creatorJourney.upsert({
+   307→   307→   307→        where: { userId: payload.userId },
+   308→   308→   308→        create: {
+   309→   309→   309→          userId: payload.userId,
+   310→   310→   310→          bpSections: existingSections as Prisma.InputJsonValue,
+   311→   311→   311→          bpSectionMeta: existingMeta as unknown as Prisma.InputJsonValue,
+   312→   312→   312→          bpStatus: status as 'NOT_STARTED' | 'IN_PROGRESS' | 'GENERATING' | 'DRAFT' | 'REVIEW' | 'VALIDATED' | 'EXPORTED',
+   313→   313→   313→          bpScore,
+   314→   314→   314→        },
+   315→   315→   315→        update: {
+   316→   316→   316→          bpSections: existingSections as Prisma.InputJsonValue,
+   317→   317→   317→          bpSectionMeta: existingMeta as unknown as Prisma.InputJsonValue,
+   318→   318→   318→          bpStatus: status as 'NOT_STARTED' | 'IN_PROGRESS' | 'GENERATING' | 'DRAFT' | 'REVIEW' | 'VALIDATED' | 'EXPORTED',
+   319→   319→   319→          bpScore,
+   320→   320→   320→        },
+   321→   321→   321→      })
+   322→   322→   322→
+   323→   323→   323→      return success(
+   324→   324→   324→        {
+   325→   325→   325→          id: journey.id,
+   326→   326→   326→          sectionId,
+   327→   327→   327→          meta: existingMeta[sectionId],
+   328→   328→   328→          bpScore,
+   329→   329→   329→          filledSections,
+   330→   330→   330→          totalSections: 24,
+   331→   331→   331→        },
+   332→   332→   332→        'Section sauvegardée avec succès',
+   333→   333→   333→      )
+   334→   334→   334→    }
+   335→   335→   335→
+   336→   336→   336→    // ── Bulk save (existing logic) ──
+   337→   337→   337→    const parsed = saveBpSchema.safeParse(body)
+   338→   338→   338→
+   339→   339→   339→    if (!parsed.success) {
+   340→   340→   340→      return Errors.validation(
+   341→   341→   341→        parsed.error.issues.map((i) => ({
+   342→   342→   342→          field: i.path.join('.'),
+   343→   343→   343→          message: i.message,
+   344→   344→   344→        })),
+   345→   345→   345→      )
+   346→   346→   346→    }
+   347→   347→   347→
+   348→   348→   348→    const { sections, bpStatus } = parsed.data
+   349→   349→   349→
+   350→   350→   350→    // Read existing bpSectionMeta for metadata merge
+   351→   351→   351→    const previousJourney = await db.creatorJourney.findUnique({
+   352→   352→   352→      where: { userId: payload.userId },
+   353→   353→   353→      select: {
+   354→   354→   354→        bpSectionMeta: true, bpStatus: true, bpSections: true, userId: true,
+   355→   355→   355→        user: { select: { tenantId: true, firstName: true, lastName: true } },
+   356→   356→   356→      },
+   357→   357→   357→    })
+   358→   358→   358→    const existingMeta = (previousJourney?.bpSectionMeta as unknown as BpSectionMeta) ?? {}
+   359→   359→   359→    const updatedMeta: BpSectionMeta = { ...existingMeta }
+   360→   360→   360→    const previousStatus = previousJourney?.bpStatus ?? null
+   361→   361→   361→    const userTenantId = previousJourney?.user?.tenantId
+   362→   362→   362→
+   363→   363→   363→    // Calculate completion & update metadata for all provided sections
+   364→   364→   364→    const filledSections = sections
+   365→   365→   365→      ? Object.values(sections).filter(isFilled).length
+   366→   366→   366→      : 0
+   367→   367→   367→    const totalSections = 24
+   368→   368→   368→    const bpScore = Math.min(100, Math.round((filledSections / totalSections) * 100))
+   369→   369→   369→
+   370→   370→   370→    // Update bpSectionMeta for each non-empty section
+   371→   371→   371→    if (sections) {
+   372→   372→   372→      for (const [sectionId, content] of Object.entries(sections)) {
+   373→   373→   373→        if (isFilled(content)) {
+   374→   374→   374→          updatedMeta[sectionId] = buildSectionMetaForManual(existingMeta, sectionId, content)
+   375→   375→   375→        }
+   376→   376→   376→      }
+   377→   377→   377→    }
+   378→   378→   378→
+   379→   379→   379→    // Determine status — preserve SUBMITTED when explicitly requested
+   380→   380→   380→    let status: string = bpStatus ?? 'IN_PROGRESS'
+   381→   381→   381→    if (status !== 'SUBMITTED') {
+   382→   382→   382→      if (filledSections === 0) status = 'NOT_STARTED'
+   383→   383→   383→      else if (filledSections === totalSections) status = 'DRAFT'
+   384→   384→   384→      else status = 'IN_PROGRESS'
+   385→   385→   385→    }
+   386→   386→   386→
+   387→   387→   387→    // Upsert CreatorJourney bp fields (now includes bpSectionMeta)
+   388→   388→   388→    const journey = await db.creatorJourney.upsert({
+   389→   389→   389→      where: { userId: payload.userId },
+   390→   390→   390→      create: {
+   391→   391→   391→        userId: payload.userId,
+   392→   392→   392→        bpSections: (sections ?? {}) as Prisma.InputJsonValue,
+   393→   393→   393→        bpSectionMeta: updatedMeta as unknown as Prisma.InputJsonValue,
+   394→   394→   394→        bpStatus: status as 'NOT_STARTED' | 'IN_PROGRESS' | 'GENERATING' | 'DRAFT' | 'REVIEW' | 'VALIDATED' | 'EXPORTED',
+   395→   395→   395→        bpScore,
+   396→   396→   396→      },
+   397→   397→   397→      update: {
+   398→   398→   398→        bpSections: (sections ?? {}) as Prisma.InputJsonValue,
+   399→   399→   399→        bpSectionMeta: updatedMeta as unknown as Prisma.InputJsonValue,
+   400→   400→   400→        bpStatus: status as 'NOT_STARTED' | 'IN_PROGRESS' | 'GENERATING' | 'DRAFT' | 'REVIEW' | 'VALIDATED' | 'EXPORTED',
+   401→   401→   401→        bpScore,
+   402→   402→   402→        bpGeneratedAt: new Date(),
+   403→   403→   403→      },
+   404→   404→   404→    })
+   405→   405→   405→
+   406→   406→   406→    // ── Auto-snapshot: >3 sections changed, debounced to 5 min ──
+   407→   407→   407→    if (sections && Object.keys(sections).length > 3 && userTenantId) {
+   408→   408→   408→      const projectContext = previousJourney ? {
+   409→   409→   409→        projectTitle: (previousJourney as any).projectTitle ?? null,
+   410→   410→   410→        projectSector: (previousJourney as any).projectSector ?? null,
+   411→   411→   411→      } : null
+   412→   412→   412→      maybeAutoSnapshot(payload.userId, journey.id, userTenantId, sections ?? {}, projectContext, 'auto')
+   413→   413→   413→    }
+   414→   414→   414→
+   415→   415→   415→    // ── Fire-and-forget notifications on status change ──
+   416→   416→   416→    if (previousStatus && previousStatus !== status) {
+   417→   417→   417→      const statusLabel = status === 'NOT_STARTED' ? 'Non démarré'
+   418→   418→   418→        : status === 'IN_PROGRESS' ? 'En cours'
+   419→   419→   419→        : status === 'DRAFT' ? 'Brouillon'
+   420→   420→   420→        : status === 'SUBMITTED' ? 'Soumis'
+   421→   421→   421→        : status
+   422→   422→   422→
+   423→   423→   423→      createNotification({
+   424→   424→   424→        userId: payload.userId,
+   425→   425→   425→        title: 'Business plan mis à jour',
+   426→   426→   426→        content: `Votre business plan a été mis à jour — statut : ${statusLabel}`,
+   427→   427→   427→        type: 'INFO',
+   428→   428→   428→        link: '/bureau/business-plan',
+   429→   429→   429→      }).catch(() => {})
+   430→   430→   430→
+   431→   431→   431→      // If SUBMITTED, notify all COUNSELOR users in the same tenant
+   432→   432→   432→      if (status === 'SUBMITTED' && userTenantId) {
+   433→   433→   433→        const beneficiaryName = [previousJourney?.user?.firstName, previousJourney?.user?.lastName].filter(Boolean).join(' ') || 'Un bénéficiaire'
+   434→   434→   434→
+   435→   435→   435→        // Fetch counselors + send notifications (fire-and-forget)
+   436→   436→   436→        db.user.findMany({
+   437→   437→   437→          where: { tenantId: userTenantId, role: 'COUNSELOR', isActive: true },
+   438→   438→   438→          select: { id: true, email: true, firstName: true },
+   439→   439→   439→        }).then((counselors) => {
+   440→   440→   440→          const notificationPromises = counselors.map((c) =>
+   441→   441→   441→            createNotification({
+   442→   442→   442→              userId: c.id,
+   443→   443→   443→              title: 'Business plan à reviewer',
+   444→   444→   444→              content: `${beneficiaryName} a soumis son business plan pour review`,
+   445→   445→   445→              type: 'ACTION_REQUIRED',
+   446→   446→   446→              link: '/admin-centre/business-plan',
+   447→   447→   447→            })
+   448→   448→   448→          )
+   449→   449→   449→          return Promise.all(notificationPromises)
+   450→   450→   450→        }).catch(() => {})
+   451→   451→   451→
+   452→   452→   452→        // Send email to counselors (fire-and-forget)
+   453→   453→   453→        import('@/lib/email').then(({ sendBpSubmittedEmail }) => {
+   454→   454→   454→          db.user.findMany({
+   455→   455→   455→            where: { tenantId: userTenantId, role: 'COUNSELOR', isActive: true },
+   456→   456→   456→            select: { email: true, firstName: true },
+   457→   457→   457→          }).then((counselors) => {
+   458→   458→   458→            const beneficiaryFirstName = previousJourney?.user?.firstName || ''
+   459→   459→   459→            counselors.forEach((c) => {
+   460→   460→   460→              sendBpSubmittedEmail(beneficiaryFirstName, c.email, c.firstName || '').catch(() => {})
+   461→   461→   461→            })
+   462→   462→   462→          }).catch(() => {})
+   463→   463→   463→        }).catch(() => {})
+   464→   464→   464→
+   465→   465→   465→        log.info('BP submitted', { userId: payload.userId, beneficiaryName })
+   466→   466→   466→      }
+   467→   467→   467→    }
+   468→   468→   468→
+   469→   469→   469→    return success(
+   470→   470→   470→      {
+   471→   471→   471→        id: journey.id,
+   472→   472→   472→        bpStatus: status,
+   473→   473→   473→        bpScore,
+   474→   474→   474→        filledSections,
+   475→   475→   475→        totalSections,
+   476→   476→   476→      },
+   477→   477→   477→      'Business plan sauvegardé avec succès',
+   478→   478→   478→    )
+   479→   479→   479→  } catch (err) {
+   480→   480→   480→    if (err && typeof err === 'object' && 'code' in err) {
+   481→   481→   481→      const authErr = err as { code: string }
+   482→   482→   482→      if (authErr.code === 'TOKEN_EXPIRED' || authErr.code === 'UNAUTHORIZED') {
+   483→   483→   483→        return Errors.unauthorized('Session expirée — veuillez vous reconnecter')
+   484→   484→   484→      }
+   485→   485→   485→    }
+   486→   486→   486→    return handleApiError(err)
+   487→   487→   487→  }
+   488→   488→   488→}
+   489→   489→   489→
+   490→   490→   490→// ─── POST: Multi-action handler ──────────────
+   491→   491→   491→
+   492→   492→   492→export async function POST(request: NextRequest) {
+   493→   493→   493→  try {
+   494→   494→   494→    const payload = await getAuth(request)
+   495→   495→   495→
+   496→   496→   496→    const body = await request.json()
+   497→   497→   497→    const parsed = bpActionSchema.safeParse(body)
+   498→   498→   498→
+   499→   499→   499→    if (!parsed.success) {
+   500→   500→   500→      return Errors.validation(
+   501→   501→   501→        parsed.error.issues.map((i) => ({
+   502→   502→   502→          field: i.path.join('.'),
+   503→   503→   503→          message: i.message,
+   504→   504→   504→        })),
+   505→   505→   505→      )
+   506→   506→   506→    }
+   507→   507→   507→
+   508→   508→   508→    switch (parsed.data.action) {
+   509→   509→   509→      case 'ai-suggest':
+   510→   510→   510→        return handleAiSuggest(parsed.data, payload.userId)
+   511→   511→   511→      case 'generate-from-parcours':
+   512→   512→   512→        return handleGenerateFromParcours(payload.userId)
+   513→   513→   513→      case 'sync-simulators':
+   514→   514→   514→        return handleSyncSimulators(payload.userId)
+   515→   515→   515→    }
+   516→   516→   516→  } catch (err) {
+   517→   517→   517→    if (err && typeof err === 'object' && 'code' in err) {
+   518→   518→   518→      const authErr = err as { code: string }
+   519→   519→   519→      if (authErr.code === 'TOKEN_EXPIRED' || authErr.code === 'UNAUTHORIZED') {
+   520→   520→   520→        return Errors.unauthorized('Session expirée — veuillez vous reconnecter')
+   521→   521→   521→      }
+   522→   522→   522→    }
+   523→   523→   523→    return handleApiError(err)
+   524→   524→   524→  }
+   525→   525→   525→}
+   526→   526→   526→
+   527→   527→   527→// ─── POST action: AI Suggest (existing) ──────
+   528→   528→   528→
+   529→   529→   529→async function handleAiSuggest(
+   530→   530→   530→  data: z.infer<typeof aiSuggestSchema>,
+   531→   531→   531→  userId: string,
+   532→   532→   532→) {
+   533→   533→   533→  const { sectionId, sectionTitle, existingContent, projectContext } = data
+   534→   534→   534→
+   535→   535→   535→  // Fetch project context if not provided
+   536→   536→   536→  let context = projectContext || ''
+   537→   537→   537→  if (!context) {
+   538→   538→   538→    const journey = await db.creatorJourney.findUnique({
+   539→   539→   539→      where: { userId },
+   540→   540→   540→      select: {
+   541→   541→   541→        projectTitle: true,
+   542→   542→   542→        projectSector: true,
+   543→   543→   543→        projectStage: true,
+   544→   544→   544→        targetAudience: true,
+   545→   545→   545→        valueProposition: true,
+   546→   546→   546→        projectDescription: true,
+   547→   547→   547→      },
+   548→   548→   548→    })
+   549→   549→   549→    if (journey) {
+   550→   550→   550→      const parts: string[] = []
+   551→   551→   551→      if (journey.projectTitle) parts.push(`Projet: ${journey.projectTitle}`)
+   552→   552→   552→      if (journey.projectSector) parts.push(`Secteur: ${journey.projectSector}`)
+   553→   553→   553→      if (journey.projectStage) parts.push(`Stade: ${journey.projectStage}`)
+   554→   554→   554→      if (journey.targetAudience) parts.push(`Cible: ${journey.targetAudience}`)
+   555→   555→   555→      if (journey.valueProposition) parts.push(`Valeur: ${journey.valueProposition}`)
+   556→   556→   556→      if (journey.projectDescription) parts.push(`Description: ${journey.projectDescription}`)
+   557→   557→   557→      context = parts.join('\n')
+   558→   558→   558→    }
+   559→   559→   559→  }
+   560→   560→   560→
+   561→   561→   561→  // Build system prompt
+   562→   562→   562→  const systemPrompt = `Tu es un expert en création d'entreprise et en rédaction de business plans. Tu aides des entrepreneurs francophones à rédiger un business plan professionnel et convaincant.
+   563→   563→   563→
+   564→   564→   564→RÈGLES IMPORTANTES :
+   565→   565→   565→- Réponds TOUJOURS en français
+   566→   566→   566→- Sois concis mais professionnel (200-400 mots par section)
+   567→   567→   567→- Utilise un ton formel et encourageant
+   568→   568→   568→- Structure le contenu avec des paragraphes clairs
+   569→   569→   569→- Adapte les conseils au contexte du projet fourni
+   570→   570→   570→- Si du contenu existe déjà, améliore-le et complète-le plutôt que de le remplacer
+   571→   571→   571→- Utilise des données concrètes et des exemples quand c'est pertinent
+   572→   572→   572→
+   573→   573→   573→${context ? `CONTEXTE DU PROJET :\n${context}` : 'Aucun contexte de projet fourni. Génére un contenu générique adaptable.'}`
+   574→   574→   574→
+   575→   575→   575→  // Build user prompt
+   576→   576→   576→  let userPrompt = `Génère un contenu professionnel pour la section "${sectionTitle}" d'un business plan.`
+   577→   577→   577→
+   578→   578→   578→  if (existingContent && existingContent.trim()) {
+   579→   579→   579→    userPrompt += `\n\nContenu actuel de l'utilisateur :\n"${existingContent}"\n\nAméliore et complète ce contenu. Garde les informations importantes déjà présentes.`
+   580→   580→   580→  } else {
+   581→   581→   581→    userPrompt += `\n\nRédige un contenu complet et structuré pour cette section. L'utilisateur n'a encore rien écrit.`
+   582→   582→   582→  }
+   583→   583→   583→
+   584→   584→   584→  userPrompt += `\n\nSection ID: ${sectionId}`
+   585→   585→   585→
+   586→   586→   586→  // Call LLM via shared ZAI helper (never throws)
+   587→   587→   587→  const result = await callZAI([
+   588→   588→   588→    { role: 'system', content: systemPrompt },
+   589→   589→   589→    { role: 'user', content: userPrompt },
+   590→   590→   590→  ], { temperature: 0.7, max_tokens: 1200 })
+   591→   591→   591→
+   592→   592→   592→  if (!result.success) {
+   593→   593→   593→    return aiUnavailableResponse(getZAIErrorMessage(result))
+   594→   594→   594→  }
+   595→   595→   595→
+   596→   596→   596→  const suggestion = result.content || 'Désolé, une erreur est survenue lors de la génération. Veuillez réessayer.'
+   597→   597→   597→
+   598→   598→   598→  return success(
+   599→   599→   599→    {
+   600→   600→   600→      sectionId,
+
+[showing lines 1-600 of 1156; use offset=601 with limit to continue reading]

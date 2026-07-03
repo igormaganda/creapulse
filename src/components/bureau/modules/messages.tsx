@@ -255,6 +255,8 @@ export function MessagesModule() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
+  const messagesRef = useRef<Message[]>(messages)
+  messagesRef.current = messages
   const [searchQuery, setSearchQuery] = useState('')
   const [messageInput, setMessageInput] = useState('')
   const [isLoadingConvos, setIsLoadingConvos] = useState(true)
@@ -340,6 +342,40 @@ export function MessagesModule() {
       setMobileShowMessages(true)
     }
   }, [selectedConvId, fetchMessages])
+
+  // ─── Messages polling (15s) ─────────────────
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current)
+      pollIntervalRef.current = null
+    }
+
+    if (!selectedConvId) return
+
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        const res = await authFetch(`/api/messages/${selectedConvId}?limit=50`)
+        if (!res.ok) return
+        const json = await res.json()
+        if (json.success) {
+          const existingIds = new Set(messagesRef.current.map((m) => m.id))
+          const newMsgs = (json.data.messages as Message[]).filter((m) => !existingIds.has(m.id))
+          if (newMsgs.length > 0) {
+            setMessages((prev) => [...prev, ...newMsgs].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()))
+          }
+        }
+      } catch { /* silent */ }
+    }, 15000)
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current)
+        pollIntervalRef.current = null
+      }
+    }
+  }, [selectedConvId])
 
   // ─── Auto-scroll ──────────────────────────
   useEffect(() => {

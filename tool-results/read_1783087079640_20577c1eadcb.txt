@@ -1,0 +1,419 @@
+   640→   640→   640→                    <Badge variant="outline" className="text-[10px] shrink-0">{ben.journeyPhase}</Badge>
+   641→   641→   641→                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+   642→   642→   642→                  </button>
+   643→   643→   643→                ))}
+   644→   644→   644→              </motion.div>
+   645→   645→   645→            )}
+   646→   646→   646→          </AnimatePresence>
+   647→   647→   647→        </div>
+   648→   648→   648→
+   649→   649→   649→        {/* Content area */}
+   650→   650→   650→        <ScrollArea className="flex-1">
+   651→   651→   651→          <div className="p-6">
+   652→   652→   652→            {!selectedBeneficiary && !loadingData && !error && (
+   653→   653→   653→              <EmptyState
+   654→   654→   654→                title="Sélectionnez un bénéficiaire"
+   655→   655→   655→                description="Recherchez par nom ou projet pour afficher la vue 360° complète de son parcours."
+   656→   656→   656→              />
+   657→   657→   657→            )}
+   658→   658→   658→
+   659→   659→   659→            {loadingData && <ProfileSkeleton />}
+   660→   660→   660→
+   661→   661→   661→            {error && (
+   662→   662→   662→              <div className="flex flex-col items-center justify-center py-12 text-center">
+   663→   663→   663→                <AlertCircle className="h-8 w-8 text-coral-500" />
+   664→   664→   664→                <p className="mt-3 text-sm text-muted-foreground">{error}</p>
+   665→   665→   665→                <Button variant="outline" size="sm" className="mt-4" onClick={() => { setError(null) }}>
+   666→   666→   666→                  Réessayer
+   667→   667→   667→                </Button>
+   668→   668→   668→              </div>
+   669→   669→   669→            )}
+   670→   670→   670→
+   671→   671→   671→            {selectedBeneficiary && data360 && !loadingData && (
+   672→   672→   672→              <motion.div
+   673→   673→   673→                initial={{ opacity: 0, y: 10 }}
+   674→   674→   674→                animate={{ opacity: 1, y: 0 }}
+   675→   675→   675→                transition={{ duration: 0.3 }}
+   676→   676→   676→              >
+   677→   677→   677→                <Tabs defaultValue="profil" className="space-y-6">
+   678→   678→   678→                  <TabsList className="w-full grid grid-cols-4">
+   679→   679→   679→                    <TabsTrigger value="profil" className="text-xs sm:text-sm">Profil</TabsTrigger>
+   680→   680→   680→                    <TabsTrigger value="parcours" className="text-xs sm:text-sm">Parcours</TabsTrigger>
+   681→   681→   681→                    <TabsTrigger value="documents" className="text-xs sm:text-sm">Documents</TabsTrigger>
+   682→   682→   682→                    <TabsTrigger value="ia" className="text-xs sm:text-sm">IA Insights</TabsTrigger>
+   683→   683→   683→                  </TabsList>
+   684→   684→   684→
+   685→   685→   685→                  {/* ── TAB 1: PROFIL ── */}
+   686→   686→   686→                  <TabsContent value="profil" className="space-y-6 mt-4">
+   687→   687→   687→                    {/* Header card */}
+   688→   688→   688→                    <Card>
+   689→   689→   689→                      <CardContent className="p-5">
+   690→   690→   690→                        <div className="flex items-start gap-4">
+   691→   691→   691→                          <Avatar className="h-16 w-16">
+   692→   692→   692→                            <AvatarFallback className="bg-primary text-primary-foreground text-xl font-bold">
+   693→   693→   693→                              {initials(selectedBeneficiary)}
+   694→   694→   694→                            </AvatarFallback>
+   695→   695→   695→                          </Avatar>
+   696→   696→   696→                          <div className="flex-1 min-w-0">
+   697→   697→   697→                            <h3 className="text-lg font-bold text-foreground">
+   698→   698→   698→                              {selectedBeneficiary.firstName} {selectedBeneficiary.lastName}
+   699→   699→   699→                            </h3>
+   700→   700→   700→                            <p className="text-sm text-muted-foreground mt-0.5">
+   701→   701→   701→                              {selectedBeneficiary.projectTitle || 'Aucun projet défini'}
+   702→   702→   702→                            </p>
+   703→   703→   703→                            <div className="flex flex-wrap gap-2 mt-2">
+   704→   704→   704→                              <Badge variant="outline">{selectedBeneficiary.journeyPhase}</Badge>
+   705→   705→   705→                              <Badge variant={selectedBeneficiary.status === 'actif' ? 'default' : 'secondary'}>
+   706→   706→   706→                                {selectedBeneficiary.status === 'actif' ? 'Actif' : selectedBeneficiary.status === 'inactif' ? 'Inactif' : 'En attente'}
+   707→   707→   707→                              </Badge>
+   708→   708→   708→                            </div>
+   709→   709→   709→                          </div>
+   710→   710→   710→                        </div>
+   711→   711→   711→                      </CardContent>
+   712→   712→   712→                    </Card>
+   713→   713→   713→
+   714→   714→   714→                    {/* Info grid */}
+   715→   715→   715→                    <div className="grid grid-cols-2 gap-3">
+   716→   716→   716→                      <Card className="p-4">
+   717→   717→   717→                        <div className="flex items-center gap-2 text-muted-foreground mb-1">
+   718→   718→   718→                          <Mail className="h-3.5 w-3.5" />
+   719→   719→   719→                          <span className="text-xs">Email</span>
+   720→   720→   720→                        </div>
+   721→   721→   721→                        <p className="text-sm font-medium text-foreground truncate">{selectedBeneficiary.email}</p>
+   722→   722→   722→                      </Card>
+   723→   723→   723→                      <Card className="p-4">
+   724→   724→   724→                        <div className="flex items-center gap-2 text-muted-foreground mb-1">
+   725→   725→   725→                          <Calendar className="h-3.5 w-3.5" />
+   726→   726→   726→                          <span className="text-xs">Inscription</span>
+   727→   727→   727→                        </div>
+   728→   728→   728→                        <p className="text-sm font-medium text-foreground">{formatDate(selectedBeneficiary.createdAt)}</p>
+   729→   729→   729→                      </Card>
+   730→   730→   730→                      <Card className="p-4">
+   731→   731→   731→                        <div className="flex items-center gap-2 text-muted-foreground mb-1">
+   732→   732→   732→                          <Clock className="h-3.5 w-3.5" />
+   733→   733→   733→                          <span className="text-xs">Dernière activité</span>
+   734→   734→   734→                        </div>
+   735→   735→   735→                        <p className="text-sm font-medium text-foreground">{formatDate(selectedBeneficiary.lastActivity)}</p>
+   736→   736→   736→                      </Card>
+   737→   737→   737→                      <Card className="p-4">
+   738→   738→   738→                        <div className="flex items-center gap-2 text-muted-foreground mb-1">
+   739→   739→   739→                          <Target className="h-3.5 w-3.5" />
+   740→   740→   740→                          <span className="text-xs">Secteur</span>
+   741→   741→   741→                        </div>
+   742→   742→   742→                        <p className="text-sm font-medium text-foreground">{selectedBeneficiary.sector || 'Non défini'}</p>
+   743→   743→   743→                      </Card>
+   744→   744→   744→                    </div>
+   745→   745→   745→
+   746→   746→   746→                    {/* PAA Program progress */}
+   747→   747→   747→                    <Card>
+   748→   748→   748→                      <CardHeader className="pb-3">
+   749→   749→   749→                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+   750→   750→   750→                          <TrendingUp className="h-4 w-4 text-primary" />
+   751→   751→   751→                          Programme PAA
+   752→   752→   752→                        </CardTitle>
+   753→   753→   753→                      </CardHeader>
+   754→   754→   754→                      <CardContent className="space-y-4">
+   755→   755→   755→                        <div className="flex items-center justify-between">
+   756→   756→   756→                          <span className="text-sm text-muted-foreground">Progression globale</span>
+   757→   757→   757→                          <span className="text-lg font-bold text-foreground">{selectedBeneficiary.progress}%</span>
+   758→   758→   758→                        </div>
+   759→   759→   759→                        <Progress value={selectedBeneficiary.progress} className="h-2.5" />
+   760→   760→   760→                        <div className="text-xs text-muted-foreground">
+   761→   761→   761→                          Phase actuelle : <span className="font-medium text-foreground">{selectedBeneficiary.journeyPhase}</span>
+   762→   762→   762→                        </div>
+   763→   763→   763→                      </CardContent>
+   764→   764→   764→                    </Card>
+   765→   765→   765→
+   766→   766→   766→                    {/* Module completion */}
+   767→   767→   767→                    <Card>
+   768→   768→   768→                      <CardHeader className="pb-3">
+   769→   769→   769→                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+   770→   770→   770→                          <BookOpen className="h-4 w-4 text-primary" />
+   771→   771→   771→                          Modules du parcours
+   772→   772→   772→                        </CardTitle>
+   773→   773→   773→                      </CardHeader>
+   774→   774→   774→                      <CardContent className="space-y-2">
+   775→   775→   775→                        {data360.moduleCompletion.map((mod) => (
+   776→   776→   776→                          <ModuleCard key={mod.moduleName} {...mod} />
+   777→   777→   777→                        ))}
+   778→   778→   778→                      </CardContent>
+   779→   779→   779→                    </Card>
+   780→   780→   780→                  </TabsContent>
+   781→   781→   781→
+   782→   782→   782→                  {/* ── TAB 2: PARCOURS ── */}
+   783→   783→   783→                  <TabsContent value="parcours" className="space-y-6 mt-4">
+   784→   784→   784→                    {/* Timeline */}
+   785→   785→   785→                    <Card>
+   786→   786→   786→                      <CardHeader className="pb-3">
+   787→   787→   787→                        <CardTitle className="text-base font-semibold">Chronologie des activités</CardTitle>
+   788→   788→   788→                      </CardHeader>
+   789→   789→   789→                      <CardContent>
+   790→   790→   790→                        {data360.recentInterviews.length > 0 ? (
+   791→   791→   791→                          <div className="relative">
+   792→   792→   792→                            {data360.recentInterviews.map((interview, i) => {
+   793→   793→   793→                              const typeConfig: Record<string, { icon: React.ElementType; color: string }> = {
+   794→   794→   794→                                bilan: { icon: BarChart3, color: 'bg-primary/10 text-primary' },
+   795→   795→   795→                                suivi: { icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
+   796→   796→   796→                                atelier: { icon: BookOpen, color: 'bg-amber-50 text-amber-600' },
+   797→   797→   797→                                autre: { icon: FileText, color: 'bg-muted text-muted-foreground' },
+   798→   798→   798→                              }
+   799→   799→   799→                              const cfg = typeConfig[interview.type] || typeConfig.autre
+   800→   800→   800→                              const Icon = cfg.icon
+   801→   801→   801→                              return (
+   802→   802→   802→                                <div key={interview.id}>
+   803→   803→   803→                                  <TimelineItem
+   804→   804→   804→                                    icon={Icon}
+   805→   805→   805→                                    color={cfg.color}
+   806→   806→   806→                                    title={`Entretien de ${interview.typeLabel}`}
+   807→   807→   807→                                    subtitle={interview.notes || 'Aucune note'}
+   808→   808→   808→                                    date={`${formatDate(interview.date)} - ${interview.time}`}
+   809→   809→   809→                                  />
+   810→   810→   810→                                </div>
+   811→   811→   811→                              )
+   812→   812→   812→                            })}
+   813→   813→   813→                          </div>
+   814→   814→   814→                        ) : (
+   815→   815→   815→                          <p className="text-sm text-muted-foreground text-center py-6">
+   816→   816→   816→                            Aucun entretien enregistré pour ce bénéficiaire.
+   817→   817→   817→                          </p>
+   818→   818→   818→                        )}
+   819→   819→   819→                      </CardContent>
+   820→   820→   820→                    </Card>
+   821→   821→   821→
+   822→   822→   822→                    {/* Kiviat radar */}
+   823→   823→   823→                    <Card>
+   824→   824→   824→                      <CardHeader className="pb-3">
+   825→   825→   825→                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+   826→   826→   826→                          <Target className="h-4 w-4 text-emerald-600" />
+   827→   827→   827→                          Scores CréaScope
+   828→   828→   828→                        </CardTitle>
+   829→   829→   829→                      </CardHeader>
+   830→   830→   830→                      <CardContent>
+   831→   831→   831→                        {data360.kiviatScores.length > 0 ? (
+   832→   832→   832→                          <KiviatRadar scores={data360.kiviatScores} />
+   833→   833→   833→                        ) : (
+   834→   834→   834→                          <p className="text-sm text-muted-foreground text-center py-6">
+   835→   835→   835→                            Aucune évaluation CréaScope disponible. Le bénéficiaire n&apos;a pas encore passé le test.
+   836→   836→   836→                          </p>
+   837→   837→   837→                        )}
+   838→   838→   838→                      </CardContent>
+   839→   839→   839→                    </Card>
+   840→   840→   840→                  </TabsContent>
+   841→   841→   841→
+   842→   842→   842→                  {/* ── TAB 3: DOCUMENTS ── */}
+   843→   843→   843→                  <TabsContent value="documents" className="space-y-6 mt-4">
+   844→   844→   844→                    {/* BP Status */}
+   845→   845→   845→                    <Card>
+   846→   846→   846→                      <CardHeader className="pb-3">
+   847→   847→   847→                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+   848→   848→   848→                          <FileText className="h-4 w-4 text-primary" />
+   849→   849→   849→                          Business Plan
+   850→   850→   850→                        </CardTitle>
+   851→   851→   851→                      </CardHeader>
+   852→   852→   852→                      <CardContent>
+   853→   853→   853→                        <div className="flex items-center justify-between">
+   854→   854→   854→                          <div>
+   855→   855→   855→                            <p className="text-sm text-foreground font-medium">
+   856→   856→   856→                              {data360.journeyData?.projectTitle || 'Business Plan'}
+   857→   857→   857→                            </p>
+   858→   858→   858→                            <p className="text-xs text-muted-foreground mt-0.5">
+   859→   859→   859→                              {data360.journeyData?.bpStatus === 'VALIDATED' ? 'Validé' :
+   860→   860→   860→                               data360.journeyData?.bpStatus === 'DRAFT' ? 'Brouillon' :
+   861→   861→   861→                               data360.journeyData?.bpStatus === 'IN_PROGRESS' ? 'En cours' :
+   862→   862→   862→                               'Non commencé'}
+   863→   863→   863→                            </p>
+   864→   864→   864→                          </div>
+   865→   865→   865→                          <Badge
+   866→   866→   866→                            variant="outline"
+   867→   867→   867→                            className={
+   868→   868→   868→                              data360.journeyData?.bpStatus === 'VALIDATED'
+   869→   869→   869→                                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+   870→   870→   870→                                : data360.journeyData?.bpStatus === 'IN_PROGRESS'
+   871→   871→   871→                                  ? 'border-amber-200 bg-amber-50 text-amber-700'
+   872→   872→   872→                                  : 'border-border'
+   873→   873→   873→                            }
+   874→   874→   874→                          >
+   875→   875→   875→                            {data360.journeyData?.bpStatus === 'VALIDATED' ? 'Validé' :
+   876→   876→   876→                             data360.journeyData?.bpStatus === 'DRAFT' ? 'Brouillon' :
+   877→   877→   877→                             data360.journeyData?.bpStatus === 'IN_PROGRESS' ? 'En cours' :
+   878→   878→   878→                             'Non commencé'}
+   879→   879→   879→                          </Badge>
+   880→   880→   880→                        </div>
+   881→   881→   881→                      </CardContent>
+   882→   882→   882→                    </Card>
+   883→   883→   883→
+   884→   884→   884→                    {/* BMC & Financial */}
+   885→   885→   885→                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   886→   886→   886→                      <Card className="p-4">
+   887→   887→   887→                        <div className="flex items-center gap-2 text-muted-foreground mb-2">
+   888→   888→   888→                          <BarChart3 className="h-4 w-4" />
+   889→   889→   889→                          <span className="text-sm font-medium">BMC</span>
+   890→   890→   890→                        </div>
+   891→   891→   891→                        <p className="text-xs text-muted-foreground">Business Model Canvas</p>
+   892→   892→   892→                        <div className="mt-2">
+   893→   893→   893→                          <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">À compléter</Badge>
+   894→   894→   894→                        </div>
+   895→   895→   895→                      </Card>
+   896→   896→   896→                      <Card className="p-4">
+   897→   897→   897→                        <div className="flex items-center gap-2 text-muted-foreground mb-2">
+   898→   898→   898→                          <TrendingUp className="h-4 w-4" />
+   899→   899→   899→                          <span className="text-sm font-medium">Prévisionnel financier</span>
+   900→   900→   900→                        </div>
+   901→   901→   901→                        <p className="text-xs text-muted-foreground">Tableaux financiers</p>
+   902→   902→   902→                        <div className="mt-2">
+   903→   903→   903→                          <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">À compléter</Badge>
+   904→   904→   904→                        </div>
+   905→   905→   905→                      </Card>
+   906→   906→   906→                    </div>
+   907→   907→   907→
+   908→   908→   908→                    {/* Livrables list */}
+   909→   909→   909→                    <Card>
+   910→   910→   910→                      <CardHeader className="pb-3">
+   911→   911→   911→                        <div className="flex items-center justify-between">
+   912→   912→   912→                          <CardTitle className="text-base font-semibold">Livrables soumis</CardTitle>
+   913→   913→   913→                          <Badge variant="secondary" className="text-xs">
+   914→   914→   914→                            {data360.livrables.length} document{data360.livrables.length !== 1 ? 's' : ''}
+   915→   915→   915→                          </Badge>
+   916→   916→   916→                        </div>
+   917→   917→   917→                      </CardHeader>
+   918→   918→   918→                      <CardContent>
+   919→   919→   919→                        {data360.livrables.length > 0 ? (
+   920→   920→   920→                          <div className="space-y-0">
+   921→   921→   921→                            {data360.livrables.map((liv, i) => (
+   922→   922→   922→                              <div key={liv.id}>
+   923→   923→   923→                                <div className="flex items-center gap-3 py-2.5">
+   924→   924→   924→                                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">
+   925→   925→   925→                                    {livrableTypeIcon(liv.type)}
+   926→   926→   926→                                  </div>
+   927→   927→   927→                                  <div className="flex-1 min-w-0">
+   928→   928→   928→                                    <p className="text-sm font-medium text-foreground truncate">{liv.title}</p>
+   929→   929→   929→                                    <p className="text-xs text-muted-foreground">
+   930→   930→   930→                                      {liv.type} · {formatDate(liv.createdAt)}
+   931→   931→   931→                                    </p>
+   932→   932→   932→                                  </div>
+   933→   933→   933→                                  <Badge
+   934→   934→   934→                                    variant="outline"
+   935→   935→   935→                                    className={
+   936→   936→   936→                                      liv.status === 'VALIDATED'
+   937→   937→   937→                                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+   938→   938→   938→                                        : liv.status === 'READY'
+   939→   939→   939→                                          ? 'border-coral-200 bg-coral-50 text-coral-700'
+   940→   940→   940→                                          : 'border-border'
+   941→   941→   941→                                    }
+   942→   942→   942→                                  >
+   943→   943→   943→                                    {liv.statusLabel}
+   944→   944→   944→                                  </Badge>
+   945→   945→   945→                                </div>
+   946→   946→   946→                                {i < data360.livrables.length - 1 && <Separator />}
+   947→   947→   947→                              </div>
+   948→   948→   948→                            ))}
+   949→   949→   949→                          </div>
+   950→   950→   950→                        ) : (
+   951→   951→   951→                          <p className="text-sm text-muted-foreground text-center py-6">
+   952→   952→   952→                            Aucun livrable soumis par ce bénéficiaire.
+   953→   953→   953→                          </p>
+   954→   954→   954→                        )}
+   955→   955→   955→                      </CardContent>
+   956→   956→   956→                    </Card>
+   957→   957→   957→                  </TabsContent>
+   958→   958→   958→
+   959→   959→   959→                  {/* ── TAB 4: IA INSIGHTS ── */}
+   960→   960→   960→                  <TabsContent value="ia" className="space-y-6 mt-4">
+   961→   961→   961→                    <Card>
+   962→   962→   962→                      <CardHeader className="pb-3">
+   963→   963→   963→                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+   964→   964→   964→                          <Sparkles className="h-4 w-4 text-amber-500" />
+   965→   965→   965→                          Bilan IA
+   966→   966→   966→                        </CardTitle>
+   967→   967→   967→                      </CardHeader>
+   968→   968→   968→                      <CardContent>
+   969→   969→   969→                        <p className="text-sm text-muted-foreground">
+   970→   970→   970→                          Le bilan IA est généré automatiquement après chaque cycle d&apos;entretiens.
+   971→   971→   971→                          Il synthétise les forces, faiblesses et recommandations pour le bénéficiaire.
+   972→   972→   972→                        </p>
+   973→   973→   973→                        <div className="mt-4 rounded-lg border border-dashed border-muted-foreground/30 p-6 text-center">
+   974→   974→   974→                          <Sparkles className="h-8 w-8 text-muted-foreground/50 mx-auto" />
+   975→   975→   975→                          <p className="mt-3 text-sm text-muted-foreground">
+   976→   976→   976→                            Aucun bilan IA disponible pour le moment.
+   977→   977→   977→                          </p>
+   978→   978→   978→                        </div>
+   979→   979→   979→                      </CardContent>
+   980→   980→   980→                    </Card>
+   981→   981→   981→
+   982→   982→   982→                    <Card>
+   983→   983→   983→                      <CardHeader className="pb-3">
+   984→   984→   984→                        <CardTitle className="text-base font-semibold">Recommandations personnalisées</CardTitle>
+   985→   985→   985→                      </CardHeader>
+   986→   986→   986→                      <CardContent>
+   987→   987→   987→                        <div className="space-y-3">
+   988→   988→   988→                          {selectedBeneficiary.progress < 30 ? (
+   989→   989→   989→                            <>
+   990→   990→   990→                              <div className="flex gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
+   991→   991→   991→                                <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+   992→   992→   992→                                <div>
+   993→   993→   993→                                  <p className="text-sm font-medium text-amber-800">Accélérer la phase de découverte</p>
+   994→   994→   994→                                  <p className="text-xs text-amber-700 mt-1">Ce bénéficiaire est en début de parcours. Planifiez un entretien de bilan initial.</p>
+   995→   995→   995→                                </div>
+   996→   996→   996→                              </div>
+   997→   997→   997→                              <div className="flex gap-3 p-3 rounded-lg bg-muted">
+   998→   998→   998→                                <Target className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+   999→   999→   999→                                <div>
+  1000→  1000→  1000→                                  <p className="text-sm font-medium text-foreground">Compléter le test RIASEC</p>
+  1001→  1001→  1001→                                  <p className="text-xs text-muted-foreground mt-1">Le profil RIASEC n&apos;est pas encore renseigné. Invitez le bénéficiaire à le compléter.</p>
+  1002→  1002→  1002→                                </div>
+  1003→  1003→  1003→                              </div>
+  1004→  1004→  1004→                            </>
+  1005→  1005→  1005→                          ) : selectedBeneficiary.progress < 70 ? (
+  1006→  1006→  1006→                            <>
+  1007→  1007→  1007→                              <div className="flex gap-3 p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+  1008→  1008→  1008→                                <TrendingUp className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+  1009→  1009→  1009→                                <div>
+  1010→  1010→  1010→                                  <p className="text-sm font-medium text-emerald-800">Parcours en bonne progression</p>
+  1011→  1011→  1011→                                  <p className="text-xs text-emerald-700 mt-1">Le bénéficiaire avance bien. Concentrez les prochains entretiens sur la modélisation et la stratégie.</p>
+  1012→  1012→  1012→                                </div>
+  1013→  1013→  1013→                              </div>
+  1014→  1014→  1014→                              <div className="flex gap-3 p-3 rounded-lg bg-muted">
+  1015→  1015→  1015→                                <FileText className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+  1016→  1016→  1016→                                <div>
+  1017→  1017→  1017→                                  <p className="text-sm font-medium text-foreground">Valider les livrables en attente</p>
+  1018→  1018→  1018→                                  <p className="text-xs text-muted-foreground mt-1">Des livrables sont prêts pour review. Prenez le temps de les valider rapidement.</p>
+  1019→  1019→  1019→                                </div>
+  1020→  1020→  1020→                              </div>
+  1021→  1021→  1021→                            </>
+  1022→  1022→  1022→                          ) : (
+  1023→  1023→  1023→                            <>
+  1024→  1024→  1024→                              <div className="flex gap-3 p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+  1025→  1025→  1025→                                <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+  1026→  1026→  1026→                                <div>
+  1027→  1027→  1027→                                  <p className="text-sm font-medium text-emerald-800">Phase de lancement imminente</p>
+  1028→  1028→  1028→                                  <p className="text-xs text-emerald-700 mt-1">Le parcours est avancé. Préparez le bénéficiaire au lancement avec un bilan complet.</p>
+  1029→  1029→  1029→                                </div>
+  1030→  1030→  1030→                              </div>
+  1031→  1031→  1031→                            </>
+  1032→  1032→  1032→                          )}
+  1033→  1033→  1033→                        </div>
+  1034→  1034→  1034→                      </CardContent>
+  1035→  1035→  1035→                    </Card>
+  1036→  1036→  1036→
+  1037→  1037→  1037→                    <Button
+  1038→  1038→  1038→                      className="w-full h-auto flex items-center justify-center gap-2 p-4 bg-gradient-to-r from-primary to-emerald-600 hover:opacity-90"
+  1039→  1039→  1039→                      onClick={() => {
+  1040→  1040→  1040→                        // Placeholder: In production, this would call an AI endpoint
+  1041→  1041→  1041→                      }}
+  1042→  1042→  1042→                    >
+  1043→  1043→  1043→                      <Sparkles className="h-5 w-5" />
+  1044→  1044→  1044→                      <div className="text-left">
+  1045→  1045→  1045→                        <p className="text-sm font-semibold">Générer un bilan IA</p>
+  1046→  1046→  1046→                        <p className="text-xs opacity-80">Analyse intelligente du parcours</p>
+  1047→  1047→  1047→                      </div>
+  1048→  1048→  1048→                    </Button>
+  1049→  1049→  1049→                  </TabsContent>
+  1050→  1050→  1050→                </Tabs>
+  1051→  1051→  1051→              </motion.div>
+  1052→  1052→  1052→            )}
+  1053→  1053→  1053→          </div>
+  1054→  1054→  1054→        </ScrollArea>
+  1055→  1055→  1055→      </SheetContent>
+  1056→  1056→  1056→    </Sheet>
+  1057→  1057→  1057→  )
+  1058→  1058→  1058→}

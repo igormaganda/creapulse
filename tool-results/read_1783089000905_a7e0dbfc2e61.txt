@@ -1,0 +1,780 @@
+     1→// ============================================
+     2→// CreaPulse V3 — Pipeline Engine API
+     3→// GET  /api/pipeline-v3  — Full pipeline status + recommendations + warnings
+     4→// POST /api/pipeline-v3  — Incremental module sync + actions
+     5→//   action=sync-module   — Sync a single simulator module → BP
+     6→//   action=refresh       — Rebuild full pipeline status
+     7→//   action=get-timestamps — Return full bpSectionMeta
+     8→//   action=cross-validate — Run cross-module consistency checks
+     9→// ============================================
+    10→
+    11→import { NextRequest } from 'next/server'
+    12→import { db } from '@/lib/db'
+    13→import { success, Errors, handleApiError } from '@/lib/api-response'
+    14→import { verifyToken } from '@/lib/auth'
+    15→import { z } from 'zod'
+    16→import type { Prisma } from '@prisma/client'
+    17→import type {
+    18→  ModuleId,
+    19→  DataSource,
+    20→  PipelinePhase,
+    21→  ModuleStatus,
+    22→  BpSectionProvenance,
+    23→  PipelineRecommendation,
+    24→  PipelineHealth,
+    25→} from '@/lib/pipeline-types'
+    26→import { SECTION_WEIGHTS, SECTION_SOURCE_MAP } from '@/lib/pipeline-types'
+    27→import type { BpSectionMeta, SectionMetaEntry } from '@/app/api/business-plan/route'
+    28→
+    29→// ─── Validation ───
+    30→
+    31→const syncModuleSchema = z.object({
+    32→  action: z.literal('sync-module'),
+    33→  module: z.enum(['marche', 'juridique', 'financier', 'creasim']),
+    34→})
+    35→
+    36→const refreshSchema = z.object({
+    37→  action: z.literal('refresh'),
+    38→})
+    39→
+    40→const getTimestampsSchema = z.object({
+    41→  action: z.literal('get-timestamps'),
+    42→})
+    43→
+    44→const crossValidateSchema = z.object({
+    45→  action: z.literal('cross-validate'),
+    46→})
+    47→
+    48→const pipelineActionSchema = z.discriminatedUnion('action', [
+    49→  syncModuleSchema, refreshSchema, getTimestampsSchema, crossValidateSchema,
+    50→])
+    51→
+    52→// ─── Auth helper ───
+    53→
+    54→async function getAuth(request: NextRequest) {
+    55→  const cookieToken = request.cookies.get('session')?.value
+    56→  const authHeader = request.headers.get('authorization')
+    57→  const token = cookieToken || (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null)
+    58→  if (!token) throw Object.assign(new Error('No session token found'), { code: 'UNAUTHORIZED' })
+    59→  return verifyToken(token)
+    60→}
+    61→
+    62→// ─── Helper: Check if value is filled ───
+    63→
+    64→function isFilled(value: unknown): boolean {
+    65→  if (value === null || value === undefined) return false
+    66→  if (typeof value === 'string') return value.trim().length > 0
+    67→  if (Array.isArray(value)) return value.length > 0
+    68→  if (typeof value === 'object') {
+    69→    return Object.values(value).some((v) =>
+    70→      typeof v === 'string' && v.trim().length > 0 ||
+    71→      typeof v === 'number' && v !== 0 ||
+    72→      Array.isArray(v) && v.length > 0
+    73→    )
+    74→  }
+    75→  return false
+    76→}
+    77→
+    78→function wordCount(value: unknown): number {
+    79→  if (typeof value === 'string') return value.trim().split(/\s+/).filter(Boolean).length
+    80→  return 0
+    81→}
+    82→
+    83→// ─── Compute module statuses ───
+    84→
+    85→function computeModules(
+    86→  marketAnalysis: { sector?: string | null; updatedAt?: Date | null } | null,
+    87→  juridiqueAnalysis: { recommendedStatus?: string | null; updatedAt?: Date | null } | null,
+    88→  financialForecast: { year1Revenue?: number | null; updatedAt?: Date | null } | null,
+    89→  creasimSimulation: { monthlyRevenue?: number | null; updatedAt?: Date | null } | null,
+    90→  bmc: { status?: string | null; updatedAt?: Date | null; partenairesCles?: string | null; activitesCles?: string | null; ressourcesCles?: string | null; propositionValeur?: string | null; relationsClients?: string | null; canaux?: string | null; segmentsClients?: string | null; structureCouts?: string | null; sourcesRevenus?: string | null } | null,
+    91→  bpSections: Record<string, unknown>,
+    92→  bpUpdatedAt: Date | null,
+    93→  pitchDeck: { updatedAt?: Date | null; content?: string | null } | null,
+    94→): Record<ModuleId, ModuleStatus> {
+    95→  const modules: Record<string, ModuleStatus> = {}
+    96→
+    97→  // Marché — check if MarketAnalysis has data
+    98→  const marcheHasData = !!(marketAnalysis?.sector)
+    99→  const marcheSections = ['etude-marche', 'segmentation', 'concurrence', 'strategie-marketing', 'plan-commercial', 'swot']
+   100→  const marcheFilled = marcheSections.filter(s => isFilled(bpSections[s])).length
+   101→  modules.marche = {
+   102→    id: 'marche', label: 'Analyse de Marché', phase: 'simulateurs',
+   103→    completion: marcheSections.length > 0 ? Math.min(100, Math.round((marcheFilled / marcheSections.length) * 100)) : 0,
+   104→    hasData: marcheHasData, lastSyncAt: marketAnalysis?.updatedAt?.toISOString() ?? null,
+   105→    sectionsFilled: marcheFilled, sectionsTotal: marcheSections.length,
+   106→  }
+   107→
+   108→  // Juridique
+   109→  const jurHasData = !!juridiqueAnalysis?.recommendedStatus
+   110→  const jurFilled = isFilled(bpSections['statut-juridique']) ? 1 : 0
+   111→  modules.juridique = {
+   112→    id: 'juridique', label: 'Analyse Juridique', phase: 'simulateurs',
+   113→    completion: Math.min(100, Math.round((jurFilled / 1) * 100)), hasData: jurHasData,
+   114→    lastSyncAt: juridiqueAnalysis?.updatedAt?.toISOString() ?? null,
+   115→    sectionsFilled: jurFilled, sectionsTotal: 1,
+   116→  }
+   117→
+   118→  // Financier
+   119→  const finHasData = financialForecast?.year1Revenue != null && financialForecast.year1Revenue > 0
+   120→  const finSections = ['financement', 'compte-resultat', 'tresorerie', 'investissements', 'bilan']
+   121→  const finFilled = finSections.filter(s => isFilled(bpSections[s])).length
+   122→  modules.financier = {
+   123→    id: 'financier', label: 'Prévisions Financières', phase: 'simulateurs',
+   124→    completion: finSections.length > 0 ? Math.min(100, Math.round((finFilled / finSections.length) * 100)) : 0,
+   125→    hasData: finHasData, lastSyncAt: financialForecast?.updatedAt?.toISOString() ?? null,
+   126→    sectionsFilled: finFilled, sectionsTotal: finSections.length,
+   127→  }
+   128→
+   129→  // CreaSim
+   130→  const csHasData = creasimSimulation?.monthlyRevenue != null && creasimSimulation.monthlyRevenue > 0
+   131→  const csFilled = isFilled(bpSections['seuil-rentabilite']) ? 1 : 0
+   132→  modules.creasim = {
+   133→    id: 'creasim', label: 'CreaSim', phase: 'simulateurs',
+   134→    completion: Math.min(100, Math.round((csFilled / 1) * 100)), hasData: csHasData,
+   135→    lastSyncAt: creasimSimulation?.updatedAt?.toISOString() ?? null,
+   136→    sectionsFilled: csFilled, sectionsTotal: 1,
+   137→  }
+   138→
+   139→  // BMC
+   140→  const bmcFields = [bmc?.partenairesCles, bmc?.activitesCles, bmc?.ressourcesCles, bmc?.propositionValeur, bmc?.relationsClients, bmc?.canaux, bmc?.segmentsClients, bmc?.structureCouts, bmc?.sourcesRevenus]
+   141→  const bmcFilled = bmcFields.filter(f => typeof f === 'string' && f.trim().length > 0).length
+   142→  modules.bmc = {
+   143→    id: 'bmc', label: 'Business Model Canvas', phase: 'hub',
+   144→    completion: Math.min(100, Math.round((bmcFilled / 9) * 100)),
+   145→    hasData: bmcFilled > 0, lastSyncAt: bmc?.updatedAt?.toISOString() ?? null,
+   146→    sectionsFilled: bmcFilled, sectionsTotal: 9,
+   147→  }
+   148→
+   149→  // Business Plan
+   150→  const bpAllSections = Object.keys(bpSections)
+   151→  const bpFilled = bpAllSections.filter(s => isFilled(bpSections[s])).length
+   152→  modules['business-plan'] = {
+   153→    id: 'business-plan', label: 'Business Plan', phase: 'hub',
+   154→    completion: Math.min(100, Math.round((bpFilled / 24) * 100)),
+   155→    hasData: bpFilled > 0, lastSyncAt: bpUpdatedAt?.toISOString() ?? null,
+   156→    sectionsFilled: bpFilled, sectionsTotal: 24,
+   157→  }
+   158→
+   159→  // Pitch Deck
+   160→  let pdFilled = 0
+   161→  try {
+   162→    const pdContent = pitchDeck?.content ? JSON.parse(pitchDeck.content) : null
+   163→    if (pdContent?.slides && Array.isArray(pdContent.slides)) {
+   164→      pdFilled = pdContent.slides.filter((s: { content?: string }) => s.content && s.content.trim().length > 30).length
+   165→    }
+   166→  } catch { /* ignore */ }
+   167→  modules['pitch-deck'] = {
+   168→    id: 'pitch-deck', label: 'Pitch Deck', phase: 'livrables',
+   169→    completion: Math.min(100, Math.round((pdFilled / 8) * 100)),
+   170→    hasData: pdFilled > 0, lastSyncAt: pitchDeck?.updatedAt?.toISOString() ?? null,
+   171→    sectionsFilled: pdFilled, sectionsTotal: 8,
+   172→  }
+   173→
+   174→  return modules as Record<ModuleId, ModuleStatus>
+   175→}
+   176→
+   177→// ─── Compute section provenance ───
+   178→
+   179→function computeProvenance(
+   180→  bpSections: Record<string, unknown>,
+   181→  hasMarche: boolean, hasJuridique: boolean, hasFinancier: boolean, hasCreaSim: boolean,
+   182→  bpSectionMeta: BpSectionMeta | null,
+   183→): BpSectionProvenance[] {
+   184→  const provenance: BpSectionProvenance[] = []
+   185→  const allSectionIds = Object.keys(SECTION_SOURCE_MAP)
+   186→
+   187→  for (const sectionId of allSectionIds) {
+   188→    const content = bpSections[sectionId]
+   189→    const filled = isFilled(content)
+   190→    const possibleSources = SECTION_SOURCE_MAP[sectionId] || ['manual']
+   191→    const meta = bpSectionMeta?.[sectionId]
+   192→
+   193→    let source: DataSource = 'empty'
+   194→    if (filled) {
+   195→      // Prefer bpSectionMeta source if available and accurate
+   196→      if (meta && meta.source !== 'empty' && meta.source !== 'manual') {
+   197→        source = meta.source
+   198→      } else if (hasMarche && possibleSources.includes('marche')) {
+   199→        source = 'marche'
+   200→      } else if (hasJuridique && possibleSources.includes('juridique')) {
+   201→        source = 'juridique'
+   202→      } else if (hasFinancier && possibleSources.includes('financier')) {
+   203→        source = 'financier'
+   204→      } else if (hasCreaSim && possibleSources.includes('creasim')) {
+   205→        source = 'creasim'
+   206→      } else if (possibleSources.includes('parcours')) {
+   207→        source = 'parcours'
+   208→      } else {
+   209→        source = 'manual'
+   210→      }
+   211→    }
+   212→
+   213→    provenance.push({
+   214→      sectionId,
+   215→      source,
+   216→      filled,
+   217→      wordCount: wordCount(content),
+   218→      lastModified: meta?.lastModified ?? null,
+   219→    })
+   220→  }
+   221→
+   222→  return provenance
+   223→}
+   224→
+   225→// ─── Compute recommendations ───
+   226→
+   227→function computeRecommendations(
+   228→  modules: Record<ModuleId, ModuleStatus>,
+   229→  hasParcours: boolean,
+   230→): PipelineRecommendation[] {
+   231→  const recs: PipelineRecommendation[] = []
+   232→  let priority = 1
+   233→
+   234→  // Phase 1: Parcours is foundation
+   235→  if (!hasParcours) {
+   236→    recs.push({
+   237→      id: 'rec-parcours-1', priority: priority++, module: 'parcours',
+   238→      action: 'Compléter Mon Projet',
+   239→      description: 'Remplissez votre fiche projet (Mon Projet + Vision) pour alimenter le Business Plan.',
+   240→      impact: 'Alimente 5 sections Présentation + sections Marché + Calendrier du BP',
+   241→    })
+   242→  }
+   243→
+   244→  // Phase 2: Simulateurs (priority order based on what's missing)
+   245→  const simOrder: ModuleId[] = ['marche', 'juridique', 'financier', 'creasim']
+   246→  for (const modId of simOrder) {
+   247→    const mod = modules[modId]
+   248→    if (mod.completion < 80) {
+   249→      recs.push({
+   250→        id: `rec-${modId}-1`, priority: priority++, module: modId,
+   251→        action: `Compléter ${mod.label}`,
+   252→        description: mod.hasData
+   253→          ? `${mod.label} a des données mais n'est pas fully synchronisé (${mod.completion}%).`
+   254→          : `${mod.label} n'a pas encore de données. Utilisez le simulateur pour générer les données.`,
+   255→        impact: getModuleImpact(modId),
+   256→      })
+   257→    }
+   258→  }
+   259→
+   260→  // Phase 3: Hub (BMC + BP)
+   261→  const bp = modules['business-plan']
+   262→  if (bp.completion < 50) {
+   263→    recs.push({
+   264→      id: 'rec-bp-1', priority: priority++, module: 'business-plan',
+   265→      action: 'Générer le Business Plan depuis le Parcours',
+   266→      description: 'Utilisez "Générer depuis le Parcours" pour créer la première ébauche de votre BP.',
+   267→      impact: 'Génère automatiquement les 5 sections Présentation',
+   268→    })
+   269→  }
+   270→
+   271→  const bmc = modules.bmc
+   272→  if (bmc.completion < 50 && bp.completion >= 30) {
+   273→    recs.push({
+   274→      id: 'rec-bmc-1', priority: priority++, module: 'bmc',
+   275→      action: 'Générer le BMC depuis le Business Plan',
+   276→      description: 'Le BMC se génère depuis les données du BP. Complétez d\'abord les sections Marché et Finances.',
+   277→      impact: 'Synthétise votre modèle économique en 9 blocs',
+   278→    })
+   279→  }
+   280→
+   281→  // Phase 4: Livrables
+   282→  if (bp.completion >= 70 && bmc.completion >= 70) {
+   283→    const pd = modules['pitch-deck']
+   284→    if (pd.completion < 50) {
+   285→      recs.push({
+   286→        id: 'rec-pd-1', priority: priority++, module: 'pitch-deck',
+   287→        action: 'Générer le Pitch Deck',
+   288→        description: 'Le Pitch Deck se génère depuis le BP + BMC finalisés.',
+   289→        impact: 'Crée 8 slides de présentation investisseurs',
+   290→      })
+   291→    } else {
+   292→      recs.push({
+   293→        id: 'rec-export-1', priority: priority++, module: 'business-plan',
+   294→        action: 'Exporter vos livrables',
+   295→        description: 'Tous les modules sont suffisamment complétés. Exportez votre BP, BMC et Pitch Deck.',
+   296→        impact: 'PDF du BP, HTML du BMC, PPTX du Pitch Deck',
+   297→      })
+   298→    }
+   299→  }
+   300→
+   301→  return recs
+   302→}
+   303→
+   304→function getModuleImpact(moduleId: ModuleId): string {
+   305→  switch (moduleId) {
+   306→    case 'marche': return 'Alimente 6 sections Marché du BP (étude, segmentation, concurrence, marketing, plan commercial, SWOT)'
+   307→    case 'juridique': return 'Alimente la section Statut Juridique du BP'
+   308→    case 'financier': return 'Alimente 5 sections Finances du BP (financement, compte résultat, trésorerie, investissements, bilan)'
+   309→    case 'creasim': return 'Alimente la section Seuil de Rentabilité du BP avec marges mensuelles'
+   310→    default: return 'Alimente les sections correspondantes du Business Plan'
+   311→  }
+   312→}
+   313→
+   314→// ─── Compute pipeline health ───
+   315→
+   316→function computeHealth(
+   317→  modules: Record<ModuleId, ModuleStatus>,
+   318→  sectionProvenance: BpSectionProvenance[],
+   319→): PipelineHealth {
+   320→  const bp = modules['business-plan']
+   321→  const rawProgress = bp.completion
+   322→
+   323→  // Weighted progress: sum of (filled_weight / total_weight) * 100
+   324→  let weightedSum = 0
+   325→  let maxWeight = 0
+   326→  for (const prov of sectionProvenance) {
+   327→    const weight = SECTION_WEIGHTS[prov.sectionId] || 1
+   328→    maxWeight += weight
+   329→    if (prov.filled) {
+   330→      // Quality bonus: word count > 50 gets full weight, < 50 gets partial
+   331→      const qualityFactor = prov.wordCount > 50 ? 1 : prov.wordCount > 20 ? 0.7 : 0.4
+   332→      weightedSum += weight * qualityFactor
+   333→    }
+   334→  }
+   335→  const weightedProgress = maxWeight > 0 ? Math.min(100, Math.round((weightedSum / maxWeight) * 100)) : 0
+   336→
+   337→  // Overall score: weighted combination of all modules
+   338→  const moduleScores = Object.values(modules)
+   339→  const overallScore = Math.round(
+   340→    moduleScores.reduce((sum, m) => sum + m.completion * (m.phase === 'hub' ? 0.4 : m.phase === 'simulateurs' ? 0.25 : m.phase === 'livrables' ? 0.2 : 0.15), 0) /
+   341→    moduleScores.reduce((sum, m) => sum + (m.phase === 'hub' ? 0.4 : m.phase === 'simulateurs' ? 0.25 : m.phase === 'livrables' ? 0.2 : 0.15), 0)
+   342→  )
+   343→
+   344→  // Phase completion
+   345→  const phases = ['parcours', 'simulateurs', 'hub', 'livrables'] as PipelinePhase[]
+   346→  const phasesComplete = phases.filter(phase => {
+   347→    const phaseModules = Object.values(modules).filter(m => m.phase === phase)
+   348→    return phaseModules.length > 0 && phaseModules.every(m => m.completion >= 80)
+   349→  }).length
+   350→
+   351→  return {
+   352→    overallScore,
+   353→    weightedProgress,
+   354→    rawProgress,
+   355→    phasesComplete,
+   356→    totalPhases: 4,
+   357→  }
+   358→}
+   359→
+   360→// ─── Incremental sync: single module → BP ───
+   361→
+   362→async function syncSingleModule(userId: string, module: 'marche' | 'juridique' | 'financier' | 'creasim') {
+   363→  const journey = await db.creatorJourney.findUnique({
+   364→    where: { userId },
+   365→    select: { bpSections: true, bpSectionMeta: true },
+   366→  })
+   367→  const existingSections = (journey?.bpSections as Record<string, unknown>) ?? {}
+   368→  const existingMeta = (journey?.bpSectionMeta as BpSectionMeta) ?? {}
+   369→  const merged = { ...existingSections }
+   370→  const sectionMeta = { ...existingMeta }
+   371→  const syncedSections: string[] = []
+   372→
+   373→  function fillIfEmpty(key: string, value: string, source: 'marche' | 'juridique' | 'financier' | 'creasim') {
+   374→    const existing = merged[key]
+   375→    const isEmpty = existing === null || existing === undefined || (typeof existing === 'string' && existing.trim() === '')
+   376→    if (isEmpty && value.trim()) {
+   377→      merged[key] = value
+   378→      // Update per-section metadata for sync
+   379→      const prev = sectionMeta[key]
+   380→      sectionMeta[key] = {
+   381→        source,
+   382→        lastModified: new Date().toISOString(),
+   383→        manuallyEditedAt: prev?.manuallyEditedAt ?? null,
+   384→        syncedAt: new Date().toISOString(),
+   385→        wordCount: value.trim().split(/\s+/).filter(Boolean).length,
+   386→        version: (prev?.version ?? 0) + 1,
+   387→      }
+   388→      syncedSections.push(key)
+   389→    }
+   390→  }
+   391→
+   392→  switch (module) {
+   393→    case 'marche': {
+   394→      const market = await db.marketAnalysis.findUnique({ where: { userId } })
+   395→      if (market) {
+   396→        const parts: string[] = []
+   397→        if (market.sector) parts.push(`**Secteur** : ${market.sector}`)
+   398→        if (market.marketSize) parts.push(`**Taille du marché** : ${market.marketSize}`)
+   399→        if (market.targetAudience) parts.push(`**Audience cible** : ${market.targetAudience}`)
+   400→        if (market.opportunities) parts.push(`**Opportunités** : ${market.opportunities}`)
+   401→        if (market.threats) parts.push(`**Menaces** : ${market.threats}`)
+   402→        if (market.aiSynthesis) parts.push(`**Synthèse IA** : ${market.aiSynthesis}`)
+   403→        const trends = market.trends as unknown[]
+   404→        if (Array.isArray(trends) && trends.length > 0) parts.push(`**Tendances** : ${trends.join(', ')}`)
+   405→        if (parts.length > 0) fillIfEmpty('etude-marche', `## Étude de marché\n\n${parts.join('\n\n')}`, 'marche')
+   406→
+   407→        const competitors = market.competitors as unknown[]
+   408→        if (Array.isArray(competitors) && competitors.length > 0) {
+   409→          const compParts = competitors.map((c: unknown, i: number) => {
+   410→            const comp = c as Record<string, string>
+   411→            return `### Concurrent ${i + 1}\n${Object.entries(comp).map(([k, v]) => `- **${k}** : ${v}`).join('\n')}`
+   412→          })
+   413→          fillIfEmpty('concurrence', `## Analyse concurrentielle\n\n${compParts.join('\n\n')}`, 'marche')
+   414→        }
+   415→      }
+   416→      break
+   417→    }
+   418→    case 'juridique': {
+   419→      const jur = await db.juridiqueAnalysis.findUnique({ where: { userId } })
+   420→      if (jur) {
+   421→        const parts: string[] = []
+   422→        if (jur.recommendedStatus) parts.push(`**Statut recommandé** : ${jur.recommendedStatus}`)
+   423→        if (jur.fiscalRegime) parts.push(`**Régime fiscal** : ${jur.fiscalRegime}`)
+   424→        if (jur.legalStructure) parts.push(`**Structure juridique** : ${jur.legalStructure}`)
+   425→        const charges = jur.socialCharges as unknown[]
+   426→        if (Array.isArray(charges) && charges.length > 0) {
+   427→          const items = charges.map((c: unknown) => {
+   428→            const charge = c as Record<string, string>
+   429→            return `- ${charge.name || charge.type || 'Charge'} : ${charge.amount || charge.rate || ''}`
+   430→          })
+   431→          parts.push(`**Charges sociales** :\n${items.join('\n')}`)
+   432→        }
+   433→        if (parts.length > 0) fillIfEmpty('statut-juridique', `## Statut juridique\n\n${parts.join('\n\n')}`, 'juridique')
+   434→      }
+   435→      break
+   436→    }
+   437→    case 'financier': {
+   438→      const fin = await db.financialForecast.findUnique({ where: { userId } })
+   439→      if (fin) {
+   440→        const fmtEur = (n: number) => n.toLocaleString('fr-FR')
+   441→        const parts: string[] = []
+   442→        if (fin.year1Revenue) parts.push(`**CA Année 1** : ${fmtEur(fin.year1Revenue)} €`)
+   443→        if (fin.year2Revenue) parts.push(`**CA Année 2** : ${fmtEur(fin.year2Revenue)} €`)
+   444→        if (fin.year3Revenue) parts.push(`**CA Année 3** : ${fmtEur(fin.year3Revenue)} €`)
+   445→        if (fin.year1Expenses) parts.push(`**Charges Année 1** : ${fmtEur(fin.year1Expenses)} €`)
+   446→        if (fin.year2Expenses) parts.push(`**Charges Année 2** : ${fmtEur(fin.year2Expenses)} €`)
+   447→        if (fin.year3Expenses) parts.push(`**Charges Année 3** : ${fmtEur(fin.year3Expenses)} €`)
+   448→        if (fin.breakevenMonth) parts.push(`**Seuil de rentabilité** : Mois ${fin.breakevenMonth}`)
+   449→        if (fin.initialInvestment) parts.push(`**Investissement initial** : ${fmtEur(fin.initialInvestment)} €`)
+   450→        if (parts.length > 0) fillIfEmpty('financement', `## Plan financier (synthèse)\n\n${parts.join('\n\n')}`, 'financier')
+   451→
+   452→        const years = [
+   453→          { year: 1, rev: fin.year1Revenue, exp: fin.year1Expenses },
+   454→          { year: 2, rev: fin.year2Revenue, exp: fin.year2Expenses },
+   455→          { year: 3, rev: fin.year3Revenue, exp: fin.year3Expenses },
+   456→        ]
+   457→        const plParts: string[] = []
+   458→        for (const y of years) {
+   459→          if (y.rev != null || y.exp != null) {
+   460→            const rev = y.rev ?? 0; const exp = y.exp ?? 0; const result = rev - exp
+   461→            plParts.push(`### Année ${y.year}\n- CA : ${fmtEur(rev)} €\n- Charges : ${fmtEur(exp)} €\n- **Résultat net** : ${fmtEur(result)} € ${result >= 0 ? '✅' : '⚠️'}`)
+   462→          }
+   463→        }
+   464→        if (plParts.length > 0) fillIfEmpty('compte-resultat', `## Compte de résultat prévisionnel\n\n${plParts.join('\n\n')}`, 'financier')
+   465→      }
+   466→      break
+   467→    }
+   468→    case 'creasim': {
+   469→      const cs = await db.creaSimSimulation.findUnique({ where: { userId } })
+   470→      if (cs) {
+   471→        const fmtEur = (n: number) => n.toLocaleString('fr-FR')
+   472→        const fmtPct = (n: number) => `${n.toFixed(1)}%`
+   473→        const parts: string[] = []
+   474→        if (cs.monthlyRevenue) parts.push(`**CA mensuel** : ${fmtEur(cs.monthlyRevenue)} €`)
+   475→        if (cs.grossMarginRate) parts.push(`**Marge brute** : ${fmtPct(cs.grossMarginRate)}`)
+   476→        if (cs.netMarginRate) parts.push(`**Marge nette** : ${fmtPct(cs.netMarginRate)}`)
+   477→        if (cs.monthlyBreakeven) parts.push(`**Seuil de rentabilité mensuel** : ${fmtEur(cs.monthlyBreakeven)} €`)
+   478→        if (cs.breakevenMonths) parts.push(`**Point mort** : ${cs.breakevenMonths.toFixed(1)} mois`)
+   479→        if (cs.profitability1Y != null) parts.push(`**Rentabilité A1** : ${fmtEur(cs.profitability1Y)} €`)
+   480→        if (cs.profitability2Y != null) parts.push(`**Rentabilité A2** : ${fmtEur(cs.profitability2Y)} €`)
+   481→        if (cs.profitability3Y != null) parts.push(`**Rentabilité A3** : ${fmtEur(cs.profitability3Y)} €`)
+   482→        if (parts.length > 0) fillIfEmpty('seuil-rentabilite', `## Analyse de rentabilité (CreaSim)\n\n${parts.join('\n\n')}`, 'creasim')
+   483→      }
+   484→      break
+   485→    }
+   486→  }
+   487→
+   488→  // Save merged sections if anything changed
+   489→  if (syncedSections.length > 0) {
+   490→    const filledCount = Object.values(merged).filter(v =>
+   491→      typeof v === 'string' && v.trim().length > 0 ||
+   492→      typeof v === 'object' && v !== null && !Array.isArray(v) && Object.keys(v).length > 0 ||
+   493→      Array.isArray(v) && v.length > 0,
+   494→    ).length
+   495→    const bpScore = Math.min(100, Math.round((filledCount / 24) * 100))
+   496→
+   497→    await db.creatorJourney.upsert({
+   498→      where: { userId },
+   499→      create: { userId, bpSections: merged as Prisma.InputJsonValue, bpSectionMeta: sectionMeta as Prisma.InputJsonValue, bpScore, bpGeneratedAt: new Date() },
+   500→      update: { bpSections: merged as Prisma.InputJsonValue, bpSectionMeta: sectionMeta as Prisma.InputJsonValue, bpScore, bpGeneratedAt: new Date() },
+   501→    })
+   502→  }
+   503→
+   504→  return { syncedSections, module }
+   505→}
+   506→
+   507→// ─── Cross-module validation (Task 9.2) ───
+   508→
+   509→interface CrossValidationWarning {
+   510→  type: 'warning' | 'info'
+   511→  sectionId: string
+   512→  message: string
+   513→  source: string
+   514→  suggestion: string
+   515→}
+   516→
+   517→async function computeCrossValidationWarnings(
+   518→  userId: string,
+   519→  bpSections: Record<string, unknown>,
+   520→  bpSectionMeta: BpSectionMeta | null,
+   521→  marketAnalysis: { sector?: string | null; updatedAt?: Date | null } | null,
+   522→  juridiqueAnalysis: { recommendedStatus?: string | null; updatedAt?: Date | null } | null,
+   523→  financialForecast: { year1Revenue?: number | null; year1Expenses?: number | null; updatedAt?: Date | null } | null,
+   524→  creasimSimulation: { monthlyRevenue?: number | null; updatedAt?: Date | null } | null,
+   525→): Promise<CrossValidationWarning[]> {
+   526→  const warnings: CrossValidationWarning[] = []
+   527→
+   528→  // 1. CA mismatch: BP compte-resultat vs FinancialForecast year1Revenue
+   529→  const crContent = typeof bpSections['compte-resultat'] === 'string' ? bpSections['compte-resultat'] : ''
+   530→  if (crContent && financialForecast?.year1Revenue) {
+   531→    // Extract CA values from BP text (look for "CA" patterns with numbers)
+   532→    const caPattern = /CA[^0-9]*(\d[\d\s,.]*)\s*€/gi
+   533→    const matches = crContent.match(caPattern)
+   534→    if (matches && matches.length > 0) {
+   535→      // Parse the first CA value from BP text
+   536→      const parsedCa = parseFloat(matches[0].replace(/[^\d.,]/g, '').replace(/\s/g, '').replace(',', '.'))
+   537→      if (!isNaN(parsedCa) && Math.abs(parsedCa - financialForecast.year1Revenue) > financialForecast.year1Revenue * 0.05) {
+   538→        warnings.push({
+   539→          type: 'warning',
+   540→          sectionId: 'compte-resultat',
+   541→          message: `Le CA Année 1 dans le BP (${parsedCa.toLocaleString('fr-FR')} €) diffère de celui du module Financier (${financialForecast.year1Revenue.toLocaleString('fr-FR')} €).`,
+   542→          source: 'financier',
+   543→          suggestion: 'Resynchronisez les données financières ou corrigez manuellement le compte de résultat.',
+   544→        })
+   545→      }
+   546→    }
+   547→  }
+   548→
+   549→  // 2. Statut juridique mismatch: BP statut-juridique vs JuridiqueAnalysis
+   550→  const sjContent = typeof bpSections['statut-juridique'] === 'string' ? bpSections['statut-juridique'] : ''
+   551→  if (sjContent && juridiqueAnalysis?.recommendedStatus) {
+   552→    const recommended = juridiqueAnalysis.recommendedStatus.toLowerCase()
+   553→    const bpHasStatus = recommended.split(/[\s,;]+/).some(
+   554→      (word) => word.length > 3 && sjContent.toLowerCase().includes(word),
+   555→    )
+   556→    if (!bpHasStatus) {
+   557→      warnings.push({
+   558→        type: 'warning',
+   559→        sectionId: 'statut-juridique',
+   560→        message: `Le statut juridique recommandé (${juridiqueAnalysis.recommendedStatus}) ne semble pas présent dans la section du BP.`,
+   561→        source: 'juridique',
+   562→        suggestion: 'Resynchronisez les données juridiques ou mettez à jour le statut juridique dans le BP.',
+   563→      })
+   564→    }
+   565→  }
+   566→
+   567→  // 3. Empty sourced sections: previously synced but now empty
+   568→  if (bpSectionMeta) {
+   569→    const syncSources: DataSource[] = ['marche', 'financier', 'juridique', 'creasim', 'parcours']
+   570→    for (const [sectionId, meta] of Object.entries(bpSectionMeta)) {
+   571→      if (syncSources.includes(meta.source)) {
+   572→        const content = bpSections[sectionId]
+   573→        const isEmpty = content === null || content === undefined ||
+   574→          (typeof content === 'string' && content.trim() === '')
+   575→        if (isEmpty) {
+   576→          warnings.push({
+   577→            type: 'warning',
+   578→            sectionId,
+   579→            message: `Cette section était synchronisée depuis ${meta.source} mais est maintenant vide.`,
+   580→            source: meta.source,
+   581→            suggestion: 'Resynchronisez le module source ou restaurez le contenu depuis un snapshot.',
+   582→          })
+   583→        }
+   584→      }
+   585→    }
+   586→  }
+   587→
+   588→  // 4. Stale sync: synced > 7 days ago and source module updated since
+   589→  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+   590→  if (bpSectionMeta) {
+   591→    const moduleUpdateMap: Record<string, Date | null> = {
+   592→      marche: marketAnalysis?.updatedAt ?? null,
+   593→      financier: financialForecast?.updatedAt ?? null,
+   594→      juridique: juridiqueAnalysis?.updatedAt ?? null,
+   595→      creasim: creasimSimulation?.updatedAt ?? null,
+   596→    }
+   597→
+   598→    for (const [sectionId, meta] of Object.entries(bpSectionMeta)) {
+   599→      if (meta.syncedAt && moduleUpdateMap[meta.source]) {
+   600→        const syncedDate = new Date(meta.syncedAt)
+   601→        const moduleUpdateDate = moduleUpdateMap[meta.source]!
+   602→        if (syncedDate < sevenDaysAgo && moduleUpdateDate > syncedDate) {
+   603→          warnings.push({
+   604→            type: 'info',
+   605→            sectionId,
+   606→            message: `Synchronisée il y a plus de 7 jours depuis ${meta.source}. Le module source a été mis à jour depuis.`,
+   607→            source: meta.source,
+   608→            suggestion: 'Resynchronisez cette section pour bénéficier des dernières données.',
+   609→          })
+   610→        }
+   611→      }
+   612→    }
+   613→  }
+   614→
+   615→  return warnings
+   616→}
+   617→
+   618→// ─── Build full pipeline response ───
+   619→
+   620→async function buildPipelineResponse(userId: string) {
+   621→  // Fetch all data sources in parallel
+   622→  const [
+   623→    journey,
+   624→    marketAnalysis,
+   625→    juridiqueAnalysis,
+   626→    financialForecast,
+   627→    creasimSimulation,
+   628→    bmc,
+   629→    pitchDeck,
+   630→    parcoursData,
+   631→  ] = await Promise.all([
+   632→    db.creatorJourney.findUnique({
+   633→      where: { userId },
+   634→      select: { bpSections: true, bpSectionMeta: true, bpStatus: true, bpScore: true, projectTitle: true, projectSector: true, updatedAt: true },
+   635→    }),
+   636→    db.marketAnalysis.findUnique({ where: { userId }, select: { sector: true, targetAudience: true, updatedAt: true } }),
+   637→    db.juridiqueAnalysis.findUnique({ where: { userId }, select: { recommendedStatus: true, updatedAt: true } }),
+   638→    db.financialForecast.findUnique({ where: { userId }, select: { year1Revenue: true, year1Expenses: true, updatedAt: true } }),
+   639→    db.creaSimSimulation.findUnique({ where: { userId }, select: { monthlyRevenue: true, updatedAt: true } }),
+   640→    db.businessModelCanvas.findUnique({
+   641→      where: { userId },
+   642→      select: {
+   643→        status: true, updatedAt: true,
+   644→        partenairesCles: true, activitesCles: true, ressourcesCles: true,
+   645→        propositionValeur: true, relationsClients: true, canaux: true,
+   646→        segmentsClients: true, structureCouts: true, sourcesRevenus: true,
+   647→      },
+   648→    }),
+   649→    db.zeroDraft.findFirst({
+   650→      where: { userId, projectTitle: { not: null } },
+   651→      select: { updatedAt: true, content: true },
+   652→      orderBy: { updatedAt: 'desc' },
+   653→    }),
+   654→    db.creatorJourney.findUnique({
+   655→      where: { userId },
+   656→      select: { projectTitle: true, visionAnswers: true },
+   657→    }),
+   658→  ])
+   659→
+   660→  const bpSections = (journey?.bpSections as Record<string, unknown>) ?? {}
+   661→  const bpSectionMeta = (journey?.bpSectionMeta as BpSectionMeta) ?? null
+   662→  const hasParcours = !!(parcoursData?.projectTitle) || !!(parcoursData?.visionAnswers && typeof parcoursData.visionAnswers === 'object' && Object.keys(parcoursData.visionAnswers).length > 0)
+   663→  const hasMarche = !!(marketAnalysis?.sector && marketAnalysis?.targetAudience)
+   664→  const hasJuridique = !!juridiqueAnalysis?.recommendedStatus
+   665→  const hasFinancier = !!(financialForecast?.year1Revenue != null && financialForecast.year1Revenue > 0)
+   666→  const hasCreaSim = !!(creasimSimulation?.monthlyRevenue != null && creasimSimulation.monthlyRevenue > 0)
+   667→
+   668→  // Compute modules
+   669→  const modules = computeModules(
+   670→    marketAnalysis, juridiqueAnalysis, financialForecast,
+   671→    creasimSimulation, bmc, bpSections, journey?.updatedAt ?? null, pitchDeck,
+   672→  )
+   673→
+   674→  // Compute provenance (now with bpSectionMeta for lastModified)
+   675→  const sectionProvenance = computeProvenance(bpSections, hasMarche, hasJuridique, hasFinancier, hasCreaSim, bpSectionMeta)
+   676→
+   677→  // Compute health
+   678→  const health = computeHealth(modules, sectionProvenance)
+   679→
+   680→  // Compute recommendations
+   681→  const recommendations = computeRecommendations(modules, hasParcours)
+   682→
+   683→  // Cross-module validation warnings (Task 9.2)
+   684→  const warnings = await computeCrossValidationWarnings(
+   685→    userId, bpSections, bpSectionMeta,
+   686→    marketAnalysis, juridiqueAnalysis, financialForecast, creasimSimulation,
+   687→  )
+   688→
+   689→  return { modules, sectionProvenance, health, recommendations, warnings }
+   690→}
+   691→
+   692→// ─── GET: Full pipeline status ──────────────
+   693→
+   694→export async function GET(request: NextRequest) {
+   695→  try {
+   696→    const payload = await getAuth(request)
+   697→    const data = await buildPipelineResponse(payload.userId)
+   698→    return success(data, 'Pipeline V3 chargé')
+   699→  } catch (err) {
+   700→    if (err && typeof err === 'object' && 'code' in err) {
+   701→      const authErr = err as { code: string }
+   702→      if (authErr.code === 'TOKEN_EXPIRED' || authErr.code === 'UNAUTHORIZED') {
+   703→        return Errors.unauthorized('Session expirée — veuillez vous reconnecter')
+   704→      }
+   705→    }
+   706→    return handleApiError(err)
+   707→  }
+   708→}
+   709→
+   710→// ─── POST: Actions ──────────────────────────
+   711→
+   712→export async function POST(request: NextRequest) {
+   713→  try {
+   714→    const payload = await getAuth(request)
+   715→
+   716→    const body = await request.json()
+   717→    const parsed = pipelineActionSchema.safeParse(body)
+   718→
+   719→    if (!parsed.success) {
+   720→      return Errors.validation(parsed.error.issues.map(i => ({ field: i.path.join('.'), message: i.message })))
+   721→    }
+   722→
+   723→    switch (parsed.data.action) {
+   724→      case 'sync-module': {
+   725→        const result = await syncSingleModule(payload.userId, parsed.data.module)
+   726→        const data = await buildPipelineResponse(payload.userId)
+   727→        return success({
+   728→          ...data,
+   729→          syncResult: result,
+   730→        }, `Module ${parsed.data.module} synchronisé : ${result.syncedSections.length} sections mises à jour`)
+   731→      }
+   732→      case 'refresh': {
+   733→        const data = await buildPipelineResponse(payload.userId)
+   734→        return success(data, 'Pipeline V3 rafraîchi')
+   735→      }
+   736→      case 'get-timestamps': {
+   737→        const journey = await db.creatorJourney.findUnique({
+   738→          where: { userId: payload.userId },
+   739→          select: { bpSectionMeta: true },
+   740→        })
+   741→        const meta = (journey?.bpSectionMeta as BpSectionMeta) ?? {}
+   742→        return success({ timestamps: meta }, 'Timestamps des sections chargés')
+   743→      }
+   744→      case 'cross-validate': {
+   745→        // Full cross-validation with fresh data
+   746→        const [
+   747→          journey, marketAnalysis, juridiqueAnalysis,
+   748→          financialForecast, creasimSimulation,
+   749→        ] = await Promise.all([
+   750→          db.creatorJourney.findUnique({
+   751→            where: { userId: payload.userId },
+   752→            select: { bpSections: true, bpSectionMeta: true },
+   753→          }),
+   754→          db.marketAnalysis.findUnique({ where: { userId: payload.userId }, select: { updatedAt: true } }),
+   755→          db.juridiqueAnalysis.findUnique({ where: { userId: payload.userId }, select: { recommendedStatus: true, updatedAt: true } }),
+   756→          db.financialForecast.findUnique({ where: { userId: payload.userId }, select: { year1Revenue: true, year1Expenses: true, updatedAt: true } }),
+   757→          db.creaSimSimulation.findUnique({ where: { userId: payload.userId }, select: { monthlyRevenue: true, updatedAt: true } }),
+   758→        ])
+   759→
+   760→        const bpSections = (journey?.bpSections as Record<string, unknown>) ?? {}
+   761→        const bpSectionMeta = (journey?.bpSectionMeta as BpSectionMeta) ?? null
+   762→
+   763→        const warnings = await computeCrossValidationWarnings(
+   764→          payload.userId, bpSections, bpSectionMeta,
+   765→          marketAnalysis, juridiqueAnalysis, financialForecast, creasimSimulation,
+   766→        )
+   767→        return success({ warnings }, `${warnings.length} alerte(s) de cohérence détectée(s)`)
+   768→      }
+   769→    }
+   770→  } catch (err) {
+   771→    if (err && typeof err === 'object' && 'code' in err) {
+   772→      const authErr = err as { code: string }
+   773→      if (authErr.code === 'TOKEN_EXPIRED' || authErr.code === 'UNAUTHORIZED') {
+   774→        return Errors.unauthorized('Session expirée — veuillez vous reconnecter')
+   775→      }
+   776→    }
+   777→    return handleApiError(err)
+   778→  }
+   779→}
+   780→

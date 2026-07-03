@@ -11,6 +11,7 @@ import { LivrablesView } from './livrables'
 import { PlanningView } from './planning'
 import { RapportsView } from './rapports'
 import { Beneficiaire360Sheet } from './beneficiaire-360'
+import { NotificationsPanel } from '@/components/bureau/notifications-panel'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,7 +33,6 @@ import {
   Calendar,
   BarChart3,
   Search,
-  Bell,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -280,15 +280,8 @@ function ConseillerTopBar({ onMenuClick }: { onMenuClick: () => void }) {
 
       {/* Right: notifications + avatar */}
       <div className="flex items-center gap-3">
-        {/* Notification bell */}
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-4.5 w-4.5" />
-          <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-coral-500 opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-coral-500" />
-          </span>
-          <span className="sr-only">Notifications</span>
-        </Button>
+        {/* Notification bell — real NotificationsPanel */}
+        <NotificationsPanel />
 
         {/* User avatar */}
         <div className="hidden sm:flex items-center gap-2">

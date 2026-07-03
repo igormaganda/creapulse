@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
 import { verifyToken, AuthError } from '@/lib/auth'
+import { createNotification } from '@/lib/notifications'
 
 // ─── Validation schemas ────────────────────
 
@@ -125,6 +126,15 @@ export async function POST(request: NextRequest) {
         completedAt: new Date(),
       },
     })
+
+    // Fire-and-forget: notify user on module completion
+    createNotification({
+      userId: payload.userId,
+      title: 'Module complété',
+      content: 'Félicitations ! Vous avez complété le module Kiviat',
+      type: 'SUCCESS',
+      link: '/bureau/kiviat',
+    }).catch(() => {})
 
     return success(
       {
