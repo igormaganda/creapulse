@@ -164,10 +164,13 @@ function CircularGauge({ value, max, label, thresholds, unit = '%' }: {
   const circumference = 2 * Math.PI * 40
   const strokeDashoffset = circumference - (percentage / 100) * circumference
 
+  const displayVal = value === Infinity ? 'Non calculé' : `${typeof value === 'number' ? (value % 1 !== 0 ? value.toFixed(1) : value) : value}${unit}`
+
   return (
     <div className="flex flex-col items-center">
       <div className="relative w-24 h-24">
-        <svg className="w-24 h-24 -rotate-90" viewBox="0 0 96 96">
+        <svg className="w-24 h-24 -rotate-90" viewBox="0 0 96 96" role="img" aria-label={`${label} : ${displayVal}`}>
+          <title>{label} : {displayVal}</title>
           <circle
             cx="48"
             cy="48"
@@ -246,6 +249,7 @@ function SimSlider({
             value={value}
             onChange={e => onChange(Math.max(min, Math.min(max, Number(e.target.value) || 0)))}
             className="w-28 text-right font-semibold text-sm h-8"
+            aria-label={`${label} (${unit})`}
           />
         </div>
       </div>
@@ -260,6 +264,7 @@ function SimSlider({
           max={max}
           step={step}
           className="flex-1"
+          aria-label={`${label} : de ${min}${unit} à ${max}${unit}`}
         />
         <span className="text-[10px] text-muted-foreground w-10 shrink-0">
           {unit === '€' ? `${(max / 1000).toFixed(0)}k` : max}{unit}
@@ -709,6 +714,7 @@ export function CreaSim() {
                               }))
                             }}
                             className="pr-8 text-right text-sm h-8"
+                            aria-label={`Montant de ${charge.name}`}
                           />
                           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
                         </div>
@@ -731,6 +737,7 @@ export function CreaSim() {
                       onChange={e => setNewChargeName(e.target.value)}
                       className="flex-1 h-8 text-sm"
                       onKeyDown={e => e.key === 'Enter' && addCharge()}
+                      aria-label="Nom de la nouvelle charge fixe"
                     />
                     <div className="relative w-28">
                       <Input
@@ -740,6 +747,7 @@ export function CreaSim() {
                         onChange={e => setNewChargeAmount(e.target.value)}
                         className="pr-8 text-right h-8 text-sm"
                         onKeyDown={e => e.key === 'Enter' && addCharge()}
+                        aria-label="Montant de la nouvelle charge fixe"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
                     </div>
@@ -933,7 +941,7 @@ export function CreaSim() {
             <CardDescription>Évolution du chiffre d&apos;affaires et des charges (croissance estimée à 0,5%/mois)</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-72 sm:h-80">
+            <div className="h-72 sm:h-80" role="img" aria-label="Graphique prévisions chiffre d'affaires et charges sur 12 mois">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                   <defs>

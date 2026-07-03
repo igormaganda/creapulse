@@ -61,7 +61,7 @@ function ProfitabilityGauge({ value, label }: { value: number; label: string }) 
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative w-full h-28">
+      <div className="relative w-full h-28" role="img" aria-label={`${label} : ${value.toFixed(1)}%`}>
         <ResponsiveContainer width="100%" height="100%">
           <RadialBarChart
             cx="50%"
@@ -144,6 +144,7 @@ function SimulatorSlider({
           max={max}
           step={step}
           className="w-full"
+          aria-label={`${label} : ${displayValue}`}
         />
         <div className="flex justify-between mt-1">
           <span className="text-[10px] text-muted-foreground">{prefix}{min.toLocaleString('fr-FR')}{unit}</span>
@@ -629,7 +630,7 @@ export function FinancierModule() {
               <CardDescription>Projection annuelle avec résultat net</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-64">
+              <div className="h-64" role="img" aria-label="Graphique revenus vs charges sur 3 ans">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData} margin={{ left: 10, right: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -657,13 +658,13 @@ export function FinancierModule() {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm" aria-label="Tableau récapitulatif financier sur 3 ans">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left py-2 pr-4 font-medium text-muted-foreground"></th>
-                    <th className="text-right py-2 px-3 font-medium text-muted-foreground">Année 1</th>
-                    <th className="text-right py-2 px-3 font-medium text-muted-foreground">Année 2</th>
-                    <th className="text-right py-2 px-3 font-medium text-muted-foreground">Année 3</th>
+                    <th scope="col" className="text-left py-2 pr-4 font-medium text-muted-foreground"></th>
+                    <th scope="col" className="text-right py-2 px-3 font-medium text-muted-foreground">Année 1</th>
+                    <th scope="col" className="text-right py-2 px-3 font-medium text-muted-foreground">Année 2</th>
+                    <th scope="col" className="text-right py-2 px-3 font-medium text-muted-foreground">Année 3</th>
                   </tr>
                 </thead>
                 <tbody>

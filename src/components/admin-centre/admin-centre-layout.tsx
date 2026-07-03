@@ -80,7 +80,7 @@ function Sidebar({ collapsed }: { collapsed: boolean }) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
+      <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1" aria-label="Navigation administration centre">
         {navItems.map((item) => {
           const isActive = currentTab === item.id
           const Icon = item.icon
@@ -132,7 +132,7 @@ function MobileSidebar({ open, onOpenChange }: { open: boolean; onOpenChange: (o
             <SheetTitle className="text-sm font-bold text-white">CreaPulse Admin</SheetTitle>
           </div>
         </SheetHeader>
-        <nav className="px-2 py-4 space-y-1">
+        <nav className="px-2 py-4 space-y-1" aria-label="Navigation administration centre">
           {navItems.map((item) => {
             const isActive = currentTab === item.id
             const Icon = item.icon
@@ -202,6 +202,7 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
             <Input
               placeholder="Rechercher..."
               className="w-56 pl-8 h-9 text-sm bg-muted/50"
+              aria-label="Rechercher"
             />
           </div>
         </div>
@@ -314,7 +315,7 @@ export function AdminCentreLayout() {
 
             <div className="flex flex-1 overflow-hidden">
               <Sidebar collapsed={!sidebarOpen} />
-              <main className="flex-1 overflow-y-auto scrollbar-thin bg-muted/30">
+              <main id="admin-centre-main-content" role="main" tabIndex={-1} className="flex-1 overflow-y-auto scrollbar-thin bg-muted/30" aria-label="Contenu administration centre">
                 <AdminContent />
               </main>
             </div>

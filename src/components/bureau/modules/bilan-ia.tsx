@@ -392,7 +392,8 @@ export function BilanIA() {
             <div className="flex flex-col sm:flex-row items-center gap-6">
               {/* Score circle */}
               <div className="relative flex items-center justify-center shrink-0">
-                <svg width="130" height="130" viewBox="0 0 130 130">
+                <svg width="130" height="130" viewBox="0 0 130 130" role="img" aria-label={`Score global IA : ${globalScore}%`}>
+                  <title>Score global : {globalScore}%</title>
                   <circle
                     cx="65" cy="65" r="55"
                     fill="none"
@@ -768,7 +769,7 @@ export function BilanIA() {
                           </div>
                           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                             {/* RIASEC Radar */}
-                            <div className="aspect-square max-w-[300px] mx-auto">
+                            <div className="aspect-square max-w-[300px] mx-auto" role="img" aria-label="Radar RIASEC du bénéficiaire" aria-roledescription="graphique radar">
                               <ResponsiveContainer width="100%" height="100%">
                                 <RadarChart
                                   data={Object.entries(data.parcours.riasec.scores).map(([k, v]) => ({
@@ -843,7 +844,7 @@ export function BilanIA() {
                           </div>
                           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                             {/* Kiviat Radar */}
-                            <div className="aspect-square max-w-[300px] mx-auto">
+                            <div className="aspect-square max-w-[300px] mx-auto" role="img" aria-label="Radar Kiviat du bénéficiaire" aria-roledescription="graphique radar">
                               <ResponsiveContainer width="100%" height="100%">
                                 <RadarChart
                                   data={Object.entries(data.parcours.kiviat.scores).map(([k, v]) => ({

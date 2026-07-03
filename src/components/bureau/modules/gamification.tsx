@@ -669,13 +669,13 @@ export function GamificationModule() {
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="max-h-96 overflow-x-auto overflow-y-auto">
-                    <table className="w-full">
+                    <table className="w-full" aria-label="Classement des participants">
                       <thead>
                         <tr className="border-b bg-muted/30">
-                          <th className="text-left text-xs font-medium text-muted-foreground py-2.5 px-4 w-14">#</th>
-                          <th className="text-left text-xs font-medium text-muted-foreground py-2.5 px-2">Participant</th>
-                          <th className="text-left text-xs font-medium text-muted-foreground py-2.5 px-2 hidden sm:table-cell">Niveau</th>
-                          <th className="text-right text-xs font-medium text-muted-foreground py-2.5 px-4">XP</th>
+                          <th scope="col" className="text-left text-xs font-medium text-muted-foreground py-2.5 px-4 w-14">#</th>
+                          <th scope="col" className="text-left text-xs font-medium text-muted-foreground py-2.5 px-2">Participant</th>
+                          <th scope="col" className="text-left text-xs font-medium text-muted-foreground py-2.5 px-2 hidden sm:table-cell">Niveau</th>
+                          <th scope="col" className="text-right text-xs font-medium text-muted-foreground py-2.5 px-4">XP</th>
                         </tr>
                       </thead>
                       <tbody>

@@ -462,7 +462,7 @@ export function MarcheModule() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col sm:flex-row items-center gap-6">
-              <div className="h-48 w-48 shrink-0">
+              <div className="h-48 w-48 shrink-0" role="img" aria-label="Répartition du marché par segment">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -683,7 +683,7 @@ export function MarcheModule() {
                   />
                 </div>
                 <div className="flex items-center justify-center h-20 w-20 shrink-0">
-                  <svg viewBox="0 0 100 100" className="h-20 w-20 -rotate-90">
+                  <svg viewBox="0 0 100 100" className="h-20 w-20 -rotate-90" role="img" aria-label={`Potentiel de croissance : ${Math.round(sim.potentielCroissance)}%`}>
                     {/* Background arc */}
                     <circle
                       cx="50" cy="50" r="40"

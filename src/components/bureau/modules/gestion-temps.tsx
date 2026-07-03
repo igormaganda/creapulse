@@ -364,7 +364,7 @@ function CircularTimer({
         animate={isRunning ? { scale: [1, 1.02, 1] } : { scale: 1 }}
         transition={isRunning ? { duration: 2, repeat: Infinity, ease: 'easeInOut' } : { duration: 0 }}
       >
-        <svg height={radius * 2} width={radius * 2} className="transform -rotate-90">
+        <svg height={radius * 2} width={radius * 2} className="transform -rotate-90" role="img" aria-label={`Minuteur : ${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, '0')} restant${sessionType === 'work' ? ' (travail)' : ' (pause)'}`}>
           {/* Background circle */}
           <circle
             stroke="currentColor"

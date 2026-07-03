@@ -441,7 +441,7 @@ export function KiviatModule() {
               <CardDescription>Ajustez les curseurs pour évaluer chaque dimension</CardDescription>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="w-full aspect-square max-w-[350px] mx-auto">
+              <div className="w-full aspect-square max-w-[350px] mx-auto" role="img" aria-label={chartData.map(d => `${d.dimension} : ${d.score}/10`).join(', ')} aria-roledescription="graphique radar">
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart data={chartData} cx="50%" cy="50%" outerRadius="70%">
                     <PolarGrid stroke="hsl(var(--border))" />
@@ -515,6 +515,7 @@ export function KiviatModule() {
                     max={10}
                     step={1}
                     className="w-full"
+                    aria-label={`${dim.label} : ${scores[dim.key]} sur 10`}
                   />
                 </motion.div>
               ))}

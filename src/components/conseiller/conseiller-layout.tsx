@@ -86,7 +86,7 @@ function ConseillerSidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-2 py-4 space-y-1">
+      <nav className="flex-1 px-2 py-4 space-y-1" aria-label="Navigation principale">
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = currentTab === item.id
@@ -185,7 +185,7 @@ function MobileConseillerSidebar({ open, onOpenChange }: { open: boolean; onOpen
           </SheetTitle>
           <SheetDescription className="text-white/50">Espace conseiller</SheetDescription>
         </SheetHeader>
-        <nav className="px-2 py-4 space-y-1">
+        <nav className="px-2 py-4 space-y-1" aria-label="Navigation principale">
           {navItems.map((item) => {
             const Icon = item.icon
             const isActive = currentTab === item.id
@@ -273,6 +273,7 @@ function ConseillerTopBar({ onMenuClick }: { onMenuClick: () => void }) {
           <Input
             placeholder="Rechercher..."
             className="pl-9 h-9 text-sm"
+            aria-label="Rechercher un bénéficiaire"
           />
         </div>
       </div>
@@ -458,7 +459,7 @@ export function ConseillerLayout() {
               <ConseillerSidebar />
 
               {/* Main content */}
-              <main className="flex-1 overflow-y-auto scrollbar-thin bg-muted/30">
+              <main id="conseiller-main-content" role="main" tabIndex={-1} className="flex-1 overflow-y-auto scrollbar-thin bg-muted/30" aria-label="Contenu du conseiller">
                 <ConseillerContent />
               </main>
             </div>

@@ -520,6 +520,7 @@ export function VisionModule() {
               onChange={(e) => updateField('visionStatement', e.target.value)}
               rows={5}
               className="text-base leading-relaxed resize-none"
+              aria-label="Votre vision à 5 ans"
             />
             <div className="mt-2 flex justify-between items-center">
               <p className="text-xs text-muted-foreground">
@@ -550,6 +551,7 @@ export function VisionModule() {
                 onChange={(e) => updateField('motivation', e.target.value)}
                 rows={5}
                 className="resize-none"
+                aria-label="Pourquoi ce projet"
               />
             </CardContent>
           </Card>
@@ -570,6 +572,7 @@ export function VisionModule() {
                 onChange={(e) => updateField('desiredImpact', e.target.value)}
                 rows={5}
                 className="resize-none"
+                aria-label="Impact souhaité"
               />
             </CardContent>
           </Card>
@@ -632,6 +635,7 @@ export function VisionModule() {
                             value={obj.title}
                             onChange={(e) => updateObjective(obj.id, 'title', e.target.value)}
                             className="font-medium border-0 shadow-none focus-visible:ring-0 p-0 h-auto text-base"
+                            aria-label={`Titre de l'objectif ${idx + 1}`}
                           />
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -680,6 +684,7 @@ export function VisionModule() {
                           onChange={(e) => updateObjective(obj.id, 'description', e.target.value)}
                           rows={2}
                           className="text-sm resize-none"
+                          aria-label={`Description de l'objectif ${idx + 1}`}
                         />
                         <div className="space-y-2">
                           <Label className="text-xs text-muted-foreground">Échéance</Label>

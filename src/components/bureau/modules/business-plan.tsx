@@ -1040,11 +1040,11 @@ export function BusinessPlanModule() {
                             )}
                             {s.type === 'financing-table' && Array.isArray(val) && (
                               <div className="overflow-x-auto">
-                              <table className="w-full text-sm">
+                              <table className="w-full text-sm" aria-label="Plan de financement">
                                 <thead>
                                   <tr className="border-b">
-                                    <th className="text-left py-1 font-medium">Source</th>
-                                    <th className="text-right py-1 font-medium">Montant</th>
+                                    <th scope="col" className="text-left py-1 font-medium">Source</th>
+                                    <th scope="col" className="text-right py-1 font-medium">Montant</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -1791,12 +1791,12 @@ function FinancingTable({ value, onChange }: { value: FinancingRow[]; onChange: 
     <div className="space-y-3">
       <div className="rounded-lg border overflow-hidden">
         <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm" aria-label="Tableau des sources de financement">
           <thead>
             <tr className="bg-muted/50 border-b">
-              <th className="text-left py-2 px-3 font-medium">Source de financement</th>
-              <th className="text-right py-2 px-3 font-medium w-36">Montant (€)</th>
-              <th className="w-10"></th>
+              <th scope="col" className="text-left py-2 px-3 font-medium">Source de financement</th>
+              <th scope="col" className="text-right py-2 px-3 font-medium w-36">Montant (€)</th>
+              <th scope="col" className="w-10"></th>
             </tr>
           </thead>
           <tbody>
@@ -1897,12 +1897,12 @@ function ResultTable({ value, onChange }: {
 
   return (
     <div className="rounded-lg border overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="w-full text-sm" aria-label="Compte de résultat prévisionnel">
         <thead>
           <tr className="bg-muted/50 border-b">
-            <th className="text-left py-2 px-3 font-medium min-w-[140px]"></th>
+            <th scope="col" className="text-left py-2 px-3 font-medium min-w-[140px]"></th>
             {years.map((y) => (
-              <th key={y} className="text-right py-2 px-3 font-medium min-w-[120px]">{labels[y]}</th>
+              <th key={y} scope="col" className="text-right py-2 px-3 font-medium min-w-[120px]">{labels[y]}</th>
             ))}
           </tr>
         </thead>
@@ -1949,13 +1949,13 @@ function TreasuryTable({ value, onChange }: { value: TreasuryMonth[]; onChange: 
 
   return (
     <div className="rounded-lg border overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="w-full text-sm" aria-label="Plan de trésorerie mensuel">
         <thead>
           <tr className="bg-muted/50 border-b">
-            <th className="text-left py-2 px-3 font-medium sticky left-0 bg-muted/50 z-10 min-w-[50px]">Mois</th>
-            <th className="text-right py-2 px-3 font-medium min-w-[110px]">Encaissements</th>
-            <th className="text-right py-2 px-3 font-medium min-w-[110px]">Décaissements</th>
-            <th className="text-right py-2 px-3 font-medium min-w-[110px]">Solde cumulé</th>
+            <th scope="col" className="text-left py-2 px-3 font-medium sticky left-0 bg-muted/50 z-10 min-w-[50px]">Mois</th>
+            <th scope="col" className="text-right py-2 px-3 font-medium min-w-[110px]">Encaissements</th>
+            <th scope="col" className="text-right py-2 px-3 font-medium min-w-[110px]">Décaissements</th>
+            <th scope="col" className="text-right py-2 px-3 font-medium min-w-[110px]">Solde cumulé</th>
           </tr>
         </thead>
         <tbody>
@@ -2128,7 +2128,7 @@ function BilanTable({ value, onChange }: {
       <div className="rounded-lg border overflow-hidden">
         <div className="bg-[#00838F]/10 px-3 py-2 font-semibold text-sm text-[#00838F]">Actif</div>
         <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm" aria-label="Bilan comptable - Actif">
           <tbody>{fields('actif', [
             { key: 'immobilisations', label: 'Immobilisations' },
             { key: 'stocks', label: 'Stocks' },
@@ -2147,7 +2147,7 @@ function BilanTable({ value, onChange }: {
       <div className="rounded-lg border overflow-hidden">
         <div className="bg-[#FF6B35]/10 px-3 py-2 font-semibold text-sm text-[#FF6B35]">Passif</div>
         <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm" aria-label="Bilan comptable - Passif">
           <tbody>{fields('passif', [
             { key: 'capital', label: 'Capital social' },
             { key: 'emprunts', label: 'Emprunts' },

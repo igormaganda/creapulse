@@ -681,7 +681,8 @@ function SynthesisStep({
           <div className="flex flex-col md:flex-row items-center gap-8">
             {/* SVG Gauge */}
             <div className="relative">
-              <svg width="200" height="120" viewBox="0 0 200 120" className="overflow-visible">
+              <svg width="200" height="120" viewBox="0 0 200 120" className="overflow-visible" role="img" aria-label={`Jauge de décision : ${liveScore.score} sur 100`}>
+                <title>Jauge de décision : {liveScore.score}/100</title>
                 {/* Background arc */}
                 <path
                   d={describeArc(gaugeCx, gaugeCy, gaugeRadius, 0, 180)}

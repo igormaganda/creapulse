@@ -1,4 +1,4 @@
-export function StructuredData() {
+export function StructuredData({ nonce }: { nonce?: string }) {
   const data = {
     "@context": "https://schema.org",
     "@type": "WebApplication",
@@ -16,5 +16,11 @@ export function StructuredData() {
     "inLanguage": "fr"
   }
 
-  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }} />
+  return (
+    <script
+      type="application/ld+json"
+      nonce={nonce || undefined}
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+    />
+  )
 }

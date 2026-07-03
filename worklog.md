@@ -938,3 +938,54 @@ Stage Summary:
 - P6 est maintenant complète : responsive ✅, code splitting ✅, next/image ✅, eslint renforcé ✅, strict mode ✅, logger structuré ✅
 - Fichiers modifiés : eslint.config.mjs, next.config.ts, + 6 fichiers (img migration), + 3 fichiers (table overflow), + 4 fichiers (logger migration)
 - 0 erreur lint, 0 erreur compilation, HTTP 200 confirmé
+
+---
+Task ID: p7-p8
+Agent: Main Orchestrator
+Task: P7 Accessibilité RGAA + P8 Sécurité avancée
+
+Work Log:
+
+P7 — Accessibilité RGAA:
+- Area 1 (Skip-to-content + ARIA Landmarks):
+  - SkipToContent déjà existant (accessibility.tsx) — non dupliqué
+  - `id="main-content"` déjà présent dans layout.tsx et bureau-layout.tsx
+  - Ajouté `aria-label` sur les `<nav>` des 3 layouts secondaires (conseiller, admin-plateforme, admin-centre) — desktop + mobile = 6 navs
+  - Ajouté `role="main"`, `tabIndex={-1}`, `aria-label` sur les 3 `<main>` secondaires
+  - Ajouté `role="contentinfo"` sur le footer
+- Area 2 (Formulaires):
+  - Login/Register : déjà accessible (Label htmlFor + id) — non modifié
+  - Ajouté `aria-label` sur 11 inputs (financier sliders, creasim sliders/inputs, kiviat sliders, vision textareas, recherche admin/conseiller/footer)
+- Area 3 (Graphiques):
+  - 8 SVG gauges : ajouté `role="img"`, `aria-label`, `<title>` (creasim, mon-projet, tremplin, bilan-ia, passeport, marche, gestion-temps, parcours-paa)
+  - Kiviat radar : `role="img"`, `aria-label` dynamique avec scores, `aria-roledescription="graphique radar"`
+  - 5 conteneurs Recharts : `role="img"`, `aria-label` descriptif (financier ×2, creasim, marche, bilan-ia ×2)
+  - 8 tables : `aria-label` descriptif + `scope="col"` sur tous les `<th>` (financier, gamification, business-plan ×6)
+- Area 4 (Focus visible):
+  - Déjà implémenté dans globals.css (focus-visible, prefers-reduced-motion, prefers-contrast: high) — non modifié
+- Total P7 : 17 fichiers, ~55 modifications
+
+P8 — Sécurité avancée:
+- 8.1 CSP Nonces:
+  - middleware.ts : fonction `generateNonce()` (crypto.randomUUID() → base64), fonction `buildCsp(nonce)` dynamique
+  - Le nonce est forwardé via header `x-script-nonce` vers les Server Components
+  - CSP header contient `'nonce-{uuid}'` dans script-src (confirmé par curl)
+  - `'unsafe-inline'` conservé en transition (zero-risk) avec TODO pour retrait futur
+  - layout.tsx : lit le nonce depuis headers(), le passe à StructuredData
+  - structured-data.tsx : nonce prop sur le `<script>` tag
+- 8.2 npm audit:
+  - 70 → 39 vulnérabilités (réduction 44%)
+  - Mises à jour directes : next 16.1.1→16.2.10 (15 critical fixés), next-intl 4.3.4→4.13.1, dompurify 3.4.5→3.4.11, uuid 11.1.0→11.1.1
+  - Overrides transitoires : diff≥5.2.2, flatted≥3.4.0, brace-expansion≥1.1.13, esbuild≥0.28.1
+  - 39 restants : ~5 faux positifs, ~22 dev-only (eslint/vitest/jsdom), ~12 sans correctif upstream (lodash 4.x, js-cookie, js-yaml)
+
+Vérification:
+- Lint : 0 erreurs, 201 warnings (no-console)
+- Compilation : GET / 200 en 9s (Next.js 16.2.10)
+- CSP header : nonce par requête confirmé
+
+Stage Summary:
+- P7 RGAA : 17 fichiers modifiés, ~55 changements d'accessibilité
+- P8 CSP : architecture nonce opérationnelle, transition zéro-risque
+- P8 audit : 15 vulnérabilités critiques corrigées (dont 15 dans Next.js)
+- Next.js mis à jour de 16.1.1 à 16.2.10

@@ -218,7 +218,8 @@ export function Passeport() {
         <Card className="border-none shadow-sm">
           <CardContent className="p-6 flex items-center gap-6">
             <div className="relative">
-              <svg width="140" height="140" viewBox="0 0 140 140" className="-rotate-90">
+              <svg width="140" height="140" viewBox="0 0 140 140" className="-rotate-90" role="img" aria-label={`Progression passeport : ${data.progressPercent}%`}>
+                <title>Progression : {data.progressPercent}%</title>
                 <circle cx="70" cy="70" r={radius} fill="none" stroke="hsl(var(--muted))" strokeWidth="8" />
                 <motion.circle
                   cx="70" cy="70" r={radius} fill="none"

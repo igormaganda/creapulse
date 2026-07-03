@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
@@ -66,11 +67,15 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Read the per-request CSP nonce forwarded by middleware.ts
+  const headersList = await headers();
+  const nonce = headersList.get('x-script-nonce') || '';
+
   return (
     <html lang="fr" suppressHydrationWarning>
       <head>
@@ -81,7 +86,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="CreaPulse" />
         <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/icons/icon.svg" />
-        <StructuredData />
+        <StructuredData nonce={nonce} />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased bg-background text-foreground`}

@@ -91,7 +91,7 @@ function Sidebar() {
 
       {/* Navigation */}
       <ScrollArea className="flex-1 py-3">
-        <nav className="flex flex-col gap-1 px-2">
+        <nav className="flex flex-col gap-1 px-2" aria-label="Navigation administration plateforme">
           {navItems.map((item) => {
             const Icon = item.icon
             const isActive = currentTab === item.id
@@ -170,7 +170,7 @@ function MobileSidebar({ open, onOpenChange }: { open: boolean; onOpenChange: (o
           <SheetDescription className="sr-only">Navigation administration plateforme</SheetDescription>
         </SheetHeader>
         <ScrollArea className="flex-1 py-3">
-          <nav className="flex flex-col gap-1 px-2">
+          <nav className="flex flex-col gap-1 px-2" aria-label="Navigation administration plateforme">
             {navItems.map((item) => {
               const Icon = item.icon
               const isActive = currentTab === item.id
@@ -230,6 +230,7 @@ function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
           <Input
             placeholder="Rechercher organisations, utilisateurs..."
             className="pl-9 h-9 bg-muted/50"
+            aria-label="Rechercher organisations, utilisateurs"
           />
         </div>
       </div>
@@ -353,7 +354,7 @@ export function AdminPlateformeLayout() {
             <TopBar onMenuClick={() => setMobileMenuOpen(true)} />
             <div className="flex flex-1 overflow-hidden">
               <Sidebar />
-              <main className="flex-1 overflow-y-auto bg-muted/30">
+              <main id="admin-plateforme-main-content" role="main" tabIndex={-1} className="flex-1 overflow-y-auto bg-muted/30" aria-label="Contenu administration plateforme">
                 <AdminContent />
               </main>
             </div>

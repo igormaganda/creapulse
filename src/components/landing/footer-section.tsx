@@ -54,7 +54,7 @@ export function FooterSection() {
   const [email, setEmail] = useState('')
 
   return (
-    <footer className="border-t border-border bg-card">
+    <footer role="contentinfo" className="border-t border-border bg-card">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-6">
           {/* Brand column */}
@@ -78,6 +78,7 @@ export function FooterSection() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="max-w-[220px]"
+                  aria-label="Adresse e-mail pour la newsletter"
                 />
                 <Button size="sm" onClick={() => toast.success('Merci ! Vous êtes inscrit(e) à la newsletter.')}>S&apos;abonner</Button>
               </div>

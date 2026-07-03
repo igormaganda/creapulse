@@ -114,7 +114,8 @@ function CircularProgress({
 
   return (
     <div className={cn('relative inline-flex items-center justify-center', className)}>
-      <svg width={size} height={size} className="transform -rotate-90">
+      <svg width={size} height={size} className="transform -rotate-90" role="img" aria-label={label ? `${label} : ${value}%` : `Progression : ${value}%`}>
+        {label && <title>{label} : {value}%</title>}
         <circle
           cx={size / 2}
           cy={size / 2}

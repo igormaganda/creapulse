@@ -3,13 +3,14 @@
 // Adds security headers to all responses.
 // Enforces JWT auth on protected routes.
 // Validates CSRF on all mutating API requests.
+// Generates per-request CSP nonces.
 // ============================================
 
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { jwtVerify } from 'jose'
 
-// ─── Security Headers ──────────────────────
+// ─── Security Headers (static, no CSP) ─────
 
 const securityHeaders: Record<string, string> = {
   'X-Frame-Options': 'DENY',
@@ -18,7 +19,33 @@ const securityHeaders: Record<string, string> = {
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
   'X-XSS-Protection': '1; mode=block',
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-  'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+}
+
+// ─── CSP Nonce Generation ──────────────────
+// Generates a cryptographically random nonce per request for script-src.
+// The nonce is passed to layout.tsx via forwarded request headers so that
+// Server Components (e.g. StructuredData) can attribute it on <script> tags.
+//
+// NOTE: 'unsafe-inline' is kept alongside the nonce as a transitional measure.
+// Once all inline scripts in the codebase are audited and carry the nonce,
+// 'unsafe-inline' should be removed from script-src for full CSP enforcement.
+
+function generateNonce(): string {
+  return Buffer.from(crypto.randomUUID()).toString('base64')
+}
+
+function buildCsp(nonce: string): string {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'unsafe-inline' 'nonce-${nonce}'`,  // TODO: remove 'unsafe-inline' after full nonce audit
+    "style-src 'self' 'unsafe-inline'",                     // Tailwind CSS requires 'unsafe-inline'
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' https://fonts.gstatic.com",
+    "connect-src 'self' https: wss:",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join('; ')
 }
 
 // ─── Protected Paths ───────────────────────
@@ -119,13 +146,26 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // ─── Build response with security headers ─
-  const response = NextResponse.next()
+  // ─── Generate per-request CSP nonce ─
+  const nonce = generateNonce()
 
-  // Security headers on all responses (pages + API)
+  // Forward the nonce to downstream Server Components (layout.tsx) via
+  // request headers so they can set nonce="" attributes on inline <script> tags.
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-script-nonce', nonce)
+
+  // ─── Build response with security headers ─
+  const response = NextResponse.next({
+    request: { headers: requestHeaders },
+  })
+
+  // Static security headers on all responses (pages + API)
   for (const [key, value] of Object.entries(securityHeaders)) {
     response.headers.set(key, value)
   }
+
+  // Dynamic CSP with per-request nonce
+  response.headers.set('Content-Security-Policy', buildCsp(nonce))
 
   // ─── CSRF token cookie on safe requests ─
   // Generate a csrf_token cookie on GET/HEAD/OPTIONS if not already present.

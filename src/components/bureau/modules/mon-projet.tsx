@@ -1056,7 +1056,8 @@ function StepResume({ data, score, onGoToStep }: {
           <div className="flex flex-col sm:flex-row items-center gap-6">
             {/* Score circle */}
             <div className="relative flex items-center justify-center">
-              <svg width="120" height="120" viewBox="0 0 120 120">
+              <svg width="120" height="120" viewBox="0 0 120 120" role="img" aria-label={`Complétude du projet : ${score}%`}>
+                <title>Complétude : {score}%</title>
                 <circle
                   cx="60" cy="60" r="52"
                   fill="none"
