@@ -1,6 +1,9 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import pg from 'pg'
+import { createLogger } from './logger'
+
+const log = createLogger('DB')
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
@@ -21,7 +24,7 @@ function getConnectionString(): string {
 
 function createPrismaClient(): PrismaClient {
   const connectionString = getConnectionString()
-  console.log('[DB] Creating PrismaClient')
+  log.info('Creating PrismaClient')
 
   const pool = new pg.Pool({
     connectionString,

@@ -3,6 +3,9 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { verifyToken, hasMinRole, hashPassword } from '@/lib/auth'
 import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('RGPD-Delete')
 
 // ─── Zod Schemas ──────────────────────────────
 
@@ -487,8 +490,7 @@ export async function PATCH(request: NextRequest) {
       const { auditLog, anonymizedEmail } = await performUserDataDeletion(targetUserId, reviewerId)
 
       // Log the deletion summary (no PII — userId only for traceability)
-      console.log(`[RGPD] Data deletion completed for user ${targetUserId}`)
-      console.log(`[RGPD] Deletion audit:`, JSON.stringify(auditLog, null, 2))
+      log.info('Data deletion completed', { userId: targetUserId, requestId, auditLog })
 
       // Create an audit log entry (using raw query since AuditLog has optional userId)
       await db.auditLog.create({

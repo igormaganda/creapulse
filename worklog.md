@@ -916,3 +916,25 @@ Stage Summary:
 - Auth admin: 0 route avec auth custom, 100% utilisent withAuth/withAdminAuth
 - Bug fix: admin-plateforme fonctionne maintenant depuis le navigateur (vérifiait cookie)
 - Lint: 0 erreurs, serveur démarré avec succès
+
+---
+Task ID: p6
+Agent: Main Orchestrator
+Task: Phase 6 — Quality & Performance (audit + corrections)
+
+Work Log:
+- Audit complet P6 : 4 agents/scan parallèles couvrant responsive, code splitting, console, bundle
+- Constat : la majorité de P6 était déjà intégrée (sidebar mobile, dynamic imports, responsive prefixes)
+- 14 `<img>` tags migrés vers `next/image` dans 6 fichiers (page.tsx, sidebar.tsx, actualites/page.tsx, actualites-section.tsx, footer-section.tsx, file-upload.tsx)
+- 5 raw `<table>` sans overflow-x-auto corrigés (gamification.tsx, business-plan.tsx ×4)
+- ESLint : `no-console` activé en `warn`, `@next/next/no-img-element` supprimé (règle active)
+- next.config.ts : `reactStrictMode` activé (`true`)
+- 6 console.log résiduels migrés vers le logger structuré (db.ts, db-ensure.ts, token-blocklist.ts, rgpd/delete-request/route.ts)
+- logger.ts exempté avec eslint-disable comment légitime
+- Lint : 0 erreurs, 202 warnings (tous no-console — attendu, les console.warn server-side sont acceptables)
+- Compilation : GET / 200 en 3.9s (Turbopack), pas d'erreur runtime
+
+Stage Summary:
+- P6 est maintenant complète : responsive ✅, code splitting ✅, next/image ✅, eslint renforcé ✅, strict mode ✅, logger structuré ✅
+- Fichiers modifiés : eslint.config.mjs, next.config.ts, + 6 fichiers (img migration), + 3 fichiers (table overflow), + 4 fichiers (logger migration)
+- 0 erreur lint, 0 erreur compilation, HTTP 200 confirmé

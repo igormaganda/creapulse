@@ -668,7 +668,7 @@ export function GamificationModule() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="max-h-96 overflow-y-auto">
+                  <div className="max-h-96 overflow-x-auto overflow-y-auto">
                     <table className="w-full">
                       <thead>
                         <tr className="border-b bg-muted/30">

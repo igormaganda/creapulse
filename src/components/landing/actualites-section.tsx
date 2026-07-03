@@ -26,6 +26,7 @@ import {
   ArrowRight,
 } from 'lucide-react'
 import { fadeInUp, staggerContainer, scaleIn } from './landing-shared'
+import Image from 'next/image'
 
 const ARTICLE_CATEGORIES = ['Tous', 'Financement', 'Juridique', 'Marketing', 'Île-de-France', 'Inspiration', 'Outils numériques', 'Événements'] as const
 type ArticleCategory = (typeof ARTICLE_CATEGORIES)[number]
@@ -158,11 +159,13 @@ export function ActualitesSection() {
                   >
                     <div className="relative h-36 w-full overflow-hidden">
                       {article.imageUrl ? (
-                        <img
+                        <Image
                           src={article.imageUrl}
                           alt={article.title}
-                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          loading="lazy"
+                          fill
+                          className="object-cover transition-transform duration-300 group-hover:scale-105"
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                          unoptimized
                         />
                       ) : (
                         <div
@@ -238,11 +241,13 @@ export function ActualitesSection() {
                   </SheetDescription>
                 </SheetHeader>
                 {selectedArticle.imageUrl && (
-                  <div className="mx-6 mt-2 overflow-hidden rounded-lg">
-                    <img
+                  <div className="relative mx-6 mt-2 aspect-video overflow-hidden rounded-lg">
+                    <Image
                       src={selectedArticle.imageUrl}
                       alt={selectedArticle.title}
-                      className="h-auto w-full object-cover"
+                      fill
+                      className="object-cover"
+                      unoptimized
                     />
                   </div>
                 )}

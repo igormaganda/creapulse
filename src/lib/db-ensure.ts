@@ -1,6 +1,9 @@
 'use server'
 
 import { db } from '@/lib/db'
+import { createLogger } from './logger'
+
+const log = createLogger('DB-Ensure')
 
 /**
  * Ensure database connection is working.
@@ -14,9 +17,9 @@ export async function ensureDatabase() {
 
   try {
     await db.$queryRaw`SELECT 1`
-    console.log('[DB] PostgreSQL database ready')
+    log.info('PostgreSQL database ready')
   } catch (error) {
-    console.error('[DB] Database initialization error:', error)
+    log.error('Database initialization error', { error: String(error) })
     initialized = false // Allow retry
   }
 }

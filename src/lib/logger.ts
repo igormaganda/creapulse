@@ -30,7 +30,8 @@ class Logger {
       ...data,
     }
     // Output structured JSON log
-    console.log(JSON.stringify(entry))
+    // eslint-disable-next-line no-console -- logger implementation: this IS the logging transport
+  console.log(JSON.stringify(entry))
   }
 
   info(message: string, data?: Record<string, unknown>) {

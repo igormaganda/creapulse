@@ -14,6 +14,7 @@ import {
   Shield,
 } from 'lucide-react'
 import { fadeInUp } from './landing-shared'
+import Image from 'next/image'
 
 const footerColumns = [
   {
@@ -59,7 +60,7 @@ export function FooterSection() {
           {/* Brand column */}
           <div className="lg:col-span-2">
             <div className="flex items-center gap-2">
-              <img src="/images/logo-creapulse.svg" alt="CreaPulse" className="h-8 w-8" />
+              <Image src="/images/logo-creapulse.svg" alt="CreaPulse" width={32} height={32} className="h-8 w-8" />
               <span className="text-xl font-bold text-primary">CreaPulse</span>
             </div>
             <p className="mt-2 max-w-xs text-sm text-muted-foreground">

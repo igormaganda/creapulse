@@ -4,6 +4,10 @@
 // Auto-cleanup runs every hour to prune expired entries.
 // ============================================
 
+import { createLogger } from './logger'
+
+const log = createLogger('TokenBlocklist')
+
 // jti → expiry timestamp (ms since epoch)
 const blocklist = new Map<string, number>()
 
@@ -67,7 +71,7 @@ export function startAutoCleanup(): void {
   cleanupTimer = setInterval(() => {
     const removed = cleanup()
     if (removed > 0) {
-      console.log(`[TokenBlocklist] Cleanup: removed ${removed} expired entries`)
+      log.debug('Cleanup: removed expired entries', { count: removed })
     }
   }, 60 * 60 * 1000) // Every hour
 }

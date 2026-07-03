@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import dynamic from 'next/dynamic'
+import Image from 'next/image'
 
 /* ─── shadcn/ui components (for Navbar) ─── */
 import { Button } from '@/components/ui/button'
@@ -156,14 +157,17 @@ function Navbar({
           {/* Logo */}
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1">
-              <img src="/images/logo-creapulse.svg" alt="CreaPulse" className="h-7 w-7" />
+              <Image src="/images/logo-creapulse.svg" alt="CreaPulse" width={28} height={28} className="h-7 w-7" priority />
               <span className="text-xl font-bold text-primary">CreaPulse</span>
             </div>
             {/* GIDEF Logo */}
-            <img
+            <Image
               src="/images/logo-gidef.svg"
               alt="GIDEF Île-de-France"
+              width={70}
+              height={28}
               className="hidden h-7 sm:block"
+              priority
             />
           </div>
 
@@ -323,14 +327,16 @@ function Navbar({
             <SheetContent side="right" className="w-80" id="mobile-nav-menu">
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2">
-                  <img src="/images/logo-creapulse.svg" alt="CreaPulse" className="h-5 w-5" />
+                  <Image src="/images/logo-creapulse.svg" alt="CreaPulse" width={20} height={20} className="h-5 w-5" />
                   CreaPulse
                 </SheetTitle>
                 <SheetDescription>
                   <span className="flex items-center gap-2">
-                    <img
+                    <Image
                       src="/images/logo-gidef.svg"
                       alt="GIDEF"
+                      width={70}
+                      height={20}
                       className="h-5"
                     />
                   </span>

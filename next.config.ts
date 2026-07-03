@@ -17,7 +17,7 @@ const nextConfig: NextConfig = {
     //   9. Misc component errors — bilan-ia loading state, bmc filledCount, juridique associes typo
     ignoreBuildErrors: true,
   },
-  reactStrictMode: false,
+  reactStrictMode: true,
   allowedDevOrigins: [
     "https://*.space-z.ai",
     "http://*.space-z.ai",

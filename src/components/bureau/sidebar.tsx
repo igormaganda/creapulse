@@ -26,6 +26,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
+import Image from 'next/image'
 import type { LucideIcon } from 'lucide-react'
 
 /* ─── Types ─── */
@@ -281,20 +282,20 @@ function SidebarContent({ collapsed, onNavigate, onCloseMobile }: {
       )}>
         {!collapsed && (
           <div className="flex items-center gap-3 w-full">
-            <img src="/images/logo-creapulse.svg" alt="CreaPulse" className="h-9 w-9 shrink-0 rounded" />
+            <Image src="/images/logo-creapulse.svg" alt="CreaPulse" width={36} height={36} className="h-9 w-9 shrink-0 rounded" />
             <div className="flex flex-col min-w-0">
               <span className="text-sm font-bold text-white leading-tight tracking-tight">CreaPulse</span>
               <span className="text-[10px] text-neutral-400 leading-tight">par GIDEF</span>
             </div>
             <div className="ml-auto">
-              <img src="/images/logo-gidef.svg" alt="GIDEF" className="h-6 w-auto shrink-0 rounded" />
+              <Image src="/images/logo-gidef.svg" alt="GIDEF" width={80} height={24} className="h-6 w-auto shrink-0 rounded" />
             </div>
           </div>
         )}
         {collapsed && (
           <div className="flex flex-col items-center gap-1.5">
-            <img src="/images/logo-creapulse.svg" alt="CreaPulse" className="h-8 w-8 shrink-0 rounded" />
-            <img src="/images/logo-gidef.svg" alt="GIDEF" className="h-5 w-auto shrink-0 rounded" />
+            <Image src="/images/logo-creapulse.svg" alt="CreaPulse" width={32} height={32} className="h-8 w-8 shrink-0 rounded" />
+            <Image src="/images/logo-gidef.svg" alt="GIDEF" width={60} height={20} className="h-5 w-auto shrink-0 rounded" />
           </div>
         )}
       </div>

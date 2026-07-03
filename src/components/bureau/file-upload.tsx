@@ -7,6 +7,7 @@
 
 import { useState, useRef, useCallback, useEffect, type DragEvent, type ChangeEvent } from 'react'
 import { Upload, FileText, X, Check, AlertCircle, Image as ImageIcon } from 'lucide-react'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -374,11 +375,13 @@ export function FileUpload({
               <div key={pf.id} className="flex items-center gap-3 rounded-lg bg-muted/50 p-2">
                 {/* Preview or icon */}
                 {pf.preview ? (
-                  <div className="h-10 w-10 rounded-md overflow-hidden shrink-0 bg-muted">
-                    <img
+                  <div className="relative h-10 w-10 rounded-md overflow-hidden shrink-0 bg-muted">
+                    <Image
                       src={pf.preview}
                       alt={pf.file.name}
-                      className="h-full w-full object-cover"
+                      fill
+                      className="object-cover"
+                      unoptimized
                     />
                   </div>
                 ) : (

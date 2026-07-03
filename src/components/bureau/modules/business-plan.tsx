@@ -1039,6 +1039,7 @@ export function BusinessPlanModule() {
                               </p>
                             )}
                             {s.type === 'financing-table' && Array.isArray(val) && (
+                              <div className="overflow-x-auto">
                               <table className="w-full text-sm">
                                 <thead>
                                   <tr className="border-b">
@@ -1061,6 +1062,7 @@ export function BusinessPlanModule() {
                                   </tr>
                                 </tbody>
                               </table>
+                              </div>
                             )}
                             {s.type === 'investments-list' && Array.isArray(val) && val.length > 0 && (
                               <ul className="text-sm space-y-1">
@@ -1788,6 +1790,7 @@ function FinancingTable({ value, onChange }: { value: FinancingRow[]; onChange: 
   return (
     <div className="space-y-3">
       <div className="rounded-lg border overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-muted/50 border-b">
@@ -1842,6 +1845,7 @@ function FinancingTable({ value, onChange }: { value: FinancingRow[]; onChange: 
             </tfoot>
           )}
         </table>
+        </div>
       </div>
       <div className="flex items-center gap-2">
         <Input
@@ -2123,6 +2127,7 @@ function BilanTable({ value, onChange }: {
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className="rounded-lg border overflow-hidden">
         <div className="bg-[#00838F]/10 px-3 py-2 font-semibold text-sm text-[#00838F]">Actif</div>
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <tbody>{fields('actif', [
             { key: 'immobilisations', label: 'Immobilisations' },
@@ -2137,9 +2142,11 @@ function BilanTable({ value, onChange }: {
             </tr>
           </tfoot>
         </table>
+        </div>
       </div>
       <div className="rounded-lg border overflow-hidden">
         <div className="bg-[#FF6B35]/10 px-3 py-2 font-semibold text-sm text-[#FF6B35]">Passif</div>
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <tbody>{fields('passif', [
             { key: 'capital', label: 'Capital social' },
@@ -2154,6 +2161,7 @@ function BilanTable({ value, onChange }: {
             </tr>
           </tfoot>
         </table>
+        </div>
       </div>
       {!equilibré && (
         <div className="md:col-span-2 flex items-center gap-2 text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/10 rounded-lg p-3">
