@@ -990,3 +990,87 @@
    990→- P8 audit : 15 vulnérabilités critiques corrigées (dont 15 dans Next.js)
    991→- Next.js mis à jour de 16.1.1 à 16.2.10
    992→
+   993→---
+   994→Task ID: p9p10
+   995→Agent: Main Orchestrator + 6 sub-agents
+   996→Task: P9 Pipeline V4 & Intelligence + P10 Temps réel & Notifications
+   997→
+   998→Work Log:
+   999→
+  1000→Fondations:
+  1001→- Prisma schema : ajout `bpSectionMeta Json?` sur CreatorJourney + modèle `BpSnapshot` (id, userId, tenantId, creatorJourneyId, bpSections, version, label, trigger, sectionCount, wordCount)
+  1002→- Relation User ↔ BpSnapshot ajoutée
+  1003→- Prisma generate réussi
+  1004→
+  1005→P9.1 Per-Section Timestamps — BACKEND:
+  1006→- business-plan/route.ts : `buildSectionMetaForManual()` met à jour bpSectionMeta à chaque save (wordCount, lastModified, source, manuallyEditedAt, version)
+  1007→- pipeline-v3/route.ts : `computeProvenance()` peuple lastModified depuis bpSectionMeta
+  1008→- Action `get-timestamps` retourne les métadonnées complètes
+  1009→
+  1010→P9.2 Cross-Module Validation — BACKEND:
+  1011→- pipeline-v3/route.ts : `computeCrossValidationWarnings()` implémente 4 vérifications :
+  1012→  1. CA mismatch BP vs Financier (seuil 5%)
+  1013→  2. Statut juridique mismatch BP vs Juridique
+  1014→  3. Sections sourcées mais vidées
+  1015→  4. Synchronisations périmées (>7 jours)
+  1016→- Action `cross-validate` + inclusion dans le GET principal
+  1017→
+  1018→P9.3 AI Quality Assessment — BACKEND:
+  1019→- /api/business-plan/quality/route.ts : POST endpoint, LLM évalue 3 critères (pertinence 0.4, profondeur 0.35, cohérence 0.25), scoreGlobal 1-10, recommandations
+  1020→- Rate limited (aiRateLimit 20/min), withAuth
+  1021→
+  1022→P9.4 Conseiller Pipeline View — FULL STACK:
+  1023→- NOUVEAU /api/conseiller/[beneficiaryId]/pipeline : GET avec auth COUNSELOR/ADMIN, isolation tenant, données parallèles (CreatorJourney, ModuleResult, MarketAnalysis, FinancialForecast, JuridiqueAnalysis, CreaSimSimulation, BMC)
+  1024→- beneficiaire-360.tsx : remplacement des mocks par données réelles de l'API, statuts modules vrais, bpStatus/bpScore réels, bannière warnings
+  1025→- conseiller-layout.tsx : cloche placeholder remplacée par le vrai NotificationsPanel
+  1026→
+  1027→P9.6 Pipeline Versioning — FULL STACK:
+  1028→- NOUVEAU /api/business-plan/snapshots : GET (liste 50 derniers), POST (créer snapshot), POST restore (sauvegarde auto puis restauration)
+  1029→- Auto-snapshot sur chaque save BP (guard 5 min)
+  1030→- BpSnapshot modèle Prisma avec version, label, trigger, sectionCount, wordCount
+  1031→
+  1032→P9 FRONTEND (business-plan.tsx):
+  1033→- Timestamps : formatRelativeTime() français, affiché inline dans la sidebar
+  1034→- Warnings : AlertTriangle amber dans sidebar avec Tooltip
+  1035→- Quality : bouton "Évaluer" + badge score coloré + 3 barres sous-scores + recommandations (AnimatePresence)
+  1036→- Historique : Dialog avec timeline snapshots, bouton Restaurer (AlertDialog confirm), bouton Sauvegarder
+  1037→
+  1038→P10.2 WebSocket Infrastructure:
+  1039→- NOUVEAU mini-services/realtime-service/ (Socket.IO port 3004)
+  1040→- NOUVEAU src/lib/hooks/use-socket.ts (hook singleton, XTransformPort=3004)
+  1041→- socket.io-client ajouté aux dépendances
+  1042→
+  1043→P10.3 Smart Notifications:
+  1044→- createNotification() branché dans 6 routes API (business-plan, riasec, kiviat, tremplin, mentorat, paa/milestones)
+  1045→- 10 types d'événements notifiés (BP status, modules complétés, mentorat, jalons PAA)
+  1046→- Tous fire-and-forget (.catch(() => {})) — ne bloquent jamais la réponse API
+  1047→
+  1048→P10.4 Email Service:
+  1049→- NOUVEAU src/lib/email.ts (mode 'log' par défaut, mode 'resend' optionnel avec import dynamique)
+  1050→- 4 templates email (welcome, bp-submitted, mentor-assigned, inactivity-reminder)
+  1051→- Variables .env documentées (EMAIL_PROVIDER, RESEND_API_KEY)
+  1052→- Branché sur BP submitted et mentorat accepté
+  1053→
+  1054→P10.5 Messages Real-Time:
+  1055→- messages.tsx : polling 15s avec déduplication par ID, nettoyage au changement de conversation
+  1056→- Écoute socket message:new en complément
+  1057→
+  1058→P10.6 Dashboard Live Updates:
+  1059→- bureau/dashboard.tsx : auto-refresh 60s avec indicateur "MAJ : il y a Xs"
+  1060→- conseiller/dashboard.tsx : même pattern 60s
+  1061→
+  1062→Conseiller Bell Fix:
+  1063→- Remplacement du placeholder Bell par le vrai NotificationsPanel
+  1064→
+  1065→Vérification:
+  1066→- Lint : 0 erreurs, 205 warnings (no-console)
+  1067→- Compilation : GET / 200 en 838ms
+  1068→- Prisma generate : OK
+  1069→- socket.io-client installé (v4.8.3)
+  1070→
+  1071→Stage Summary:
+  1072→- 12/12 fonctionnalités P9+P10 implémentées (ou corrigées si déjà échafaudées)
+  1073→- Fichiers créés : 7 (BpSnapshot API, quality API, conseiller pipeline API, email service, use-socket hook, realtime-service, type declarations)
+  1074→- Fichiers modifiés : ~15 (business-plan route + composant, pipeline-v3, riasec, kiviat, tremplin, mentorat, messages, dashboards, beneficiaire-360, conseiller-layout, .env, package.json)
+  1075→- Modèle Prisma : +1 champ (bpSectionMeta), +1 modèle (BpSnapshot)
+  1076→

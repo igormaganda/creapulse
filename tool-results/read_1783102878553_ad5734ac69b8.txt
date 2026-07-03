@@ -1,0 +1,1419 @@
+   100→  ABANDONED
+   101→}
+   102→
+   103→enum DraftStatus {
+   104→  DRAFT
+   105→  GENERATING
+   106→  READY
+   107→  REFINED
+   108→}
+   109→
+   110→enum ActorType {
+   111→  GIDEF
+   112→  INCUBATOR
+   113→  PEPITE
+   114→  CHAMBER_COMMERCE
+   115→  CCI
+   116→  BANK
+   117→  INVESTOR
+   118→  MENTOR
+   119→  FORMATION
+   120→  OTHER
+   121→}
+   122→
+   123→enum MentorAvailability {
+   124→  AVAILABLE
+   125→  LIMITED
+   126→  UNAVAILABLE
+   127→}
+   128→
+   129→enum MentorRequestStatus {
+   130→  PENDING
+   131→  ACCEPTED
+   132→  REJECTED
+   133→  CANCELLED
+   134→}
+   135→
+   136→enum MentorshipStatus {
+   137→  ACTIVE
+   138→  PAUSED
+   139→  ENDED
+   140→}
+   141→
+   142→enum ModuleCategory {
+   143→  DIAGNOSTIC
+   144→  MODELING
+   145→  STRATEGY
+   146→  ECOSYSTEM
+   147→  PILOTAGE
+   148→  TOOL
+   149→}
+   150→
+   151→enum NotificationType {
+   152→  INFO
+   153→  SUCCESS
+   154→  WARNING
+   155→  ACTION_REQUIRED
+   156→  MILESTONE
+   157→}
+   158→
+   159→enum AuditAction {
+   160→  LOGIN
+   161→  LOGOUT
+   162→  MODULE_COMPLETE
+   163→  BP_GENERATE
+   164→  BP_VALIDATE
+   165→  BMC_GENERATE
+   166→  PITCH_GENERATE
+   167→  PASSPORT_EXPORT
+   168→  USER_CREATE
+   169→  USER_UPDATE
+   170→  USER_DELETE
+   171→  MODULE_TOGGLE
+   172→  DATA_EXPORT
+   173→  SETTINGS_UPDATE
+   174→}
+   175→
+   176→enum LivrableType {
+   177→  BUSINESS_PLAN
+   178→  EXECUTIVE_SUMMARY
+   179→  PITCH_DECK
+   180→  FINANCIAL_FORECAST
+   181→  PASSPORT
+   182→  CERTIFICATE
+   183→  ATTESTATION
+   184→  REPORT
+   185→  OTHER
+   186→}
+   187→
+   188→enum LivrableStatus {
+   189→  DRAFT
+   190→  GENERATING
+   191→  READY
+   192→  VALIDATED
+   193→  EXPORTED
+   194→}
+   195→
+   196→enum AppointmentType {
+   197→  BILAN
+   198→  FOLLOW_UP
+   199→  WORKSHOP
+   200→  OTHER
+   201→}
+   202→
+   203→enum AppointmentMode {
+   204→  PHYSICAL
+   205→  VIDEO
+   206→  PHONE
+   207→}
+   208→
+   209→enum AppointmentStatus {
+   210→  SCHEDULED
+   211→  CONFIRMED
+   212→  COMPLETED
+   213→  CANCELLED
+   214→}
+   215→
+   216→// ============================================
+   217→// MULTI-TENANT
+   218→// ============================================
+   219→
+   220→model Tenant {
+   221→  id           String    @id @default(cuid())
+   222→  name         String    @unique
+   223→  slug         String    @unique
+   224→  logoUrl      String?
+   225→  primaryColor String    @default("#00838F")
+   226→  domain       String?   @unique
+   227→  plan         TenantPlan @default(STARTER)
+   228→  isActive     Boolean   @default(true)
+   229→  settings     Json      @default("{}")
+   230→  createdAt    DateTime  @default(now())
+   231→  updatedAt    DateTime  @updatedAt
+   232→
+   233→  organizations Organization[]
+   234→  users         User[]
+   235→  modules       AppModule[]
+   236→  auditLogs     AuditLog[] @relation("AuditLogTenant")
+   237→  actors        Actor[]
+   238→  conversations Conversation[]
+   239→  paaPrograms   PaaProgram[]
+   240→}
+   241→
+   242→model Organization {
+   243→  id         String   @id @default(cuid())
+   244→  tenantId   String
+   245→  name       String
+   246→  siret      String?  @unique
+   247→  type       OrgType  @default(FORMATION_CENTER)
+   248→  address    String?
+   249→  city       String?
+   250→  postalCode String?
+   251→  region     String?
+   252→  phone      String?
+   253→  email      String?
+   254→  website    String?
+   255→  isActive   Boolean  @default(true)
+   256→  createdAt  DateTime @default(now())
+   257→  updatedAt  DateTime @updatedAt
+   258→
+   259→  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+   260→  counselors   Counselor[]
+   261→  beneficiaries Beneficiary[]
+   262→
+   263→  @@index([tenantId])
+   264→}
+   265→
+   266→// ============================================
+   267→// AUTHENTIFICATION
+   268→// ============================================
+   269→
+   270→model User {
+   271→  id            String    @id @default(cuid())
+   272→  tenantId      String
+   273→  email         String
+   274→  passwordHash  String
+   275→  firstName     String?
+   276→  lastName      String?
+   277→  avatarUrl     String?
+   278→  role          UserRole  @default(BENEFICIARY)
+   279→  isActive      Boolean   @default(true)
+   280→  emailVerified Boolean   @default(false)
+   281→  lastLoginAt   DateTime?
+   282→  createdAt     DateTime  @default(now())
+   283→  updatedAt     DateTime  @updatedAt
+   284→
+   285→  tenant              Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+   286→  counselorProfile    Counselor?
+   287→  beneficiaryProfile  Beneficiary?
+   288→  creatorJourney      CreatorJourney?
+   289→  bpSnapshots         BpSnapshot[]
+   290→  accounts            Account[]
+   291→  sessions            Session[]
+   292→  notifications       Notification[]
+   293→  moduleResults       ModuleResult[]
+   294→  kiviatResults       KiviatResult[]
+   295→  riasecResults       RiasecResult[]
+   296→  motivations         MotivationAssessment?
+   297→  cvUploads           CvUpload[]
+   298→  creasimSimulation   CreaSimSimulation?
+   299→  financialForecast   FinancialForecast?
+   300→  juridiqueAnalysis   JuridiqueAnalysis?
+   301→  businessModelCanvas BusinessModelCanvas?
+   302→  marketAnalysis      MarketAnalysis?
+   303→  tremplin            Tremplin?
+   304→  zeroDraft           ZeroDraft?
+   305→  networks            Network[]
+   306→  discussions         Discussion[]
+   307→  replies             Reply[]
+   308→  favorites           Favorite[]
+   309→  savedNews           SavedNews[]
+   310→  auditLogs           AuditLog[] @relation("AuditLogUser")
+   311→  mentorProfile       Mentor?
+   312→  mentorships         Mentorship[]         @relation("MenteeMentorships")
+   313→  mentorRequests      MentorshipRequest[]  @relation("MenteeRequests")
+   314→  personalPaths       PersonalizedPath[]
+   315→  swipeResults        SwipeGameResult[]
+   316→  swipeAnswers        SwipeAnswer[]
+   317→  registrations       Registration[]
+   318→  accessibility       AccessibilitySetting?
+   319→  userFiles           UserFile[]
+   320→  livrables           Livrable[]          @relation("LivrableOwner")
+   321→  sentMessages        Message[]           @relation("MessageSender")
+   322→  consents            ConsentLog[]
+   323→  dataExports         DataExportRequest[]
+   324→  dataDeletions       DataDeletionRequest[]
+   325→  paaPrograms         PaaProgram[]
+   326→  satisfactionFeedbacks SatisfactionFeedback[]
+   327→
+   328→  @@unique([tenantId, email])
+   329→  @@index([tenantId, role])
+   330→}
+   331→
+   332→model Account {
+   333→  id         String   @id @default(cuid())
+   334→  userId     String
+   335→  provider   String
+   336→  providerId String?
+   337→  createdAt  DateTime @default(now())
+   338→
+   339→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+   340→
+   341→  @@index([userId])
+   342→}
+   343→
+   344→model Session {
+   345→  id        String   @id @default(cuid())
+   346→  userId    String
+   347→  token     String   @unique
+   348→  ipAddress String?
+   349→  userAgent String?
+   350→  expiresAt DateTime
+   351→  createdAt DateTime @default(now())
+   352→
+   353→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+   354→
+   355→  @@index([userId])
+   356→  @@index([expiresAt])
+   357→}
+   358→
+   359→// ============================================
+   360→// PROFILS
+   361→// ============================================
+   362→
+   363→model Counselor {
+   364→  id               String   @id @default(cuid())
+   365→  userId           String   @unique
+   366→  organizationId   String
+   367→  name             String
+   368→  specialities     String[]
+   369→  certifications   String[]
+   370→  maxBeneficiaries Int      @default(30)
+   371→  isAvailable      Boolean  @default(true)
+   372→  createdAt        DateTime @default(now())
+   373→  updatedAt        DateTime @updatedAt
+   374→
+   375→  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+   376→  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+   377→  assignments  CounselorAssignment[]
+   378→  appointments Appointment[]
+   379→  interviews   InterviewSession[]
+   380→  livrables    Livrable[]   @relation("CounselorLivrables")
+   381→  creascopeSessions CreascopeSession[]
+   382→
+   383→  @@index([organizationId])
+   384→}
+   385→
+   386→model Beneficiary {
+   387→  id               String            @id @default(cuid())
+   388→  userId           String            @unique
+   389→  organizationId   String?
+   390→  externalId       String?
+   391→  employmentStatus EmploymentStatus?
+   392→  educationLevel   String?
+   393→  lastDiploma      String?
+   394→  skills           Json              @default("[]")
+   395→  hasDisability    Boolean           @default(false)
+   396→  disabilityRate   Int?
+   397→  rqthStatus       Boolean           @default(false)
+   398→  progressScore    Int               @default(0)
+   399→  createdAt        DateTime          @default(now())
+   400→  updatedAt        DateTime          @updatedAt
+   401→
+   402→  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+   403→  organization Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+   404→  assignments  CounselorAssignment[]
+   405→  appointments Appointment[]
+   406→  interviews   InterviewSession[]
+   407→  creascopeSessions CreascopeSession[]
+   408→
+   409→  @@index([organizationId])
+   410→}
+   411→
+   412→model CounselorAssignment {
+   413→  id            String            @id @default(cuid())
+   414→  counselorId   String
+   415→  beneficiaryId String
+   416→  role          AssignmentRole    @default(PRIMARY)
+   417→  status        AssignmentStatus  @default(ACTIVE)
+   418→  assignedAt    DateTime          @default(now())
+   419→  unassignedAt  DateTime?
+   420→  notes         String?
+   421→
+   422→  counselor   Counselor   @relation(fields: [counselorId], references: [id], onDelete: Cascade)
+   423→  beneficiary Beneficiary @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+   424→
+   425→  @@unique([counselorId, beneficiaryId])
+   426→  @@index([counselorId])
+   427→  @@index([beneficiaryId])
+   428→}
+   429→
+   430→// ============================================
+   431→// PARCOURS CRÉATEUR (Unified)
+   432→// ============================================
+   433→
+   434→model CreatorJourney {
+   435→  id                  String           @id @default(cuid())
+   436→  userId              String           @unique
+   437→  currentPhase        JourneyPhase     @default(DISCOVERY)
+   438→  progressPercent     Int              @default(0)
+   439→  projectTitle        String?
+   440→  projectDescription  String?
+   441→  projectSector       String?
+   442→  projectStage        String?
+   443→  creationMotivation  String?
+   444→  targetAudience      String?
+   445→  valueProposition    String?
+   446→  estimatedRevenue    String?
+   447→  estimatedInvestment String?
+   448→  visionAnswers       Json?
+   449→  bpStatus            BpStatus         @default(NOT_STARTED)
+   450→  bpSections          Json?
+   451→  bpSectionMeta       Json?            @default("{}") // Per-section metadata: { [sectionId]: { source, syncedAt, manuallyEditedAt, wordCount, version, lastModified } }
+   452→  bpScore             Int?
+   453→  bpGeneratedAt       DateTime?
+   454→  bpValidatedAt       DateTime?
+   455→  bpValidatedBy       String?
+   456→  tremplinStatus      TremplinStatus   @default(NOT_STARTED)
+   457→  tremplinScore       Int?
+   458→  passportGeneratedAt DateTime?
+   459→  passportAttestations Json?           @default("[]")
+   460→  status              JourneyStatus    @default(ACTIVE)
+   461→  startedAt           DateTime         @default(now())
+   462→  completedAt         DateTime?
+   463→  createdAt           DateTime         @default(now())
+   464→  updatedAt           DateTime         @updatedAt
+   465→
+   466→  snapshots           BpSnapshot[]
+   467→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+   468→}
+   469→
+   470→// ============================================
+   471→// BUSINESS PLAN VERSIONING (Pipeline V4)
+   472→// ============================================
+   473→
+   474→model BpSnapshot {
+   475→  id              String         @id @default(cuid())
+   476→  userId          String
+   477→  tenantId        String
+   478→  creatorJourneyId String
+   479→  bpSections      Json
+   480→  bpProjectContext Json?
+   481→  version         Int           @default(1)
+   482→  label           String?        // Auto-generated: "V1 — 15 juil. 2025 14:30" or manual
+   483→  trigger         String        @default("manual") // "manual" | "auto" | "sync" | "ai-generate"
+   484→  sectionCount    Int           @default(0)
+   485→  wordCount       Int           @default(0)
+   486→  createdAt       DateTime       @default(now())
+   487→
+   488→  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+   489→  creatorJourney  CreatorJourney @relation(fields: [creatorJourneyId], references: [id], onDelete: Cascade)
+   490→
+   491→  @@index([userId])
+   492→  @@index([tenantId])
+   493→  @@index([creatorJourneyId])
+   494→  @@index([userId, createdAt])
+   495→}
+   496→
+   497→// ============================================
+   498→// DIAGNOSTICS & RÉSULTATS
+   499→// ============================================
+   500→
+   501→model ModuleResult {
+   502→  id          String   @id @default(cuid())
+   503→  userId      String
+   504→  moduleCode  String
+   505→  score       Int      @default(0)
+   506→  maxScore    Int      @default(100)
+   507→  answers     Json     @default("{}")
+   508→  feedback    String?
+   509→  completedAt DateTime?
+   510→  createdAt   DateTime @default(now())
+   511→
+   512→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+   513→
+   514→  @@unique([userId, moduleCode])
+   515→  @@index([userId])
+   516→  @@index([moduleCode])
+   517→}
+   518→
+   519→model KiviatResult {
+   520→  id        String   @id @default(cuid())
+   521→  userId    String
+   522→  category  String
+   523→  score     Float    @default(0)
+   524→  maxScore  Float    @default(10)
+   525→  createdAt DateTime @default(now())
+   526→
+   527→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+   528→
+   529→  @@unique([userId, category])
+   530→  @@index([userId])
+   531→}
+   532→
+   533→model RiasecResult {
+   534→  id          String   @id @default(cuid())
+   535→  userId      String
+   536→  profileType String
+   537→  score       Float    @default(0)
+   538→  isDominant  Boolean  @default(false)
+   539→  createdAt   DateTime @default(now())
+   540→
+   541→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+   542→
+   543→  @@unique([userId, profileType])
+   544→  @@index([userId])
+   545→}
+   546→
+   547→model MotivationAssessment {
+   548→  id        String   @id @default(cuid())
+   549→  userId    String   @unique
+   550→  scores    Json     @default("{}")
+   551→  summary   String?
+   552→  createdAt DateTime @default(now())
+   553→  updatedAt DateTime @updatedAt
+   554→
+   555→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+   556→}
+   557→
+   558→// ============================================
+   559→// ANALYSES & DOCUMENTS
+   560→// ============================================
+   561→
+   562→model FinancialForecast {
+   563→  id                 String    @id @default(cuid())
+   564→  userId             String    @unique
+   565→  sector             String?
+   566→  year1Revenue       Float?
+   567→  year2Revenue       Float?
+   568→  year3Revenue       Float?
+   569→  year1Expenses      Float?
+   570→  year2Expenses      Float?
+   571→  year3Expenses      Float?
+   572→  breakevenMonth     Int?
+   573→  initialInvestment  Float?
+   574→  aiSynthesis        String?
+   575→  createdAt          DateTime  @default(now())
+   576→  updatedAt          DateTime  @updatedAt
+   577→
+   578→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+   579→}
+   580→
+   581→model CreaSimSimulation {
+   582→  id                   String    @id @default(cuid())
+   583→  userId               String    @unique
+   584→
+   585→  // Simulator inputs
+   586→  monthlyRevenue       Float?
+   587→  fixedCharges         Json?     // [{name: string, amount: number}]
+   588→  variableChargesRate  Float?    // percentage 0-100
+   589→  averageSellingPrice  Float?
+   590→  unitCost             Float?
+   591→  targetMarginRate     Float?    // percentage 0-100
+   592→  initialInvestment    Float?
+   593→
+   594→  // Calculated outputs (from frontend)
+   595→  fixedChargesTotal    Float?
+   596→  variableChargesAmount Float?
+   597→  totalCharges         Float?
+   598→  grossMarginAmount    Float?
+   599→  grossMarginRate      Float?
+   600→  netMarginAmount      Float?
+   601→  netMarginRate        Float?
+   602→  monthlyBreakeven     Float?
+   603→  breakevenMonths      Float?
+   604→  profitability1Y      Float?
+   605→  profitability2Y      Float?
+   606→  profitability3Y      Float?
+   607→
+   608→  // Yearly projections
+   609→  year1Revenue         Float?
+   610→  year1Expenses        Float?
+   611→  year2Revenue         Float?
+   612→  year2Expenses        Float?
+   613→  year3Revenue         Float?
+   614→  year3Expenses        Float?
+   615→
+   616→  aiAnalysis           String?
+   617→  createdAt            DateTime  @default(now())
+   618→  updatedAt            DateTime  @updatedAt
+   619→
+   620→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+   621→}
+   622→
+   623→model JuridiqueAnalysis {
+   624→  id               String    @id @default(cuid())
+   625→  userId           String    @unique
+   626→  recommendedStatus String?
+   627→  fiscalRegime     String?
+   628→  legalStructure   String?
+   629→  socialCharges    Json?
+   630→  createdAt        DateTime  @default(now())
+   631→  updatedAt        DateTime  @updatedAt
+   632→
+   633→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+   634→}
+   635→
+   636→model MarketAnalysis {
+   637→  id             String   @id @default(cuid())
+   638→  userId         String   @unique
+   639→  sector         String?
+   640→  marketSize     String?
+   641→  targetAudience String?
+   642→  trends         Json?
+   643→  competitors    Json?
+   644→  opportunities  String?
+   645→  threats        String?
+   646→  aiSynthesis    String?
+   647→  createdAt      DateTime @default(now())
+   648→  updatedAt      DateTime @updatedAt
+   649→
+   650→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+   651→}
+   652→
+   653→model Tremplin {
+   654→  id              String           @id @default(cuid())
+   655→  userId          String           @unique
+   656→  currentStep     Int              @default(0)
+   657→  responses       Json             @default("{}")
+   658→  isCompleted     Boolean          @default(false)
+   659→  completedAt     DateTime?
+   660→  score           Int?
+   661→  decision        TremplinDecision?
+   662→  summary         String?
+   663→  recommendations Json             @default("[]")
+   664→  createdAt       DateTime         @default(now())
+   665→  updatedAt       DateTime         @updatedAt
+   666→
+   667→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+   668→}
+   669→
+   670→model BusinessModelCanvas {
+   671→  id                  String    @id @default(cuid())
+   672→  userId              String    @unique
+   673→
+   674→  // 9 BMC blocks
+   675→  partenairesCles     String?   @default("")  // Key Partners
+   676→  activitesCles       String?   @default("")  // Key Activities
+   677→  ressourcesCles      String?   @default("")  // Key Resources
+   678→  propositionValeur   String?   @default("")  // Value Proposition
+   679→  relationsClients    String?   @default("")  // Customer Relationships
+   680→  canaux              String?   @default("")  // Channels
+   681→  segmentsClients     String?   @default("")  // Customer Segments
+   682→  structureCouts      String?   @default("")  // Cost Structure
+   683→  sourcesRevenus      String?   @default("")  // Revenue Streams
+   684→
+   685→  status              String    @default("DRAFT")  // DRAFT, GENERATED, REFINED
+   686→  generatedFromBp     Boolean   @default(false)
+   687→  generatedAt         DateTime?
+   688→
+   689→  createdAt           DateTime  @default(now())
+   690→  updatedAt           DateTime  @updatedAt
+   691→
+   692→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+   693→}
+   694→
+   695→model ZeroDraft {
+   696→  id           String      @id @default(cuid())
+   697→  userId       String      @unique
+   698→  projectTitle String?
+   699→  content      String      @default("")
+   700→  wordCount    Int          @default(0)
+   701→  status       DraftStatus @default(DRAFT)
+   702→  createdAt    DateTime    @default(now())
+   703→  updatedAt    DateTime    @updatedAt
+   704→
+   705→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+   706→}
+   707→
+   708→// ============================================
+   709→// ÉCOSYSTÈME & COMMUNAUTÉ
+   710→// ============================================
+   711→
+   712→model Actor {
+   713→  id          String     @id @default(cuid())
+   714→  tenantId    String?
+   715→  name        String
+   716→  type        ActorType
+   717→  category    String?
+   718→  city        String
+   719→  region      String?
+   720→  address     String?
+   721→  phone       String?
+   722→  email       String?
+   723→  website     String?
+   724→  description String?
+   725→  services    Json?
+   726→  featured    Boolean    @default(false)
+   727→  successRate Float?
+   728→  createdAt   DateTime   @default(now())
+   729→  updatedAt   DateTime   @updatedAt
+   730→
+   731→  favorites Favorite[]
+   732→  tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+   733→
+   734→  @@index([tenantId, type])
+   735→  @@index([city])
+   736→}
+   737→
+   738→model Favorite {
+   739→  id         String   @id @default(cuid())
+   740→  userId     String
+   741→  actorId    String
+   742→  createdAt  DateTime @default(now())
+   743→
+   744→  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+   745→  actor Actor @relation(fields: [actorId], references: [id], onDelete: Cascade)
+   746→
+   747→  @@unique([userId, actorId])
+   748→  @@index([userId])
+   749→}
+   750→
+   751→model DiscussionCategory {
+   752→  id          String   @id @default(cuid())
+   753→  name        String
+   754→  slug        String   @unique
+   755→  description String?
+   756→  icon        String?
+   757→  color       String?
+   758→  sortOrder   Int      @default(0)
+   759→  createdAt   DateTime @default(now())
+   760→  updatedAt   DateTime @updatedAt
+   761→
+   762→  discussions Discussion[]
+   763→}
+   764→
+   765→model Discussion {
+   766→  id          String   @id @default(cuid())
+   767→  authorId    String
+   768→  categoryId  String
+   769→  title       String
+   770→  content     String
+   771→  tags        String[] @default([])
+   772→  isPinned    Boolean  @default(false)
+   773→  isLocked    Boolean  @default(false)
+   774→  viewCount   Int      @default(0)
+   775→  likesCount  Int      @default(0)
+   776→  replyCount  Int      @default(0)
+   777→  createdAt   DateTime @default(now())
+   778→  updatedAt   DateTime @updatedAt
+   779→
+   780→  author    User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+   781→  category  DiscussionCategory @relation(fields: [categoryId], references: [id])
+   782→  replies   Reply[]
+   783→
+   784→  @@index([categoryId])
+   785→  @@index([authorId])
+   786→}
+   787→
+   788→model Reply {
+   789→  id           String   @id @default(cuid())
+   790→  discussionId String
+   791→  authorId     String
+   792→  parentId     String?
+   793→  content      String
+   794→  isEdited     Boolean  @default(false)
+   795→  likesCount   Int      @default(0)
+   796→  createdAt    DateTime @default(now())
+   797→  updatedAt    DateTime @updatedAt
+   798→
+   799→  discussion Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+   800→  author     User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+   801→  parent     Reply?      @relation("ReplyTree", fields: [parentId], references: [id], onDelete: Cascade)
+   802→  children   Reply[]     @relation("ReplyTree")
+   803→
+   804→  @@index([discussionId])
+   805→  @@index([authorId])
+   806→}
+   807→
+   808→model Mentor {
+   809→  id            String             @id @default(cuid())
+   810→  userId        String             @unique
+   811→  bio           String             @default("")
+   812→  expertise     String[]           @default([])
+   813→  sectors       String[]           @default([])
+   814→  location      String             @default("")
+   815→  availability  MentorAvailability @default(AVAILABLE)
+   816→  maxMentees    Int                @default(3)
+   817→  rating        Float              @default(0)
+   818→  reviewCount   Int                @default(0)
+   819→  createdAt     DateTime           @default(now())
+   820→  updatedAt     DateTime           @updatedAt
+   821→
+   822→  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+   823→  mentorships Mentorship[]
+   824→  requests   MentorshipRequest[]
+   825→}
+   826→
+   827→model MentorshipRequest {
+   828→  id          String              @id @default(cuid())
+   829→  mentorId    String
+   830→  menteeId    String
+   831→  message     String              @default("")
+   832→  objectives  String[]            @default([])
+   833→  status      MentorRequestStatus @default(PENDING)
+   834→  createdAt   DateTime            @default(now())
+   835→  updatedAt   DateTime            @updatedAt
+   836→
+   837→  mentor Mentor @relation(fields: [mentorId], references: [id], onDelete: Cascade)
+   838→  mentee User   @relation("MenteeRequests", fields: [menteeId], references: [id], onDelete: Cascade)
+   839→
+   840→  @@index([mentorId])
+   841→}
+   842→
+   843→model Mentorship {
+   844→  id         String             @id @default(cuid())
+   845→  mentorId   String
+   846→  menteeId   String
+   847→  status     MentorshipStatus   @default(ACTIVE)
+   848→  startedAt  DateTime           @default(now())
+   849→  endedAt    DateTime?
+   850→  rating     Float?
+   851→  review     String?
+   852→  createdAt  DateTime           @default(now())
+   853→  updatedAt  DateTime           @updatedAt
+   854→
+   855→  mentor Mentor @relation(fields: [mentorId], references: [id], onDelete: Cascade)
+   856→  mentee User   @relation("MenteeMentorships", fields: [menteeId], references: [id], onDelete: Cascade)
+   857→
+   858→  @@unique([mentorId, menteeId])
+   859→  @@index([mentorId])
+   860→}
+   861→
+   862→// ============================================
+   863→// INFRASTRUCTURE
+   864→// ============================================
+   865→
+   866→model AppModule {
+   867→  id          String         @id @default(cuid())
+   868→  tenantId    String
+   869→  code        String
+   870→  name        String
+   871→  description String?
+   872→  category    ModuleCategory @default(DIAGNOSTIC)
+   873→  phase       JourneyPhase   @default(DISCOVERY)
+   874→  isActive    Boolean        @default(true)
+   875→  sortOrder   Int            @default(0)
+   876→  config      Json           @default("{}")
+   877→  createdAt   DateTime       @default(now())
+   878→  updatedAt   DateTime       @updatedAt
+   879→
+   880→  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+   881→
+   882→  @@unique([tenantId, code])
+   883→  @@index([tenantId, isActive])
+   884→}
+   885→
+   886→model Notification {
+   887→  id        String           @id @default(cuid())
+   888→  userId    String
+   889→  title     String
+   890→  content   String
+   891→  type      NotificationType @default(INFO)
+   892→  link      String?
+   893→  isRead    Boolean          @default(false)
+   894→  createdAt DateTime         @default(now())
+   895→
+   896→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+   897→
+   898→  @@index([userId, isRead])
+   899→  @@index([userId, createdAt])
+   900→}
+   901→
+   902→model AuditLog {
+   903→  id         String      @id @default(cuid())
+   904→  tenantId   String?
+   905→  userId     String?
+   906→  action     AuditAction
+   907→  entityType String?
+   908→  entityId   String?
+   909→  details    Json        @default("{}")
+   910→  ipAddress  String?
+   911→  userAgent  String?
+   912→  createdAt  DateTime    @default(now())
+   913→
+   914→  tenant Tenant? @relation("AuditLogTenant", fields: [tenantId], references: [id], onDelete: SetNull)
+   915→  user   User?   @relation("AuditLogUser", fields: [userId], references: [id], onDelete: SetNull)
+   916→
+   917→  @@index([tenantId, createdAt])
+   918→  @@index([userId, createdAt])
+   919→  @@index([entityType, entityId])
+   920→}
+   921→
+   922→model UserFile {
+   923→  id          String   @id @default(cuid())
+   924→  userId      String
+   925→  fileName    String
+   926→  mimeType    String
+   927→  fileSize    Int      // bytes
+   928→  category    String?  // e.g. "cv", "document", "diploma", "other"
+   929→  fileData    String   // base64-encoded file content (stored in DB, not filesystem)
+   930→  createdAt   DateTime @default(now())
+   931→  updatedAt   DateTime @updatedAt
+   932→
+   933→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+   934→
+   935→  @@index([userId])
+   936→  @@index([category])
+   937→}
+   938→
+   939→model CvUpload {
+   940→  id            String   @id @default(cuid())
+   941→  userId        String
+   942→  fileName      String?
+   943→  cvText        String?
+   944→  parsedSkills  Json?
+   945→  fileUrl       String?
+   946→  fileKey       String?
+   947→  createdAt     DateTime @default(now())
+   948→  updatedAt     DateTime @updatedAt
+   949→
+   950→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+   951→
+   952→  @@index([userId])
+   953→}
+   954→
+   955→model Livrable {
+   956→  id            String        @id @default(cuid())
+   957→  userId        String?
+   958→  counselorId   String?
+   959→  type          LivrableType
+   960→  title         String
+   961→  content       Json          @default("{}")
+   962→  fileUrl       String?
+   963→  fileName      String?
+   964→  status        LivrableStatus @default(DRAFT)
+   965→  generatedBy   String?
+   966→  generatedAt   DateTime?
+   967→  createdAt     DateTime      @default(now())
+   968→  updatedAt     DateTime      @updatedAt
+   969→
+   970→  owner     User?      @relation("LivrableOwner", fields: [userId], references: [id], onDelete: Cascade)
+   971→  counselor Counselor? @relation("CounselorLivrables", fields: [counselorId], references: [id], onDelete: Cascade)
+   972→
+   973→  @@index([userId])
+   974→  @@index([counselorId])
+   975→}
+   976→
+   977→model Appointment {
+   978→  id               String           @id @default(cuid())
+   979→  counselorId      String
+   980→  beneficiaryId    String
+   981→  title            String
+   982→  description      String?
+   983→  type             AppointmentType  @default(FOLLOW_UP)
+   984→  mode             AppointmentMode  @default(PHYSICAL)
+   985→  scheduledAt      DateTime
+   986→  durationMinutes  Int              @default(60)
+   987→  status           AppointmentStatus @default(SCHEDULED)
+   988→  location         String?
+   989→  videoLink        String?
+   990→  notes            String?
+   991→  createdAt        DateTime         @default(now())
+   992→  updatedAt        DateTime         @updatedAt
+   993→
+   994→  counselor   Counselor   @relation(fields: [counselorId], references: [id], onDelete: Cascade)
+   995→  beneficiary Beneficiary @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+   996→
+   997→  @@index([counselorId, scheduledAt])
+   998→  @@index([beneficiaryId, scheduledAt])
+   999→}
+  1000→
+  1001→model InterviewSession {
+  1002→  id             String   @id @default(cuid())
+  1003→  counselorId    String
+  1004→  beneficiaryId  String
+  1005→  type           String   @default("bilan")
+  1006→  phase          String?
+  1007→  scheduledAt    DateTime
+  1008→  startedAt      DateTime?
+  1009→  completedAt    DateTime?
+  1010→  status         String   @default("scheduled")
+  1011→  synthesis      String?
+  1012→  recommendations String[] @default([])
+  1013→  createdAt      DateTime @default(now())
+  1014→  updatedAt      DateTime @updatedAt
+  1015→
+  1016→  counselor   Counselor   @relation(fields: [counselorId], references: [id])
+  1017→  beneficiary Beneficiary @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+  1018→  notes       InterviewNote[]
+  1019→
+  1020→  @@index([counselorId])
+  1021→  @@index([beneficiaryId])
+  1022→}
+  1023→
+  1024→model InterviewNote {
+  1025→  id          String   @id @default(cuid())
+  1026→  interviewId String
+  1027→  phase       String   @default("general")
+  1028→  category    String   @default("observation")
+  1029→  content     String
+  1030→  isKeyPoint  Boolean  @default(false)
+  1031→  isActionItem Boolean @default(false)
+  1032→  createdAt   DateTime @default(now())
+  1033→
+  1034→  interview InterviewSession @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  1035→
+  1036→  @@index([interviewId])
+  1037→}
+  1038→
+  1039→// ============================================
+  1040→// SECONDARY TABLES
+  1041→// ============================================
+  1042→
+  1043→model AccessibilitySetting {
+  1044→  id              String   @id @default(cuid())
+  1045→  userId          String   @unique
+  1046→  textSize        Int      @default(100)
+  1047→  highContrast    Boolean  @default(false)
+  1048→  readingLine     Boolean  @default(false)
+  1049→  dyslexicFont    Boolean  @default(false)
+  1050→  pauseAnimations Boolean  @default(false)
+  1051→  createdAt       DateTime @default(now())
+  1052→  updatedAt       DateTime @updatedAt
+  1053→
+  1054→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  1055→}
+  1056→
+  1057→model Network {
+  1058→  id         String   @id @default(cuid())
+  1059→  userId     String
+  1060→  name       String
+  1061→  type       String
+  1062→  contact    String?
+  1063→  email      String?
+  1064→  phone      String?
+  1065→  notes      String?
+  1066→  createdAt  DateTime @default(now())
+  1067→  updatedAt  DateTime @updatedAt
+  1068→
+  1069→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  1070→
+  1071→  @@index([userId])
+  1072→}
+  1073→
+  1074→model PersonalizedPath {
+  1075→  id         String   @id @default(cuid())
+  1076→  userId     String
+  1077→  title      String
+  1078→  steps      Json     @default("[]")
+  1079→  status     String   @default("active")
+  1080→  createdAt  DateTime @default(now())
+  1081→  updatedAt  DateTime @updatedAt
+  1082→
+  1083→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  1084→
+  1085→  @@index([userId])
+  1086→}
+  1087→
+  1088→model Registration {
+  1089→  id                 String   @id @default(cuid())
+  1090→  userId             String
+  1091→  projectType        String?
+  1092→  projectDescription String?
+  1093→  projectStage       String?
+  1094→  motivations        String?
+  1095→  needs              String[] @default([])
+  1096→  supportType        String?
+  1097→  createdAt          DateTime @default(now())
+  1098→
+  1099→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  1100→
+  1101→  @@index([userId])
+  1102→}
+  1103→
+  1104→// ============================================
+  1105→// JEU DE CARTES « PÉPITES » — 60 Compétences + 300 Questions
+  1106→// ============================================
+  1107→
+  1108→model SwipeCard {
+  1109→  id          String   @id @default(cuid())
+  1110→  code        String   @unique          // ex: "ldr-01"
+  1111→  title       String                    // ex: "Leadership"
+  1112→  description String                    // Description détaillée
+  1113→  icon        String                    // Emoji ou Lucide icon name
+  1114→  category    String                    // Dimension Kiviat: leadership, stress, communication, resolution, creativity, adaptability
+  1115→  subcategory String?                   // Sous-catégorie
+  1116→  difficulty  Int      @default(1)     // 1-3 (facile, moyen, expert)
+  1117→  weight      Float    @default(1.0)   // Poids dans le calcul Kiviat
+  1118→  sortOrder   Int      @default(0)     // Ordre d'affichage
+  1119→  isActive    Boolean  @default(true)  // Actif/désactivé
+  1120→  createdAt   DateTime @default(now())
+  1121→  updatedAt   DateTime @updatedAt
+  1122→
+  1123→  swipeResults SwipeGameResult[]
+  1124→
+  1125→  @@index([category])
+  1126→  @@index([isActive, sortOrder])
+  1127→}
+  1128→
+  1129→model SwipeGameResult {
+  1130→  id          String   @id @default(cuid())
+  1131→  userId      String
+  1132→  cardId      String
+  1133→  cardCode    String
+  1134→  cardTitle   String
+  1135→  kept        Boolean                   // true = pépite, false = pass
+  1136→  superPepite Boolean  @default(false)  // double-tap = super-pépite (expert)
+  1137→  confidence  Int?                      // 1-5 auto-évaluation
+  1138→  swipedAt    DateTime @default(now())
+  1139→
+  1140→  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  1141→  card SwipeCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  1142→
+  1143→  @@unique([userId, cardId])
+  1144→  @@index([userId])
+  1145→  @@index([cardCode])
+  1146→}
+  1147→
+  1148→model SwipeQuestion {
+  1149→  id          String   @id @default(cuid())
+  1150→  code        String   @unique          // ex: "ldr-q01"
+  1151→  question    String                    // Texte de la question
+  1152→  category    String                    // Dimension Kiviat
+  1153→  subcategory String?
+  1154→  type        String   @default("scale") // scale | choice | scenario | ranking | open | behavioral
+  1155→  options     Json?                     // Options pour type choice/scenario (JSON array)
+  1156→  helpText    String?                   // Texte d'aide
+  1157→  scoring     Json?                     // Scoring rules per answer (JSON)
+  1158→  difficulty  Int      @default(1)
+  1159→  sortOrder   Int      @default(0)
+  1160→  isActive    Boolean  @default(true)
+  1161→  createdAt   DateTime @default(now())
+  1162→  updatedAt   DateTime @updatedAt
+  1163→
+  1164→  answers     SwipeAnswer[]
+  1165→
+  1166→  @@index([category, type])
+  1167→  @@index([isActive, sortOrder])
+  1168→}
+  1169→
+  1170→model SwipeAnswer {
+  1171→  id          String   @id @default(cuid())
+  1172→  userId      String
+  1173→  questionId  String
+  1174→  value       String                    // Réponse (texte ou JSON)
+  1175→  confidence  Int?                      // 1-5
+  1176→  score       Float?                    // Score calculé (0-100)
+  1177→  answeredAt  DateTime @default(now())
+  1178→
+  1179→  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  1180→  question SwipeQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  1181→
+  1182→  @@unique([userId, questionId])
+  1183→  @@index([userId])
+  1184→  @@index([questionId])
+  1185→}
+  1186→
+  1187→model Conversation {
+  1188→  id             String      @id @default(cuid())
+  1189→  tenantId       String
+  1190→  participant1Id String
+  1191→  participant2Id String
+  1192→  lastMessageAt  DateTime   @default(now())
+  1193→  lastMessage   String?
+  1194→  createdAt      DateTime   @default(now())
+  1195→  updatedAt      DateTime   @updatedAt
+  1196→
+  1197→  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  1198→  messages  Message[]
+  1199→
+  1200→  @@unique([participant1Id, participant2Id])
+  1201→  @@index([tenantId])
+  1202→  @@index([lastMessageAt])
+  1203→}
+  1204→
+  1205→model Message {
+  1206→  id             String       @id @default(cuid())
+  1207→  conversationId String
+  1208→  senderId       String
+  1209→  content        String
+  1210→  isRead         Boolean      @default(false)
+  1211→  readAt         DateTime?
+  1212→  createdAt      DateTime     @default(now())
+  1213→
+  1214→  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  1215→  sender       User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  1216→
+  1217→  @@index([conversationId, createdAt])
+  1218→  @@index([senderId])
+  1219→}
+  1220→
+  1221→model SavedNews {
+  1222→  id         String   @id @default(cuid())
+  1223→  userId     String
+  1224→  newsId     String
+  1225→  title      String?
+  1226→  excerpt    String?
+  1227→  sourceUrl  String?
+  1228→  createdAt  DateTime @default(now())
+  1229→
+  1230→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  1231→
+  1232→  @@unique([userId, newsId])
+  1233→  @@index([userId])
+  1234→}
+  1235→
+  1236→model NewsArticle {
+  1237→  id           String   @id @default(cuid())
+  1238→  slug         String   @unique
+  1239→  title        String
+  1240→  excerpt      String
+  1241→  content      String   @default("")
+  1242→  category     String   @default("Inspiration")
+  1243→  imageGradient String?
+  1244→  imageUrl     String?
+  1245→  authorName   String   @default("Équipe CreaPulse")
+  1246→  authorRole   String   @default("GIDEF Île-de-France")
+  1247→  isPublished  Boolean  @default(true)
+  1248→  isFeatured   Boolean  @default(false)
+  1249→  readTime     Int      @default(5)
+  1250→  viewCount    Int      @default(0)
+  1251→  publishedAt  DateTime
+  1252→  createdAt    DateTime @default(now())
+  1253→  updatedAt    DateTime @updatedAt
+  1254→
+  1255→  @@index([category])
+  1256→  @@index([publishedAt])
+  1257→  @@index([isPublished])
+  1258→}
+  1259→
+  1260→// ============================================
+  1261→// QUIZ LEADS (Metiers)
+  1262→// ============================================
+  1263→
+  1264→model QuizLead {
+  1265→  id          String   @id @default(cuid())
+  1266→  prenom      String
+  1267→  email       String
+  1268→  telephone   String?
+  1269→  ville       String?
+  1270→  age         Int?
+  1271→  category    String
+  1272→  quizResults Json?
+  1273→  createdAt   DateTime @default(now())
+  1274→
+  1275→  @@index([category])
+  1276→  @@index([email])
+  1277→}
+  1278→
+  1279→// ============================================
+  1280→// CRÉASCOPE SESSION — Pipeline 3-4h Conseiller
+  1281→// ============================================
+  1282→
+  1283→enum ConsentType {
+  1284→  COOKIES
+  1285→  CGU
+  1286→  DONNEES_PERSONNELLES
+  1287→  MARKETING
+  1288→  CREASCOPE
+  1289→  FRANCE_TRAVAIL
+  1290→}
+  1291→
+  1292→enum ConsentStatus {
+  1293→  GRANTED
+  1294→  DENIED
+  1295→  WITHDRAWN
+  1296→}
+  1297→
+  1298→enum CreascopeStep {
+  1299→  ACCUEIL
+  1300→  FLASH_SWIPE
+  1301→  ANALYSE_INTERMEDIAIRE
+  1302→  QUESTIONNAIRE
+  1303→  CHALLENGE_SCENARIO
+  1304→  BILAN_IA
+  1305→  PLAN_ACTION
+  1306→  TERMINEE
+  1307→}
+  1308→
+  1309→enum CreascopeSessionStatus {
+  1310→  PLANIFIEE
+  1311→  EN_COURS
+  1312→  PAUSEE
+  1313→  TERMINEE
+  1314→  ANNULEE
+  1315→}
+  1316→
+  1317→model CreascopeSession {
+  1318→  id              String                @id @default(cuid())
+  1319→  beneficiaryId   String
+  1320→  counselorId     String
+  1321→  status          CreascopeSessionStatus @default(PLANIFIEE)
+  1322→  currentStep     CreascopeStep         @default(ACCUEIL)
+  1323→
+  1324→  // Timing
+  1325→  scheduledAt     DateTime
+  1326→  startedAt       DateTime?
+  1327→  completedAt     DateTime?
+  1328→  estimatedMinutes Int                  @default(240) // 4h default
+  1329→
+  1330→  // Step progress tracking (JSON: { step: { startedAt, completedAt, durationMinutes, notes, aiInsights } })
+  1331→  stepProgress    Json                  @default("{}")
+  1332→
+  1333→  // Session notes from counselor
+  1334→  counselorNotes  String?
+  1335→
+  1336→  // AI-generated session insights (generated after each step)
+  1337→  aiInsights      Json?
+  1338→
+  1339→  // Action plan from final step
+  1340→  actionPlan      Json?
+  1341→
+  1342→  // Global session score (0-100)
+  1343→  globalScore     Int?
+  1344→
+  1345→  createdAt       DateTime              @default(now())
+  1346→  updatedAt       DateTime              @updatedAt
+  1347→
+  1348→  beneficiary     Beneficiary           @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+  1349→  counselor       Counselor             @relation(fields: [counselorId], references: [id], onDelete: Cascade)
+  1350→
+  1351→  @@index([beneficiaryId])
+  1352→  @@index([counselorId])
+  1353→  @@index([status, scheduledAt])
+  1354→}
+  1355→
+  1356→// ============================================
+  1357→// RGPD CONFORMITÉ
+  1358→// ============================================
+  1359→
+  1360→model ConsentLog {
+  1361→  id            String        @id @default(cuid())
+  1362→  userId        String
+  1363→  consentType   ConsentType
+  1364→  status        ConsentStatus @default(GRANTED)
+  1365→  ipAddress     String?
+  1366→  userAgent     String?
+  1367→  source        String        @default("web") // web | mobile | api
+  1368→  version       String        @default("1.0")
+  1369→  grantedAt     DateTime      @default(now())
+  1370→  withdrawnAt   DateTime?
+  1371→
+  1372→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  1373→
+  1374→  @@unique([userId, consentType])
+  1375→  @@index([userId])
+  1376→  @@index([consentType, status])
+  1377→}
+  1378→
+  1379→model DataExportRequest {
+  1380→  id            String   @id @default(cuid())
+  1381→  userId        String
+  1382→  status        String   @default("pending") // pending | processing | ready | expired
+  1383→  format        String   @default("json") // json | pdf
+  1384→  filePath      String?
+  1385→  expiresAt     DateTime?
+  1386→  requestedAt   DateTime @default(now())
+  1387→  completedAt   DateTime?
+  1388→  error         String?
+  1389→
+  1390→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  1391→
+  1392→  @@index([userId])
+  1393→  @@index([status])
+  1394→}
+  1395→
+  1396→model DataDeletionRequest {
+  1397→  id            String   @id @default(cuid())
+  1398→  userId        String
+  1399→  reason        String?
+  1400→  status        String   @default("pending") // pending | approved | processed | rejected
+  1401→  reviewedBy    String?  // counselor or admin userId
+  1402→  reviewedAt    DateTime?
+  1403→  processedAt   DateTime?
+  1404→  notes         String?
+  1405→
+  1406→  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  1407→
+  1408→  @@index([userId])
+  1409→  @@index([status])
+  1410→}
+  1411→
+  1412→// ============================================
+  1413→// ARTICLES / BLOG
+  1414→// ============================================
+  1415→
+  1416→// ═══ PAA PROGRAMME D'ACCOMPAGNEMENT À L'AMORÇAGE ═══
+  1417→
+  1418→model PaaProgram {
+  1419→  id              String   @id @default(cuid())
+  1420→  userId          String
+  1421→  tenantId        String
+  1422→  status          String   @default("ACTIF") // ACTIF, TERMINE, ABANDONNE, SUSPENDU
+  1423→  startedAt       DateTime @default(now())
+  1424→  plannedEndAt    DateTime // J60
+  1425→  followUpAt      DateTime? // J90 follow-up date
+  1426→  followUpDone    Boolean  @default(false)
+  1427→  conclusion      String?  // POURSUITE, DEVELOPPEMENT, CLOTURE_REBOND
+  1428→  conclusionNotes String?
+  1429→  createdAt       DateTime @default(now())
+  1430→  updatedAt       DateTime @updatedAt
+  1431→
+  1432→  user        User              @relation(fields: [userId], references: [id])
+  1433→  tenant      Tenant            @relation(fields: [tenantId], references: [id])
+  1434→  milestones  PaaMilestone[]
+  1435→  ateliers    PaaAtelierSession[]
+  1436→  objectives  SmartObjective[]
+  1437→  satisfactions SatisfactionFeedback[]
+  1438→
+  1439→  @@index([userId])
+  1440→  @@index([tenantId])
+  1441→  @@index([status])
+  1442→}
+  1443→
+  1444→model PaaMilestone {
+  1445→  id          String   @id @default(cuid())
+  1446→  programId   String
+  1447→  type        String   // DIAGNOSTIC, SUIVI, CONCLUSION, SUIVI_3MOIS
+  1448→  label       String
+  1449→  plannedDate DateTime?
+  1450→  completedAt DateTime?
+  1451→  status      String   @default("PLANIFIE") // PLANIFIE, EN_COURS, COMPLETE
+  1452→  notes       String?
+  1453→  createdAt   DateTime @default(now())
+  1454→  updatedAt   DateTime @updatedAt
+  1455→
+  1456→  program PaaProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  1457→
+  1458→  @@index([programId])
+  1459→  @@index([type])
+  1460→}
+  1461→
+  1462→model PaaAtelierSession {
+  1463→  id          String   @id @default(cuid())
+  1464→  programId   String
+  1465→  atelierCode String   // gestion-temps, gestion-crise, cloture-rebond, marche, financier, juridique, etc.
+  1466→  atelierName String
+  1467→  completedAt DateTime?
+  1468→  status      String   @default("NON_SUIVI") // NON_SUIVI, PLANIFIE, COMPLETE
+  1469→  feedback    String?
+  1470→  createdAt   DateTime @default(now())
+  1471→  updatedAt   DateTime @updatedAt
+  1472→
+  1473→  program PaaProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  1474→
+  1475→  @@index([programId])
+  1476→  @@index([atelierCode])
+  1477→}
+  1478→
+  1479→model SmartObjective {
+  1480→  id          String   @id @default(cuid())
+  1481→  programId   String
+  1482→  title       String
+  1483→  description String?
+  1484→  specific    String   // What specifically?
+  1485→  measurable  String   // How measured?
+  1486→  achievable  String   // Why achievable?
+  1487→  relevant    String   // Why relevant?
+  1488→  timeBound   String   // Deadline
+  1489→  progress    Int      @default(0) // 0-100
+  1490→  status      String   @default("EN_COURS") // EN_COURS, ATTEINT, NON_ATTEINT
+  1491→  completedAt DateTime?
+  1492→  createdAt   DateTime @default(now())
+  1493→  updatedAt   DateTime @updatedAt
+  1494→
+  1495→  program PaaProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  1496→
+  1497→  @@index([programId])
+  1498→}
+  1499→
+  1500→model SatisfactionFeedback {
+  1501→  id          String   @id @default(cuid())
+  1502→  programId   String
+  1503→  userId      String
+  1504→  type        String   // ENTRETIEN, ATELIER, PROGRAMME
+  1505→  referenceId String?  // entretien ID or atelier session ID
+  1506→  rating      Int      // 1-5
+  1507→  comment     String?
+  1508→  nps         Int?     // 0-10 Net Promoter Score
+  1509→  createdAt   DateTime @default(now())
+  1510→
+  1511→  program PaaProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  1512→  user    User         @relation(fields: [userId], references: [id])
+  1513→
+  1514→  @@index([programId])
+  1515→  @@index([userId])
+  1516→  @@index([type])
+  1517→}
+  1518→
