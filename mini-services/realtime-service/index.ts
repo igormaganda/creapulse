@@ -12,11 +12,12 @@ const io = new Server(httpServer, {
 io.on('connection', (socket) => {
   console.log(`[realtime] connected: ${socket.id}`)
 
-  socket.on('join', (data: { userId: string; tenantId: string }) => {
-    const { userId, tenantId } = data
-    socket.join(`user:${userId}`)
+  socket.on('join', (data: { userId?: string; tenantId?: string; conversationId?: string }) => {
+    const { userId, tenantId, conversationId } = data
+    if (userId) socket.join(`user:${userId}`)
     if (tenantId) socket.join(`tenant:${tenantId}`)
-    console.log(`[realtime] ${socket.id} joined user:${userId} tenant:${tenantId}`)
+    if (conversationId) socket.join(`conversation:${conversationId}`)
+    console.log(`[realtime] ${socket.id} joined rooms: user=${userId} tenant=${tenantId} conv=${conversationId}`)
   })
 
   // Relay message:new to conversation room (room = conversation id)

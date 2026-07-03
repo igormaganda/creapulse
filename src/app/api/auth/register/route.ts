@@ -130,6 +130,11 @@ export async function POST(request: Request) {
 
     logger.info('Nouvel utilisateur inscrit', { userId: user.id, email: normalizedEmail })
 
+    // Send welcome email (fire-and-forget, dev mode = log only)
+    import('@/lib/email').then(({ sendWelcomeEmail }) => {
+      sendWelcomeEmail(user.email, user.firstName || '').catch(() => {})
+    })
+
     return success(
       {
         user: {

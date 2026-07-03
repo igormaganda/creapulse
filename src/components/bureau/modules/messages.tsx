@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { authFetch } from '@/lib/auth-fetch'
+import { useSocket } from '@/lib/hooks/use-socket'
 
 // ─── Types ───────────────────────────────────
 
@@ -376,6 +377,29 @@ export function MessagesModule() {
       }
     }
   }, [selectedConvId])
+
+  // ─── WebSocket: real-time message push (P10.5) ──
+  const { socket } = useSocket()
+
+  useEffect(() => {
+    if (!socket) return
+    if (selectedConvId) {
+      socket.emit('join', { conversationId: selectedConvId })
+    }
+    const handleMessageNew = (msg: unknown) => {
+      const m = msg as Message
+      if (!m?.id || !m?.senderId) return
+      setMessages((prev) => {
+        if (prev.some((p) => p.id === m.id)) return prev
+        return [...prev, m].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+      })
+    }
+
+    socket.on('message:new', handleMessageNew)
+    return () => {
+      socket.off('message:new', handleMessageNew)
+    }
+  }, [socket, selectedConvId])
 
   // ─── Auto-scroll ──────────────────────────
   useEffect(() => {
