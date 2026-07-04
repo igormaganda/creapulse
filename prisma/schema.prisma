@@ -237,6 +237,7 @@ model Tenant {
   actors        Actor[]
   conversations Conversation[]
   paaPrograms   PaaProgram[]
+  mindMaps      MindMap[]
 }
 
 model Organization {
@@ -324,6 +325,7 @@ model User {
   dataDeletions       DataDeletionRequest[]
   paaPrograms         PaaProgram[]
   satisfactionFeedbacks SatisfactionFeedback[]
+  mindMaps            MindMap[]
 
   @@unique([tenantId, email])
   @@index([tenantId, role])
@@ -1514,4 +1516,20 @@ model SatisfactionFeedback {
   @@index([programId])
   @@index([userId])
   @@index([type])
+}
+
+model MindMap {
+  id        String   @id @default(cuid())
+  userId    String
+  tenantId  String
+  title     String   @default("Sans titre")
+  nodes     Json     // MindMapNode[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tenantId])
 }

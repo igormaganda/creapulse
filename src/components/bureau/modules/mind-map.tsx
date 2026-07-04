@@ -19,6 +19,8 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { authFetch } from '@/lib/auth-fetch'
+import { Undo2, Redo2 } from 'lucide-react'
 
 // ─── Types ──────────────────────────────────
 
@@ -96,6 +98,49 @@ function buildTextOutline(nodes: MindMapNode[], nodeId: string, indent: number =
 
 // ─── Main Component ─────────────────────────
 
+// ─── Auto-layout: radial tree from root ───
+function autoLayout(nodes: MindMapNode[], canvasW: number, canvasH: number): MindMapNode[] {
+  const root = nodes.find(n => n.parentId === null)
+  if (!root) return nodes
+
+  const result = nodes.map(n => ({ ...n, children: [...n.children] }))
+  const map = new Map(result.map(n => [n.id, n]))
+  const cx = canvasW / 2
+  const cy = canvasH / 2
+
+  // Root at center
+  const r = map.get(root.id)!
+  r.x = cx
+  r.y = cy
+
+  // Direct children in a circle
+  const directChildren = result.filter(n => n.parentId === root.id)
+  const childCount = directChildren.length
+  directChildren.forEach((child, i) => {
+    const angle = (i / Math.max(childCount, 1)) * Math.PI * 2 - Math.PI / 2
+    const dist = 160
+    child.x = cx + Math.cos(angle) * dist
+    child.y = cy + Math.sin(angle) * dist
+
+    // Grandchildren in smaller arc around their parent
+    const grandChildren = result.filter(n => n.parentId === child.id)
+ grandChildren.forEach((gc, j) => {
+      const spread = Math.PI / Math.max(childCount, 3)
+ const gcAngle = angle + (j - (grandChildren.length - 1) / 2) * (spread / Math.max(grandChildren.length, 1))
+      const gcDist = 100
+      gc.x = child.x + Math.cos(gcAngle) * gcDist
+      gc.y = child.y + Math.sin(gcAngle) * gcDist
+      // Clamp to canvas
+      gc.x = Math.max(60, Math.min(canvasW - 60, gc.x))
+      gc.y = Math.max(30, Math.min(canvasH - 30, gc.y))
+    })
+  })
+
+  return result
+}
+
+// ─── Main Component ─────────────────────────
+
 export function MindMapModule() {
   const [isLoading, setIsLoading] = useState(true)
   const [nodes, setNodes] = useState<MindMapNode[]>([])
@@ -107,38 +152,116 @@ export function MindMapModule() {
   const [dragNodeId, setDragNodeId] = useState<string | null>(null)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null)
+  const [serverMapId, setServerMapId] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
   const canvasRef = useRef<HTMLDivElement>(null)
   const editInputRef = useRef<HTMLInputElement>(null)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // ─── Load from localStorage ──────────────
+  // ─── Undo / Redo ───────────────────────
+  const [history, setHistory] = useState<MindMapNode[][]>([])
+  const [historyIdx, setHistoryIdx] = useState(-1)
+  const pushHistory = useCallback((newNodes: MindMapNode[]) => {
+    setHistory(prev => {
+      const truncated = prev.slice(0, historyIdx + 1)
+      return [...truncated, newNodes.map(n => ({ ...n, children: [...n.children] }))]
+    })
+    setHistoryIdx(prev => prev + 1)
+  }, [historyIdx])
+  const undo = useCallback(() => {
+    if (historyIdx <= 0) return
+    const prev = history[historyIdx - 1]
+    if (prev) { setNodes(prev.map(n => ({ ...n, children: [...n.children] }))); setHistoryIdx(historyIdx - 1) }
+  }, [history, historyIdx])
+  const redo = useCallback(() => {
+    if (historyIdx >= history.length - 1) return
+    const next = history[historyIdx + 1]
+    if (next) { setNodes(next.map(n => ({ ...n, children: [...n.children] }))); setHistoryIdx(historyIdx + 1) }
+  }, [history, historyIdx])
+
+  // ─── Load from API, fallback localStorage ──
   useEffect(() => {
     async function load() {
+      try {
+        const res = await authFetch('/api/mind-map')
+        if (res.ok) {
+          const json = await res.json()
+          if (json.success && json.data?.mindMaps?.length > 0) {
+            // Load the most recent map
+            const latest = json.data.mindMaps[0]
+            const resFull = await authFetch(`/api/mind-map?id=${latest.id}`)
+            if (resFull.ok) {
+              const full = await resFull.json()
+              if (full.success && full.data?.nodes) {
+                const parsed = full.data.nodes
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  setNodes(parsed)
+                  setServerMapId(latest.id)
+                  pushHistory(parsed)
+                  setIsLoading(false)
+                  return
+                }
+              }
+            }
+          }
+        }
+      } catch { /* fallback */ }
+      // Fallback: localStorage
       try {
         const saved = localStorage.getItem(STORAGE_KEY)
         if (saved) {
           const parsed = JSON.parse(saved)
           if (Array.isArray(parsed) && parsed.length > 0) {
             setNodes(parsed)
+            pushHistory(parsed)
             setIsLoading(false)
             return
           }
         }
       } catch { /* ignore */ }
       // Default: empty root
-      setNodes([
+      const defaults = [
         { id: 'root', text: 'Idée centrale', x: CANVAS_W / 2, y: CANVAS_H / 2, parentId: null, color: BRANCH_COLORS[0], children: [] },
-      ])
+      ]
+      setNodes(defaults)
+      pushHistory(defaults)
       setIsLoading(false)
     }
     load()
   }, [])
 
-  // ─── Auto-save to localStorage ──────────
+  // ─── Auto-save (localStorage + API with debounce) ──
   useEffect(() => {
-    if (!isLoading && nodes.length > 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(nodes))
-    }
-  }, [isLoading, nodes])
+    if (isLoading) return
+    // Local always
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(nodes))
+    // Debounced server save
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(async () => {
+      setSaving(true)
+      try {
+        if (serverMapId) {
+          await authFetch('/api/mind-map', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: serverMapId, nodes }),
+          })
+        } else {
+          const res = await authFetch('/api/mind-map', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nodes }),
+          })
+          if (res.ok) {
+            const json = await res.json()
+            if (json.success && json.data?.id) setServerMapId(json.data.id)
+          }
+        }
+      } catch { /* silent */ }
+      setSaving(false)
+    }, 2000)
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
+  }, [isLoading, nodes, serverMapId])
 
   // ─── Focus edit input ────────────────────
   useEffect(() => {
@@ -147,6 +270,17 @@ export function MindMapModule() {
       editInputRef.current.select()
     }
   }, [editingId])
+
+  // ─── Keyboard shortcuts ────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (editingId) return // don't intercept while editing text
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); undo() }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'y') { e.preventDefault(); redo() }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [editingId, undo, redo])
 
   // ─── Close context menu on click ─────────
   useEffect(() => {
@@ -191,7 +325,9 @@ export function MindMapModule() {
       const updated = prev.map(n =>
         n.id === parentId ? { ...n, children: [...n.children, newId] } : n
       )
-      return [...updated, newNode]
+      const result = [...updated, newNode]
+      pushHistory(result)
+      return result
     })
     setSelectedId(newId)
     setEditingId(newId)
@@ -222,7 +358,9 @@ export function MindMapModule() {
           ? { ...n, children: n.children.filter(c => c !== nodeId) }
           : n
       )
-      return updated.filter(n => !toDelete.has(n.id))
+      const result = updated.filter(n => !toDelete.has(n.id))
+      pushHistory(result)
+      return result
     })
     setSelectedId(null)
     setEditingId(null)
@@ -230,13 +368,29 @@ export function MindMapModule() {
 
   // ─── Update node text ────────────────────
   const updateNodeText = useCallback((nodeId: string, text: string) => {
-    setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, text } : n))
+    setNodes(prev => {
+      const result = prev.map(n => n.id === nodeId ? { ...n, text } : n)
+      return result
+    })
   }, [])
 
-  // ─── Update node position ────────────────
+  // ─── Update node position (no history push during drag) ────
   const updateNodePosition = useCallback((nodeId: string, x: number, y: number) => {
     setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, x, y } : n))
   }, [])
+
+  // Push history on drag end
+  useEffect(() => {
+    if (!isDragging && nodes.length > 0) {
+      // Push to history when drag ends (debounced by the render cycle)
+      const current = history[historyIdx]
+      if (!current || JSON.stringify(current) !== JSON.stringify(nodes)) {
+        setHistory(prev => [...prev.slice(0, historyIdx + 1), nodes.map(n => ({ ...n, children: [...n.children] }))])
+        setHistoryIdx(prev => prev + 1)
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDragging])
 
   // ─── Drag handlers ───────────────────────
   const handleMouseDown = useCallback((e: React.MouseEvent, nodeId: string) => {
@@ -307,18 +461,49 @@ export function MindMapModule() {
   const loadTemplate = useCallback((name: string) => {
     const template = TEMPLATES[name]
     if (template) {
-      setNodes(template.map(n => ({ ...n, children: [...n.children] })))
+      const loaded = template.map(n => ({ ...n, children: [...n.children] }))
+      setNodes(loaded)
+      pushHistory(loaded)
       setSelectedId(null)
       setEditingId(null)
       toast.success(`Template "${name}" chargé`)
     }
-  }, [])
+  }, [pushHistory])
+
+  // ─── Run auto-layout ────────────────────
+  const handleAutoLayout = useCallback(() => {
+    const laid = autoLayout(nodes, CANVAS_W, CANVAS_H)
+    setNodes(laid)
+    pushHistory(laid)
+    toast.success('Disposition automatique appliquée')
+  }, [nodes, pushHistory])
 
   // ─── Export as JSON ──────────────────────
   const handleExportJSON = useCallback(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(nodes))
-    toast.success('Carte mentale sauvegardée en local')
+    const blob = new Blob([JSON.stringify(nodes, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `carte-mentale-${Date.now()}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success('Carte mentale exportée en JSON')
   }, [nodes])
+
+  // ─── Export as SVG ───────────────────────
+  const handleExportSVG = useCallback(() => {
+    const svgEl = document.querySelector('.mind-map-svg') as SVGSVGElement | null
+    if (!svgEl) { toast.error('Impossible d\'exporter le SVG'); return }
+    const svgData = new XMLSerializer().serializeToString(svgEl)
+    const blob = new Blob([svgData], { type: 'image/svg+xml' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `carte-mentale-${Date.now()}.svg`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success('Carte mentale exportée en SVG')
+  }, [])
 
   // ─── Export as text outline ──────────────
   const handleExportText = useCallback(async () => {
@@ -389,7 +574,7 @@ export function MindMapModule() {
           <div>
             <h2 className="text-xl font-bold text-foreground">Carte Mentale</h2>
             <p className="text-xs text-muted-foreground">
-              {nodes.length} nœud(s) — Cliquez pour sélectionner, double-cliquez pour éditer
+              {nodes.length} nœud(s){saving ? ' — Sauvegarde…' : ''} — Cliquez pour sélectionner, double-cliquez pour éditer
             </p>
           </div>
         </div>
@@ -415,6 +600,15 @@ export function MindMapModule() {
           >
             <Download className="h-3 w-3" />
             JSON
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={handleExportSVG}
+          >
+            <Download className="h-3 w-3" />
+            SVG
           </Button>
           <Button
             variant="outline"
@@ -461,6 +655,17 @@ export function MindMapModule() {
               <Move className="h-3 w-3" />
               Glisser pour déplacer
             </span>
+            <Button variant="ghost" size="sm" onClick={undo} disabled={historyIdx <= 0} className="h-8 w-8 p-0" title="Annuler (Ctrl+Z)">
+              <Undo2 className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={redo} disabled={historyIdx >= history.length - 1} className="h-8 w-8 p-0" title="Refaire (Ctrl+Y)">
+              <Redo2 className="h-4 w-4" />
+            </Button>
+            <span className="w-px h-5 bg-border" />
+            <Button variant="ghost" size="sm" onClick={handleAutoLayout} className="h-8 gap-1 text-xs" title="Disposition automatique">
+              <LayoutTemplate className="h-3.5 w-3.5" />
+              Auto
+            </Button>
             <Button variant="ghost" size="sm" onClick={zoomOut} className="h-8 w-8 p-0">
               <ZoomOut className="h-4 w-4" />
             </Button>
@@ -487,7 +692,7 @@ export function MindMapModule() {
               onClick={() => { setSelectedId(null); setEditingId(null) }}
             >
               <svg
-                className="absolute inset-0 w-full h-full"
+                className="absolute inset-0 w-full h-full mind-map-svg"
                 viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`}
                 style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
               >

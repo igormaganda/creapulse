@@ -1073,3 +1073,53 @@ Stage Summary:
 - Fichiers créés : 7 (BpSnapshot API, quality API, conseiller pipeline API, email service, use-socket hook, realtime-service, type declarations)
 - Fichiers modifiés : ~15 (business-plan route + composant, pipeline-v3, riasec, kiviat, tremplin, mentorat, messages, dashboards, beneficiaire-360, conseiller-layout, .env, package.json)
 - Modèle Prisma : +1 champ (bpSectionMeta), +1 modèle (BpSnapshot)
+---
+Task ID: p12-mindmap-api-exports
+Agent: Sub-agent
+Task: P12.1 Mind-map API + P12.2 Export fixes
+
+Work Log:
+- Added MindMap model to Prisma schema (id, userId, tenantId, title, nodes as Json, timestamps)
+- Relations already present in User and Tenant models (mindMaps MindMap[])
+- Ran prisma generate to regenerate client
+- Created /src/app/api/mind-map/route.ts with GET/POST/PUT/DELETE handlers
+  - GET: list all mind maps (select: id, title, createdAt, updatedAt) or single by ?id=xxx (full with nodes)
+  - POST: create new mind map with Zod validation (title optional, nodes required)
+  - PUT: update mind map with ownership verification
+  - DELETE: delete mind map with ownership verification
+- Fixed JSON export in mind-map.tsx: now downloads an actual JSON file via Blob URL
+- Added SVG export handler (handleExportSVG) that serializes the SVG canvas and downloads as .svg file
+- Added className="mind-map-svg" to the <svg> element for SVG export targeting
+- Added SVG export button in the header toolbar between JSON and Copier buttons
+
+Stage Summary:
+- Mind map data can now persist server-side via /api/mind-map CRUD endpoints
+- JSON export downloads a real .json file instead of just saving to localStorage
+- SVG export downloads the visual map as a .svg file
+---
+Task ID: p11-admin-mentor
+Agent: Sub-agent
+Task: P11.4 Admin mentor API + P11.5 Conseiller mentor management UI
+
+Work Log:
+- Created /src/app/api/admin-centre/mentors/route.ts (GET/POST/PATCH/DELETE)
+  - GET: Lists all mentors scoped to tenant with user info, active mentorship count, pending request count; supports search + pagination; COUNSELOR/ADMIN roles
+  - POST: Creates mentor profile from existing user; validates tenant ownership and no duplicate profile; ADMIN only; sends notification
+  - PATCH: Updates mentor profile fields (bio, expertise, sectors, location, availability, maxMentees); ADMIN only
+  - DELETE: Removes mentor profile only if no active mentorships; ADMIN only; sends notification
+  - All endpoints use Zod validation and withAuth
+- Created /src/components/conseiller/mentor-management.tsx (3 tabs: Demandes, Mentorats actifs, Mentors)
+  - Tab "Demandes": Lists pending mentorship requests with mentee avatar, name, message, objectives, date; Accept/Reject buttons with confirmation dialog; uses authFetch PATCH /api/mentorat
+  - Tab "Mentorats actifs": Lists active mentorships showing mentor→mentee with avatars, start date; End button with confirmation dialog; uses authFetch PATCH /api/mentorat
+  - Tab "Mentors": Grid of mentor cards showing name, email, bio, expertise/sector tags, availability badge, rating, location, max mentees; uses authFetch GET /api/mentorat
+  - Uses shadcn/ui (Card, Button, Badge, Tabs, Dialog, Separator, Avatar)
+  - Uses Framer Motion for stagger animations and AnimatePresence
+  - Uses sonner toast for action feedback
+  - French text throughout, responsive layout, empty states
+
+Stage Summary:
+- Admin can now create/edit/delete mentor profiles via /api/admin-centre/mentors
+- Counselors can accept/reject mentorship requests and manage active mentorships
+- All API calls use withAuth for role-based access
+- Component follows existing conseiller patterns with tabs, cards, and animations
+- Lint: 0 errors, 0 new warnings

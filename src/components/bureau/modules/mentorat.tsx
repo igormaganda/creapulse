@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { authFetch } from '@/lib/auth-fetch'
 import {
   GraduationCap,
   Search,
@@ -124,179 +125,23 @@ const AVATAR_COLORS = [
   'bg-indigo-500', 'bg-lime-500',
 ]
 
-const MOCK_MENTORS: Mentor[] = [
-  {
-    id: 'mentor-1',
-    name: 'Sophie Laurent',
-    email: 'sophie.laurent@mentor.fr',
-    avatarUrl: null,
-    bio: 'Ancienne directrice générale de PME avec 20 ans d\'expérience en stratégie et management. Spécialisée dans l\'accompagnement de startups tech et de projets innovants.',
-    expertise: ['Stratégie', 'Gestion d\'équipe', 'Développement commercial'],
-    sectors: ['Tech / Numérique', 'Services'],
-    location: 'Paris',
-    availability: 'AVAILABLE',
-    maxMentees: 3,
-    rating: 4.9,
-    reviewCount: 24,
-  },
-  {
-    id: 'mentor-2',
-    name: 'Marc Dubois',
-    email: 'marc.dubois@mentor.fr',
-    avatarUrl: null,
-    bio: 'Expert-comptable et consultant financier. Accompagne les créateurs sur la structuration financière, le business plan et les relations bancaires.',
-    expertise: ['Financement', 'Fiscalité', 'Business Plan'],
-    sectors: ['Commerce', 'Services', 'Artisanat'],
-    location: 'Créteil',
-    availability: 'AVAILABLE',
-    maxMentees: 4,
-    rating: 4.7,
-    reviewCount: 18,
-  },
-  {
-    id: 'mentor-3',
-    name: 'Amina Benali',
-    email: 'amina.benali@mentor.fr',
-    avatarUrl: null,
-    bio: 'Fondatrice de deux startups à succès (e-commerce et SaaS). Passionnée par le marketing digital et la croissance utilisateur.',
-    expertise: ['Marketing Digital', 'Innovation', 'Commerce International'],
-    sectors: ['Tech / Numérique', 'Commerce', 'Événementiel'],
-    location: 'Paris',
-    availability: 'LIMITED',
-    maxMentees: 2,
-    rating: 4.8,
-    reviewCount: 31,
-  },
-  {
-    id: 'mentor-4',
-    name: 'Philippe Martin',
-    email: 'philippe.martin@mentor.fr',
-    avatarUrl: null,
-    bio: 'Avocat spécialisé en droit des affaires. Conseille sur le choix du statut juridique, les contrats et la propriété intellectuelle.',
-    expertise: ['Droit des sociétés', 'Gestion de projet'],
-    sectors: ['BTP', 'Industrie', 'Immobilier'],
-    location: 'Nanterre',
-    availability: 'AVAILABLE',
-    maxMentees: 3,
-    rating: 4.5,
-    reviewCount: 12,
-  },
-  {
-    id: 'mentor-5',
-    name: 'Claire Moreau',
-    email: 'claire.moreau@mentor.fr',
-    avatarUrl: null,
-    bio: 'DRH chevronnée avec expérience en recrutement, management et culture d\'entreprise. Aide les créateurs à structurer leur équipe.',
-    expertise: ['Ressources Humaines', 'Gestion d\'équipe'],
-    sectors: ['Services', 'Formation', 'Santé / Bien-être'],
-    location: 'Versailles',
-    availability: 'AVAILABLE',
-    maxMentees: 5,
-    rating: 4.6,
-    reviewCount: 9,
-  },
-  {
-    id: 'mentor-6',
-    name: 'Thomas Petit',
-    email: 'thomas.petit@mentor.fr',
-    avatarUrl: null,
-    bio: 'Serial entrepreneur, fondateur de 3 entreprises. Expert en levée de fonds et en pitch deck. Accompagne les startups dans leur recherche de financement.',
-    expertise: ['Financement', 'Business Plan', 'Stratégie'],
-    sectors: ['Tech / Numérique', 'Innovation'],
-    location: 'Paris',
-    availability: 'LIMITED',
-    maxMentees: 2,
-    rating: 4.9,
-    reviewCount: 42,
-  },
-  {
-    id: 'mentor-7',
-    name: 'Isabelle Roux',
-    email: 'isabelle.roux@mentor.fr',
-    avatarUrl: null,
-    bio: 'Consultante en développement commercial B2B. Experte en prospection, négociation et fidélisation client.',
-    expertise: ['Développement commercial', 'Stratégie'],
-    sectors: ['Commerce', 'Commerce International', 'Services'],
-    location: 'Boulogne-Billancourt',
-    availability: 'AVAILABLE',
-    maxMentees: 3,
-    rating: 4.4,
-    reviewCount: 15,
-  },
-  {
-    id: 'mentor-8',
-    name: 'Jean-Pierre Garnier',
-    email: 'jp.garnier@mentor.fr',
-    avatarUrl: null,
-    bio: 'Chef d\'entreprise retraité du secteur de la restauration. Mentor bénévole avec une grande expérience en gestion opérationnelle.',
-    expertise: ['Gestion de projet', 'Business Plan'],
-    sectors: ['Restauration', 'Artisanat', 'Commerce'],
-    location: 'Saint-Denis',
-    availability: 'UNAVAILABLE',
-    maxMentees: 2,
-    rating: 4.3,
-    reviewCount: 7,
-  },
-  {
-    id: 'mentor-9',
-    name: 'Nadia Kaci',
-    email: 'nadia.kaci@mentor.fr',
-    avatarUrl: null,
-    bio: 'Experte en transformation digitale et innovation. Ancienne consultante McKinsey. Accompagne les projets tech et de la transition écologique.',
-    expertise: ['Innovation', 'Stratégie', 'Marketing Digital'],
-    sectors: ['Tech / Numérique', 'BTP', 'Industrie'],
-    location: 'Paris',
-    availability: 'AVAILABLE',
-    maxMentees: 3,
-    rating: 4.8,
-    reviewCount: 20,
-  },
-  {
-    id: 'mentor-10',
-    name: 'François Lefevre',
-    email: 'francois.lefevre@mentor.fr',
-    avatarUrl: null,
-    bio: 'Gérant de franchise et expert en entrepreneuriat. Accompagne les créateurs dans le montage de projets de franchise et de commerce.',
-    expertise: ['Business Plan', 'Financement', 'Commerce International'],
-    sectors: ['Commerce', 'Restauration', 'Services'],
-    location: 'Montreuil',
-    availability: 'AVAILABLE',
-    maxMentees: 4,
-    rating: 4.6,
-    reviewCount: 13,
-  },
-]
-
-const MOCK_REQUESTS: MentorRequest[] = [
-  {
-    id: 'req-1',
-    mentorName: 'Sophie Laurent',
-    mentorAvatarUrl: null,
-    message: 'Bonjour Sophie, je suis en train de développer une startup dans la EdTech et j\'aimerais bénéficier de votre expérience en stratégie pour valider mon modèle économique.',
-    objectives: ['Valider mon idée de business', 'Structurer mon business plan'],
-    status: 'ACCEPTED',
-    createdAt: '2025-01-20T10:00:00Z',
-    updatedAt: '2025-01-22T14:00:00Z',
-  },
-  {
-    id: 'req-2',
-    mentorName: 'Thomas Petit',
-    mentorAvatarUrl: null,
-    message: 'Bonjour Thomas, je prépare ma première levée de fonds seed et je recherche un mentor pour m\'aider à préparer mon pitch deck et mes rendez-vous investisseurs.',
-    objectives: ['Préparer ma levée de fonds', 'Améliorer ma stratégie marketing'],
-    status: 'PENDING',
-    createdAt: '2025-02-01T09:00:00Z',
-    updatedAt: '2025-02-01T09:00:00Z',
-  },
-]
+// Types for active mentorships returned by API
+interface ActiveMentorship {
+  id: string
+  mentorName: string
+  mentorAvatarUrl: string | null
+  status: string
+  startedAt: string
+}
 
 // ────────────────────────────────────────────
 // Component
 // ────────────────────────────────────────────
 
 export function Mentorat() {
-  const [mentors, setMentors] = useState<Mentor[]>(MOCK_MENTORS)
-  const [requests, setRequests] = useState<MentorRequest[]>(MOCK_REQUESTS)
+  const [mentors, setMentors] = useState<Mentor[]>([])
+  const [requests, setRequests] = useState<MentorRequest[]>([])
+  const [activeMentorships, setActiveMentorships] = useState<ActiveMentorship[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('mentors')
 
@@ -316,22 +161,21 @@ export function Mentorat() {
   // Mentor detail
   const [selectedDetailMentor, setSelectedDetailMentor] = useState<Mentor | null>(null)
 
-  // Load data
+  // Load data from API
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-
-        const res = await fetch('/api/mentorat', { headers, credentials: 'include' })
+        const res = await authFetch('/api/mentorat')
         if (res.ok) {
           const json = await res.json()
           if (json.success && json.data) {
-            if (json.data.mentors?.length > 0) setMentors(json.data.mentors)
-            if (json.data.myRequests) setRequests(json.data.myRequests)
+            setMentors(json.data.mentors ?? [])
+            setRequests(json.data.myRequests ?? [])
+            setActiveMentorships(json.data.activeMentorships ?? [])
           }
         }
       } catch {
-        // Use mock data
+        // Silently fail — empty state will show
       } finally {
         setLoading(false)
       }
@@ -374,12 +218,9 @@ export function Mentorat() {
     if (!selectedMentor || !requestMessage.trim() || requestObjectives.length === 0) return
     setSending(true)
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-
-      const res = await fetch('/api/mentorat', {
+      const res = await authFetch('/api/mentorat', {
         method: 'POST',
-        headers,
-        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mentorId: selectedMentor.id,
           message: requestMessage,
@@ -466,6 +307,12 @@ export function Mentorat() {
             <MessageSquare className="h-4 w-4" />
             Mes demandes ({requests.filter(r => r.status === 'PENDING').length > 0 ? `${requests.filter(r => r.status === 'PENDING').length} en attente` : requests.length})
           </TabsTrigger>
+          {activeMentorships.length > 0 && (
+            <TabsTrigger value="active" className="gap-1.5">
+              <CheckCircle2 className="h-4 w-4" />
+              Mon mentor ({activeMentorships.length})
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Mentors Tab */}
@@ -584,6 +431,41 @@ export function Mentorat() {
             <div className="space-y-3">
               {requests.map((req) => (
                 <RequestCard key={req.id} request={req} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Active Mentorship Tab */}
+        <TabsContent value="active" className="space-y-4 mt-4">
+          {activeMentorships.length === 0 ? (
+            <Card className="border-none shadow-sm">
+              <CardContent className="py-12 text-center">
+                <GraduationCap className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+                <p className="text-muted-foreground">Aucun mentorat actif</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {activeMentorships.map((ms) => (
+                <Card key={ms.id} className="border-emerald-200 dark:border-emerald-800">
+                  <CardContent className="py-4 flex items-center gap-4">
+                    <div className={cn('h-10 w-10 rounded-full flex items-center justify-center text-white font-semibold text-sm shrink-0', AVATAR_COLORS[ms.mentorName.charCodeAt(0) % AVATAR_COLORS.length])}>
+                      {ms.mentorName.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{ms.mentorName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        <Calendar className="h-3 w-3 inline mr-1" />
+                        Depuis le {new Date(ms.startedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </p>
+                    </div>
+                    <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-0">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Actif
+                    </Badge>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           )}
