@@ -1,0 +1,686 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+     4→     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→     5→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     6→     6→import { Button } from '@/components/ui/button'
+     7→     7→import { Badge } from '@/components/ui/badge'
+     8→     8→import { Input } from '@/components/ui/input'
+     9→     9→import {
+    10→    10→  GitBranch,
+    11→    11→  Plus,
+    12→    12→  Trash2,
+    13→    13→  Copy,
+    14→    14→  Download,
+    15→    15→  LayoutTemplate,
+    16→    16→  ZoomIn,
+    17→    17→  ZoomOut,
+    18→    18→  Move,
+    19→    19→} from 'lucide-react'
+    20→    20→import { toast } from 'sonner'
+    21→    21→import { cn } from '@/lib/utils'
+    22→    22→
+    23→    23→// ─── Types ──────────────────────────────────
+    24→    24→
+    25→    25→interface MindMapNode {
+    26→    26→  id: string
+    27→    27→  text: string
+    28→    28→  x: number
+    29→    29→  y: number
+    30→    30→  parentId: string | null
+    31→    31→  color: string
+    32→    32→  children: string[]
+    33→    33→}
+    34→    34→
+    35→    35→const BRANCH_COLORS = [
+    36→    36→  '#8b5cf6', // violet
+    37→    37→  '#f97316', // orange
+    38→    38→  '#06b6d4', // cyan
+    39→    39→  '#10b981', // emerald
+    40→    40→  '#f43f5e', // rose
+    41→    41→  '#eab308', // yellow
+    42→    42→  '#3b82f6', // blue
+    43→    43→  '#ec4899', // pink
+    44→    44→]
+    45→    45→
+    46→    46→const STORAGE_KEY = 'creapulse-mindmap'
+    47→    47→
+    48→    48→const TEMPLATES: Record<string, MindMapNode[]> = {
+    49→    49→  'Mon Projet': [
+    50→    50→    { id: 'root', text: 'Mon Projet', x: 400, y: 300, parentId: null, color: '#8b5cf6', children: ['p1', 'p2', 'p3', 'p4'] },
+    51→    51→    { id: 'p1', text: 'Produit / Service', x: 200, y: 120, parentId: 'root', color: '#f97316', children: [] },
+    52→    52→    { id: 'p2', text: 'Marché cible', x: 600, y: 120, parentId: 'root', color: '#06b6d4', children: [] },
+    53→    53→    { id: 'p3', text: 'Ressources', x: 200, y: 480, parentId: 'root', color: '#10b981', children: [] },
+    54→    54→    { id: 'p4', text: 'Objectifs', x: 600, y: 480, parentId: 'root', color: '#f43f5e', children: [] },
+    55→    55→  ],
+    56→    56→  'Offre Commerciale': [
+    57→    57→    { id: 'root', text: 'Offre Commerciale', x: 400, y: 300, parentId: null, color: '#8b5cf6', children: ['o1', 'o2', 'o3', 'o4'] },
+    58→    58→    { id: 'o1', text: 'Tarification', x: 180, y: 140, parentId: 'root', color: '#f97316', children: [] },
+    59→    59→    { id: 'o2', text: 'Avantages clients', x: 620, y: 140, parentId: 'root', color: '#06b6d4', children: [] },
+    60→    60→    { id: 'o3', text: 'Canaux de vente', x: 180, y: 460, parentId: 'root', color: '#10b981', children: [] },
+    61→    61→    { id: 'o4', text: 'Différenciation', x: 620, y: 460, parentId: 'root', color: '#eab308', children: [] },
+    62→    62→  ],
+    63→    63→  'Réseau': [
+    64→    64→    { id: 'root', text: 'Mon Réseau', x: 400, y: 300, parentId: null, color: '#8b5cf6', children: ['r1', 'r2', 'r3', 'r4', 'r5'] },
+    65→    65→    { id: 'r1', text: 'Mentors', x: 150, y: 100, parentId: 'root', color: '#f97316', children: [] },
+    66→    66→    { id: 'r2', text: 'Partenaires', x: 400, y: 80, parentId: 'root', color: '#06b6d4', children: [] },
+    67→    67→    { id: 'r3', text: 'Conseillers', x: 650, y: 100, parentId: 'root', color: '#10b981', children: [] },
+    68→    68→    { id: 'r4', text: 'Pairs', x: 150, y: 500, parentId: 'root', color: '#f43f5e', children: [] },
+    69→    69→    { id: 'r5', text: 'Fournisseurs', x: 650, y: 500, parentId: 'root', color: '#eab308', children: [] },
+    70→    70→  ],
+    71→    71→}
+    72→    72→
+    73→    73→const CANVAS_W = 900
+    74→    74→const CANVAS_H = 650
+    75→    75→
+    76→    76→// ─── Helpers ────────────────────────────────
+    77→    77→
+    78→    78→function uid(): string {
+    79→    79→  return crypto.randomUUID()
+    80→    80→}
+    81→    81→
+    82→    82→function getNextColor(childCount: number): string {
+    83→    83→  return BRANCH_COLORS[childCount % BRANCH_COLORS.length]
+    84→    84→}
+    85→    85→
+    86→    86→function buildTextOutline(nodes: MindMapNode[], nodeId: string, indent: number = 0): string {
+    87→    87→  const node = nodes.find(n => n.id === nodeId)
+    88→    88→  if (!node) return ''
+    89→    89→  const prefix = '  '.repeat(indent)
+    90→    90→  let result = `${prefix}${indent === 0 ? '## ' : '- '}${node.text}\n`
+    91→    91→  for (const childId of node.children) {
+    92→    92→    result += buildTextOutline(nodes, childId, indent + 1)
+    93→    93→  }
+    94→    94→  return result
+    95→    95→}
+    96→    96→
+    97→    97→// ─── Main Component ─────────────────────────
+    98→    98→
+    99→    99→export function MindMapModule() {
+   100→   100→  const [isLoading, setIsLoading] = useState(true)
+   101→   101→  const [nodes, setNodes] = useState<MindMapNode[]>([])
+   102→   102→  const [selectedId, setSelectedId] = useState<string | null>(null)
+   103→   103→  const [editingId, setEditingId] = useState<string | null>(null)
+   104→   104→  const [editText, setEditText] = useState('')
+   105→   105→  const [zoom, setZoom] = useState(1)
+   106→   106→  const [isDragging, setIsDragging] = useState(false)
+   107→   107→  const [dragNodeId, setDragNodeId] = useState<string | null>(null)
+   108→   108→  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+   109→   109→  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null)
+   110→   110→  const canvasRef = useRef<HTMLDivElement>(null)
+   111→   111→  const editInputRef = useRef<HTMLInputElement>(null)
+   112→   112→
+   113→   113→  // ─── Load from localStorage ──────────────
+   114→   114→  useEffect(() => {
+   115→   115→    async function load() {
+   116→   116→      try {
+   117→   117→        const saved = localStorage.getItem(STORAGE_KEY)
+   118→   118→        if (saved) {
+   119→   119→          const parsed = JSON.parse(saved)
+   120→   120→          if (Array.isArray(parsed) && parsed.length > 0) {
+   121→   121→            setNodes(parsed)
+   122→   122→            setIsLoading(false)
+   123→   123→            return
+   124→   124→          }
+   125→   125→        }
+   126→   126→      } catch { /* ignore */ }
+   127→   127→      // Default: empty root
+   128→   128→      setNodes([
+   129→   129→        { id: 'root', text: 'Idée centrale', x: CANVAS_W / 2, y: CANVAS_H / 2, parentId: null, color: BRANCH_COLORS[0], children: [] },
+   130→   130→      ])
+   131→   131→      setIsLoading(false)
+   132→   132→    }
+   133→   133→    load()
+   134→   134→  }, [])
+   135→   135→
+   136→   136→  // ─── Auto-save to localStorage ──────────
+   137→   137→  useEffect(() => {
+   138→   138→    if (!isLoading && nodes.length > 0) {
+   139→   139→      localStorage.setItem(STORAGE_KEY, JSON.stringify(nodes))
+   140→   140→    }
+   141→   141→  }, [isLoading, nodes])
+   142→   142→
+   143→   143→  // ─── Focus edit input ────────────────────
+   144→   144→  useEffect(() => {
+   145→   145→    if (editingId && editInputRef.current) {
+   146→   146→      editInputRef.current.focus()
+   147→   147→      editInputRef.current.select()
+   148→   148→    }
+   149→   149→  }, [editingId])
+   150→   150→
+   151→   151→  // ─── Close context menu on click ─────────
+   152→   152→  useEffect(() => {
+   153→   153→    const handler = () => setContextMenu(null)
+   154→   154→    window.addEventListener('click', handler)
+   155→   155→    return () => window.removeEventListener('click', handler)
+   156→   156→  }, [])
+   157→   157→
+   158→   158→  // ─── Node map for quick lookup ───────────
+   159→   159→  const nodeMap = useMemo(() => {
+   160→   160→    const map = new Map<string, MindMapNode>()
+   161→   161→    for (const n of nodes) map.set(n.id, n)
+   162→   162→    return map
+   163→   163→  }, [nodes])
+   164→   164→
+   165→   165→  // ─── Add child node ──────────────────────
+   166→   166→  const addChildNode = useCallback((parentId: string) => {
+   167→   167→    const parent = nodeMap.get(parentId)
+   168→   168→    if (!parent) return
+   169→   169→
+   170→   170→    const angle = (parent.children.length * Math.PI * 2) / Math.max(parent.children.length + 1, 5) - Math.PI / 2
+   171→   171→    const dist = 120 + parent.children.length * 10
+   172→   172→    const newX = Math.max(80, Math.min(CANVAS_W - 80, parent.x + Math.cos(angle) * dist))
+   173→   173→    const newY = Math.max(40, Math.min(CANVAS_H - 40, parent.y + Math.sin(angle) * dist))
+   174→   174→
+   175→   175→    const newId = uid()
+   176→   176→    const color = parentId === 'root' || parent.parentId === null
+   177→   177→      ? getNextColor(parent.children.length)
+   178→   178→      : parent.color
+   179→   179→
+   180→   180→    const newNode: MindMapNode = {
+   181→   181→      id: newId,
+   182→   182→      text: 'Nouvelle idée',
+   183→   183→      x: newX,
+   184→   184→      y: newY,
+   185→   185→      parentId,
+   186→   186→      color,
+   187→   187→      children: [],
+   188→   188→    }
+   189→   189→
+   190→   190→    setNodes(prev => {
+   191→   191→      const updated = prev.map(n =>
+   192→   192→        n.id === parentId ? { ...n, children: [...n.children, newId] } : n
+   193→   193→      )
+   194→   194→      return [...updated, newNode]
+   195→   195→    })
+   196→   196→    setSelectedId(newId)
+   197→   197→    setEditingId(newId)
+   198→   198→    setEditText('Nouvelle idée')
+   199→   199→  }, [nodeMap])
+   200→   200→
+   201→   201→  // ─── Delete node ─────────────────────────
+   202→   202→  const deleteNode = useCallback((nodeId: string) => {
+   203→   203→    const node = nodeMap.get(nodeId)
+   204→   204→    if (!node || !node.parentId) {
+   205→   205→      toast.error('Impossible de supprimer le nœud central')
+   206→   206→      return
+   207→   207→    }
+   208→   208→
+   209→   209→    // Recursively collect all descendant ids
+   210→   210→    const toDelete = new Set<string>()
+   211→   211→    const collect = (id: string) => {
+   212→   212→      toDelete.add(id)
+   213→   213→      const n = nodeMap.get(id)
+   214→   214→      if (n) n.children.forEach(collect)
+   215→   215→    }
+   216→   216→    collect(nodeId)
+   217→   217→
+   218→   218→    setNodes(prev => {
+   219→   219→      // Remove node from parent's children
+   220→   220→      const updated = prev.map(n =>
+   221→   221→        n.id === node.parentId
+   222→   222→          ? { ...n, children: n.children.filter(c => c !== nodeId) }
+   223→   223→          : n
+   224→   224→      )
+   225→   225→      return updated.filter(n => !toDelete.has(n.id))
+   226→   226→    })
+   227→   227→    setSelectedId(null)
+   228→   228→    setEditingId(null)
+   229→   229→  }, [nodeMap])
+   230→   230→
+   231→   231→  // ─── Update node text ────────────────────
+   232→   232→  const updateNodeText = useCallback((nodeId: string, text: string) => {
+   233→   233→    setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, text } : n))
+   234→   234→  }, [])
+   235→   235→
+   236→   236→  // ─── Update node position ────────────────
+   237→   237→  const updateNodePosition = useCallback((nodeId: string, x: number, y: number) => {
+   238→   238→    setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, x, y } : n))
+   239→   239→  }, [])
+   240→   240→
+   241→   241→  // ─── Drag handlers ───────────────────────
+   242→   242→  const handleMouseDown = useCallback((e: React.MouseEvent, nodeId: string) => {
+   243→   243→    if (e.button !== 0) return // left click only
+   244→   244→    e.stopPropagation()
+   245→   245→    const node = nodeMap.get(nodeId)
+   246→   246→    if (!node) return
+   247→   247→
+   248→   248→    const canvas = canvasRef.current
+   249→   249→    if (!canvas) return
+   250→   250→    const rect = canvas.getBoundingClientRect()
+   251→   251→    const scaleX = CANVAS_W / (rect.width * zoom)
+   252→   252→    const scaleY = CANVAS_H / (rect.height * zoom)
+   253→   253→
+   254→   254→    setIsDragging(true)
+   255→   255→    setDragNodeId(nodeId)
+   256→   256→    setDragOffset({
+   257→   257→      x: (e.clientX - rect.left) * scaleX - node.x,
+   258→   258→      y: (e.clientY - rect.top) * scaleY - node.y,
+   259→   259→    })
+   260→   260→    setSelectedId(nodeId)
+   261→   261→  }, [nodeMap, zoom])
+   262→   262→
+   263→   263→  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+   264→   264→    if (!isDragging || !dragNodeId) return
+   265→   265→
+   266→   266→    const canvas = canvasRef.current
+   267→   267→    if (!canvas) return
+   268→   268→    const rect = canvas.getBoundingClientRect()
+   269→   269→    const scaleX = CANVAS_W / (rect.width * zoom)
+   270→   270→    const scaleY = CANVAS_H / (rect.height * zoom)
+   271→   271→
+   272→   272→    const x = Math.max(40, Math.min(CANVAS_W - 40, (e.clientX - rect.left) * scaleX - dragOffset.x))
+   273→   273→    const y = Math.max(20, Math.min(CANVAS_H - 20, (e.clientY - rect.top) * scaleY - dragOffset.y))
+   274→   274→    updateNodePosition(dragNodeId, x, y)
+   275→   275→  }, [isDragging, dragNodeId, dragOffset, zoom, updateNodePosition])
+   276→   276→
+   277→   277→  const handleMouseUp = useCallback(() => {
+   278→   278→    setIsDragging(false)
+   279→   279→    setDragNodeId(null)
+   280→   280→  }, [])
+   281→   281→
+   282→   282→  // ─── Double click to edit ────────────────
+   283→   283→  const handleDoubleClick = useCallback((e: React.MouseEvent, nodeId: string) => {
+   284→   284→    e.stopPropagation()
+   285→   285→    const node = nodeMap.get(nodeId)
+   286→   286→    if (!node) return
+   287→   287→    setEditingId(nodeId)
+   288→   288→    setEditText(node.text)
+   289→   289→  }, [nodeMap])
+   290→   290→
+   291→   291→  // ─── Submit edit ─────────────────────────
+   292→   292→  const submitEdit = useCallback(() => {
+   293→   293→    if (editingId && editText.trim()) {
+   294→   294→      updateNodeText(editingId, editText.trim())
+   295→   295→    }
+   296→   296→    setEditingId(null)
+   297→   297→  }, [editingId, editText, updateNodeText])
+   298→   298→
+   299→   299→  // ─── Right click context menu ────────────
+   300→   300→  const handleContextMenu = useCallback((e: React.MouseEvent, nodeId: string) => {
+   301→   301→    e.preventDefault()
+   302→   302→    e.stopPropagation()
+   303→   303→    setContextMenu({ x: e.clientX, y: e.clientY, nodeId })
+   304→   304→  }, [])
+   305→   305→
+   306→   306→  // ─── Load template ───────────────────────
+   307→   307→  const loadTemplate = useCallback((name: string) => {
+   308→   308→    const template = TEMPLATES[name]
+   309→   309→    if (template) {
+   310→   310→      setNodes(template.map(n => ({ ...n, children: [...n.children] })))
+   311→   311→      setSelectedId(null)
+   312→   312→      setEditingId(null)
+   313→   313→      toast.success(`Template "${name}" chargé`)
+   314→   314→    }
+   315→   315→  }, [])
+   316→   316→
+   317→   317→  // ─── Export as JSON ──────────────────────
+   318→   318→  const handleExportJSON = useCallback(() => {
+   319→   319→    localStorage.setItem(STORAGE_KEY, JSON.stringify(nodes))
+   320→   320→    toast.success('Carte mentale sauvegardée en local')
+   321→   321→  }, [nodes])
+   322→   322→
+   323→   323→  // ─── Export as text outline ──────────────
+   324→   324→  const handleExportText = useCallback(async () => {
+   325→   325→    const root = nodes.find(n => n.parentId === null)
+   326→   326→    if (!root) return
+   327→   327→    const outline = buildTextOutline(nodes, root.id)
+   328→   328→    try {
+   329→   329→      await navigator.clipboard.writeText(outline)
+   330→   330→      toast.success('Plan textuel copié dans le presse-papier !')
+   331→   331→    } catch {
+   332→   332→      toast.error('Impossible de copier dans le presse-papier')
+   333→   333→    }
+   334→   334→  }, [nodes])
+   335→   335→
+   336→   336→  // ─── Zoom controls ───────────────────────
+   337→   337→  const zoomIn = useCallback(() => setZoom(z => Math.min(z + 0.15, 2)), [])
+   338→   338→  const zoomOut = useCallback(() => setZoom(z => Math.max(z - 0.15, 0.4)), [])
+   339→   339→
+   340→   340→  // ─── SVG connections (must be before early return for hooks rules) ───
+   341→   341→  const connections = useMemo(() => {
+   342→   342→    return nodes
+   343→   343→      .filter(n => n.parentId !== null)
+   344→   344→      .map(n => {
+   345→   345→        const parent = nodeMap.get(n.parentId!)
+   346→   346→        if (!parent) return null
+   347→   347→        return (
+   348→   348→          <line
+   349→   349→            key={`line-${n.id}`}
+   350→   350→            x1={parent.x}
+   351→   351→            y1={parent.y}
+   352→   352→            x2={n.x}
+   353→   353→            y2={n.y}
+   354→   354→            stroke={n.color}
+   355→   355→            strokeWidth={2}
+   356→   356→            strokeOpacity={0.5}
+   357→   357→            strokeLinecap="round"
+   358→   358→          />
+   359→   359→        )
+   360→   360→      })
+   361→   361→      .filter(Boolean)
+   362→   362→  }, [nodes, nodeMap])
+   363→   363→
+   364→   364→  // ─── Loading skeleton ───────────────────
+   365→   365→  if (isLoading) {
+   366→   366→    return (
+   367→   367→      <div className="p-4 md:p-6 lg:p-8 space-y-6">
+   368→   368→        <div className="h-8 w-64 bg-muted animate-pulse rounded" />
+   369→   369→        <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+   370→   370→        <div className="h-96 bg-muted animate-pulse rounded-xl" />
+   371→   371→      </div>
+   372→   372→    )
+   373→   373→  }
+   374→   374→
+   375→   375→  // ─── Main Render ─────────────────────────
+   376→   376→  return (
+   377→   377→    <motion.div
+   378→   378→      initial={{ opacity: 0, y: 20 }}
+   379→   379→      animate={{ opacity: 1, y: 0 }}
+   380→   380→      transition={{ duration: 0.4 }}
+   381→   381→      className="flex-1 overflow-y-auto"
+   382→   382→    >
+   383→   383→      {/* Header */}
+   384→   384→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 md:px-6 border-b bg-background">
+   385→   385→        <div className="flex items-center gap-3">
+   386→   386→          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10">
+   387→   387→            <GitBranch className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+   388→   388→          </div>
+   389→   389→          <div>
+   390→   390→            <h2 className="text-xl font-bold text-foreground">Carte Mentale</h2>
+   391→   391→            <p className="text-xs text-muted-foreground">
+   392→   392→              {nodes.length} nœud(s) — Cliquez pour sélectionner, double-cliquez pour éditer
+   393→   393→            </p>
+   394→   394→          </div>
+   395→   395→        </div>
+   396→   396→        <div className="flex items-center gap-2 flex-wrap">
+   397→   397→          {/* Templates */}
+   398→   398→          {Object.keys(TEMPLATES).map((name) => (
+   399→   399→            <Button
+   400→   400→              key={name}
+   401→   401→              variant="outline"
+   402→   402→              size="sm"
+   403→   403→              className="gap-1.5 text-xs border-violet-300 text-violet-600 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-400"
+   404→   404→              onClick={() => loadTemplate(name)}
+   405→   405→            >
+   406→   406→              <LayoutTemplate className="h-3 w-3" />
+   407→   407→              {name}
+   408→   408→            </Button>
+   409→   409→          ))}
+   410→   410→          <Button
+   411→   411→            variant="outline"
+   412→   412→            size="sm"
+   413→   413→            className="gap-1.5 text-xs"
+   414→   414→            onClick={handleExportJSON}
+   415→   415→          >
+   416→   416→            <Download className="h-3 w-3" />
+   417→   417→            JSON
+   418→   418→          </Button>
+   419→   419→          <Button
+   420→   420→            variant="outline"
+   421→   421→            size="sm"
+   422→   422→            className="gap-1.5 text-xs"
+   423→   423→            onClick={handleExportText}
+   424→   424→          >
+   425→   425→            <Copy className="h-3 w-3" />
+   426→   426→            Copier
+   427→   427→          </Button>
+   428→   428→        </div>
+   429→   429→      </div>
+   430→   430→
+   431→   431→      <div className="p-4 md:p-6 space-y-4">
+   432→   432→        {/* ── Toolbar ── */}
+   433→   433→        <div className="flex items-center justify-between">
+   434→   434→          <div className="flex items-center gap-2">
+   435→   435→            <Button
+   436→   436→              size="sm"
+   437→   437→              variant="outline"
+   438→   438→              className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white border-0"
+   439→   439→              onClick={() => {
+   440→   440→                const targetId = selectedId || 'root'
+   441→   441→                addChildNode(targetId)
+   442→   442→              }}
+   443→   443→            >
+   444→   444→              <Plus className="h-3.5 w-3.5" />
+   445→   445→              Ajouter
+   446→   446→            </Button>
+   447→   447→            {selectedId && selectedId !== 'root' && (
+   448→   448→              <Button
+   449→   449→                size="sm"
+   450→   450→                variant="outline"
+   451→   451→                className="gap-1.5 text-red-600 border-red-300 hover:bg-red-50 dark:border-red-800"
+   452→   452→                onClick={() => deleteNode(selectedId)}
+   453→   453→              >
+   454→   454→                <Trash2 className="h-3.5 w-3.5" />
+   455→   455→                Supprimer
+   456→   456→              </Button>
+   457→   457→            )}
+   458→   458→          </div>
+   459→   459→          <div className="flex items-center gap-2">
+   460→   460→            <span className="text-xs text-muted-foreground flex items-center gap-1">
+   461→   461→              <Move className="h-3 w-3" />
+   462→   462→              Glisser pour déplacer
+   463→   463→            </span>
+   464→   464→            <Button variant="ghost" size="sm" onClick={zoomOut} className="h-8 w-8 p-0">
+   465→   465→              <ZoomOut className="h-4 w-4" />
+   466→   466→            </Button>
+   467→   467→            <span className="text-xs font-mono text-muted-foreground w-12 text-center">{Math.round(zoom * 100)}%</span>
+   468→   468→            <Button variant="ghost" size="sm" onClick={zoomIn} className="h-8 w-8 p-0">
+   469→   469→              <ZoomIn className="h-4 w-4" />
+   470→   470→            </Button>
+   471→   471→          </div>
+   472→   472→        </div>
+   473→   473→
+   474→   474→        {/* ── Canvas ── */}
+   475→   475→        <Card className="overflow-hidden">
+   476→   476→          <CardContent className="p-0">
+   477→   477→            <div
+   478→   478→              ref={canvasRef}
+   479→   479→              className="relative w-full bg-muted/20 border rounded-lg overflow-hidden cursor-crosshair select-none"
+   480→   480→              style={{
+   481→   481→                paddingBottom: `${(CANVAS_H / CANVAS_W) * 100}%`,
+   482→   482→                minHeight: 400,
+   483→   483→              }}
+   484→   484→              onMouseMove={handleMouseMove}
+   485→   485→              onMouseUp={handleMouseUp}
+   486→   486→              onMouseLeave={handleMouseUp}
+   487→   487→              onClick={() => { setSelectedId(null); setEditingId(null) }}
+   488→   488→            >
+   489→   489→              <svg
+   490→   490→                className="absolute inset-0 w-full h-full"
+   491→   491→                viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`}
+   492→   492→                style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+   493→   493→              >
+   494→   494→                {/* Grid dots */}
+   495→   495→                {Array.from({ length: 20 }, (_, i) => (
+   496→   496→                  Array.from({ length: 14 }, (_, j) => (
+   497→   497→                    <circle
+   498→   498→                      key={`dot-${i}-${j}`}
+   499→   499→                      cx={i * 50 + 25}
+   500→   500→                      cy={j * 50 + 25}
+   501→   501→                      r={0.8}
+   502→   502→                      fill="currentColor"
+   503→   503→                      className="text-muted-foreground/10"
+   504→   504→                    />
+   505→   505→                  ))
+   506→   506→                ))}
+   507→   507→                {/* Connections */}
+   508→   508→                {connections}
+   509→   509→              </svg>
+   510→   510→
+   511→   511→              {/* Nodes (rendered as HTML for better interaction) */}
+   512→   512→              <div
+   513→   513→                className="absolute inset-0"
+   514→   514→                style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+   515→   515→              >
+   516→   516→                <AnimatePresence>
+   517→   517→                  {nodes.map((node) => {
+   518→   518→                    const isSelected = selectedId === node.id
+   519→   519→                    const isEditing = editingId === node.id
+   520→   520→                    const isRoot = node.parentId === null
+   521→   521→
+   522→   522→                    return (
+   523→   523→                      <motion.div
+   524→   524→                        key={node.id}
+   525→   525→                        initial={{ opacity: 0, scale: 0.8 }}
+   526→   526→                        animate={{ opacity: 1, scale: 1 }}
+   527→   527→                        exit={{ opacity: 0, scale: 0.5 }}
+   528→   528→                        transition={{ duration: 0.2 }}
+   529→   529→                        className="absolute"
+   530→   530→                        style={{
+   531→   531→                          left: `${(node.x / CANVAS_W) * 100}%`,
+   532→   532→                          top: `${(node.y / CANVAS_H) * 100}%`,
+   533→   533→                          transform: 'translate(-50%, -50%)',
+   534→   534→                        }}
+   535→   535→                        onMouseDown={(e) => handleMouseDown(e, node.id)}
+   536→   536→                        onDoubleClick={(e) => handleDoubleClick(e, node.id)}
+   537→   537→                        onContextMenu={(e) => handleContextMenu(e, node.id)}
+   538→   538→                      >
+   539→   539→                        <div
+   540→   540→                          className={cn(
+   541→   541→                            'rounded-xl px-4 py-2 text-center whitespace-nowrap cursor-grab active:cursor-grabbing transition-shadow border-2 min-w-[60px] max-w-[200px] truncate',
+   542→   542→                            isRoot
+   543→   543→                              ? 'px-5 py-3 shadow-lg'
+   544→   544→                              : 'shadow-md',
+   545→   545→                            isSelected
+   546→   546→                              ? 'ring-2 ring-violet-500 ring-offset-2 shadow-xl'
+   547→   547→                              : 'hover:shadow-lg',
+   548→   548→                          )}
+   549→   549→                          style={{
+   550→   550→                            backgroundColor: `${node.color}15`,
+   551→   551→                            borderColor: node.color,
+   552→   552→                            color: node.color,
+   553→   553→                          }}
+   554→   554→                        >
+   555→   555→                          {isEditing ? (
+   556→   556→                            <input
+   557→   557→                              ref={editInputRef}
+   558→   558→                              type="text"
+   559→   559→                              value={editText}
+   560→   560→                              onChange={(e) => setEditText(e.target.value)}
+   561→   561→                              onBlur={submitEdit}
+   562→   562→                              onKeyDown={(e) => {
+   563→   563→                                if (e.key === 'Enter') submitEdit()
+   564→   564→                                if (e.key === 'Escape') setEditingId(null)
+   565→   565→                                e.stopPropagation()
+   566→   566→                              }}
+   567→   567→                              onMouseDown={(e) => e.stopPropagation()}
+   568→   568→                              className="bg-transparent border-none outline-none text-center text-sm font-medium w-full"
+   569→   569→                              style={{ color: node.color }}
+   570→   570→                            />
+   571→   571→                          ) : (
+   572→   572→                            <span className={cn(
+   573→   573→                              'text-sm font-medium block truncate',
+   574→   574→                              isRoot && 'text-base font-bold'
+   575→   575→                            )}>
+   576→   576→                              {node.text || '...'}
+   577→   577→                            </span>
+   578→   578→                          )}
+   579→   579→                        </div>
+   580→   580→
+   581→   581→                        {/* Add button on hover for non-editing nodes */}
+   582→   582→                        {isSelected && !isEditing && (
+   583→   583→                          <button
+   584→   584→                            type="button"
+   585→   585→                            onClick={(e) => {
+   586→   586→                              e.stopPropagation()
+   587→   587→                              addChildNode(node.id)
+   588→   588→                            }}
+   589→   589→                            className="absolute -right-2 -bottom-2 h-5 w-5 rounded-full bg-violet-600 text-white flex items-center justify-center shadow-md hover:bg-violet-700 transition-colors"
+   590→   590→                          >
+   591→   591→                            <Plus className="h-3 w-3" />
+   592→   592→                          </button>
+   593→   593→                        )}
+   594→   594→                      </motion.div>
+   595→   595→                    )
+   596→   596→                  })}
+   597→   597→                </AnimatePresence>
+   598→   598→              </div>
+   599→   599→            </div>
+   600→   600→          </CardContent>
+   601→   601→        </Card>
+   602→   602→
+   603→   603→        {/* ── Selected node info ── */}
+   604→   604→        {selectedId && nodeMap.get(selectedId) && (
+   605→   605→          <motion.div
+   606→   606→            initial={{ opacity: 0, y: 10 }}
+   607→   607→            animate={{ opacity: 1, y: 0 }}
+   608→   608→          >
+   609→   609→            <Card className="border-violet-200 dark:border-violet-800 bg-violet-50/50 dark:bg-violet-950/20">
+   610→   610→              <CardContent className="py-3 flex items-center justify-between">
+   611→   611→                <div className="flex items-center gap-3">
+   612→   612→                  <div
+   613→   613→                    className="h-4 w-4 rounded-full shrink-0"
+   614→   614→                    style={{ backgroundColor: nodeMap.get(selectedId)!.color }}
+   615→   615→                  />
+   616→   616→                  <div>
+   617→   617→                    <p className="text-sm font-medium">{nodeMap.get(selectedId)!.text}</p>
+   618→   618→                    <p className="text-[10px] text-muted-foreground">
+   619→   619→                      {nodeMap.get(selectedId)!.children.length} enfant(s) — {nodeMap.get(selectedId)!.parentId === null ? 'Racine' : 'Branche'}
+   620→   620→                    </p>
+   621→   621→                  </div>
+   622→   622→                </div>
+   623→   623→                <div className="flex items-center gap-1">
+   624→   624→                  <Button
+   625→   625→                    size="sm"
+   626→   626→                    variant="outline"
+   627→   627→                    className="gap-1 h-7 text-xs border-violet-300 text-violet-600"
+   628→   628→                    onClick={() => addChildNode(selectedId)}
+   629→   629→                  >
+   630→   630→                    <Plus className="h-3 w-3" />
+   631→   631→                    Enfant
+   632→   632→                  </Button>
+   633→   633→                  {selectedId !== 'root' && (
+   634→   634→                    <Button
+   635→   635→                      size="sm"
+   636→   636→                      variant="outline"
+   637→   637→                      className="gap-1 h-7 text-xs text-red-600 border-red-300"
+   638→   638→                      onClick={() => deleteNode(selectedId)}
+   639→   639→                    >
+   640→   640→                      <Trash2 className="h-3 w-3" />
+   641→   641→                    </Button>
+   642→   642→                  )}
+   643→   643→                </div>
+   644→   644→              </CardContent>
+   645→   645→            </Card>
+   646→   646→          </motion.div>
+   647→   647→        )}
+   648→   648→
+   649→   649→        {/* ── Context Menu ── */}
+   650→   650→        {contextMenu && (
+   651→   651→          <div
+   652→   652→            className="fixed z-50 rounded-lg border bg-popover p-1 shadow-xl min-w-[160px]"
+   653→   653→            style={{ left: contextMenu.x, top: contextMenu.y }}
+   654→   654→          >
+   655→   655→            <button
+   656→   656→              type="button"
+   657→   657→              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted transition-colors"
+   658→   658→              onClick={(e) => {
+   659→   659→                e.stopPropagation()
+   660→   660→                addChildNode(contextMenu.nodeId)
+   661→   661→                setContextMenu(null)
+   662→   662→              }}
+   663→   663→            >
+   664→   664→              <Plus className="h-4 w-4" />
+   665→   665→              Ajouter un enfant
+   666→   666→            </button>
+   667→   667→            {contextMenu.nodeId !== 'root' && (
+   668→   668→              <button
+   669→   669→                type="button"
+   670→   670→                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+   671→   671→                onClick={(e) => {
+   672→   672→                  e.stopPropagation()
+   673→   673→                  deleteNode(contextMenu.nodeId)
+   674→   674→                  setContextMenu(null)
+   675→   675→                }}
+   676→   676→              >
+   677→   677→                <Trash2 className="h-4 w-4" />
+   678→   678→                Supprimer
+   679→   679→              </button>
+   680→   680→            )}
+   681→   681→          </div>
+   682→   682→        )}
+   683→   683→      </div>
+   684→   684→    </motion.div>
+   685→   685→  )
+   686→   686→}
