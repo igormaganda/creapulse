@@ -1,0 +1,955 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useRef } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Progress } from '@/components/ui/progress'
+     9→import { Separator } from '@/components/ui/separator'
+    10→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    11→import {
+    12→  Dialog,
+    13→  DialogContent,
+    14→  DialogHeader,
+    15→  DialogTitle,
+    16→  DialogDescription,
+    17→} from '@/components/ui/dialog'
+    18→import { cn } from '@/lib/utils'
+    19→import { toast } from 'sonner'
+    20→import {
+    21→  Trophy,
+    22→  Star,
+    23→  Lock,
+    24→  CheckCircle2,
+    25→  Flame,
+    26→  Target,
+    27→  Clock,
+    28→  Medal,
+    29→  Crown,
+    30→  Zap,
+    31→  Users,
+    32→  MapPin,
+    33→  Globe,
+    34→  ChevronUp,
+    35→  Sparkles,
+    36→  Calendar,
+    37→  Timer,
+    38→  Play,
+    39→  PartyPopper,
+    40→  Award,
+    41→  Loader2,
+    42→} from 'lucide-react'
+    43→
+    44→// ────────────────────────────────────────────
+    45→// Types
+    46→// ────────────────────────────────────────────
+    47→
+    48→interface Achievement {
+    49→  id: string
+    50→  emoji: string
+    51→  name: string
+    52→  description: string
+    53→  unlocked: boolean
+    54→  unlockedAt: string | null
+    55→}
+    56→
+    57→interface Challenge {
+    58→  id: string
+    59→  title: string
+    60→  description: string
+    61→  target: number
+    62→  current: number
+    63→  xpReward: number
+    64→  status: 'available' | 'accepted' | 'completed' | 'expired'
+    65→  acceptedAt: string | null
+    66→  completedAt: string | null
+    67→  deadline: string
+    68→}
+    69→
+    70→interface LeaderboardEntry {
+    71→  rank: number
+    72→  name: string
+    73→  avatar: string
+    74→  level: string
+    75→  xp: number
+    76→  isCurrentUser: boolean
+    77→}
+    78→
+    79→interface GamificationData {
+    80→  xp: number
+    81→  level: string
+    82→  achievements: Achievement[]
+    83→  challenges: Challenge[]
+    84→  stats: {
+    85→    modulesCompleted: number
+    86→    ateliersPaa: number
+    87→    activeDays: number
+    88→    globalScore: number
+    89→  }
+    90→  streak: number
+    91→  lastActiveDate: string | null
+    92→}
+    93→
+    94→type LevelDef = { name: string; minXP: number; maxXP: number; color: string }
+    95→
+    96→// ────────────────────────────────────────────
+    97→// Constants
+    98→// ────────────────────────────────────────────
+    99→
+   100→const LEVELS: LevelDef[] = [
+   101→  { name: 'Débutant', minXP: 0, maxXP: 99, color: 'text-gray-500' },
+   102→  { name: 'Confirmé', minXP: 100, maxXP: 299, color: 'text-amber-500' },
+   103→  { name: 'Avancé', minXP: 300, maxXP: 599, color: 'text-orange-500' },
+   104→  { name: 'Expert', minXP: 600, maxXP: 999, color: 'text-red-500' },
+   105→  { name: 'Maître', minXP: 1000, maxXP: 1999, color: 'text-purple-500' },
+   106→  { name: 'Légende', minXP: 2000, maxXP: Infinity, color: 'text-amber-400' },
+   107→]
+   108→
+   109→const DEFAULT_ACHIEVEMENTS: Achievement[] = [
+   110→  { id: 'first-step', emoji: '🚀', name: 'Premier Pas', description: 'Compléter le profil créateur', unlocked: false, unlockedAt: null },
+   111→  { id: 'strategist', emoji: '📋', name: 'Stratège', description: 'Compléter le Business Plan', unlocked: false, unlockedAt: null },
+   112→  { id: 'visionary', emoji: '🎯', name: 'Visionnaire', description: 'Définir sa vision', unlocked: false, unlockedAt: null },
+   113→  { id: 'innovator', emoji: '💡', name: 'Innovateur', description: 'Utiliser 5 modules IA', unlocked: false, unlockedAt: null },
+   114→  { id: 'jurist', emoji: '🏛️', name: 'Juriste', description: 'Choisir son statut juridique', unlocked: false, unlockedAt: null },
+   115→  { id: 'analyst', emoji: '📊', name: 'Analyste', description: "Compléter l'étude de marché", unlocked: false, unlockedAt: null },
+   116→  { id: 'pitcher', emoji: '🗣️', name: 'Pitcher', description: 'Créer un Pitch Deck', unlocked: false, unlockedAt: null },
+   117→  { id: 'networker', emoji: '🤝', name: 'Réseauteur', description: 'Envoyer 10 messages', unlocked: false, unlockedAt: null },
+   118→  { id: 'gamer', emoji: '🎮', name: 'Gamer', description: 'Jouer aux Pépites', unlocked: false, unlockedAt: null },
+   119→  { id: 'organized', emoji: '📝', name: 'Organisé', description: 'Définir 5 objectifs SMART', unlocked: false, unlockedAt: null },
+   120→  { id: 'regular', emoji: '🔥', name: 'Régulier', description: 'Connexion 7 jours consécutifs', unlocked: false, unlockedAt: null },
+   121→  { id: 'complete', emoji: '⭐', name: 'Complet', description: 'Compléter 10 modules', unlocked: false, unlockedAt: null },
+   122→]
+   123→
+   124→const STORAGE_KEY = 'creapulse-gamification'
+   125→
+   126→function getDefaultChallenges(): Challenge[] {
+   127→  const now = new Date()
+   128→  const weekEnd = new Date(now)
+   129→  weekEnd.setDate(weekEnd.getDate() + (7 - weekEnd.getDay()))
+   130→  weekEnd.setHours(23, 59, 59, 999)
+   131→
+   132→  return [
+   133→    {
+   134→      id: 'weekly-3-modules',
+   135→      title: 'Complétez 3 modules cette semaine',
+   136→      description: 'Terminez au moins 3 modules de votre parcours cette semaine pour gagner des XP.',
+   137→      target: 3,
+   138→      current: 0,
+   139→      xpReward: 150,
+   140→      status: 'available',
+   141→      acceptedAt: null,
+   142→      completedAt: null,
+   143→      deadline: weekEnd.toISOString(),
+   144→    },
+   145→    {
+   146→      id: 'weekly-5-badges',
+   147→      title: 'Obtenez 5 badges',
+   148→      description: 'Débloquez 5 badges de réussite pour montrer votre progression.',
+   149→      target: 5,
+   150→      current: 0,
+   151→      xpReward: 200,
+   152→      status: 'available',
+   153→      acceptedAt: null,
+   154→      completedAt: null,
+   155→      deadline: weekEnd.toISOString(),
+   156→    },
+   157→    {
+   158→      id: 'weekly-2-smart',
+   159→      title: 'Définissez 2 objectifs SMART',
+   160→      description: 'Créez et validez 2 objectifs SMART dans le module dédié.',
+   161→      target: 2,
+   162→      current: 0,
+   163→      xpReward: 100,
+   164→      status: 'available',
+   165→      acceptedAt: null,
+   166→      completedAt: null,
+   167→      deadline: weekEnd.toISOString(),
+   168→    },
+   169→    {
+   170→      id: 'weekly-3-forum',
+   171→      title: 'Participez au forum 3 fois',
+   172→      description: 'Publiez ou répondez à 3 discussions sur le forum communautaire.',
+   173→      target: 3,
+   174→      current: 0,
+   175→      xpReward: 120,
+   176→      status: 'available',
+   177→      acceptedAt: null,
+   178→      completedAt: null,
+   179→      deadline: weekEnd.toISOString(),
+   180→    },
+   181→  ]
+   182→}
+   183→
+   184→function getDefaultData(): GamificationData {
+   185→  return {
+   186→    xp: 0,
+   187→    level: 'Débutant',
+   188→    achievements: DEFAULT_ACHIEVEMENTS.map(a => ({ ...a })),
+   189→    challenges: getDefaultChallenges(),
+   190→    stats: {
+   191→      modulesCompleted: 0,
+   192→      ateliersPaa: 0,
+   193→      activeDays: 0,
+   194→      globalScore: 0,
+   195→    },
+   196→    streak: 0,
+   197→    lastActiveDate: null,
+   198→  }
+   199→}
+   200→
+   201→const MOCK_LEADERBOARD: LeaderboardEntry[] = [
+   202→  { rank: 1, name: 'Sophie Martin', avatar: 'SM', level: 'Maître', xp: 1850, isCurrentUser: false },
+   203→  { rank: 2, name: 'Lucas Bernard', avatar: 'LB', level: 'Expert', xp: 1420, isCurrentUser: false },
+   204→  { rank: 3, name: 'Camille Dubois', avatar: 'CD', level: 'Expert', xp: 1280, isCurrentUser: false },
+   205→  { rank: 4, name: 'Thomas Petit', avatar: 'TP', level: 'Avancé', xp: 980, isCurrentUser: false },
+   206→  { rank: 5, name: 'Emma Leroy', avatar: 'EL', level: 'Avancé', xp: 870, isCurrentUser: false },
+   207→  { rank: 6, name: 'Hugo Moreau', avatar: 'HM', level: 'Avancé', xp: 756, isCurrentUser: false },
+   208→  { rank: 7, name: 'Léa Laurent', avatar: 'LL', level: 'Confirmé', xp: 620, isCurrentUser: false },
+   209→  { rank: 8, name: 'Nathan Simon', avatar: 'NS', level: 'Confirmé', xp: 540, isCurrentUser: false },
+   210→  { rank: 9, name: 'Chloé Michel', avatar: 'CM', level: 'Confirmé', xp: 475, isCurrentUser: false },
+   211→  { rank: 10, name: 'Maxime Garcia', avatar: 'MG', level: 'Confirmé', xp: 410, isCurrentUser: false },
+   212→  { rank: 11, name: 'Jade Thomas', avatar: 'JT', level: 'Confirmé', xp: 350, isCurrentUser: false },
+   213→  { rank: 12, name: 'Louis Roux', avatar: 'LR', level: 'Débutant', xp: 280, isCurrentUser: false },
+   214→  { rank: 13, name: 'Inès Robert', avatar: 'IR', level: 'Débutant', xp: 195, isCurrentUser: false },
+   215→  { rank: 14, name: 'Raphaël Richard', avatar: 'RR', level: 'Débutant', xp: 120, isCurrentUser: false },
+   216→  { rank: 15, name: 'Alice Durand', avatar: 'AD', level: 'Débutant', xp: 85, isCurrentUser: false },
+   217→  { rank: 16, name: 'Vous', avatar: 'VO', level: 'Débutant', xp: 0, isCurrentUser: true },
+   218→  { rank: 17, name: 'Gabriel Fournier', avatar: 'GF', level: 'Débutant', xp: 45, isCurrentUser: false },
+   219→  { rank: 18, name: 'Manon Girard', avatar: 'MG', level: 'Débutant', xp: 30, isCurrentUser: false },
+   220→]
+   221→
+   222→// ────────────────────────────────────────────
+   223→// Helpers
+   224→// ────────────────────────────────────────────
+   225→
+   226→function getLevelForXP(xp: number): { level: LevelDef; nextLevel: LevelDef | null; progress: number } {
+   227→  let current: LevelDef = LEVELS[0]
+   228→  let next: LevelDef | null = LEVELS[1]
+   229→
+   230→  for (let i = 0; i < LEVELS.length; i++) {
+   231→    if (xp >= LEVELS[i].minXP && xp <= LEVELS[i].maxXP) {
+   232→      current = LEVELS[i]
+   233→      next = LEVELS[i + 1] ?? null
+   234→      break
+   235→    }
+   236→  }
+   237→
+   238→  const progress = next
+   239→    ? ((xp - current.minXP) / (next.minXP - current.minXP)) * 100
+   240→    : 100
+   241→
+   242→  return { level: current, nextLevel: next, progress: Math.min(progress, 100) }
+   243→}
+   244→
+   245→function formatCountdown(deadline: string): string {
+   246→  const diff = new Date(deadline).getTime() - Date.now()
+   247→  if (diff <= 0) return 'Terminé'
+   248→  const days = Math.floor(diff / 86400000)
+   249→  const hours = Math.floor((diff % 86400000) / 3600000)
+   250→  const minutes = Math.floor((diff % 3600000) / 60000)
+   251→  if (days > 0) return `${days}j ${hours}h`
+   252→  if (hours > 0) return `${hours}h ${minutes}min`
+   253→  return `${minutes}min`
+   254→}
+   255→
+   256→function formatDate(dateStr: string): string {
+   257→  return new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+   258→}
+   259→
+   260→// ────────────────────────────────────────────
+   261→// Main Component
+   262→// ────────────────────────────────────────────
+   263→
+   264→function loadStoredData(): GamificationData {
+   265→  try {
+   266→    const raw = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null
+   267→    if (raw) {
+   268→      const parsed = JSON.parse(raw) as Partial<GamificationData>
+   269→      const defaults = getDefaultData()
+   270→      return {
+   271→        xp: parsed.xp ?? defaults.xp,
+   272→        level: parsed.level ?? defaults.level,
+   273→        achievements: parsed.achievements ?? defaults.achievements,
+   274→        challenges: parsed.challenges ?? defaults.challenges,
+   275→        stats: { ...defaults.stats, ...parsed.stats },
+   276→        streak: parsed.streak ?? defaults.streak,
+   277→        lastActiveDate: parsed.lastActiveDate ?? defaults.lastActiveDate,
+   278→      }
+   279→    }
+   280→  } catch {
+   281→    // Keep defaults on parse error
+   282→  }
+   283→  return getDefaultData()
+   284→}
+   285→
+   286→export function GamificationModule() {
+   287→  const [data, setData] = useState<GamificationData>(loadStoredData)
+   288→  const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null)
+   289→  const [acceptingChallenge, setAcceptingChallenge] = useState<string | null>(null)
+   290→  const [confettiChallenge, setConfettiChallenge] = useState<string | null>(null)
+   291→  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+   292→
+   293→  // Update streak on mount
+   294→  const updateStreak = useCallback(() => {
+   295→    const today = new Date().toDateString()
+   296→    const raw = localStorage.getItem(STORAGE_KEY)
+   297→    if (!raw) return
+   298→    const parsed = JSON.parse(raw) as GamificationData
+   299→    if (parsed.lastActiveDate && parsed.lastActiveDate !== today) {
+   300→      const lastDate = new Date(parsed.lastActiveDate)
+   301→      const diffDays = Math.floor((Date.now() - lastDate.getTime()) / 86400000)
+   302→      if (diffDays === 1) {
+   303→        parsed.streak = parsed.streak + 1
+   304→        parsed.lastActiveDate = today
+   305→      } else if (diffDays > 1) {
+   306→        parsed.streak = 1
+   307→        parsed.lastActiveDate = today
+   308→      }
+   309→      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed))
+   310→    } else if (!parsed.lastActiveDate) {
+   311→      parsed.streak = 1
+   312→      parsed.lastActiveDate = today
+   313→      parsed.stats.activeDays = parsed.stats.activeDays + 1
+   314→      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed))
+   315→    }
+   316→  }, [])
+   317→
+   318→  useEffect(() => {
+   319→    updateStreak()
+   320→  }, [updateStreak])
+   321→
+   322→  // Countdown timer for challenges
+   323→  useEffect(() => {
+   324→    timerRef.current = setInterval(() => {
+   325→      // Force re-render for countdown
+   326→      setData(prev => ({ ...prev }))
+   327→    }, 60000)
+   328→    return () => {
+   329→      if (timerRef.current) clearInterval(timerRef.current)
+   330→    }
+   331→  }, [])
+   332→
+   333→  const saveData = useCallback((newData: GamificationData) => {
+   334→    setData(newData)
+   335→    localStorage.setItem(STORAGE_KEY, JSON.stringify(newData))
+   336→  }, [])
+   337→
+   338→  const recalculateLevel = useCallback((xp: number): string => {
+   339→    for (let i = LEVELS.length - 1; i >= 0; i--) {
+   340→      if (xp >= LEVELS[i].minXP) return LEVELS[i].name
+   341→    }
+   342→    return 'Débutant'
+   343→  }, [])
+   344→
+   345→  const handleAcceptChallenge = useCallback((challengeId: string) => {
+   346→    setAcceptingChallenge(challengeId)
+   347→    setTimeout(() => {
+   348→      const newData = { ...data }
+   349→      const challenge = newData.challenges.find(c => c.id === challengeId)
+   350→      if (challenge && challenge.status === 'available') {
+   351→        challenge.status = 'accepted'
+   352→        challenge.acceptedAt = new Date().toISOString()
+   353→        saveData(newData)
+   354→        setConfettiChallenge(challengeId)
+   355→        toast.success('Défi accepté !', { description: 'Bonne chance pour ce défi !' })
+   356→        setTimeout(() => setConfettiChallenge(null), 2000)
+   357→      }
+   358→      setAcceptingChallenge(null)
+   359→    }, 600)
+   360→  }, [data, saveData])
+   361→
+   362→  // Computed
+   363→  const { level: currentLevel, nextLevel, progress: levelProgress } = getLevelForXP(data.xp)
+   364→  const unlockedCount = data.achievements.filter(a => a.unlocked).length
+   365→  const activeChallenges = data.challenges.filter(c => c.status === 'available' || c.status === 'accepted')
+   366→  const pastChallenges = data.challenges.filter(c => c.status === 'completed' || c.status === 'expired')
+   367→
+   368→  // Merge leaderboard with user position
+   369→  const leaderboardWithUser = data.xp > 0
+   370→    ? [...MOCK_LEADERBOARD.map(e => e.isCurrentUser ? { ...e, xp: data.xp, level: data.level } : e)]
+   371→    : MOCK_LEADERBOARD
+   372→
+   373→  // ── SVG Ring Progress ──
+   374→  const ringRadius = 56
+   375→  const ringCircumference = 2 * Math.PI * ringRadius
+   376→  const ringOffset = ringCircumference - (levelProgress / 100) * ringCircumference
+   377→
+   378→  return (
+   379→    <div className="flex flex-col h-full">
+   380→      {/* Header */}
+   381→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 md:px-6 border-b bg-background">
+   382→        <div className="flex items-center gap-3">
+   383→          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10">
+   384→            <Trophy className="h-5 w-5 text-amber-500" />
+   385→          </div>
+   386→          <div>
+   387→            <h1 className="text-lg font-semibold text-foreground">Gamification</h1>
+   388→            <p className="text-xs text-muted-foreground">Progression & récompenses</p>
+   389→          </div>
+   390→        </div>
+   391→        <Badge variant="secondary" className="bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 w-fit">
+   392→          Nouveau
+   393→        </Badge>
+   394→      </div>
+   395→
+   396→      {/* Content */}
+   397→      <div className="flex-1 overflow-y-auto">
+   398→        <Tabs defaultValue="profil" className="h-full">
+   399→          <div className="border-b px-4 md:px-6 bg-background">
+   400→            <TabsList className="bg-muted/60 h-10 p-0.5">
+   401→              <TabsTrigger value="profil" className="text-sm h-9 data-[state=active]:bg-background data-[state=active]:shadow-sm gap-1.5">
+   402→                <Star className="h-3.5 w-3.5" />
+   403→                Profil
+   404→              </TabsTrigger>
+   405→              <TabsTrigger value="classement" className="text-sm h-9 data-[state=active]:bg-background data-[state=active]:shadow-sm gap-1.5">
+   406→                <Medal className="h-3.5 w-3.5" />
+   407→                Classement
+   408→              </TabsTrigger>
+   409→              <TabsTrigger value="defis" className="text-sm h-9 data-[state=active]:bg-background data-[state=active]:shadow-sm gap-1.5">
+   410→                <Target className="h-3.5 w-3.5" />
+   411→                Défis
+   412→              </TabsTrigger>
+   413→            </TabsList>
+   414→          </div>
+   415→
+   416→          {/* ═══ TAB 1: MON PROFIL GAMER ═══ */}
+   417→          <TabsContent value="profil" className="p-4 md:p-6 space-y-6 mt-0">
+   418→            {/* Level ring + XP bar */}
+   419→            <motion.div
+   420→              initial={{ opacity: 0, y: 20 }}
+   421→              animate={{ opacity: 1, y: 0 }}
+   422→              transition={{ duration: 0.4 }}
+   423→            >
+   424→              <Card className="border-amber-200 dark:border-amber-900/40 overflow-hidden">
+   425→                <CardContent className="p-6">
+   426→                  <div className="flex flex-col sm:flex-row items-center gap-6">
+   427→                    {/* SVG Ring */}
+   428→                    <div className="relative shrink-0">
+   429→                      <svg width="140" height="140" viewBox="0 0 140 140" className="-rotate-90">
+   430→                        <circle
+   431→                          cx="70" cy="70" r={ringRadius}
+   432→                          fill="none"
+   433→                          stroke="currentColor"
+   434→                          strokeWidth="8"
+   435→                          className="text-amber-100 dark:text-amber-900/30"
+   436→                        />
+   437→                        <motion.circle
+   438→                          cx="70" cy="70" r={ringRadius}
+   439→                          fill="none"
+   440→                          stroke="currentColor"
+   441→                          strokeWidth="8"
+   442→                          strokeLinecap="round"
+   443→                          strokeDasharray={ringCircumference}
+   444→                          initial={{ strokeDashoffset: ringCircumference }}
+   445→                          animate={{ strokeDashoffset: ringOffset }}
+   446→                          transition={{ duration: 1.2, ease: 'easeOut' }}
+   447→                          className="text-amber-500"
+   448→                        />
+   449→                      </svg>
+   450→                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+   451→                        <Trophy className={cn('h-6 w-6 mb-0.5', currentLevel.color)} />
+   452→                        <span className="text-xs font-bold text-foreground">{currentLevel.name}</span>
+   453→                        <span className="text-[10px] text-muted-foreground">Niveau</span>
+   454→                      </div>
+   455→                    </div>
+   456→
+   457→                    {/* XP info */}
+   458→                    <div className="flex-1 text-center sm:text-left space-y-3 w-full">
+   459→                      <div>
+   460→                        <h2 className="text-xl font-bold text-foreground">Mon Profil Gamer</h2>
+   461→                        <p className="text-sm text-muted-foreground">
+   462→                          {data.xp} XP cumulés
+   463→                          {data.streak > 0 && (
+   464→                            <span className="ml-2 inline-flex items-center gap-1 text-amber-600">
+   465→                              <Flame className="h-3.5 w-3.5" />
+   466→                              {data.streak} jour{data.streak > 1 ? 's' : ''} de suite
+   467→                            </span>
+   468→                          )}
+   469→                        </p>
+   470→                      </div>
+   471→
+   472→                      {/* XP Progress bar */}
+   473→                      <div className="space-y-1.5">
+   474→                        <div className="flex items-center justify-between text-xs">
+   475→                          <span className="font-medium text-muted-foreground">{currentLevel.name}</span>
+   476→                          {nextLevel ? (
+   477→                            <span className="text-muted-foreground">
+   478→                              {nextLevel.minXP} XP pour {nextLevel.name}
+   479→                            </span>
+   480→                          ) : (
+   481→                            <span className="text-amber-600 font-medium">Niveau max !</span>
+   482→                          )}
+   483→                        </div>
+   484→                        <div className="relative h-3 w-full rounded-full bg-amber-100 dark:bg-amber-900/30 overflow-hidden">
+   485→                          <motion.div
+   486→                            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-amber-400 to-amber-500"
+   487→                            initial={{ width: 0 }}
+   488→                            animate={{ width: `${levelProgress}%` }}
+   489→                            transition={{ duration: 1, ease: 'easeOut' }}
+   490→                          />
+   491→                        </div>
+   492→                        <p className="text-[11px] text-muted-foreground">
+   493→                          {data.xp} / {nextLevel ? `${nextLevel.minXP}` : `${currentLevel.minXP}+`} XP
+   494→                        </p>
+   495→                      </div>
+   496→                    </div>
+   497→                  </div>
+   498→                </CardContent>
+   499→              </Card>
+   500→            </motion.div>
+   501→
+   502→            {/* Stats grid */}
+   503→            <motion.div
+   504→              initial={{ opacity: 0, y: 20 }}
+   505→              animate={{ opacity: 1, y: 0 }}
+   506→              transition={{ duration: 0.4, delay: 0.1 }}
+   507→              className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+   508→            >
+   509→              {[
+   510→                { icon: CheckCircle2, label: 'Modules complétés', value: data.stats.modulesCompleted, color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' },
+   511→                { icon: Zap, label: 'Ateliers PAA', value: data.stats.ateliersPaa, color: 'text-sky-500 bg-sky-50 dark:bg-sky-900/20' },
+   512→                { icon: Calendar, label: "Jours d'activité", value: data.stats.activeDays, color: 'text-violet-500 bg-violet-50 dark:bg-violet-900/20' },
+   513→                { icon: Trophy, label: 'Score Global', value: data.stats.globalScore, color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' },
+   514→              ].map((stat, i) => (
+   515→                <Card key={i}>
+   516→                  <CardContent className="p-4 flex items-center gap-3">
+   517→                    <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', stat.color)}>
+   518→                      <stat.icon className="h-5 w-5" />
+   519→                    </div>
+   520→                    <div>
+   521→                      <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+   522→                      <p className="text-xs text-muted-foreground">{stat.label}</p>
+   523→                    </div>
+   524→                  </CardContent>
+   525→                </Card>
+   526→              ))}
+   527→            </motion.div>
+   528→
+   529→            {/* Achievements */}
+   530→            <motion.div
+   531→              initial={{ opacity: 0, y: 20 }}
+   532→              animate={{ opacity: 1, y: 0 }}
+   533→              transition={{ duration: 0.4, delay: 0.2 }}
+   534→            >
+   535→              <div className="flex items-center justify-between mb-4">
+   536→                <div className="flex items-center gap-2">
+   537→                  <Award className="h-5 w-5 text-amber-500" />
+   538→                  <h3 className="text-base font-semibold text-foreground">Succès</h3>
+   539→                  <Badge variant="secondary" className="text-xs">
+   540→                    {unlockedCount}/{data.achievements.length}
+   541→                  </Badge>
+   542→                </div>
+   543→              </div>
+   544→              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+   545→                {data.achievements.map((achievement, i) => (
+   546→                  <motion.button
+   547→                    key={achievement.id}
+   548→                    initial={{ opacity: 0, scale: 0.9 }}
+   549→                    animate={{ opacity: 1, scale: 1 }}
+   550→                    transition={{ duration: 0.3, delay: 0.03 * i }}
+   551→                    whileHover={{ scale: 1.05 }}
+   552→                    whileTap={{ scale: 0.95 }}
+   553→                    onClick={() => setSelectedAchievement(achievement)}
+   554→                    className={cn(
+   555→                      'group relative flex flex-col items-center gap-2 rounded-xl border p-4 transition-all text-center',
+   556→                      achievement.unlocked
+   557→                        ? 'border-amber-200 bg-amber-50/50 dark:border-amber-800/50 dark:bg-amber-900/10 cursor-pointer hover:border-amber-400 hover:shadow-sm'
+   558→                        : 'border-muted bg-muted/30 cursor-default opacity-60'
+   559→                    )}
+   560→                  >
+   561→                    <div className={cn(
+   562→                      'text-3xl transition-transform',
+   563→                      achievement.unlocked && 'group-hover:scale-110'
+   564→                    )}>
+   565→                      {achievement.unlocked ? achievement.emoji : '🔒'}
+   566→                    </div>
+   567→                    <span className={cn(
+   568→                      'text-xs font-medium leading-tight',
+   569→                      achievement.unlocked ? 'text-foreground' : 'text-muted-foreground'
+   570→                    )}>
+   571→                      {achievement.name}
+   572→                    </span>
+   573→                    {achievement.unlocked && achievement.unlockedAt && (
+   574→                      <span className="text-[10px] text-muted-foreground">
+   575→                        {formatDate(achievement.unlockedAt)}
+   576→                      </span>
+   577→                    )}
+   578→                    {!achievement.unlocked && (
+   579→                      <Lock className="h-3 w-3 text-muted-foreground/50 absolute top-2 right-2" />
+   580→                    )}
+   581→                  </motion.button>
+   582→                ))}
+   583→              </div>
+   584→            </motion.div>
+   585→          </TabsContent>
+   586→
+   587→          {/* ═══ TAB 2: CLASSEMENT ═══ */}
+   588→          <TabsContent value="classement" className="p-4 md:p-6 space-y-6 mt-0">
+   589→            <motion.div
+   590→              initial={{ opacity: 0, y: 20 }}
+   591→              animate={{ opacity: 1, y: 0 }}
+   592→              transition={{ duration: 0.4 }}
+   593→              className="space-y-6"
+   594→            >
+   595→              {/* Podium: Top 3 */}
+   596→              <div className="grid grid-cols-3 gap-3 max-w-2xl mx-auto">
+   597→                {/* 2nd place */}
+   598→                <div className="flex flex-col items-center pt-6">
+   599→                  <div className="relative">
+   600→                    <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-lg font-bold text-foreground border-2 border-gray-300 dark:border-gray-500">
+   601→                      {leaderboardWithUser[1]?.avatar}
+   602→                    </div>
+   603→                    <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-gray-400 dark:bg-gray-500 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+   604→                      2
+   605→                    </div>
+   606→                  </div>
+   607→                  <p className="mt-2 text-sm font-semibold text-foreground text-center truncate w-full">{leaderboardWithUser[1]?.name}</p>
+   608→                  <p className="text-xs text-muted-foreground">{leaderboardWithUser[1]?.level}</p>
+   609→                  <p className="text-xs font-medium text-gray-500">{leaderboardWithUser[1]?.xp} XP</p>
+   610→                </div>
+   611→
+   612→                {/* 1st place */}
+   613→                <div className="flex flex-col items-center">
+   614→                  <Crown className="h-6 w-6 text-amber-400 mb-1" />
+   615→                  <div className="relative">
+   616→                    <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-full bg-gradient-to-br from-amber-200 to-amber-400 dark:from-amber-500 dark:to-amber-700 flex items-center justify-center text-xl font-bold text-amber-900 dark:text-amber-100 border-2 border-amber-400 shadow-md shadow-amber-200/50">
+   617→                      {leaderboardWithUser[0]?.avatar}
+   618→                    </div>
+   619→                    <div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-amber-500 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+   620→                      1
+   621→                    </div>
+   622→                  </div>
+   623→                  <p className="mt-2 text-sm font-bold text-foreground text-center truncate w-full">{leaderboardWithUser[0]?.name}</p>
+   624→                  <p className="text-xs text-amber-600 font-medium">{leaderboardWithUser[0]?.level}</p>
+   625→                  <p className="text-xs font-bold text-amber-500">{leaderboardWithUser[0]?.xp} XP</p>
+   626→                </div>
+   627→
+   628→                {/* 3rd place */}
+   629→                <div className="flex flex-col items-center pt-8">
+   630→                  <div className="relative">
+   631→                    <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-gradient-to-br from-orange-200 to-orange-300 dark:from-orange-700 dark:to-orange-800 flex items-center justify-center text-lg font-bold text-foreground border-2 border-orange-300 dark:border-orange-600">
+   632→                      {leaderboardWithUser[2]?.avatar}
+   633→                    </div>
+   634→                    <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-orange-500 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+   635→                      3
+   636→                    </div>
+   637→                  </div>
+   638→                  <p className="mt-2 text-sm font-semibold text-foreground text-center truncate w-full">{leaderboardWithUser[2]?.name}</p>
+   639→                  <p className="text-xs text-muted-foreground">{leaderboardWithUser[2]?.level}</p>
+   640→                  <p className="text-xs font-medium text-orange-500">{leaderboardWithUser[2]?.xp} XP</p>
+   641→                </div>
+   642→              </div>
+   643→
+   644→              {/* Leaderboard scope tabs */}
+   645→              <Card>
+   646→                <CardHeader className="pb-3">
+   647→                  <div className="flex items-center justify-between">
+   648→                    <CardTitle className="text-base flex items-center gap-2">
+   649→                      <Users className="h-4 w-4 text-amber-500" />
+   650→                      Classement
+   651→                    </CardTitle>
+   652→                    <Tabs defaultValue="centre" className="w-auto">
+   653→                      <TabsList className="h-8 p-0.5">
+   654→                        <TabsTrigger value="centre" className="text-xs h-7 px-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm gap-1">
+   655→                          <MapPin className="h-3 w-3" />
+   656→                          Mon Centre
+   657→                        </TabsTrigger>
+   658→                        <TabsTrigger value="region" className="text-xs h-7 px-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm gap-1">
+   659→                          <Globe className="h-3 w-3" />
+   660→                          Région
+   661→                        </TabsTrigger>
+   662→                        <TabsTrigger value="global" className="text-xs h-7 px-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm gap-1">
+   663→                          <Globe className="h-3 w-3" />
+   664→                          Global
+   665→                        </TabsTrigger>
+   666→                      </TabsList>
+   667→                    </Tabs>
+   668→                  </div>
+   669→                </CardHeader>
+   670→                <CardContent className="p-0">
+   671→                  <div className="max-h-96 overflow-y-auto">
+   672→                    <table className="w-full">
+   673→                      <thead>
+   674→                        <tr className="border-b bg-muted/30">
+   675→                          <th className="text-left text-xs font-medium text-muted-foreground py-2.5 px-4 w-14">#</th>
+   676→                          <th className="text-left text-xs font-medium text-muted-foreground py-2.5 px-2">Participant</th>
+   677→                          <th className="text-left text-xs font-medium text-muted-foreground py-2.5 px-2 hidden sm:table-cell">Niveau</th>
+   678→                          <th className="text-right text-xs font-medium text-muted-foreground py-2.5 px-4">XP</th>
+   679→                        </tr>
+   680→                      </thead>
+   681→                      <tbody>
+   682→                        {leaderboardWithUser.map((entry) => (
+   683→                          <tr
+   684→                            key={entry.rank}
+   685→                            className={cn(
+   686→                              'border-b last:border-0 transition-colors',
+   687→                              entry.isCurrentUser
+   688→                                ? 'bg-amber-50 dark:bg-amber-900/20'
+   689→                                : 'hover:bg-muted/30'
+   690→                            )}
+   691→                          >
+   692→                            <td className="py-2.5 px-4">
+   693→                              {entry.rank <= 3 ? (
+   694→                                <Medal className={cn(
+   695→                                  'h-4 w-4',
+   696→                                  entry.rank === 1 && 'text-amber-500',
+   697→                                  entry.rank === 2 && 'text-gray-400',
+   698→                                  entry.rank === 3 && 'text-orange-500'
+   699→                                )} />
+   700→                              ) : (
+   701→                                <span className="text-sm text-muted-foreground">{entry.rank}</span>
+   702→                              )}
+   703→                            </td>
+   704→                            <td className="py-2.5 px-2">
+   705→                              <div className="flex items-center gap-2.5">
+   706→                                <div className={cn(
+   707→                                  'h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 border',
+   708→                                  entry.isCurrentUser
+   709→                                    ? 'border-amber-400 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300'
+   710→                                    : 'border-muted-foreground/20 bg-muted text-muted-foreground'
+   711→                                )}>
+   712→                                  {entry.avatar}
+   713→                                </div>
+   714→                                <span className={cn(
+   715→                                  'text-sm font-medium truncate',
+   716→                                  entry.isCurrentUser ? 'text-amber-700 dark:text-amber-300' : 'text-foreground'
+   717→                                )}>
+   718→                                  {entry.name}
+   719→                                  {entry.isCurrentUser && (
+   720→                                    <span className="ml-1.5 text-[10px] font-normal text-amber-500">(vous)</span>
+   721→                                  )}
+   722→                                </span>
+   723→                              </div>
+   724→                            </td>
+   725→                            <td className="py-2.5 px-2 hidden sm:table-cell">
+   726→                              <Badge variant="secondary" className="text-xs font-normal">
+   727→                                {entry.level}
+   728→                              </Badge>
+   729→                            </td>
+   730→                            <td className="py-2.5 px-4 text-right">
+   731→                              <span className={cn(
+   732→                                'text-sm font-semibold',
+   733→                                entry.isCurrentUser ? 'text-amber-600' : 'text-foreground'
+   734→                              )}>
+   735→                                {entry.xp.toLocaleString('fr-FR')}
+   736→                              </span>
+   737→                              <span className="text-[10px] text-muted-foreground ml-1">XP</span>
+   738→                            </td>
+   739→                          </tr>
+   740→                        ))}
+   741→                      </tbody>
+   742→                    </table>
+   743→                  </div>
+   744→                </CardContent>
+   745→              </Card>
+   746→            </motion.div>
+   747→          </TabsContent>
+   748→
+   749→          {/* ═══ TAB 3: DÉFIS ═══ */}
+   750→          <TabsContent value="defis" className="p-4 md:p-6 space-y-6 mt-0">
+   751→            <motion.div
+   752→              initial={{ opacity: 0, y: 20 }}
+   753→              animate={{ opacity: 1, y: 0 }}
+   754→              transition={{ duration: 0.4 }}
+   755→              className="space-y-6"
+   756→            >
+   757→              {/* Active challenges */}
+   758→              <div>
+   759→                <div className="flex items-center gap-2 mb-4">
+   760→                  <Target className="h-5 w-5 text-amber-500" />
+   761→                  <h3 className="text-base font-semibold text-foreground">Défis de la semaine</h3>
+   762→                </div>
+   763→
+   764→                {activeChallenges.length === 0 ? (
+   765→                  <Card>
+   766→                    <CardContent className="p-8 text-center">
+   767→                      <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto mb-3" />
+   768→                      <p className="text-sm font-medium text-foreground">Tous les défis sont terminés !</p>
+   769→                      <p className="text-xs text-muted-foreground mt-1">Revenez la semaine prochaine pour de nouveaux défis.</p>
+   770→                    </CardContent>
+   771→                  </Card>
+   772→                ) : (
+   773→                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   774→                    {activeChallenges.map((challenge, i) => (
+   775→                      <motion.div
+   776→                        key={challenge.id}
+   777→                        initial={{ opacity: 0, y: 15 }}
+   778→                        animate={{ opacity: 1, y: 0 }}
+   779→                        transition={{ duration: 0.3, delay: 0.05 * i }}
+   780→                      >
+   781→                        <Card className={cn(
+   782→                          'relative overflow-hidden transition-all',
+   783→                          challenge.status === 'accepted' && 'border-amber-300 dark:border-amber-700',
+   784→                          challenge.status === 'available' && 'hover:border-amber-200'
+   785→                        )}>
+   786→                          {/* Confetti animation overlay */}
+   787→                          <AnimatePresence>
+   788→                            {confettiChallenge === challenge.id && (
+   789→                              <motion.div
+   790→                                initial={{ opacity: 0 }}
+   791→                                animate={{ opacity: 1 }}
+   792→                                exit={{ opacity: 0 }}
+   793→                                transition={{ duration: 0.3 }}
+   794→                                className="absolute inset-0 z-10 flex items-center justify-center bg-amber-500/10 backdrop-blur-[2px]"
+   795→                              >
+   796→                                <motion.div
+   797→                                  initial={{ scale: 0, rotate: -10 }}
+   798→                                  animate={{ scale: 1, rotate: 0 }}
+   799→                                  exit={{ scale: 0, rotate: 10 }}
+   800→                                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+   801→                                  className="flex items-center gap-2 bg-background rounded-full px-5 py-2.5 shadow-lg border border-amber-200"
+   802→                                >
+   803→                                  <PartyPopper className="h-5 w-5 text-amber-500" />
+   804→                                  <span className="font-bold text-amber-600">Défi accepté !</span>
+   805→                                </motion.div>
+   806→                              </motion.div>
+   807→                            )}
+   808→                          </AnimatePresence>
+   809→
+   810→                          <CardContent className="p-4 space-y-3">
+   811→                            <div className="flex items-start justify-between gap-2">
+   812→                              <div className="flex-1 min-w-0">
+   813→                                <h4 className="text-sm font-semibold text-foreground">{challenge.title}</h4>
+   814→                                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{challenge.description}</p>
+   815→                              </div>
+   816→                              <div className="flex items-center gap-1 shrink-0">
+   817→                                <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+   818→                                <span className="text-xs font-bold text-amber-600">+{challenge.xpReward}</span>
+   819→                              </div>
+   820→                            </div>
+   821→
+   822→                            {/* Progress */}
+   823→                            {challenge.status === 'accepted' && (
+   824→                              <div className="space-y-1.5">
+   825→                                <div className="flex items-center justify-between text-xs">
+   826→                                  <span className="text-muted-foreground">Progression</span>
+   827→                                  <span className="font-medium text-foreground">{challenge.current}/{challenge.target}</span>
+   828→                                </div>
+   829→                                <Progress value={(challenge.current / challenge.target) * 100} className="h-2" />
+   830→                              </div>
+   831→                            )}
+   832→
+   833→                            {/* Footer */}
+   834→                            <div className="flex items-center justify-between">
+   835→                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+   836→                                <Timer className="h-3 w-3" />
+   837→                                {formatCountdown(challenge.deadline)}
+   838→                              </div>
+   839→
+   840→                              {challenge.status === 'available' ? (
+   841→                                <Button
+   842→                                  size="sm"
+   843→                                  className="h-7 text-xs bg-amber-500 hover:bg-amber-600 text-white gap-1"
+   844→                                  onClick={() => handleAcceptChallenge(challenge.id)}
+   845→                                  disabled={acceptingChallenge === challenge.id}
+   846→                                >
+   847→                                  {acceptingChallenge === challenge.id ? (
+   848→                                    <Loader2 className="h-3 w-3 animate-spin" />
+   849→                                  ) : (
+   850→                                    <Play className="h-3 w-3" />
+   851→                                  )}
+   852→                                  Accepter
+   853→                                </Button>
+   854→                              ) : challenge.status === 'accepted' ? (
+   855→                                <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+   856→                                  <Clock className="h-3 w-3 mr-1" />
+   857→                                  En cours
+   858→                                </Badge>
+   859→                              ) : null}
+   860→                            </div>
+   861→                          </CardContent>
+   862→                        </Card>
+   863→                      </motion.div>
+   864→                    ))}
+   865→                  </div>
+   866→                )}
+   867→              </div>
+   868→
+   869→              {/* Past challenges */}
+   870→              {pastChallenges.length > 0 && (
+   871→                <div>
+   872→                  <Separator className="my-4" />
+   873→                  <div className="flex items-center gap-2 mb-4">
+   874→                    <Clock className="h-5 w-5 text-muted-foreground" />
+   875→                    <h3 className="text-base font-semibold text-foreground">Défis passés</h3>
+   876→                  </div>
+   877→                  <div className="space-y-3">
+   878→                    {pastChallenges.map((challenge) => (
+   879→                      <Card key={challenge.id} className="opacity-75">
+   880→                        <CardContent className="p-4 flex items-center gap-4">
+   881→                          <div className={cn(
+   882→                            'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+   883→                            challenge.status === 'completed'
+   884→                              ? 'bg-emerald-100 dark:bg-emerald-900/20'
+   885→                              : 'bg-muted'
+   886→                          )}>
+   887→                            {challenge.status === 'completed' ? (
+   888→                              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+   889→                            ) : (
+   890→                              <Clock className="h-5 w-5 text-muted-foreground" />
+   891→                            )}
+   892→                          </div>
+   893→                          <div className="flex-1 min-w-0">
+   894→                            <p className="text-sm font-medium text-foreground">{challenge.title}</p>
+   895→                            <p className="text-xs text-muted-foreground">
+   896→                              {challenge.status === 'completed'
+   897→                                ? `Terminé le ${challenge.completedAt ? formatDate(challenge.completedAt) : ''}`
+   898→                                : 'Expiré'
+   899→                              }
+   900→                            </p>
+   901→                          </div>
+   902→                          <div className="flex items-center gap-1 text-xs">
+   903→                            <Sparkles className="h-3 w-3 text-amber-500" />
+   904→                            <span className={cn(
+   905→                              'font-medium',
+   906→                              challenge.status === 'completed' ? 'text-emerald-600' : 'text-muted-foreground'
+   907→                            )}>
+   908→                              {challenge.status === 'completed' ? `+${challenge.xpReward}` : '0'}
+   909→                            </span>
+   910→                          </div>
+   911→                        </CardContent>
+   912→                      </Card>
+   913→                    ))}
+   914→                  </div>
+   915→                </div>
+   916→              )}
+   917→            </motion.div>
+   918→          </TabsContent>
+   919→        </Tabs>
+   920→      </div>
+   921→
+   922→      {/* Achievement detail dialog */}
+   923→      <Dialog open={!!selectedAchievement} onOpenChange={() => setSelectedAchievement(null)}>
+   924→        <DialogContent className="sm:max-w-md">
+   925→          <DialogHeader>
+   926→            <DialogTitle className="flex items-center gap-3">
+   927→              <span className="text-3xl">{selectedAchievement?.emoji}</span>
+   928→              <span>{selectedAchievement?.name}</span>
+   929→            </DialogTitle>
+   930→            <DialogDescription>{selectedAchievement?.description}</DialogDescription>
+   931→          </DialogHeader>
+   932→          {selectedAchievement && (
+   933→            <div className="flex items-center justify-between pt-2">
+   934→              {selectedAchievement.unlocked ? (
+   935→                <div className="flex items-center gap-2 text-sm text-emerald-600">
+   936→                  <CheckCircle2 className="h-4 w-4" />
+   937→                  Débloqué le {selectedAchievement.unlockedAt ? formatDate(selectedAchievement.unlockedAt) : ''}
+   938→                </div>
+   939→              ) : (
+   940→                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+   941→                  <Lock className="h-4 w-4" />
+   942→                  Pas encore débloqué
+   943→                </div>
+   944→              )}
+   945→              <Badge variant="secondary" className="text-xs">
+   946→                <Sparkles className="h-3 w-3 mr-1 text-amber-500" />
+   947→                Succès
+   948→              </Badge>
+   949→            </div>
+   950→          )}
+   951→        </DialogContent>
+   952→      </Dialog>
+   953→    </div>
+   954→  )
+   955→}

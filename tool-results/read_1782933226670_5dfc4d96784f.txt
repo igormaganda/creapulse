@@ -1,0 +1,1058 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useRef } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import { authFetch } from '@/lib/auth-fetch'
+     6→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Button } from '@/components/ui/button'
+     9→import { Progress } from '@/components/ui/progress'
+    10→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    11→import { Input } from '@/components/ui/input'
+    12→import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+    13→import { Separator } from '@/components/ui/separator'
+    14→import { Skeleton } from '@/components/ui/skeleton'
+    15→import { ScrollArea } from '@/components/ui/scroll-area'
+    16→import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
+    17→import {
+    18→  Search,
+    19→  X,
+    20→  User,
+    21→  Mail,
+    22→  Calendar,
+    23→  Clock,
+    24→  FileText,
+    25→  CheckCircle2,
+    26→  AlertCircle,
+    27→  ChevronRight,
+    28→  Eye,
+    29→  Sparkles,
+    30→  Target,
+    31→  BookOpen,
+    32→  BarChart3,
+    33→  TrendingUp,
+    34→  Loader2,
+    35→  CircleDot,
+    36→} from 'lucide-react'
+    37→
+    38→/* ─── Types ─── */
+    39→
+    40→interface Beneficiary {
+    41→  id: string
+    42→  firstName: string
+    43→  lastName: string
+    44→  email: string
+    45→  avatarUrl: string | null
+    46→  projectTitle: string
+    47→  sector: string
+    48→  journeyPhase: string
+    49→  journeyPhaseRaw: string
+    50→  progress: number
+    51→  lastActivity: string
+    52→  status: string
+    53→  createdAt: string
+    54→}
+    55→
+    56→interface KiviatScore {
+    57→  category: string
+    58→  score: number
+    59→}
+    60→
+    61→interface Livrable {
+    62→  id: string
+    63→  type: string
+    64→  title: string
+    65→  status: string
+    66→  statusLabel: string
+    67→  createdAt: string
+    68→  generatedAt: string | null
+    69→}
+    70→
+    71→interface Beneficiary360Data {
+    72→  beneficiaire: Beneficiary
+    73→  kiviatScores: KiviatScore[]
+    74→  livrables: Livrable[]
+    75→  recentInterviews: Array<{
+    76→    id: string
+    77→    date: string
+    78→    time: string
+    79→    type: string
+    80→    typeLabel: string
+    81→    status: string
+    82→    statusLabel: string
+    83→    notes: string
+    84→  }>
+    85→  moduleCompletion: Array<{
+    86→    moduleName: string
+    87→    status: 'completed' | 'in_progress' | 'not_started'
+    88→    score: number
+    89→  }>
+    90→  journeyData: {
+    91→    currentPhase: string
+    92→    progressPercent: number
+    93→    projectTitle: string
+    94→    projectSector: string
+    95→    bpStatus: string
+    96→  } | null
+    97→}
+    98→
+    99→/* ─── KIVIAT RADAR CHART (CSS) ─── */
+   100→
+   101→const KIVIAT_DIMENSIONS = [
+   102→  'Leadership',
+   103→  'Gestion du Stress',
+   104→  'Communication',
+   105→  'Résolution de Problèmes',
+   106→  'Créativité',
+   107→  'Adaptabilité',
+   108→]
+   109→
+   110→function KiviatRadar({ scores }: { scores: KiviatScore[] }) {
+   111→  const scoreMap = new Map(scores.map((s) => [s.category.toLowerCase(), s.score]))
+   112→
+   113→  const getScore = (dim: string) => {
+   114→    const val = scoreMap.get(dim.toLowerCase())
+   115→    return val !== undefined ? val : 0
+   116→  }
+   117→
+   118→  const values = KIVIAT_DIMENSIONS.map(getScore)
+   119→  const maxVal = Math.max(...values, 1)
+   120→  const n = values.length
+   121→  const size = 200
+   122→  const center = size / 2
+   123→  const radius = size / 2 - 30
+   124→
+   125→  const getPoint = (index: number, value: number) => {
+   126→    const angle = (Math.PI * 2 * index) / n - Math.PI / 2
+   127→    const r = (value / maxVal) * radius
+   128→    return {
+   129→      x: center + r * Math.cos(angle),
+   130→      y: center + r * Math.sin(angle),
+   131→    }
+   132→  }
+   133→
+   134→  const points = values.map((v, i) => getPoint(i, v))
+   135→  const polygonPoints = points.map((p) => `${p.x},${p.y}`).join(' ')
+   136→
+   137→  return (
+   138→    <div className="flex flex-col items-center gap-4">
+   139→      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="mx-auto">
+   140→        {/* Grid circles */}
+   141→        {[0.25, 0.5, 0.75, 1].map((r) => (
+   142→          <circle
+   143→            key={r}
+   144→            cx={center}
+   145→            cy={center}
+   146→            r={radius * r}
+   147→            fill="none"
+   148→            stroke="currentColor"
+   149→            strokeWidth={0.5}
+   150→            className="text-muted-foreground/20"
+   151→          />
+   152→        ))}
+   153→        {/* Grid lines */}
+   154→        {values.map((_, i) => {
+   155→          const angle = (Math.PI * 2 * i) / n - Math.PI / 2
+   156→          const x2 = center + radius * Math.cos(angle)
+   157→          const y2 = center + radius * Math.sin(angle)
+   158→          return (
+   159→            <line
+   160→              key={i}
+   161→              x1={center}
+   162→              y1={center}
+   163→              x2={x2}
+   164→              y2={y2}
+   165→              stroke="currentColor"
+   166→              strokeWidth={0.5}
+   167→              className="text-muted-foreground/20"
+   168→            />
+   169→          )
+   170→        })}
+   171→        {/* Polygon */}
+   172→        <polygon
+   173→          points={polygonPoints}
+   174→          fill="rgba(5, 150, 105, 0.15)"
+   175→          stroke="#059669"
+   176→          strokeWidth={2}
+   177→        />
+   178→        {/* Points */}
+   179→        {points.map((p, i) => (
+   180→          <circle key={i} cx={p.x} cy={p.y} r={4} fill="#059669" stroke="white" strokeWidth={2} />
+   181→        ))}
+   182→        {/* Labels */}
+   183→        {KIVIAT_DIMENSIONS.map((dim, i) => {
+   184→          const angle = (Math.PI * 2 * i) / n - Math.PI / 2
+   185→          const lx = center + (radius + 22) * Math.cos(angle)
+   186→          const ly = center + (radius + 22) * Math.sin(angle)
+   187→          return (
+   188→            <text
+   189→              key={dim}
+   190→              x={lx}
+   191→              y={ly}
+   192→              textAnchor="middle"
+   193→              dominantBaseline="middle"
+   194→              className="text-[10px] fill-muted-foreground"
+   195→            >
+   196→              {dim}
+   197→            </text>
+   198→          )
+   199→        })}
+   200→      </svg>
+   201→      <div className="flex flex-wrap justify-center gap-3">
+   202→        {KIVIAT_DIMENSIONS.map((dim, i) => (
+   203→          <div key={dim} className="flex items-center gap-1.5 text-xs">
+   204→            <div className="h-2 w-2 rounded-full bg-emerald-500" />
+   205→            <span className="text-muted-foreground">{dim}:</span>
+   206→            <span className="font-medium">{values[i]}</span>
+   207→          </div>
+   208→        ))}
+   209→      </div>
+   210→    </div>
+   211→  )
+   212→}
+   213→
+   214→/* ─── TIMELINE ─── */
+   215→
+   216→function TimelineItem({
+   217→  icon: Icon,
+   218→  color,
+   219→  title,
+   220→  subtitle,
+   221→  date,
+   222→}: {
+   223→  icon: React.ElementType
+   224→  color: string
+   225→  title: string
+   226→  subtitle: string
+   227→  date: string
+   228→}) {
+   229→  return (
+   230→    <div className="flex gap-3">
+   231→      <div className="flex flex-col items-center">
+   232→        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${color}`}>
+   233→          <Icon className="h-4 w-4" />
+   234→        </div>
+   235→        <div className="w-px flex-1 bg-border mt-2" />
+   236→      </div>
+   237→      <div className="pb-6 flex-1 min-w-0">
+   238→        <p className="text-sm font-medium text-foreground">{title}</p>
+   239→        <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
+   240→        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+   241→          <Clock className="h-3 w-3" />
+   242→          {date}
+   243→        </p>
+   244→      </div>
+   245→    </div>
+   246→  )
+   247→}
+   248→
+   249→/* ─── MODULE COMPLETION CARD ─── */
+   250→
+   251→function ModuleCard({
+   252→  name,
+   253→  status,
+   254→  score,
+   255→}: {
+   256→  name: string
+   257→  status: 'completed' | 'in_progress' | 'not_started'
+   258→  score: number
+   259→}) {
+   260→  const statusConfig = {
+   261→    completed: { label: 'Terminé', color: 'bg-emerald-500 text-white', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+   262→    in_progress: { label: 'En cours', color: 'bg-amber-500 text-white', badge: 'bg-amber-50 text-amber-700 border-amber-200' },
+   263→    not_started: { label: 'Non commencé', color: 'bg-muted text-muted-foreground', badge: 'bg-muted text-muted-foreground border-border' },
+   264→  }
+   265→  const cfg = statusConfig[status]
+   266→
+   267→  return (
+   268→    <div className="flex items-center gap-3 rounded-lg border p-3">
+   269→      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${cfg.color}`}>
+   270→        {status === 'completed' ? (
+   271→          <CheckCircle2 className="h-4 w-4" />
+   272→        ) : status === 'in_progress' ? (
+   273→          <CircleDot className="h-4 w-4" />
+   274→        ) : (
+   275→          <BookOpen className="h-4 w-4" />
+   276→        )}
+   277→      </div>
+   278→      <div className="flex-1 min-w-0">
+   279→        <p className="text-sm font-medium text-foreground truncate">{name}</p>
+   280→        <div className="flex items-center gap-2 mt-1">
+   281→          <Progress value={score} className="h-1.5 flex-1" />
+   282→          <span className="text-xs text-muted-foreground shrink-0">{score}%</span>
+   283→        </div>
+   284→      </div>
+   285→      <Badge variant="outline" className={cfg.badge}>{cfg.label}</Badge>
+   286→    </div>
+   287→  )
+   288→}
+   289→
+   290→/* ─── LOADING SKELETONS ─── */
+   291→
+   292→function ProfileSkeleton() {
+   293→  return (
+   294→    <div className="space-y-4">
+   295→      <div className="flex items-center gap-4">
+   296→        <Skeleton className="h-16 w-16 rounded-full" />
+   297→        <div className="space-y-2 flex-1">
+   298→          <Skeleton className="h-6 w-48" />
+   299→          <Skeleton className="h-4 w-36" />
+   300→        </div>
+   301→      </div>
+   302→      <div className="grid grid-cols-2 gap-4">
+   303→        {[1, 2, 3, 4].map((i) => (
+   304→          <Skeleton key={i} className="h-16 w-full rounded-lg" />
+   305→        ))}
+   306→      </div>
+   307→      <Skeleton className="h-6 w-40" />
+   308→      <div className="space-y-3">
+   309→        {[1, 2, 3].map((i) => (
+   310→          <Skeleton key={i} className="h-14 w-full rounded-lg" />
+   311→        ))}
+   312→      </div>
+   313→    </div>
+   314→  )
+   315→}
+   316→
+   317→/* ─── EMPTY STATE ─── */
+   318→
+   319→function EmptyState({ title, description }: { title: string; description: string }) {
+   320→  return (
+   321→    <motion.div
+   322→      initial={{ opacity: 0, y: 10 }}
+   323→      animate={{ opacity: 1, y: 0 }}
+   324→      className="flex flex-col items-center justify-center py-12 text-center"
+   325→    >
+   326→      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
+   327→        <Eye className="h-7 w-7 text-muted-foreground" />
+   328→      </div>
+   329→      <h3 className="mt-4 text-lg font-semibold text-foreground">{title}</h3>
+   330→      <p className="mt-1 text-sm text-muted-foreground max-w-xs">{description}</p>
+   331→    </motion.div>
+   332→  )
+   333→}
+   334→
+   335→/* ─── MAIN BENEFICIAIRE 360° SHEET ─── */
+   336→
+   337→export function Beneficiaire360Sheet({
+   338→  open,
+   339→  onOpenChange,
+   340→  preselectedBeneficiaryId,
+   341→}: {
+   342→  open: boolean
+   343→  onOpenChange: (open: boolean) => void
+   344→  preselectedBeneficiaryId?: string | null
+   345→}) {
+   346→  const [searchQuery, setSearchQuery] = useState('')
+   347→  const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([])
+   348→  const [searchResults, setSearchResults] = useState<Beneficiary[]>([])
+   349→  const [showDropdown, setShowDropdown] = useState(false)
+   350→  const [selectedBeneficiary, setSelectedBeneficiary] = useState<Beneficiary | null>(null)
+   351→  const [data360, setData360] = useState<Beneficiary360Data | null>(null)
+   352→  const [loadingData, setLoadingData] = useState(false)
+   353→  const [loadingSearch, setLoadingSearch] = useState(false)
+   354→  const [error, setError] = useState<string | null>(null)
+   355→  const searchRef = useRef<HTMLDivElement>(null)
+   356→  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+   357→
+   358→  // Fetch all beneficiaries when sheet opens
+   359→  useEffect(() => {
+   360→    if (open) {
+   361→      fetchBeneficiaries()
+   362→      // If preselected, directly load 360 data
+   363→      if (preselectedBeneficiaryId) {
+   364→        loadBeneficiary360(preselectedBeneficiaryId)
+   365→      } else {
+   366→        setSelectedBeneficiary(null)
+   367→        setData360(null)
+   368→        setError(null)
+   369→        setSearchQuery('')
+   370→      }
+   371→    }
+   372→  }, [open, preselectedBeneficiaryId])
+   373→
+   374→  // Close dropdown on outside click
+   375→  useEffect(() => {
+   376→    function handleClick(e: MouseEvent) {
+   377→      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+   378→        setShowDropdown(false)
+   379→      }
+   380→    }
+   381→    document.addEventListener('mousedown', handleClick)
+   382→    return () => document.removeEventListener('mousedown', handleClick)
+   383→  }, [])
+   384→
+   385→  const fetchBeneficiaries = async () => {
+   386→    try {
+   387→      const res = await authFetch('/api/conseiller/beneficiaires?limit=50')
+   388→      const json = await res.json()
+   389→      if (json.success) {
+   390→        setBeneficiaries(json.data.beneficiaires)
+   391→      }
+   392→    } catch {
+   393→      // Silent fail - user can still search
+   394→    }
+   395→  }
+   396→
+   397→  const handleSearch = useCallback((query: string) => {
+   398→    setSearchQuery(query)
+   399→    if (debounceRef.current) clearTimeout(debounceRef.current)
+   400→
+   401→    if (!query.trim()) {
+   402→      setSearchResults([])
+   403→      setShowDropdown(false)
+   404→      return
+   405→    }
+   406→
+   407→    setLoadingSearch(true)
+   408→    debounceRef.current = setTimeout(async () => {
+   409→      try {
+   410→        const res = await authFetch(`/api/conseiller/beneficiaires?search=${encodeURIComponent(query)}&limit=10`)
+   411→        const json = await res.json()
+   412→        if (json.success) {
+   413→          setSearchResults(json.data.beneficiaires)
+   414→          setShowDropdown(true)
+   415→        }
+   416→      } catch {
+   417→        // Fallback to local filter
+   418→        const q = query.toLowerCase()
+   419→        const filtered = beneficiaries.filter(
+   420→          (b) =>
+   421→            b.firstName.toLowerCase().includes(q) ||
+   422→            b.lastName.toLowerCase().includes(q) ||
+   423→            b.projectTitle.toLowerCase().includes(q)
+   424→        )
+   425→        setSearchResults(filtered)
+   426→        setShowDropdown(true)
+   427→      } finally {
+   428→        setLoadingSearch(false)
+   429→      }
+   430→    }, 300)
+   431→  }, [beneficiaries])
+   432→
+   433→  const loadBeneficiary360 = async (beneficiaryId: string) => {
+   434→    setLoadingData(true)
+   435→    setError(null)
+   436→    setData360(null)
+   437→    setShowDropdown(false)
+   438→
+   439→    try {
+   440→      // Fetch beneficiary details
+   441→      const [benRes, entretiensRes, livrablesRes, kiviatRes] = await Promise.all([
+   442→        authFetch(`/api/conseiller/beneficiaires?search=${beneficiaryId}&limit=1`),
+   443→        authFetch(`/api/conseiller/entretiens?limit=20`),
+   444→        authFetch(`/api/conseiller/livrables?limit=20`),
+   445→        authFetch(`/api/conseiller/creascope-stats?counselorId=self`),
+   446→      ])
+   447→
+   448→      const [benJson, entJson, livJson, kiviatJson] = await Promise.all([
+   449→        benRes.json(),
+   450→        entretiensRes.json(),
+   451→        livrablesRes.json(),
+   452→        kiviatRes.json().catch(() => null),
+   453→      ])
+   454→
+   455→      // Find the beneficiary
+   456→      let benef: Beneficiary | null = null
+   457→      if (benJson.success) {
+   458→        benef = benJson.data.beneficiaires.find((b: Beneficiary) => b.id === beneficiaryId) || null
+   459→        if (!benef && benJson.data.beneficiaires.length > 0) {
+   460→          benef = benJson.data.beneficiaires[0]
+   461→        }
+   462→      }
+   463→
+   464→      if (!benef) {
+   465→        setError('Beneficiaire non trouvé')
+   466→        setLoadingData(false)
+   467→        return
+   468→      }
+   469→
+   470→      setSelectedBeneficiary(benef)
+   471→
+   472→      // Extract entretiens for this beneficiary
+   473→      const benEntretiens = entJson.success
+   474→        ? entJson.data.entretiens.filter((e: { beneficiaryId: string }) => e.beneficiaryId === beneficiaryId).slice(0, 8)
+   475→        : []
+   476→
+   477→      // Extract livrables for this beneficiary
+   478→      const benLivrables = livJson.success
+   479→        ? livJson.data.livrables.filter((l: { beneficiaryId: string }) => l.beneficiaryId === beneficiaryId)
+   480→        : []
+   481→
+   482→      // Extract kiviat scores (if creascope data available)
+   483→      let kiviatScores: KiviatScore[] = []
+   484→      if (kiviatJson?.success) {
+   485→        const dimAverages = kiviatJson.data.dimensionAverages
+   486→        if (dimAverages) {
+   487→          kiviatScores = Object.entries(dimAverages).map(([key, value]) => ({
+   488→            category: key.charAt(0).toUpperCase() + key.slice(1),
+   489→            score: value as number,
+   490→          }))
+   491→        }
+   492→      }
+   493→
+   494→      // Build module completion mock based on progress
+   495→      const moduleNames = ['Découverte entrepreneuriale', 'Profilage RIASEC', 'Idéation & Créativité', 'Business Model Canvas', 'Business Plan', 'Stratégie financière']
+   496→      const moduleCompletion = moduleNames.map((name, i) => {
+   497→        const threshold = (i / moduleNames.length) * 100
+   498→        const status = benef.progress >= threshold + 16
+   499→          ? 'completed' as const
+   500→          : benef.progress >= threshold
+   501→            ? 'in_progress' as const
+   502→            : 'not_started' as const
+   503→        const score = status === 'completed' ? 100 : status === 'in_progress' ? Math.min(90, Math.round((benef.progress - threshold) / 16 * 100)) : 0
+   504→        return { moduleName: name, status, score }
+   505→      })
+   506→
+   507→      setData360({
+   508→        beneficiaire: benef,
+   509→        kiviatScores,
+   510→        livrables: benLivrables,
+   511→        recentInterviews: benEntretiens,
+   512→        moduleCompletion,
+   513→        journeyData: {
+   514→          currentPhase: benef.journeyPhase,
+   515→          progressPercent: benef.progress,
+   516→          projectTitle: benef.projectTitle,
+   517→          projectSector: benef.sector,
+   518→          bpStatus: 'NOT_STARTED',
+   519→        },
+   520→      })
+   521→    } catch (err) {
+   522→      setError('Erreur lors du chargement des données')
+   523→    } finally {
+   524→      setLoadingData(false)
+   525→    }
+   526→  }
+   527→
+   528→  const selectBeneficiary = (ben: Beneficiary) => {
+   529→    setSearchQuery(`${ben.firstName} ${ben.lastName}`)
+   530→    setShowDropdown(false)
+   531→    loadBeneficiary360(ben.id)
+   532→  }
+   533→
+   534→  const formatDate = (iso: string) => {
+   535→    try {
+   536→      return new Date(iso).toLocaleDateString('fr-FR', {
+   537→        day: 'numeric',
+   538→        month: 'long',
+   539→        year: 'numeric',
+   540→      })
+   541→    } catch {
+   542→      return iso
+   543→    }
+   544→  }
+   545→
+   546→  const initials = (b: Beneficiary) =>
+   547→    `${b.firstName[0] || ''}${b.lastName[0] || ''}`.toUpperCase()
+   548→
+   549→  const livrableTypeIcon = (type: string) => {
+   550→    switch (type?.toLowerCase()) {
+   551→      case 'business_plan': return 'BP'
+   552→      case 'bmc': return 'BMC'
+   553→      case 'previsionnel_financier': return 'PF'
+   554→      default: return 'DOC'
+   555→    }
+   556→  }
+   557→
+   558→  const handleClose = () => {
+   559→    onOpenChange(false)
+   560→    // Reset state after animation
+   561→    setTimeout(() => {
+   562→      setSelectedBeneficiary(null)
+   563→      setData360(null)
+   564→      setError(null)
+   565→      setSearchQuery('')
+   566→    }, 300)
+   567→  }
+   568→
+   569→  return (
+   570→    <Sheet open={open} onOpenChange={handleClose}>
+   571→      <SheetContent side="right" className="w-full sm:max-w-2xl p-0 flex flex-col">
+   572→        <SheetHeader className="px-6 pt-6 pb-4 border-b border-border shrink-0">
+   573→          <SheetTitle className="flex items-center gap-2">
+   574→            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+   575→              <Eye className="h-4 w-4 text-primary" />
+   576→            </div>
+   577→            Vue 360° Bénéficiaire
+   578→          </SheetTitle>
+   579→          <SheetDescription>
+   580→            Consultez le parcours complet d&apos;un bénéficiaire
+   581→          </SheetDescription>
+   582→        </SheetHeader>
+   583→
+   584→        {/* Search bar */}
+   585→        <div className="px-6 py-3 border-b border-border shrink-0 relative" ref={searchRef}>
+   586→          <div className="relative">
+   587→            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   588→            <Input
+   589→              placeholder="Rechercher un bénéficiaire..."
+   590→              className="pl-9 pr-8"
+   591→              value={searchQuery}
+   592→              onChange={(e) => handleSearch(e.target.value)}
+   593→              onFocus={() => {
+   594→                if (searchResults.length > 0 || searchQuery.trim()) setShowDropdown(true)
+   595→              }}
+   596→            />
+   597→            {searchQuery && (
+   598→              <button
+   599→                onClick={() => {
+   600→                  setSearchQuery('')
+   601→                  setSearchResults([])
+   602→                  setShowDropdown(false)
+   603→                }}
+   604→                className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+   605→              >
+   606→                <X className="h-4 w-4" />
+   607→              </button>
+   608→            )}
+   609→            {loadingSearch && (
+   610→              <Loader2 className="absolute top-1/2 right-10 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+   611→            )}
+   612→          </div>
+   613→
+   614→          {/* Dropdown */}
+   615→          <AnimatePresence>
+   616→            {showDropdown && searchResults.length > 0 && (
+   617→              <motion.div
+   618→                initial={{ opacity: 0, y: -4 }}
+   619→                animate={{ opacity: 1, y: 0 }}
+   620→                exit={{ opacity: 0, y: -4 }}
+   621→                className="absolute top-full left-0 right-0 mt-1 rounded-lg border bg-background shadow-lg z-50 max-h-64 overflow-y-auto"
+   622→              >
+   623→                {searchResults.map((ben) => (
+   624→                  <button
+   625→                    key={ben.id}
+   626→                    onClick={() => selectBeneficiary(ben)}
+   627→                    className="flex items-center gap-3 w-full px-3 py-2.5 text-left hover:bg-muted/50 transition-colors first:rounded-t-lg last:rounded-b-lg"
+   628→                  >
+   629→                    <Avatar className="h-8 w-8">
+   630→                      <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+   631→                        {initials(ben)}
+   632→                      </AvatarFallback>
+   633→                    </Avatar>
+   634→                    <div className="flex-1 min-w-0">
+   635→                      <p className="text-sm font-medium text-foreground truncate">
+   636→                        {ben.firstName} {ben.lastName}
+   637→                      </p>
+   638→                      <p className="text-xs text-muted-foreground truncate">{ben.projectTitle || 'Aucun projet'}</p>
+   639→                    </div>
+   640→                    <Badge variant="outline" className="text-[10px] shrink-0">{ben.journeyPhase}</Badge>
+   641→                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+   642→                  </button>
+   643→                ))}
+   644→              </motion.div>
+   645→            )}
+   646→          </AnimatePresence>
+   647→        </div>
+   648→
+   649→        {/* Content area */}
+   650→        <ScrollArea className="flex-1">
+   651→          <div className="p-6">
+   652→            {!selectedBeneficiary && !loadingData && !error && (
+   653→              <EmptyState
+   654→                title="Sélectionnez un bénéficiaire"
+   655→                description="Recherchez par nom ou projet pour afficher la vue 360° complète de son parcours."
+   656→              />
+   657→            )}
+   658→
+   659→            {loadingData && <ProfileSkeleton />}
+   660→
+   661→            {error && (
+   662→              <div className="flex flex-col items-center justify-center py-12 text-center">
+   663→                <AlertCircle className="h-8 w-8 text-coral-500" />
+   664→                <p className="mt-3 text-sm text-muted-foreground">{error}</p>
+   665→                <Button variant="outline" size="sm" className="mt-4" onClick={() => { setError(null) }}>
+   666→                  Réessayer
+   667→                </Button>
+   668→              </div>
+   669→            )}
+   670→
+   671→            {selectedBeneficiary && data360 && !loadingData && (
+   672→              <motion.div
+   673→                initial={{ opacity: 0, y: 10 }}
+   674→                animate={{ opacity: 1, y: 0 }}
+   675→                transition={{ duration: 0.3 }}
+   676→              >
+   677→                <Tabs defaultValue="profil" className="space-y-6">
+   678→                  <TabsList className="w-full grid grid-cols-4">
+   679→                    <TabsTrigger value="profil" className="text-xs sm:text-sm">Profil</TabsTrigger>
+   680→                    <TabsTrigger value="parcours" className="text-xs sm:text-sm">Parcours</TabsTrigger>
+   681→                    <TabsTrigger value="documents" className="text-xs sm:text-sm">Documents</TabsTrigger>
+   682→                    <TabsTrigger value="ia" className="text-xs sm:text-sm">IA Insights</TabsTrigger>
+   683→                  </TabsList>
+   684→
+   685→                  {/* ── TAB 1: PROFIL ── */}
+   686→                  <TabsContent value="profil" className="space-y-6 mt-4">
+   687→                    {/* Header card */}
+   688→                    <Card>
+   689→                      <CardContent className="p-5">
+   690→                        <div className="flex items-start gap-4">
+   691→                          <Avatar className="h-16 w-16">
+   692→                            <AvatarFallback className="bg-primary text-primary-foreground text-xl font-bold">
+   693→                              {initials(selectedBeneficiary)}
+   694→                            </AvatarFallback>
+   695→                          </Avatar>
+   696→                          <div className="flex-1 min-w-0">
+   697→                            <h3 className="text-lg font-bold text-foreground">
+   698→                              {selectedBeneficiary.firstName} {selectedBeneficiary.lastName}
+   699→                            </h3>
+   700→                            <p className="text-sm text-muted-foreground mt-0.5">
+   701→                              {selectedBeneficiary.projectTitle || 'Aucun projet défini'}
+   702→                            </p>
+   703→                            <div className="flex flex-wrap gap-2 mt-2">
+   704→                              <Badge variant="outline">{selectedBeneficiary.journeyPhase}</Badge>
+   705→                              <Badge variant={selectedBeneficiary.status === 'actif' ? 'default' : 'secondary'}>
+   706→                                {selectedBeneficiary.status === 'actif' ? 'Actif' : selectedBeneficiary.status === 'inactif' ? 'Inactif' : 'En attente'}
+   707→                              </Badge>
+   708→                            </div>
+   709→                          </div>
+   710→                        </div>
+   711→                      </CardContent>
+   712→                    </Card>
+   713→
+   714→                    {/* Info grid */}
+   715→                    <div className="grid grid-cols-2 gap-3">
+   716→                      <Card className="p-4">
+   717→                        <div className="flex items-center gap-2 text-muted-foreground mb-1">
+   718→                          <Mail className="h-3.5 w-3.5" />
+   719→                          <span className="text-xs">Email</span>
+   720→                        </div>
+   721→                        <p className="text-sm font-medium text-foreground truncate">{selectedBeneficiary.email}</p>
+   722→                      </Card>
+   723→                      <Card className="p-4">
+   724→                        <div className="flex items-center gap-2 text-muted-foreground mb-1">
+   725→                          <Calendar className="h-3.5 w-3.5" />
+   726→                          <span className="text-xs">Inscription</span>
+   727→                        </div>
+   728→                        <p className="text-sm font-medium text-foreground">{formatDate(selectedBeneficiary.createdAt)}</p>
+   729→                      </Card>
+   730→                      <Card className="p-4">
+   731→                        <div className="flex items-center gap-2 text-muted-foreground mb-1">
+   732→                          <Clock className="h-3.5 w-3.5" />
+   733→                          <span className="text-xs">Dernière activité</span>
+   734→                        </div>
+   735→                        <p className="text-sm font-medium text-foreground">{formatDate(selectedBeneficiary.lastActivity)}</p>
+   736→                      </Card>
+   737→                      <Card className="p-4">
+   738→                        <div className="flex items-center gap-2 text-muted-foreground mb-1">
+   739→                          <Target className="h-3.5 w-3.5" />
+   740→                          <span className="text-xs">Secteur</span>
+   741→                        </div>
+   742→                        <p className="text-sm font-medium text-foreground">{selectedBeneficiary.sector || 'Non défini'}</p>
+   743→                      </Card>
+   744→                    </div>
+   745→
+   746→                    {/* PAA Program progress */}
+   747→                    <Card>
+   748→                      <CardHeader className="pb-3">
+   749→                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+   750→                          <TrendingUp className="h-4 w-4 text-primary" />
+   751→                          Programme PAA
+   752→                        </CardTitle>
+   753→                      </CardHeader>
+   754→                      <CardContent className="space-y-4">
+   755→                        <div className="flex items-center justify-between">
+   756→                          <span className="text-sm text-muted-foreground">Progression globale</span>
+   757→                          <span className="text-lg font-bold text-foreground">{selectedBeneficiary.progress}%</span>
+   758→                        </div>
+   759→                        <Progress value={selectedBeneficiary.progress} className="h-2.5" />
+   760→                        <div className="text-xs text-muted-foreground">
+   761→                          Phase actuelle : <span className="font-medium text-foreground">{selectedBeneficiary.journeyPhase}</span>
+   762→                        </div>
+   763→                      </CardContent>
+   764→                    </Card>
+   765→
+   766→                    {/* Module completion */}
+   767→                    <Card>
+   768→                      <CardHeader className="pb-3">
+   769→                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+   770→                          <BookOpen className="h-4 w-4 text-primary" />
+   771→                          Modules du parcours
+   772→                        </CardTitle>
+   773→                      </CardHeader>
+   774→                      <CardContent className="space-y-2">
+   775→                        {data360.moduleCompletion.map((mod) => (
+   776→                          <ModuleCard key={mod.moduleName} {...mod} />
+   777→                        ))}
+   778→                      </CardContent>
+   779→                    </Card>
+   780→                  </TabsContent>
+   781→
+   782→                  {/* ── TAB 2: PARCOURS ── */}
+   783→                  <TabsContent value="parcours" className="space-y-6 mt-4">
+   784→                    {/* Timeline */}
+   785→                    <Card>
+   786→                      <CardHeader className="pb-3">
+   787→                        <CardTitle className="text-base font-semibold">Chronologie des activités</CardTitle>
+   788→                      </CardHeader>
+   789→                      <CardContent>
+   790→                        {data360.recentInterviews.length > 0 ? (
+   791→                          <div className="relative">
+   792→                            {data360.recentInterviews.map((interview, i) => {
+   793→                              const typeConfig: Record<string, { icon: React.ElementType; color: string }> = {
+   794→                                bilan: { icon: BarChart3, color: 'bg-primary/10 text-primary' },
+   795→                                suivi: { icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600' },
+   796→                                atelier: { icon: BookOpen, color: 'bg-amber-50 text-amber-600' },
+   797→                                autre: { icon: FileText, color: 'bg-muted text-muted-foreground' },
+   798→                              }
+   799→                              const cfg = typeConfig[interview.type] || typeConfig.autre
+   800→                              const Icon = cfg.icon
+   801→                              return (
+   802→                                <div key={interview.id}>
+   803→                                  <TimelineItem
+   804→                                    icon={Icon}
+   805→                                    color={cfg.color}
+   806→                                    title={`Entretien de ${interview.typeLabel}`}
+   807→                                    subtitle={interview.notes || 'Aucune note'}
+   808→                                    date={`${formatDate(interview.date)} - ${interview.time}`}
+   809→                                  />
+   810→                                </div>
+   811→                              )
+   812→                            })}
+   813→                          </div>
+   814→                        ) : (
+   815→                          <p className="text-sm text-muted-foreground text-center py-6">
+   816→                            Aucun entretien enregistré pour ce bénéficiaire.
+   817→                          </p>
+   818→                        )}
+   819→                      </CardContent>
+   820→                    </Card>
+   821→
+   822→                    {/* Kiviat radar */}
+   823→                    <Card>
+   824→                      <CardHeader className="pb-3">
+   825→                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+   826→                          <Target className="h-4 w-4 text-emerald-600" />
+   827→                          Scores CréaScope
+   828→                        </CardTitle>
+   829→                      </CardHeader>
+   830→                      <CardContent>
+   831→                        {data360.kiviatScores.length > 0 ? (
+   832→                          <KiviatRadar scores={data360.kiviatScores} />
+   833→                        ) : (
+   834→                          <p className="text-sm text-muted-foreground text-center py-6">
+   835→                            Aucune évaluation CréaScope disponible. Le bénéficiaire n&apos;a pas encore passé le test.
+   836→                          </p>
+   837→                        )}
+   838→                      </CardContent>
+   839→                    </Card>
+   840→                  </TabsContent>
+   841→
+   842→                  {/* ── TAB 3: DOCUMENTS ── */}
+   843→                  <TabsContent value="documents" className="space-y-6 mt-4">
+   844→                    {/* BP Status */}
+   845→                    <Card>
+   846→                      <CardHeader className="pb-3">
+   847→                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+   848→                          <FileText className="h-4 w-4 text-primary" />
+   849→                          Business Plan
+   850→                        </CardTitle>
+   851→                      </CardHeader>
+   852→                      <CardContent>
+   853→                        <div className="flex items-center justify-between">
+   854→                          <div>
+   855→                            <p className="text-sm text-foreground font-medium">
+   856→                              {data360.journeyData?.projectTitle || 'Business Plan'}
+   857→                            </p>
+   858→                            <p className="text-xs text-muted-foreground mt-0.5">
+   859→                              {data360.journeyData?.bpStatus === 'VALIDATED' ? 'Validé' :
+   860→                               data360.journeyData?.bpStatus === 'DRAFT' ? 'Brouillon' :
+   861→                               data360.journeyData?.bpStatus === 'IN_PROGRESS' ? 'En cours' :
+   862→                               'Non commencé'}
+   863→                            </p>
+   864→                          </div>
+   865→                          <Badge
+   866→                            variant="outline"
+   867→                            className={
+   868→                              data360.journeyData?.bpStatus === 'VALIDATED'
+   869→                                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+   870→                                : data360.journeyData?.bpStatus === 'IN_PROGRESS'
+   871→                                  ? 'border-amber-200 bg-amber-50 text-amber-700'
+   872→                                  : 'border-border'
+   873→                            }
+   874→                          >
+   875→                            {data360.journeyData?.bpStatus === 'VALIDATED' ? 'Validé' :
+   876→                             data360.journeyData?.bpStatus === 'DRAFT' ? 'Brouillon' :
+   877→                             data360.journeyData?.bpStatus === 'IN_PROGRESS' ? 'En cours' :
+   878→                             'Non commencé'}
+   879→                          </Badge>
+   880→                        </div>
+   881→                      </CardContent>
+   882→                    </Card>
+   883→
+   884→                    {/* BMC & Financial */}
+   885→                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   886→                      <Card className="p-4">
+   887→                        <div className="flex items-center gap-2 text-muted-foreground mb-2">
+   888→                          <BarChart3 className="h-4 w-4" />
+   889→                          <span className="text-sm font-medium">BMC</span>
+   890→                        </div>
+   891→                        <p className="text-xs text-muted-foreground">Business Model Canvas</p>
+   892→                        <div className="mt-2">
+   893→                          <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">À compléter</Badge>
+   894→                        </div>
+   895→                      </Card>
+   896→                      <Card className="p-4">
+   897→                        <div className="flex items-center gap-2 text-muted-foreground mb-2">
+   898→                          <TrendingUp className="h-4 w-4" />
+   899→                          <span className="text-sm font-medium">Prévisionnel financier</span>
+   900→                        </div>
+   901→                        <p className="text-xs text-muted-foreground">Tableaux financiers</p>
+   902→                        <div className="mt-2">
+   903→                          <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">À compléter</Badge>
+   904→                        </div>
+   905→                      </Card>
+   906→                    </div>
+   907→
+   908→                    {/* Livrables list */}
+   909→                    <Card>
+   910→                      <CardHeader className="pb-3">
+   911→                        <div className="flex items-center justify-between">
+   912→                          <CardTitle className="text-base font-semibold">Livrables soumis</CardTitle>
+   913→                          <Badge variant="secondary" className="text-xs">
+   914→                            {data360.livrables.length} document{data360.livrables.length !== 1 ? 's' : ''}
+   915→                          </Badge>
+   916→                        </div>
+   917→                      </CardHeader>
+   918→                      <CardContent>
+   919→                        {data360.livrables.length > 0 ? (
+   920→                          <div className="space-y-0">
+   921→                            {data360.livrables.map((liv, i) => (
+   922→                              <div key={liv.id}>
+   923→                                <div className="flex items-center gap-3 py-2.5">
+   924→                                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary text-xs font-bold">
+   925→                                    {livrableTypeIcon(liv.type)}
+   926→                                  </div>
+   927→                                  <div className="flex-1 min-w-0">
+   928→                                    <p className="text-sm font-medium text-foreground truncate">{liv.title}</p>
+   929→                                    <p className="text-xs text-muted-foreground">
+   930→                                      {liv.type} · {formatDate(liv.createdAt)}
+   931→                                    </p>
+   932→                                  </div>
+   933→                                  <Badge
+   934→                                    variant="outline"
+   935→                                    className={
+   936→                                      liv.status === 'VALIDATED'
+   937→                                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+   938→                                        : liv.status === 'READY'
+   939→                                          ? 'border-coral-200 bg-coral-50 text-coral-700'
+   940→                                          : 'border-border'
+   941→                                    }
+   942→                                  >
+   943→                                    {liv.statusLabel}
+   944→                                  </Badge>
+   945→                                </div>
+   946→                                {i < data360.livrables.length - 1 && <Separator />}
+   947→                              </div>
+   948→                            ))}
+   949→                          </div>
+   950→                        ) : (
+   951→                          <p className="text-sm text-muted-foreground text-center py-6">
+   952→                            Aucun livrable soumis par ce bénéficiaire.
+   953→                          </p>
+   954→                        )}
+   955→                      </CardContent>
+   956→                    </Card>
+   957→                  </TabsContent>
+   958→
+   959→                  {/* ── TAB 4: IA INSIGHTS ── */}
+   960→                  <TabsContent value="ia" className="space-y-6 mt-4">
+   961→                    <Card>
+   962→                      <CardHeader className="pb-3">
+   963→                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+   964→                          <Sparkles className="h-4 w-4 text-amber-500" />
+   965→                          Bilan IA
+   966→                        </CardTitle>
+   967→                      </CardHeader>
+   968→                      <CardContent>
+   969→                        <p className="text-sm text-muted-foreground">
+   970→                          Le bilan IA est généré automatiquement après chaque cycle d&apos;entretiens.
+   971→                          Il synthétise les forces, faiblesses et recommandations pour le bénéficiaire.
+   972→                        </p>
+   973→                        <div className="mt-4 rounded-lg border border-dashed border-muted-foreground/30 p-6 text-center">
+   974→                          <Sparkles className="h-8 w-8 text-muted-foreground/50 mx-auto" />
+   975→                          <p className="mt-3 text-sm text-muted-foreground">
+   976→                            Aucun bilan IA disponible pour le moment.
+   977→                          </p>
+   978→                        </div>
+   979→                      </CardContent>
+   980→                    </Card>
+   981→
+   982→                    <Card>
+   983→                      <CardHeader className="pb-3">
+   984→                        <CardTitle className="text-base font-semibold">Recommandations personnalisées</CardTitle>
+   985→                      </CardHeader>
+   986→                      <CardContent>
+   987→                        <div className="space-y-3">
+   988→                          {selectedBeneficiary.progress < 30 ? (
+   989→                            <>
+   990→                              <div className="flex gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
+   991→                                <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+   992→                                <div>
+   993→                                  <p className="text-sm font-medium text-amber-800">Accélérer la phase de découverte</p>
+   994→                                  <p className="text-xs text-amber-700 mt-1">Ce bénéficiaire est en début de parcours. Planifiez un entretien de bilan initial.</p>
+   995→                                </div>
+   996→                              </div>
+   997→                              <div className="flex gap-3 p-3 rounded-lg bg-muted">
+   998→                                <Target className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+   999→                                <div>
+  1000→                                  <p className="text-sm font-medium text-foreground">Compléter le test RIASEC</p>
+  1001→                                  <p className="text-xs text-muted-foreground mt-1">Le profil RIASEC n&apos;est pas encore renseigné. Invitez le bénéficiaire à le compléter.</p>
+  1002→                                </div>
+  1003→                              </div>
+  1004→                            </>
+  1005→                          ) : selectedBeneficiary.progress < 70 ? (
+  1006→                            <>
+  1007→                              <div className="flex gap-3 p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+  1008→                                <TrendingUp className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+  1009→                                <div>
+  1010→                                  <p className="text-sm font-medium text-emerald-800">Parcours en bonne progression</p>
+  1011→                                  <p className="text-xs text-emerald-700 mt-1">Le bénéficiaire avance bien. Concentrez les prochains entretiens sur la modélisation et la stratégie.</p>
+  1012→                                </div>
+  1013→                              </div>
+  1014→                              <div className="flex gap-3 p-3 rounded-lg bg-muted">
+  1015→                                <FileText className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+  1016→                                <div>
+  1017→                                  <p className="text-sm font-medium text-foreground">Valider les livrables en attente</p>
+  1018→                                  <p className="text-xs text-muted-foreground mt-1">Des livrables sont prêts pour review. Prenez le temps de les valider rapidement.</p>
+  1019→                                </div>
+  1020→                              </div>
+  1021→                            </>
+  1022→                          ) : (
+  1023→                            <>
+  1024→                              <div className="flex gap-3 p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+  1025→                                <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+  1026→                                <div>
+  1027→                                  <p className="text-sm font-medium text-emerald-800">Phase de lancement imminente</p>
+  1028→                                  <p className="text-xs text-emerald-700 mt-1">Le parcours est avancé. Préparez le bénéficiaire au lancement avec un bilan complet.</p>
+  1029→                                </div>
+  1030→                              </div>
+  1031→                            </>
+  1032→                          )}
+  1033→                        </div>
+  1034→                      </CardContent>
+  1035→                    </Card>
+  1036→
+  1037→                    <Button
+  1038→                      className="w-full h-auto flex items-center justify-center gap-2 p-4 bg-gradient-to-r from-primary to-emerald-600 hover:opacity-90"
+  1039→                      onClick={() => {
+  1040→                        // Placeholder: In production, this would call an AI endpoint
+  1041→                      }}
+  1042→                    >
+  1043→                      <Sparkles className="h-5 w-5" />
+  1044→                      <div className="text-left">
+  1045→                        <p className="text-sm font-semibold">Générer un bilan IA</p>
+  1046→                        <p className="text-xs opacity-80">Analyse intelligente du parcours</p>
+  1047→                      </div>
+  1048→                    </Button>
+  1049→                  </TabsContent>
+  1050→                </Tabs>
+  1051→              </motion.div>
+  1052→            )}
+  1053→          </div>
+  1054→        </ScrollArea>
+  1055→      </SheetContent>
+  1056→    </Sheet>
+  1057→  )
+  1058→}

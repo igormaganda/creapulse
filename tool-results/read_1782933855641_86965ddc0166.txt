@@ -1,0 +1,706 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→import { useState, useMemo } from 'react'
+     4→     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→     5→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     6→     6→import { Badge } from '@/components/ui/badge'
+     7→     7→import { Button } from '@/components/ui/button'
+     8→     8→import { Input } from '@/components/ui/input'
+     9→     9→import { Textarea } from '@/components/ui/textarea'
+    10→    10→import { Separator } from '@/components/ui/separator'
+    11→    11→import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+    12→    12→import {
+    13→    13→  Dialog,
+    14→    14→  DialogContent,
+    15→    15→  DialogDescription,
+    16→    16→  DialogFooter,
+    17→    17→  DialogHeader,
+    18→    18→  DialogTitle,
+    19→    19→} from '@/components/ui/dialog'
+    20→    20→import {
+    21→    21→  Select,
+    22→    22→  SelectContent,
+    23→    23→  SelectItem,
+    24→    24→  SelectTrigger,
+    25→    25→  SelectValue,
+    26→    26→} from '@/components/ui/select'
+    27→    27→import {
+    28→    28→  Calendar,
+    29→    29→  Clock,
+    30→    30→  Plus,
+    31→    31→  ChevronLeft,
+    32→    32→  ChevronRight,
+    33→    33→  MapPin,
+    34→    34→  Phone,
+    35→    35→  Video,
+    36→    36→  User,
+    37→    37→  X,
+    38→    38→} from 'lucide-react'
+    39→    39→import { toast } from 'sonner'
+    40→    40→
+    41→    41→/* ─── Types ─── */
+    42→    42→type AppointmentType = 'bilan' | 'suivi' | 'atelier'
+    43→    43→type AppointmentMode = 'physique' | 'video' | 'telephone'
+    44→    44→
+    45→    45→interface Appointment {
+    46→    46→  id: string
+    47→    47→  date: string
+    48→    48→  startTime: string
+    49→    49→  endTime: string
+    50→    50→  beneficiaryId: string
+    51→    51→  beneficiaryName: string
+    52→    52→  beneficiaryInitials: string
+    53→    53→  type: AppointmentType
+    54→    54→  mode: AppointmentMode
+    55→    55→  location?: string
+    56→    56→  notes?: string
+    57→    57→}
+    58→    58→
+    59→    59→/* ─── Configs ─── */
+    60→    60→const typeConfig: Record<AppointmentType, { label: string; color: string; bg: string }> = {
+    61→    61→  bilan: { label: 'Bilan', color: 'text-teal-700 dark:text-teal-400', bg: 'bg-teal-100 dark:bg-teal-900/30' },
+    62→    62→  suivi: { label: 'Suivi', color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/30' },
+    63→    63→  atelier: { label: 'Atelier', color: 'text-coral-500 dark:text-coral-400', bg: 'bg-coral-50 dark:bg-coral-900/20' },
+    64→    64→}
+    65→    65→
+    66→    66→const modeConfig: Record<AppointmentMode, { label: string; icon: typeof MapPin }> = {
+    67→    67→  physique: { label: 'Physique', icon: MapPin },
+    68→    68→  video: { label: 'Video', icon: Video },
+    69→    69→  telephone: { label: 'Telephone', icon: Phone },
+    70→    70→}
+    71→    71→
+    72→    72→const DAYS_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+    73→    73→const DAYS_FULL = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
+    74→    74→const HOURS = Array.from({ length: 10 }, (_, i) => i + 9) // 9h-18h
+    75→    75→
+    76→    76→/* ─── Helpers ─── */
+    77→    77→function getMonday(d: Date): Date {
+    78→    78→  const date = new Date(d)
+    79→    79→  const day = date.getDay()
+    80→    80→  const diff = date.getDate() - day + (day === 0 ? -6 : 1)
+    81→    81→  date.setDate(diff)
+    82→    82→  date.setHours(0, 0, 0, 0)
+    83→    83→  return date
+    84→    84→}
+    85→    85→
+    86→    86→function formatDateShort(d: Date): string {
+    87→    87→  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+    88→    88→}
+    89→    89→
+    90→    90→function formatDateLong(d: Date): string {
+    91→    91→  return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+    92→    92→}
+    93→    93→
+    94→    94→function isSameDay(a: Date, b: Date): boolean {
+    95→    95→  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+    96→    96→}
+    97→    97→
+    98→    98→function isToday(d: Date): boolean {
+    99→    99→  return isSameDay(d, new Date())
+   100→   100→}
+   101→   101→
+   102→   102→/* ─── Generate mock appointments for current week ─── */
+   103→   103→function generateMockAppointments(): Appointment[] {
+   104→   104→  const today = new Date()
+   105→   105→  const monday = getMonday(today)
+   106→   106→
+   107→   107→  function offsetDate(dayOffset: number): string {
+   108→   108→    const d = new Date(monday)
+   109→   109→    d.setDate(d.getDate() + dayOffset)
+   110→   110→    return d.toISOString().split('T')[0]
+   111→   111→  }
+   112→   112→
+   113→   113→  return [
+   114→   114→    { id: 'p1', date: offsetDate(0), startTime: '09:00', endTime: '10:00', beneficiaryId: 'b1', beneficiaryName: 'Amadou Diallo', beneficiaryInitials: 'AD', type: 'suivi', mode: 'physique', location: 'GIDEF Paris - Salle A', notes: 'Suivi business plan Afrika Fusion.' },
+   115→   115→    { id: 'p2', date: offsetDate(0), startTime: '14:00', endTime: '15:30', beneficiaryId: 'b2', beneficiaryName: 'Lea Fontaine', beneficiaryInitials: 'LF', type: 'bilan', mode: 'video', notes: 'Bilan trimestriel EcoTech Solutions.' },
+   116→   116→    { id: 'p3', date: offsetDate(1), startTime: '09:30', endTime: '11:00', beneficiaryId: 'b3', beneficiaryName: 'Marc Renaud', beneficiaryInitials: 'MR', type: 'atelier', mode: 'physique', location: 'GIDEF Paris - Salle B', notes: 'Atelier Business Model Canvas.' },
+   117→   117→    { id: 'p4', date: offsetDate(1), startTime: '15:00', endTime:  '16:00', beneficiaryId: 'b4', beneficiaryName: 'Clara Dubois', beneficiaryInitials: 'CD', type: 'suivi', mode: 'telephone', notes: 'Suivi BoxFit Paris, analyse ventes.' },
+   118→   118→    { id: 'p5', date: offsetDate(2), startTime: '10:00', endTime: '11:00', beneficiaryId: 'b5', beneficiaryName: 'Karim Benali', beneficiaryInitials: 'KB', type: 'suivi', mode: 'video', notes: 'Suivi SnapClean.' },
+   119→   119→    { id: 'p6', date: offsetDate(2), startTime: '14:00', endTime: '16:00', beneficiaryId: 'b6', beneficiaryName: 'Julie Moreau', beneficiaryInitials: 'JM', type: 'atelier', mode: 'physique', location: 'GIDEF Paris - Salle A', notes: 'Atelier financement. Groupe de 5.' },
+   120→   120→    { id: 'p7', date: offsetDate(3), startTime: '09:00', endTime: '10:00', beneficiaryId: 'b7', beneficiaryName: 'Thomas Leroy', beneficiaryInitials: 'TL', type: 'bilan', mode: 'physique', location: 'GIDEF Paris - Salle C', notes: 'Bilan mi-parcours UrbanFarm.' },
+   121→   121→    { id: 'p8', date: offsetDate(3), startTime: '11:00', endTime: '12:00', beneficiaryId: 'b8', beneficiaryName: 'Fatima Hassani', beneficiaryInitials: 'FH', type: 'suivi', mode: 'video', notes: 'Suivi CraftID, strategie digitale.' },
+   122→   122→    { id: 'p9', date: offsetDate(3), startTime: '16:00', endTime: '17:00', beneficiaryId: 'b9', beneficiaryName: 'Hugo Petit', beneficiaryInitials: 'HP', type: 'suivi', mode: 'telephone', notes: 'Point rapide TechLab93.' },
+   123→   123→    { id: 'p10', date: offsetDate(4), startTime: '10:00', endTime: '11:30', beneficiaryId: 'b10', beneficiaryName: 'Nadia Bouzid', beneficiaryInitials: 'NB', type: 'bilan', mode: 'physique', location: 'GIDEF Paris - Salle A', notes: 'Bilan complet MedConnect.' },
+   124→   124→    { id: 'p11', date: offsetDate(4), startTime: '14:00', endTime: '15:00', beneficiaryId: 'b1', beneficiaryName: 'Amadou Diallo', beneficiaryInitials: 'AD', type: 'atelier', mode: 'physique', location: 'GIDEF Paris - Salle B', notes: 'Atelier marketing digital.' },
+   125→   125→    { id: 'p12', date: offsetDate(5), startTime: '10:00', endTime: '11:00', beneficiaryId: 'b2', beneficiaryName: 'Lea Fontaine', beneficiaryInitials: 'LF', type: 'suivi', mode: 'video', notes: 'Suivi post-presentation investisseurs.' },
+   126→   126→    { id: 'p13', date: offsetDate(1), startTime: '11:00', endTime: '12:00', beneficiaryId: 'b10', beneficiaryName: 'Nadia Bouzid', beneficiaryInitials: 'NB', type: 'bilan', mode: 'telephone', notes: 'Bilan express MedConnect.' },
+   127→   127→    { id: 'p14', date: offsetDate(0), startTime: '16:00', endTime: '17:00', beneficiaryId: 'b6', beneficiaryName: 'Julie Moreau', beneficiaryInitials: 'JM', type: 'suivi', mode: 'video', notes: 'Suivi Papillon Events.' },
+   128→   128→    { id: 'p15', date: offsetDate(4), startTime: '09:00', endTime: '10:00', beneficiaryId: 'b5', beneficiaryName: 'Karim Benali', beneficiaryInitials: 'KB', type: 'bilan', mode: 'physique', location: 'GIDEF Paris - Salle C', notes: 'Bilan SnapClean.' },
+   129→   129→  ]
+   130→   130→}
+   131→   131→
+   132→   132→const mockBeneficiaires = [
+   133→   133→  { id: 'b1', name: 'Amadou Diallo' },
+   134→   134→  { id: 'b2', name: 'Lea Fontaine' },
+   135→   135→  { id: 'b3', name: 'Marc Renaud' },
+   136→   136→  { id: 'b4', name: 'Clara Dubois' },
+   137→   137→  { id: 'b5', name: 'Karim Benali' },
+   138→   138→  { id: 'b6', name: 'Julie Moreau' },
+   139→   139→  { id: 'b7', name: 'Thomas Leroy' },
+   140→   140→  { id: 'b8', name: 'Fatima Hassani' },
+   141→   141→  { id: 'b9', name: 'Hugo Petit' },
+   142→   142→  { id: 'b10', name: 'Nadia Bouzid' },
+   143→   143→]
+   144→   144→
+   145→   145→/* ═══════════════════════════════════════════════════════════
+   146→   146→   Planning Component
+   147→   147→   ═══════════════════════════════════════════════════════════ */
+   148→   148→export function PlanningView() {
+   149→   149→  const [appointments, setAppointments] = useState(generateMockAppointments)
+   150→   150→  const [viewMode, setViewMode] = useState<'week' | 'month'>('week')
+   151→   151→  const [currentWeekStart, setCurrentWeekStart] = useState(() => getMonday(new Date()))
+   152→   152→  const [dialogOpen, setDialogOpen] = useState(false)
+   153→   153→  const [detailOpen, setDetailOpen] = useState(false)
+   154→   154→  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
+   155→   155→
+   156→   156→  /* New appointment form */
+   157→   157→  const [newBeneficiary, setNewBeneficiary] = useState('')
+   158→   158→  const [newDate, setNewDate] = useState('')
+   159→   159→  const [newStartTime, setNewStartTime] = useState('')
+   160→   160→  const [newEndTime, setNewEndTime] = useState('')
+   161→   161→  const [newType, setNewType] = useState<string>('')
+   162→   162→  const [newMode, setNewMode] = useState<string>('')
+   163→   163→  const [newNotes, setNewNotes] = useState('')
+   164→   164→
+   165→   165→  /* ─── Week navigation ─── */
+   166→   166→  const weekDays = useMemo(() => {
+   167→   167→    return Array.from({ length: 7 }, (_, i) => {
+   168→   168→      const d = new Date(currentWeekStart)
+   169→   169→      d.setDate(d.getDate() + i)
+   170→   170→      return d
+   171→   171→    })
+   172→   172→  }, [currentWeekStart])
+   173→   173→
+   174→   174→  const navigateWeek = (direction: -1 | 1) => {
+   175→   175→    setCurrentWeekStart((prev) => {
+   176→   176→      const d = new Date(prev)
+   177→   177→      d.setDate(d.getDate() + direction * 7)
+   178→   178→      return d
+   179→   179→    })
+   180→   180→  }
+   181→   181→
+   182→   182→  const goToday = () => {
+   183→   183→    setCurrentWeekStart(getMonday(new Date()))
+   184→   184→  }
+   185→   185→
+   186→   186→  const weekLabel = useMemo(() => {
+   187→   187→    const last = new Date(currentWeekStart)
+   188→   188→    last.setDate(last.getDate() + 6)
+   189→   189→    return `${formatDateShort(currentWeekStart)} - ${formatDateShort(last)}`
+   190→   190→  }, [currentWeekStart])
+   191→   191→
+   192→   192→  /* ─── Filter appointments for a day ─── */
+   193→   193→  const getAppointmentsForDay = (day: Date) => {
+   194→   194→    return appointments.filter((a) => isSameDay(new Date(a.date), day))
+   195→   195→  }
+   196→   196→
+   197→   197→  /* ─── Get hour for appointment ─── */
+   198→   198→  const getAppointmentHour = (timeStr: string): number => {
+   199→   199→    return parseInt(timeStr.split(':')[0], 10)
+   200→   200→  }
+   201→   201→
+   202→   202→  /* ─── Upcoming appointments (next 7 days) ─── */
+   203→   203→  const upcomingAppointments = useMemo(() => {
+   204→   204→    const now = new Date()
+   205→   205→    const in7Days = new Date(now)
+   206→   206→    in7Days.setDate(in7Days.getDate() + 7)
+   207→   207→
+   208→   208→    return appointments
+   209→   209→      .filter((a) => {
+   210→   210→        const d = new Date(a.date)
+   211→   211→        return d >= now && d <= in7Days
+   212→   212→      })
+   213→   213→      .sort((a, b) => {
+   214→   214→        const dateCompare = new Date(a.date).getTime() - new Date(b.date).getTime()
+   215→   215→        if (dateCompare !== 0) return dateCompare
+   216→   216→        return a.startTime.localeCompare(b.startTime)
+   217→   217→      })
+   218→   218→  }, [appointments])
+   219→   219→
+   220→   220→  /* ─── Submit new appointment ─── */
+   221→   221→  const handleSubmit = () => {
+   222→   222→    if (!newBeneficiary || !newDate || !newStartTime || !newType || !newMode) return
+   223→   223→    const b = mockBeneficiaires.find((b) => b.id === newBeneficiary)
+   224→   224→    if (!b) return
+   225→   225→    const initials = `${b.name.split(' ')[0][0]}${b.name.split(' ').slice(-1)[0][0]}`.toUpperCase()
+   226→   226→    const newAppointment: Appointment = {
+   227→   227→      id: `p${appointments.length + 1}`,
+   228→   228→      date: newDate,
+   229→   229→      startTime: newStartTime,
+   230→   230→      endTime: newEndTime || `${String(parseInt(newStartTime.split(':')[0]) + 1).padStart(2, '0')}:00`,
+   231→   231→      beneficiaryId: newBeneficiary,
+   232→   232→      beneficiaryName: b.name,
+   233→   233→      beneficiaryInitials: initials,
+   234→   234→      type: newType as AppointmentType,
+   235→   235→      mode: newMode as AppointmentMode,
+   236→   236→      notes: newNotes || undefined,
+   237→   237→    }
+   238→   238→    setAppointments((prev) => [...prev, newAppointment])
+   239→   239→    toast.success(`Rendez-vous planifie avec ${b.name}`)
+   240→   240→    setDialogOpen(false)
+   241→   241→    setNewBeneficiary('')
+   242→   242→    setNewDate('')
+   243→   243→    setNewStartTime('')
+   244→   244→    setNewEndTime('')
+   245→   245→    setNewType('')
+   246→   246→    setNewMode('')
+   247→   247→    setNewNotes('')
+   248→   248→  }
+   249→   249→
+   250→   250→  /* ─── Current hour indicator ─── */
+   251→   251→  const currentHour = new Date().getHours()
+   252→   252→
+   253→   253→  return (
+   254→   254→    <div className="space-y-4">
+   255→   255→      {/* Header */}
+   256→   256→      <motion.div
+   257→   257→        initial={{ opacity: 0, y: -10 }}
+   258→   258→        animate={{ opacity: 1, y: 0 }}
+   259→   259→        transition={{ duration: 0.4 }}
+   260→   260→        className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+   261→   261→      >
+   262→   262→        <div>
+   263→   263→          <h2 className="text-xl font-bold text-foreground">Planning</h2>
+   264→   264→          <p className="text-sm text-muted-foreground">
+   265→   265→            {appointments.length} rendez-vous ce mois
+   266→   266→          </p>
+   267→   267→        </div>
+   268→   268→        <div className="flex items-center gap-2">
+   269→   269→          {/* View toggle */}
+   270→   270→          <div className="flex items-center rounded-lg border p-0.5">
+   271→   271→            <Button
+   272→   272→              variant={viewMode === 'week' ? 'default' : 'ghost'}
+   273→   273→              size="sm"
+   274→   274→              className="h-7 text-xs px-3"
+   275→   275→              onClick={() => setViewMode('week')}
+   276→   276→            >
+   277→   277→              Semaine
+   278→   278→            </Button>
+   279→   279→            <Button
+   280→   280→              variant={viewMode === 'month' ? 'default' : 'ghost'}
+   281→   281→              size="sm"
+   282→   282→              className="h-7 text-xs px-3"
+   283→   283→              onClick={() => setViewMode('month')}
+   284→   284→            >
+   285→   285→              Mois
+   286→   286→            </Button>
+   287→   287→          </div>
+   288→   288→          <Button size="sm" className="gap-2" onClick={() => setDialogOpen(true)}>
+   289→   289→            <Plus className="h-4 w-4" />
+   290→   290→            Nouveau RDV
+   291→   291→          </Button>
+   292→   292→        </div>
+   293→   293→      </motion.div>
+   294→   294→
+   295→   295→      {viewMode === 'week' ? (
+   296→   296→        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_280px]">
+   297→   297→          {/* Calendar grid */}
+   298→   298→          <Card>
+   299→   299→            <CardHeader className="pb-2">
+   300→   300→              <div className="flex items-center justify-between">
+   301→   301→                <div className="flex items-center gap-3">
+   302→   302→                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigateWeek(-1)}>
+   303→   303→                    <ChevronLeft className="h-4 w-4" />
+   304→   304→                  </Button>
+   305→   305→                  <Button variant="ghost" size="sm" className="text-xs text-primary" onClick={goToday}>
+   306→   306→                    Aujourd&apos;hui
+   307→   307→                  </Button>
+   308→   308→                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigateWeek(1)}>
+   309→   309→                    <ChevronRight className="h-4 w-4" />
+   310→   310→                  </Button>
+   311→   311→                  <span className="text-sm font-semibold text-foreground">{weekLabel}</span>
+   312→   312→                </div>
+   313→   313→                <Badge variant="outline" className="text-xs">
+   314→   314→                  S{getWeekNumber(currentWeekStart)}
+   315→   315→                </Badge>
+   316→   316→              </div>
+   317→   317→            </CardHeader>
+   318→   318→            <CardContent className="p-0 overflow-x-auto">
+   319→   319→              <div className="min-w-[640px]">
+   320→   320→                {/* Day headers */}
+   321→   321→                <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b">
+   322→   322→                  <div className="p-2 text-xs text-muted-foreground text-center" />
+   323→   323→                  {weekDays.map((day, i) => {
+   324→   324→                    const today = isToday(day)
+   325→   325→                    return (
+   326→   326→                      <div
+   327→   327→                        key={i}
+   328→   328→                        className={`p-2 text-center border-l ${
+   329→   329→                          today ? 'bg-primary/5' : ''
+   330→   330→                        }`}
+   331→   331→                      >
+   332→   332→                        <p className={`text-xs ${today ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
+   333→   333→                          {DAYS_FR[i]}
+   334→   334→                        </p>
+   335→   335→                        <p className={`text-lg font-bold mt-0.5 ${
+   336→   336→                          today ? 'text-primary' : 'text-foreground'
+   337→   337→                        }`}>
+   338→   338→                          {day.getDate()}
+   339→   339→                        </p>
+   340→   340→                      </div>
+   341→   341→                    )
+   342→   342→                  })}
+   343→   343→                </div>
+   344→   344→
+   345→   345→                {/* Time grid */}
+   346→   346→                <div className="relative max-h-[520px] overflow-y-auto scrollbar-thin">
+   347→   347→                  {HOURS.map((hour) => (
+   348→   348→                    <div key={hour} className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border/50">
+   349→   349→                      <div className="p-2 text-xs text-muted-foreground text-right pr-3">
+   350→   350→                        {String(hour).padStart(2, '0')}:00
+   351→   351→                      </div>
+   352→   352→                      {weekDays.map((day, dayIdx) => {
+   353→   353→                        const dayAppointments = getAppointmentsForDay(day)
+   354→   354→                        const hourAppointments = dayAppointments.filter((a) => getAppointmentHour(a.startTime) === hour)
+   355→   355→                        const isTodayCol = isToday(day)
+   356→   356→                        const isCurrentHourRow = isTodayCol && currentHour === hour
+   357→   357→
+   358→   358→                        return (
+   359→   359→                          <div
+   360→   360→                            key={dayIdx}
+   361→   361→                            className={`border-l p-0.5 min-h-[48px] relative ${
+   362→   362→                              isTodayCol ? 'bg-primary/[0.02]' : ''
+   363→   363→                            } ${isCurrentHourRow ? 'bg-primary/5' : ''}`}
+   364→   364→                          >
+   365→   365→                            {/* Current time indicator line */}
+   366→   366→                            {isCurrentHourRow && (
+   367→   367→                              <div className="absolute top-0 left-0 right-0 h-0.5 bg-primary z-10" />
+   368→   368→                            )}
+   369→   369→                            {hourAppointments.map((apt) => {
+   370→   370→                              const tc = typeConfig[apt.type]
+   371→   371→                              return (
+   372→   372→                                <motion.div
+   373→   373→                                  key={apt.id}
+   374→   374→                                  initial={{ opacity: 0, scale: 0.9 }}
+   375→   375→                                  animate={{ opacity: 1, scale: 1 }}
+   376→   376→                                  whileHover={{ scale: 1.02 }}
+   377→   377→                                  onClick={() => {
+   378→   378→                                    setSelectedAppointment(apt)
+   379→   379→                                    setDetailOpen(true)
+   380→   380→                                  }}
+   381→   381→                                  className={`cursor-pointer rounded-md ${tc.bg} px-1.5 py-1 mb-0.5 border border-transparent hover:border-current`}
+   382→   382→                                >
+   383→   383→                                  <p className={`text-[10px] font-semibold leading-tight ${tc.color}`}>
+   384→   384→                                    {apt.startTime}-{apt.endTime}
+   385→   385→                                  </p>
+   386→   386→                                  <p className="text-[10px] font-medium text-foreground truncate">
+   387→   387→                                    {apt.beneficiaryName}
+   388→   388→                                  </p>
+   389→   389→                                  <Badge variant="secondary" className={`text-[8px] px-1 py-0 mt-0.5 ${tc.bg} ${tc.color}`}>
+   390→   390→                                    {tc.label}
+   391→   391→                                  </Badge>
+   392→   392→                                </motion.div>
+   393→   393→                              )
+   394→   394→                            })}
+   395→   395→                          </div>
+   396→   396→                        )
+   397→   397→                      })}
+   398→   398→                    </div>
+   399→   399→                  ))}
+   400→   400→                </div>
+   401→   401→              </div>
+   402→   402→            </CardContent>
+   403→   403→          </Card>
+   404→   404→
+   405→   405→          {/* Sidebar: upcoming appointments */}
+   406→   406→          <Card className="h-fit">
+   407→   407→            <CardHeader className="pb-3">
+   408→   408→              <CardTitle className="text-sm font-semibold">Prochains rendez-vous</CardTitle>
+   409→   409→            </CardHeader>
+   410→   410→            <CardContent className="space-y-0">
+   411→   411→              {upcomingAppointments.length === 0 ? (
+   412→   412→                <p className="text-sm text-muted-foreground text-center py-6">Aucun rendez-vous a venir</p>
+   413→   413→              ) : (
+   414→   414→                upcomingAppointments.slice(0, 8).map((apt, i) => {
+   415→   415→                  const tc = typeConfig[apt.type]
+   416→   416→                  const ModeIcon = modeConfig[apt.mode].icon
+   417→   417→                  return (
+   418→   418→                    <div key={apt.id}>
+   419→   419→                      <div
+   420→   420→                        className="flex items-start gap-2 py-2.5 cursor-pointer hover:bg-muted/50 rounded-md px-1 -mx-1 transition-colors"
+   421→   421→                        onClick={() => {
+   422→   422→                          setSelectedAppointment(apt)
+   423→   423→                          setDetailOpen(true)
+   424→   424→                        }}
+   425→   425→                      >
+   426→   426→                        <div className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${
+   427→   427→                          apt.type === 'bilan' ? 'bg-teal-500' :
+   428→   428→                          apt.type === 'suivi' ? 'bg-amber-500' : 'bg-coral-500'
+   429→   429→                        }`} />
+   430→   430→                        <div className="flex-1 min-w-0">
+   431→   431→                          <p className="text-xs font-semibold text-foreground truncate">{apt.beneficiaryName}</p>
+   432→   432→                          <div className="flex items-center gap-1.5 mt-0.5">
+   433→   433→                            <Badge variant="secondary" className={`text-[9px] px-1.5 py-0 ${tc.bg} ${tc.color}`}>
+   434→   434→                              {tc.label}
+   435→   435→                            </Badge>
+   436→   436→                            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+   437→   437→                              <ModeIcon className="h-2.5 w-2.5" />
+   438→   438→                              {modeConfig[apt.mode].label}
+   439→   439→                            </span>
+   440→   440→                          </div>
+   441→   441→                          <p className="text-[10px] text-muted-foreground mt-0.5">
+   442→   442→                            {formatDateLong(new Date(apt.date))} · {apt.startTime}-{apt.endTime}
+   443→   443→                          </p>
+   444→   444→                        </div>
+   445→   445→                      </div>
+   446→   446→                      {i < upcomingAppointments.slice(0, 8).length - 1 && <Separator />}
+   447→   447→                    </div>
+   448→   448→                  )
+   449→   449→                })
+   450→   450→              )}
+   451→   451→            </CardContent>
+   452→   452→          </Card>
+   453→   453→        </div>
+   454→   454→      ) : (
+   455→   455→        /* ─── Month view ─── */
+   456→   456→        <Card>
+   457→   457→          <CardHeader className="pb-2">
+   458→   458→            <div className="flex items-center justify-between">
+   459→   459→              <div className="flex items-center gap-3">
+   460→   460→                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigateWeek(-1)}>
+   461→   461→                  <ChevronLeft className="h-4 w-4" />
+   462→   462→                </Button>
+   463→   463→                <Button variant="ghost" size="sm" className="text-xs text-primary" onClick={goToday}>
+   464→   464→                  Aujourd&apos;hui
+   465→   465→                </Button>
+   466→   466→                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigateWeek(1)}>
+   467→   467→                  <ChevronRight className="h-4 w-4" />
+   468→   468→                </Button>
+   469→   469→                <span className="text-sm font-semibold text-foreground">
+   470→   470→                  {currentWeekStart.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+   471→   471→                </span>
+   472→   472→              </div>
+   473→   473→            </div>
+   474→   474→          </CardHeader>
+   475→   475→          <CardContent className="p-0 overflow-x-auto">
+   476→   476→            <div className="min-w-[640px]">
+   477→   477→              {/* Day headers */}
+   478→   478→              <div className="grid grid-cols-7 border-b">
+   479→   479→                {DAYS_FR.map((day, i) => (
+   480→   480→                  <div key={i} className="p-2 text-center text-xs font-medium text-muted-foreground">
+   481→   481→                    {day}
+   482→   482→                  </div>
+   483→   483→                ))}
+   484→   484→              </div>
+   485→   485→
+   486→   486→              {/* Month grid (6 rows x 7 cols) */}
+   487→   487→              {(() => {
+   488→   488→                const monthStart = new Date(currentWeekStart.getFullYear(), currentWeekStart.getMonth(), 1)
+   489→   489→                const startDay = monthStart.getDay() === 0 ? 6 : monthStart.getDay() - 1
+   490→   490→                const daysInMonth = new Date(currentWeekStart.getFullYear(), currentWeekStart.getMonth() + 1, 0).getDate()
+   491→   491→                const today = new Date()
+   492→   492→
+   493→   493→                const cells: { date: Date; isCurrentMonth: boolean }[] = []
+   494→   494→                // Previous month padding
+   495→   495→                const prevMonth = new Date(currentWeekStart.getFullYear(), currentWeekStart.getMonth(), 0)
+   496→   496→                for (let i = startDay - 1; i >= 0; i--) {
+   497→   497→                  cells.push({ date: new Date(prevMonth.getFullYear(), prevMonth.getMonth(), prevMonth.getDate() - i), isCurrentMonth: false })
+   498→   498→                }
+   499→   499→                // Current month
+   500→   500→                for (let i = 1; i <= daysInMonth; i++) {
+   501→   501→                  cells.push({ date: new Date(currentWeekStart.getFullYear(), currentWeekStart.getMonth(), i), isCurrentMonth: true })
+   502→   502→                }
+   503→   503→                // Next month padding
+   504→   504→                const remaining = 42 - cells.length
+   505→   505→                for (let i = 1; i <= remaining; i++) {
+   506→   506→                  cells.push({ date: new Date(currentWeekStart.getFullYear(), currentWeekStart.getMonth() + 1, i), isCurrentMonth: false })
+   507→   507→                }
+   508→   508→
+   509→   509→                return (
+   510→   510→                  <div className="grid grid-cols-7">
+   511→   511→                    {cells.map((cell, idx) => {
+   512→   512→                      const dayApts = appointments.filter((a) => isSameDay(new Date(a.date), cell.date))
+   513→   513→                      const isT = isSameDay(cell.date, today)
+   514→   514→
+   515→   515→                      return (
+   516→   516→                        <div
+   517→   517→                          key={idx}
+   518→   518→                          className={`border-b border-r p-1 min-h-[72px] ${
+   519→   519→                            !cell.isCurrentMonth ? 'bg-muted/20' : ''
+   520→   520→                          } ${isT ? 'bg-primary/5' : ''}`}
+   521→   521→                        >
+   522→   522→                          <p className={`text-xs mb-1 ${
+   523→   523→                            isT ? 'text-primary font-bold' : !cell.isCurrentMonth ? 'text-muted-foreground/50' : 'text-muted-foreground'
+   524→   524→                          }`}>
+   525→   525→                            {cell.date.getDate()}
+   526→   526→                          </p>
+   527→   527→                          {dayApts.slice(0, 2).map((apt) => {
+   528→   528→                            const tc = typeConfig[apt.type]
+   529→   529→                            return (
+   530→   530→                              <div
+   531→   531→                                key={apt.id}
+   532→   532→                                onClick={() => {
+   533→   533→                                  setSelectedAppointment(apt)
+   534→   534→                                  setDetailOpen(true)
+   535→   535→                                }}
+   536→   536→                                className={`cursor-pointer rounded px-1 py-0.5 mb-0.5 text-[9px] leading-tight font-medium truncate ${tc.bg} ${tc.color}`}
+   537→   537→                              >
+   538→   538→                                {apt.startTime} {apt.beneficiaryName.split(' ')[0]}
+   539→   539→                              </div>
+   540→   540→                            )
+   541→   541→                          })}
+   542→   542→                          {dayApts.length > 2 && (
+   543→   543→                            <p className="text-[9px] text-muted-foreground">+{dayApts.length - 2}</p>
+   544→   544→                          )}
+   545→   545→                        </div>
+   546→   546→                      )
+   547→   547→                    })}
+   548→   548→                  </div>
+   549→   549→                )
+   550→   550→              })()}
+   551→   551→            </div>
+   552→   552→          </CardContent>
+   553→   553→        </Card>
+   554→   554→      )}
+   555→   555→
+   556→   556→      {/* New appointment dialog */}
+   557→   557→      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+   558→   558→        <DialogContent className="sm:max-w-[480px]">
+   559→   559→          <DialogHeader>
+   560→   560→            <DialogTitle>Nouveau rendez-vous</DialogTitle>
+   561→   561→            <DialogDescription>Planifier un entretien avec un beneficiaire.</DialogDescription>
+   562→   562→          </DialogHeader>
+   563→   563→          <div className="space-y-4 py-2">
+   564→   564→            <div className="space-y-2">
+   565→   565→              <label className="text-sm font-medium">Beneficiaire <span className="text-destructive">*</span></label>
+   566→   566→              <Select value={newBeneficiary} onValueChange={setNewBeneficiary}>
+   567→   567→                <SelectTrigger><SelectValue placeholder="Selectionner" /></SelectTrigger>
+   568→   568→                <SelectContent>
+   569→   569→                  {mockBeneficiaires.map((b) => (
+   570→   570→                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+   571→   571→                  ))}
+   572→   572→                </SelectContent>
+   573→   573→              </Select>
+   574→   574→            </div>
+   575→   575→            <div className="space-y-2">
+   576→   576→              <label className="text-sm font-medium">Date <span className="text-destructive">*</span></label>
+   577→   577→              <Input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} />
+   578→   578→            </div>
+   579→   579→            <div className="grid grid-cols-2 gap-3">
+   580→   580→              <div className="space-y-2">
+   581→   581→                <label className="text-sm font-medium">Debut <span className="text-destructive">*</span></label>
+   582→   582→                <Input type="time" value={newStartTime} onChange={(e) => setNewStartTime(e.target.value)} />
+   583→   583→              </div>
+   584→   584→              <div className="space-y-2">
+   585→   585→                <label className="text-sm font-medium">Fin</label>
+   586→   586→                <Input type="time" value={newEndTime} onChange={(e) => setNewEndTime(e.target.value)} />
+   587→   587→              </div>
+   588→   588→            </div>
+   589→   589→            <div className="grid grid-cols-2 gap-3">
+   590→   590→              <div className="space-y-2">
+   591→   591→                <label className="text-sm font-medium">Type <span className="text-destructive">*</span></label>
+   592→   592→                <Select value={newType} onValueChange={setNewType}>
+   593→   593→                  <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
+   594→   594→                  <SelectContent>
+   595→   595→                    <SelectItem value="bilan">Bilan</SelectItem>
+   596→   596→                    <SelectItem value="suivi">Suivi</SelectItem>
+   597→   597→                    <SelectItem value="atelier">Atelier</SelectItem>
+   598→   598→                  </SelectContent>
+   599→   599→                </Select>
+   600→   600→              </div>
+   601→   601→              <div className="space-y-2">
+   602→   602→                <label className="text-sm font-medium">Mode <span className="text-destructive">*</span></label>
+   603→   603→                <Select value={newMode} onValueChange={setNewMode}>
+   604→   604→                  <SelectTrigger><SelectValue placeholder="Mode" /></SelectTrigger>
+   605→   605→                  <SelectContent>
+   606→   606→                    <SelectItem value="physique">Physique</SelectItem>
+   607→   607→                    <SelectItem value="video">Video</SelectItem>
+   608→   608→                    <SelectItem value="telephone">Telephone</SelectItem>
+   609→   609→                  </SelectContent>
+   610→   610→                </Select>
+   611→   611→              </div>
+   612→   612→            </div>
+   613→   613→            <div className="space-y-2">
+   614→   614→              <label className="text-sm font-medium">Notes</label>
+   615→   615→              <Textarea
+   616→   616→                placeholder="Ajouter des notes..."
+   617→   617→                value={newNotes}
+   618→   618→                onChange={(e) => setNewNotes(e.target.value)}
+   619→   619→                rows={3}
+   620→   620→              />
+   621→   621→            </div>
+   622→   622→          </div>
+   623→   623→          <DialogFooter>
+   624→   624→            <Button variant="outline" onClick={() => setDialogOpen(false)}>Annuler</Button>
+   625→   625→            <Button
+   626→   626→              onClick={handleSubmit}
+   627→   627→              disabled={!newBeneficiary || !newDate || !newStartTime || !newType || !newMode}
+   628→   628→            >
+   629→   629→              Planifier
+   630→   630→            </Button>
+   631→   631→          </DialogFooter>
+   632→   632→        </DialogContent>
+   633→   633→      </Dialog>
+   634→   634→
+   635→   635→      {/* Appointment detail dialog */}
+   636→   636→      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+   637→   637→        <DialogContent className="sm:max-w-[440px]">
+   638→   638→          {selectedAppointment && (
+   639→   639→            <>
+   640→   640→              <DialogHeader>
+   641→   641→                <DialogTitle className="text-lg">{selectedAppointment.beneficiaryName}</DialogTitle>
+   642→   642→                <DialogDescription>{formatDateLong(new Date(selectedAppointment.date))}</DialogDescription>
+   643→   643→              </DialogHeader>
+   644→   644→              <div className="space-y-4 py-2">
+   645→   645→                <div className="flex items-center gap-4">
+   646→   646→                  <Avatar className="h-12 w-12">
+   647→   647→                    <AvatarFallback className="bg-primary text-primary-foreground font-bold">
+   648→   648→                      {selectedAppointment.beneficiaryInitials}
+   649→   649→                    </AvatarFallback>
+   650→   650→                  </Avatar>
+   651→   651→                  <div>
+   652→   652→                    <p className="text-sm font-semibold">{selectedAppointment.beneficiaryName}</p>
+   653→   653→                    <div className="flex items-center gap-2 mt-1">
+   654→   654→                      <Badge variant="secondary" className={typeConfig[selectedAppointment.type].bg + ' ' + typeConfig[selectedAppointment.type].color}>
+   655→   655→                        {typeConfig[selectedAppointment.type].label}
+   656→   656→                      </Badge>
+   657→   657→                    </div>
+   658→   658→                  </div>
+   659→   659→                </div>
+   660→   660→
+   661→   661→                <Separator />
+   662→   662→
+   663→   663→                <div className="grid grid-cols-2 gap-3 text-sm">
+   664→   664→                  <div className="flex items-center gap-2">
+   665→   665→                    <Clock className="h-4 w-4 text-muted-foreground" />
+   666→   666→                    <span>{selectedAppointment.startTime} - {selectedAppointment.endTime}</span>
+   667→   667→                  </div>
+   668→   668→                  <div className="flex items-center gap-2">
+   669→   669→                    {(() => { const ModeIcon = modeConfig[selectedAppointment.mode].icon; return <ModeIcon className="h-4 w-4 text-muted-foreground" /> })()}
+   670→   670→                    <span>{modeConfig[selectedAppointment.mode].label}</span>
+   671→   671→                  </div>
+   672→   672→                  {selectedAppointment.location && (
+   673→   673→                    <div className="flex items-center gap-2 col-span-2">
+   674→   674→                      <MapPin className="h-4 w-4 text-muted-foreground" />
+   675→   675→                      <span>{selectedAppointment.location}</span>
+   676→   676→                    </div>
+   677→   677→                  )}
+   678→   678→                </div>
+   679→   679→
+   680→   680→                {selectedAppointment.notes && (
+   681→   681→                  <div className="rounded-lg bg-muted/50 p-3">
+   682→   682→                    <p className="text-xs font-medium text-muted-foreground mb-1">Notes</p>
+   683→   683→                    <p className="text-sm text-foreground">{selectedAppointment.notes}</p>
+   684→   684→                  </div>
+   685→   685→                )}
+   686→   686→              </div>
+   687→   687→              <DialogFooter>
+   688→   688→                <Button variant="outline" onClick={() => setDetailOpen(false)}>Fermer</Button>
+   689→   689→              </DialogFooter>
+   690→   690→            </>
+   691→   691→          )}
+   692→   692→        </DialogContent>
+   693→   693→      </Dialog>
+   694→   694→    </div>
+   695→   695→  )
+   696→   696→}
+   697→   697→
+   698→   698→/* ─── Helper: ISO week number ─── */
+   699→   699→function getWeekNumber(d: Date): number {
+   700→   700→  const date = new Date(d.getTime())
+   701→   701→  date.setHours(0, 0, 0, 0)
+   702→   702→  date.setDate(date.getDate() + 3 - ((date.getDay() + 6) % 7))
+   703→   703→  const week1 = new Date(date.getFullYear(), 0, 4)
+   704→   704→  return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7)
+   705→   705→}
+   706→   706→

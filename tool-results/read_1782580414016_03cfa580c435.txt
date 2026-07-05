@@ -1,0 +1,674 @@
+     1→'use client'
+     2→
+     3→import { useState, useMemo } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import { useBureauStore } from './bureau-store'
+     6→import { MODULE_REGISTRY } from '@/lib/module-registry'
+     7→import { cn } from '@/lib/utils'
+     8→import { Button } from '@/components/ui/button'
+     9→import { Input } from '@/components/ui/input'
+    10→import { Label } from '@/components/ui/label'
+    11→import { Badge } from '@/components/ui/badge'
+    12→import { Card, CardContent } from '@/components/ui/card'
+    13→import { Progress } from '@/components/ui/progress'
+    14→import { Separator } from '@/components/ui/separator'
+    15→import {
+    16→  Select,
+    17→  SelectContent,
+    18→  SelectItem,
+    19→  SelectTrigger,
+    20→  SelectValue,
+    21→} from '@/components/ui/select'
+    22→import {
+    23→  User,
+    24→  Rocket,
+    25→  TrendingUp,
+    26→  Network,
+    27→  Sparkles,
+    28→  ArrowRight,
+    29→  Check,
+    30→  ChevronLeft,
+    31→  ChevronRight,
+    32→  PartyPopper,
+    33→  Building2,
+    34→  Compass,
+    35→  Users,
+    36→  MapPin,
+    37→  Heart,
+    38→  Briefcase,
+    39→} from 'lucide-react'
+    40→
+    41→/* ─── Step configurations ─── */
+    42→const STEPS = [
+    43→  { id: 1, title: 'Bienvenue !', subtitle: 'Découvrez CreaPulse' },
+    44→  { id: 2, title: 'Choisissez votre voie', subtitle: 'Quel est votre objectif ?' },
+    45→  { id: 3, title: 'Votre profil rapide', subtitle: 'Parlons de vous' },
+    46→  { id: 4, title: 'Modules prioritaires', subtitle: 'Choisissez 3 à 5 modules' },
+    47→  { id: 5, title: 'Tout est prêt !', subtitle: 'Commencez votre parcours' },
+    48→]
+    49→
+    50→/* ─── Path options ─── */
+    51→const pathOptions = [
+    52→  {
+    53→    id: 'creer',
+    54→    icon: Building2,
+    55→    title: 'Créer mon entreprise',
+    56→    description: 'Je veux immatriculer et lancer une nouvelle activité.',
+    57→    color: 'border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20',
+    58→    selectedColor: 'border-emerald-500 ring-emerald-500/30 bg-emerald-100 dark:bg-emerald-900/30',
+    59→  },
+    60→  {
+    61→    id: 'developper',
+    62→    icon: TrendingUp,
+    63→    title: 'Développer mon activité',
+    64→    description: "J'ai déjà une entreprise et je veux la faire grandir.",
+    65→    color: 'border-teal-300 bg-teal-50 dark:bg-teal-900/20',
+    66→    selectedColor: 'border-teal-500 ring-teal-500/30 bg-teal-100 dark:bg-teal-900/30',
+    67→  },
+    68→  {
+    69→    id: 'explorer',
+    70→    icon: Network,
+    71→    title: 'Explorer le réseau',
+    72→    description: "Je découvre l'écosystème entrepreneurial et ses ressources.",
+    73→    color: 'border-green-300 bg-green-50 dark:bg-green-900/20',
+    74→    selectedColor: 'border-green-500 ring-green-500/30 bg-green-100 dark:bg-green-900/30',
+    75→  },
+    76→]
+    77→
+    78→/* ─── Sector options ─── */
+    79→const sectorOptions = [
+    80→  'Commerce & Retail',
+    81→  'Restauration & Alimentation',
+    82→  'Technologie & Numérique',
+    83→  'Services aux entreprises',
+    84→  'BTP & Construction',
+    85→  'Santé & Bien-être',
+    86→  'Éducation & Formation',
+    87→  'Artisanat',
+    88→  'Tourisme & Loisirs',
+    89→  'Agriculture & Agroalimentaire',
+    90→  'Autre',
+    91→]
+    92→
+    93→/* ─── Motivation options ─── */
+    94→const motivationOptions = [
+    95→  { value: 'independance', label: 'Indépendance', icon: Rocket },
+    96→  { value: 'innovation', label: 'Innovation', icon: Sparkles },
+    97→  { value: 'revenus', label: 'Revenus', icon: TrendingUp },
+    98→  { value: 'impact', label: 'Impact social', icon: Heart },
+    99→]
+   100→
+   101→/* ─── Animation variants ─── */
+   102→const slideVariants = {
+   103→  enter: (direction: number) => ({
+   104→    x: direction > 0 ? 300 : -300,
+   105→    opacity: 0,
+   106→  }),
+   107→  center: {
+   108→    x: 0,
+   109→    opacity: 1,
+   110→  },
+   111→  exit: (direction: number) => ({
+   112→    x: direction < 0 ? 300 : -300,
+   113→    opacity: 0,
+   114→  }),
+   115→}
+   116→
+   117→/* ─── Floating particles for celebration ─── */
+   118→function ConfettiParticle({ delay, color }: { delay: number; color: string }) {
+   119→  return (
+   120→    <motion.div
+   121→      initial={{ opacity: 0, y: -20, scale: 0 }}
+   122→      animate={{ opacity: 1, y: 0, scale: 1 }}
+   123→      transition={{ delay, duration: 0.5, type: 'spring' }}
+   124→      className="absolute"
+   125→      style={{ color }}
+   126→    >
+   127→      <Sparkles className="h-5 w-5" />
+   128→    </motion.div>
+   129→  )
+   130→}
+   131→
+   132→/* ─── Step Indicator ─── */
+   133→function StepIndicator({ currentStep, totalSteps, onStepClick }: { currentStep: number; totalSteps: number; onStepClick: (step: number) => void }) {
+   134→  return (
+   135→    <div className="flex items-center gap-1.5">
+   136→      {Array.from({ length: totalSteps }).map((_, i) => (
+   137→        <button
+   138→          key={i}
+   139→          onClick={() => i < currentStep && onStepClick(i)}
+   140→          className={cn(
+   141→            'h-2 rounded-full transition-all duration-300',
+   142→            i === currentStep
+   143→              ? 'w-8 bg-emerald-500'
+   144→              : i < currentStep
+   145→                ? 'w-2 bg-emerald-400 cursor-pointer hover:bg-emerald-300'
+   146→                : 'w-2 bg-muted-foreground/20'
+   147→          )}
+   148→          aria-label={`Étape ${i + 1}`}
+   149→        />
+   150→      ))}
+   151→    </div>
+   152→  )
+   153→}
+   154→
+   155→/* ─── Welcome / Onboarding Component (5-step Guided Wizard) ─── */
+   156→export function Welcome() {
+   157→  const {
+   158→    onboardingStep,
+   159→    onboardingData,
+   160→    setOnboardingStep,
+   161→    setOnboardingData,
+   162→    completeOnboarding,
+   163→  } = useBureauStore()
+   164→
+   165→  const [direction, setDirection] = useState(1)
+   166→
+   167→  const currentStep = onboardingStep
+   168→  const totalSteps = STEPS.length
+   169→  const progressPercent = ((currentStep + 1) / totalSteps) * 100
+   170→
+   171→  const goNext = () => {
+   172→    if (currentStep < totalSteps - 1) {
+   173→      setDirection(1)
+   174→      setOnboardingStep(currentStep + 1)
+   175→    }
+   176→  }
+   177→
+   178→  const goPrev = () => {
+   179→    if (currentStep > 0) {
+   180→      setDirection(-1)
+   181→      setOnboardingStep(currentStep - 1)
+   182→    }
+   183→  }
+   184→
+   185→  const goToStep = (step: number) => {
+   186→    if (step < currentStep) {
+   187→      setDirection(-1)
+   188→      setOnboardingStep(step)
+   189→    }
+   190→  }
+   191→
+   192→  const handleComplete = () => {
+   193→    completeOnboarding()
+   194→  }
+   195→
+   196→  const canProceed = (): boolean => {
+   197→    switch (currentStep) {
+   198→      case 2:
+   199→        return onboardingData.firstName.trim().length > 0
+   200→      case 3:
+   201→        return onboardingData.sector !== '' && onboardingData.motivation !== ''
+   202→      case 4:
+   203→        return onboardingData.priorityModules.length >= 3
+   204→      default:
+   205→        return true
+   206→    }
+   207→  }
+   208→
+   209→  /* Module cards for step 4 — pick non-core, interesting modules from registry */
+   210→  const suggestedModules = useMemo(() => {
+   211→    return MODULE_REGISTRY
+   212→      .filter((m) => !m.core && ['profil-createur', 'mon-projet', 'riasec', 'creasim', 'business-plan', 'marche', 'vision', 'pepites', 'swot', 'crm', 'e-learning', 'tresorerie'].includes(m.code))
+   213→      .sort((a, b) => a.sortOrder - b.sortOrder)
+   214→  }, [])
+   215→
+   216→  const toggleModule = (code: string) => {
+   217→    const current = onboardingData.priorityModules
+   218→    if (current.includes(code)) {
+   219→      setOnboardingData({ priorityModules: current.filter((c) => c !== code) })
+   220→    } else if (current.length < 5) {
+   221→      setOnboardingData({ priorityModules: [...current, code] })
+   222→    }
+   223→  }
+   224→
+   225→  return (
+   226→    <div className="flex min-h-full items-center justify-center p-4 md:p-8">
+   227→      <motion.div
+   228→        initial={{ opacity: 0, scale: 0.95 }}
+   229→        animate={{ opacity: 1, scale: 1 }}
+   230→        className="w-full max-w-2xl"
+   231→      >
+   232→        {/* Progress bar + step indicator */}
+   233→        <div className="mb-8">
+   234→          <div className="flex items-center justify-between mb-3">
+   235→            <span className="text-sm font-medium text-muted-foreground">
+   236→              Étape {currentStep + 1} sur {totalSteps}
+   237→            </span>
+   238→            <button
+   239→              onClick={handleComplete}
+   240→              className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline transition-colors"
+   241→            >
+   242→              Passer l'introduction
+   243→            </button>
+   244→          </div>
+   245→          <Progress value={progressPercent} className="h-2" />
+   246→          <div className="mt-3">
+   247→            <StepIndicator currentStep={currentStep} totalSteps={totalSteps} onStepClick={goToStep} />
+   248→          </div>
+   249→        </div>
+   250→
+   251→        {/* Step title */}
+   252→        <div className="mb-6">
+   253→          <h2 className="text-2xl font-bold text-foreground md:text-3xl">
+   254→            {STEPS[currentStep].title}
+   255→          </h2>
+   256→          <p className="mt-1 text-muted-foreground">{STEPS[currentStep].subtitle}</p>
+   257→        </div>
+   258→
+   259→        {/* Step content with animation */}
+   260→        <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm min-h-[380px]">
+   261→          <AnimatePresence mode="wait" custom={direction}>
+   262→            <motion.div
+   263→              key={currentStep}
+   264→              custom={direction}
+   265→              variants={slideVariants}
+   266→              initial="enter"
+   267→              animate="center"
+   268→              exit="exit"
+   269→              transition={{ duration: 0.3, ease: 'easeInOut' }}
+   270→              className="p-6 md:p-8"
+   271→            >
+   272→              {/* ═══ Step 1: Welcome ═══ */}
+   273→              {currentStep === 0 && (
+   274→                <div className="flex flex-col items-center text-center space-y-6">
+   275→                  {/* Animated illustration */}
+   276→                  <motion.div
+   277→                    initial={{ scale: 0, rotate: -10 }}
+   278→                    animate={{ scale: 1, rotate: 0 }}
+   279→                    transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.1 }}
+   280→                    className="relative"
+   281→                  >
+   282→                    <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-400 to-teal-600 shadow-lg shadow-emerald-500/25">
+   283→                      <Rocket className="h-12 w-12 text-white" />
+   284→                    </div>
+   285→                    <motion.div
+   286→                      animate={{ rotate: [0, 15, -15, 0] }}
+   287→                      transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+   288→                      className="absolute -top-2 -right-2"
+   289→                    >
+   290→                      <Sparkles className="h-6 w-6 text-amber-400" />
+   291→                    </motion.div>
+   292→                  </motion.div>
+   293→
+   294→                  <div className="space-y-2">
+   295→                    <h3 className="text-3xl font-extrabold bg-gradient-to-r from-emerald-600 to-teal-600 dark:from-emerald-400 dark:to-teal-400 bg-clip-text text-transparent">
+   296→                      Bienvenue sur CreaPulse !
+   297→                    </h3>
+   298→                    <p className="text-muted-foreground max-w-md mx-auto leading-relaxed">
+   299→                      Votre plateforme tout-en-un pour créer, développer et piloter votre projet entrepreneurial.
+   300→                      Guidé par l&apos;IA et votre conseiller GIDEF.
+   301→                    </p>
+   302→                  </div>
+   303→
+   304→                  <div className="grid grid-cols-3 gap-3 w-full max-w-sm pt-2">
+   305→                    {[
+   306→                      { icon: Compass, label: 'Guidé pas à pas' },
+   307→                      { icon: Briefcase, label: 'Outils professionnels' },
+   308→                      { icon: Users, label: 'Réseau GIDEF' },
+   309→                    ].map((item, i) => (
+   310→                      <motion.div
+   311→                        key={item.label}
+   312→                        initial={{ opacity: 0, y: 20 }}
+   313→                        animate={{ opacity: 1, y: 0 }}
+   314→                        transition={{ delay: 0.3 + i * 0.1 }}
+   315→                        className="flex flex-col items-center gap-1.5"
+   316→                      >
+   317→                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-900/30">
+   318→                          <item.icon className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+   319→                        </div>
+   320→                        <span className="text-xs text-muted-foreground font-medium">{item.label}</span>
+   321→                      </motion.div>
+   322→                    ))}
+   323→                  </div>
+   324→                </div>
+   325→              )}
+   326→
+   327→              {/* ═══ Step 2: Choose Your Path ═══ */}
+   328→              {currentStep === 1 && (
+   329→                <div className="space-y-5">
+   330→                  <p className="text-sm text-muted-foreground text-center mb-4">
+   331→                    Sélectionnez l&apos;option qui correspond le mieux à votre situation actuelle.
+   332→                  </p>
+   333→                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+   334→                    {pathOptions.map((option, i) => {
+   335→                      const isSelected = onboardingData.path === option.id
+   336→                      return (
+   337→                        <motion.button
+   338→                          key={option.id}
+   339→                          initial={{ opacity: 0, y: 20 }}
+   340→                          animate={{ opacity: 1, y: 0 }}
+   341→                          transition={{ delay: i * 0.1 }}
+   342→                          whileHover={{ scale: 1.03 }}
+   343→                          whileTap={{ scale: 0.97 }}
+   344→                          onClick={() => setOnboardingData({ path: option.id })}
+   345→                          className={cn(
+   346→                            'flex flex-col items-center gap-3 rounded-2xl border-2 p-5 text-center transition-all duration-200 cursor-pointer',
+   347→                            isSelected ? option.selectedColor + ' ring-4' : option.color
+   348→                          )}
+   349→                        >
+   350→                          <div className="flex items-center justify-between w-full">
+   351→                            <option.icon className={cn(
+   352→                              'h-7 w-7',
+   353→                              isSelected ? 'text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground'
+   354→                            )} />
+   355→                            {isSelected && (
+   356→                              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
+   357→                                <Check className="h-5 w-5 text-emerald-600" />
+   358→                              </motion.div>
+   359→                            )}
+   360→                          </div>
+   361→                          <div className="space-y-1 mt-1">
+   362→                            <p className="text-sm font-bold">{option.title}</p>
+   363→                            <p className="text-xs text-muted-foreground leading-relaxed">{option.description}</p>
+   364→                          </div>
+   365→                        </motion.button>
+   366→                      )
+   367→                    })}
+   368→                  </div>
+   369→                </div>
+   370→              )}
+   371→
+   372→              {/* ═══ Step 3: Quick Profile ═══ */}
+   373→              {currentStep === 2 && (
+   374→                <div className="space-y-5">
+   375→                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-900/30">
+   376→                    <User className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+   377→                  </div>
+   378→
+   379→                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+   380→                    <div className="space-y-2">
+   381→                      <Label htmlFor="onb-firstName">Prénom *</Label>
+   382→                      <Input
+   383→                        id="onb-firstName"
+   384→                        placeholder="Votre prénom"
+   385→                        value={onboardingData.firstName}
+   386→                        onChange={(e) => setOnboardingData({ firstName: e.target.value })}
+   387→                        autoFocus
+   388→                      />
+   389→                    </div>
+   390→                    <div className="space-y-2">
+   391→                      <Label htmlFor="onb-lastName">Nom</Label>
+   392→                      <Input
+   393→                        id="onb-lastName"
+   394→                        placeholder="Votre nom"
+   395→                        value={onboardingData.lastName}
+   396→                        onChange={(e) => setOnboardingData({ lastName: e.target.value })}
+   397→                      />
+   398→                    </div>
+   399→                  </div>
+   400→
+   401→                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+   402→                    <div className="space-y-2">
+   403→                      <Label>Secteur d&apos;activité *</Label>
+   404→                      <Select
+   405→                        value={onboardingData.sector}
+   406→                        onValueChange={(val) => setOnboardingData({ sector: val })}
+   407→                      >
+   408→                        <SelectTrigger>
+   409→                          <SelectValue placeholder="Choisissez un secteur" />
+   410→                        </SelectTrigger>
+   411→                        <SelectContent>
+   412→                          {sectorOptions.map((s) => (
+   413→                            <SelectItem key={s} value={s}>{s}</SelectItem>
+   414→                          ))}
+   415→                        </SelectContent>
+   416→                      </Select>
+   417→                    </div>
+   418→                    <div className="space-y-2">
+   419→                      <Label htmlFor="onb-city">Ville</Label>
+   420→                      <Input
+   421→                        id="onb-city"
+   422→                        placeholder="Votre ville"
+   423→                        value={onboardingData.city}
+   424→                        onChange={(e) => setOnboardingData({ city: e.target.value })}
+   425→                      />
+   426→                    </div>
+   427→                  </div>
+   428→
+   429→                  <div className="space-y-2">
+   430→                    <Label>Votre motivation *</Label>
+   431→                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+   432→                      {motivationOptions.map((m) => {
+   433→                        const isSelected = onboardingData.motivation === m.value
+   434→                        return (
+   435→                          <motion.button
+   436→                            key={m.value}
+   437→                            whileHover={{ scale: 1.05 }}
+   438→                            whileTap={{ scale: 0.95 }}
+   439→                            onClick={() => setOnboardingData({ motivation: m.value })}
+   440→                            className={cn(
+   441→                              'flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-all duration-200 cursor-pointer',
+   442→                              isSelected
+   443→                                ? 'border-emerald-500 ring-4 ring-emerald-500/20 bg-emerald-50 dark:bg-emerald-900/30'
+   444→                                : 'border-border hover:border-emerald-300'
+   445→                            )}
+   446→                          >
+   447→                            <m.icon className={cn(
+   448→                              'h-5 w-5',
+   449→                              isSelected ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'
+   450→                            )} />
+   451→                            <span className={cn(
+   452→                              'text-xs font-medium',
+   453→                              isSelected ? 'text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground'
+   454→                            )}>
+   455→                              {m.label}
+   456→                            </span>
+   457→                          </motion.button>
+   458→                        )
+   459→                      })}
+   460→                    </div>
+   461→                  </div>
+   462→
+   463→                  <p className="text-center text-xs text-muted-foreground">
+   464→                    * Champs obligatoires — vous pourrez modifier ces informations plus tard.
+   465→                  </p>
+   466→                </div>
+   467→              )}
+   468→
+   469→              {/* ═══ Step 4: Priority Modules ═══ */}
+   470→              {currentStep === 3 && (
+   471→                <div className="space-y-4">
+   472→                  <div className="text-center mb-2">
+   473→                    <p className="text-sm text-muted-foreground">
+   474→                      Sélectionnez entre <strong>3 et 5 modules</strong> que vous souhaitez explorer en priorité.
+   475→                    </p>
+   476→                    <Badge variant="outline" className="mt-2 border-emerald-300 text-emerald-700 dark:text-emerald-400">
+   477→                      {onboardingData.priorityModules.length} / 5 sélectionnés
+   478→                    </Badge>
+   479→                  </div>
+   480→
+   481→                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 max-h-[320px] overflow-y-auto pr-1">
+   482→                    {suggestedModules.map((mod, i) => {
+   483→                      const isSelected = onboardingData.priorityModules.includes(mod.code)
+   484→                      const isDisabled = !isSelected && onboardingData.priorityModules.length >= 5
+   485→                      return (
+   486→                        <motion.button
+   487→                          key={mod.code}
+   488→                          initial={{ opacity: 0, y: 10 }}
+   489→                          animate={{ opacity: 1, y: 0 }}
+   490→                          transition={{ delay: i * 0.03 }}
+   491→                          whileHover={!isDisabled ? { scale: 1.02 } : undefined}
+   492→                          whileTap={!isDisabled ? { scale: 0.98 } : undefined}
+   493→                          onClick={() => !isDisabled && toggleModule(mod.code)}
+   494→                          disabled={isDisabled}
+   495→                          className={cn(
+   496→                            'flex items-center gap-3 rounded-xl border-2 p-3 text-left transition-all duration-200 cursor-pointer',
+   497→                            isSelected
+   498→                              ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 ring-2 ring-emerald-500/20'
+   499→                              : isDisabled
+   500→                                ? 'border-border opacity-50 cursor-not-allowed'
+   501→                                : 'border-border hover:border-emerald-300 hover:bg-muted/50'
+   502→                          )}
+   503→                        >
+   504→                          <div className={cn(
+   505→                            'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
+   506→                            isSelected ? mod.color : 'bg-muted'
+   507→                          )}>
+   508→                            <mod.icon className="h-5 w-5" />
+   509→                          </div>
+   510→                          <div className="flex-1 min-w-0">
+   511→                            <div className="flex items-center gap-2">
+   512→                              <p className="text-sm font-semibold truncate">{mod.label}</p>
+   513→                              {mod.badge && (
+   514→                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+   515→                                  {mod.badge}
+   516→                                </Badge>
+   517→                              )}
+   518→                            </div>
+   519→                            <p className="text-xs text-muted-foreground line-clamp-1">{mod.description}</p>
+   520→                          </div>
+   521→                          {isSelected && (
+   522→                            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
+   523→                              <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+   524→                            </motion.div>
+   525→                          )}
+   526→                        </motion.button>
+   527→                      )
+   528→                    })}
+   529→                  </div>
+   530→                </div>
+   531→              )}
+   532→
+   533→              {/* ═══ Step 5: All Set! ═══ */}
+   534→              {currentStep === 4 && (
+   535→                <div className="flex flex-col items-center text-center space-y-6 py-4">
+   536→                  {/* Celebration animation */}
+   537→                  <motion.div
+   538→                    initial={{ scale: 0 }}
+   539→                    animate={{ scale: 1 }}
+   540→                    transition={{ type: 'spring', stiffness: 200, damping: 12, delay: 0.1 }}
+   541→                    className="relative"
+   542→                  >
+   543→                    <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 shadow-xl shadow-emerald-500/30">
+   544→                      <motion.div
+   545→                        animate={{ rotate: [0, 10, -10, 0] }}
+   546→                        transition={{ duration: 1.5, repeat: Infinity, repeatDelay: 2 }}
+   547→                      >
+   548→                        <PartyPopper className="h-12 w-12 text-white" />
+   549→                      </motion.div>
+   550→                    </div>
+   551→                    {/* Floating particles */}
+   552→                    <ConfettiParticle delay={0.4} color="text-amber-400" />
+   553→                    <ConfettiParticle delay={0.6} color="text-emerald-400" />
+   554→                    <ConfettiParticle delay={0.8} color="text-rose-400" />
+   555→                    <ConfettiParticle delay={0.5} color="text-teal-400" />
+   556→                  </motion.div>
+   557→
+   558→                  <div className="space-y-2">
+   559→                    <h3 className="text-2xl font-extrabold text-foreground">
+   560→                      Tout est prêt !
+   561→                    </h3>
+   562→                    <p className="text-muted-foreground max-w-md mx-auto leading-relaxed">
+   563→                      {onboardingData.firstName
+   564→                        ? `${onboardingData.firstName}, votre espace CreaPulse est configuré. Vous avez choisi ${onboardingData.priorityModules.length} modules prioritaires.`
+   565→                        : 'Votre espace CreaPulse est configuré et prêt à être exploré.'}
+   566→                    </p>
+   567→                  </div>
+   568→
+   569→                  {/* Summary card */}
+   570→                  <Card className="w-full max-w-sm border-emerald-200 dark:border-emerald-800">
+   571→                    <CardContent className="p-4 space-y-3">
+   572→                      {onboardingData.path && (
+   573→                        <div className="flex items-center justify-between">
+   574→                          <span className="text-xs text-muted-foreground">Parcours</span>
+   575→                          <Badge variant="outline" className="text-xs border-emerald-300">
+   576→                            {pathOptions.find((p) => p.id === onboardingData.path)?.title}
+   577→                          </Badge>
+   578→                        </div>
+   579→                      )}
+   580→                      {onboardingData.sector && (
+   581→                        <Separator />
+   582→                      )}
+   583→                      {onboardingData.sector && (
+   584→                        <div className="flex items-center justify-between">
+   585→                          <span className="text-xs text-muted-foreground">Secteur</span>
+   586→                          <span className="text-xs font-medium">{onboardingData.sector}</span>
+   587→                        </div>
+   588→                      )}
+   589→                      {onboardingData.motivation && (
+   590→                        <Separator />
+   591→                      )}
+   592→                      {onboardingData.motivation && (
+   593→                        <div className="flex items-center justify-between">
+   594→                          <span className="text-xs text-muted-foreground">Motivation</span>
+   595→                          <span className="text-xs font-medium">
+   596→                            {motivationOptions.find((m) => m.value === onboardingData.motivation)?.label}
+   597→                          </span>
+   598→                        </div>
+   599→                      )}
+   600→                      {onboardingData.priorityModules.length > 0 && (
+   601→                        <>
+   602→                          <Separator />
+   603→                          <div className="flex items-start justify-between gap-2">
+   604→                            <span className="text-xs text-muted-foreground shrink-0">Modules</span>
+   605→                            <div className="flex flex-wrap gap-1 justify-end">
+   606→                              {onboardingData.priorityModules.map((code) => {
+   607→                                const mod = MODULE_REGISTRY.find((m) => m.code === code)
+   608→                                return mod ? (
+   609→                                  <Badge key={code} variant="secondary" className="text-[10px] px-1.5 py-0">
+   610→                                    {mod.label}
+   611→                                  </Badge>
+   612→                                ) : null
+   613→                              })}
+   614→                            </div>
+   615→                          </div>
+   616→                        </>
+   617→                      )}
+   618→                    </CardContent>
+   619→                  </Card>
+   620→                </div>
+   621→              )}
+   622→            </motion.div>
+   623→          </AnimatePresence>
+   624→        </div>
+   625→
+   626→        {/* Navigation buttons */}
+   627→        <div className="mt-6 flex items-center justify-between">
+   628→          <Button
+   629→            variant="ghost"
+   630→            onClick={goPrev}
+   631→            disabled={currentStep === 0}
+   632→            className="gap-2"
+   633→          >
+   634→            <ChevronLeft className="h-4 w-4" />
+   635→            Précédent
+   636→          </Button>
+   637→
+   638→          <div className="flex items-center gap-1.5">
+   639→            {STEPS.map((_, i) => (
+   640→              <div
+   641→                key={i}
+   642→                className={cn(
+   643→                  'h-2 rounded-full transition-all duration-300',
+   644→                  i === currentStep ? 'w-8 bg-emerald-500' : 'w-2 bg-muted'
+   645→                )}
+   646→              />
+   647→            ))}
+   648→          </div>
+   649→
+   650→          {currentStep < totalSteps - 1 ? (
+   651→            <Button
+   652→              onClick={goNext}
+   653→              disabled={!canProceed()}
+   654→              className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+   655→            >
+   656→              Suivant
+   657→              <ChevronRight className="h-4 w-4" />
+   658→            </Button>
+   659→          ) : (
+   660→            <Button
+   661→              onClick={handleComplete}
+   662→              disabled={!canProceed()}
+   663→              className="gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-emerald-500/25"
+   664→            >
+   665→              <Sparkles className="h-4 w-4" />
+   666→              Commencer mon parcours
+   667→              <ArrowRight className="h-4 w-4" />
+   668→            </Button>
+   669→          )}
+   670→        </div>
+   671→      </motion.div>
+   672→    </div>
+   673→  )
+   674→}

@@ -1,0 +1,676 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import {
+     6→  Shield,
+     7→  Download,
+     8→  Trash2,
+     9→  Check,
+    10→  X,
+    11→  Clock,
+    12→  AlertCircle,
+    13→  FileText,
+    14→  Loader2,
+    15→  RefreshCw,
+    16→  Database,
+    17→  AlertTriangle,
+    18→  Info,
+    19→} from 'lucide-react'
+    20→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+    21→import { Button } from '@/components/ui/button'
+    22→import { Badge } from '@/components/ui/badge'
+    23→import { Separator } from '@/components/ui/separator'
+    24→import { Textarea } from '@/components/ui/textarea'
+    25→import {
+    26→  AlertDialog,
+    27→  AlertDialogAction,
+    28→  AlertDialogCancel,
+    29→  AlertDialogContent,
+    30→  AlertDialogDescription,
+    31→  AlertDialogFooter,
+    32→  AlertDialogHeader,
+    33→  AlertDialogTitle,
+    34→  AlertDialogTrigger,
+    35→} from '@/components/ui/alert-dialog'
+    36→import { cn } from '@/lib/utils'
+    37→
+    38→/* ─── Types ─── */
+    39→interface ConsentRecord {
+    40→  id: string
+    41→  consentType: string
+    42→  status: string
+    43→  grantedAt: string
+    44→  withdrawnAt: string | null
+    45→  version: string
+    46→}
+    47→
+    48→interface ExportRequest {
+    49→  id: string
+    50→  status: string
+    51→  format: string
+    52→  requestedAt: string
+    53→  completedAt: string | null
+    54→  expiresAt: string | null
+    55→  error: string | null
+    56→}
+    57→
+    58→interface DeletionRequest {
+    59→  id: string
+    60→  status: string
+    61→  reason: string | null
+    62→  requestedAt: string
+    63→  reviewedAt: string | null
+    64→  processedAt: string | null
+    65→  notes: string | null
+    66→}
+    67→
+    68→/* ─── Labels ─── */
+    69→const CONSENT_LABELS: Record<string, { label: string; description: string }> = {
+    70→  COOKIES: { label: 'Cookies', description: 'Consentement pour l\'utilisation des cookies.' },
+    71→  CGU: { label: 'CGU', description: 'Conditions Générales d\'Utilisation.' },
+    72→  DONNEES_PERSONNELLES: { label: 'Données Personnelles', description: 'Collecte et traitement de vos données personnelles.' },
+    73→  MARKETING: { label: 'Marketing', description: 'Communications commerciales et personnalisées.' },
+    74→  CREASCOPE: { label: 'CréaScope', description: 'Utilisation de vos données pour les sessions CréaScope.' },
+    75→  FRANCE_TRAVAIL: { label: 'France Travail', description: 'Échange de données avec les APIs France Travail.' },
+    76→}
+    77→
+    78→const STATUS_VARIANTS: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; label: string }> = {
+    79→  GRANTED: { variant: 'default', label: 'Accepté' },
+    80→  DENIED: { variant: 'destructive', label: 'Refusé' },
+    81→  WITHDRAWN: { variant: 'outline', label: 'Retiré' },
+    82→  pending: { variant: 'secondary', label: 'En attente' },
+    83→  processing: { variant: 'default', label: 'En cours' },
+    84→  ready: { variant: 'default', label: 'Prêt' },
+    85→  approved: { variant: 'default', label: 'Approuvé' },
+    86→  rejected: { variant: 'destructive', label: 'Rejeté' },
+    87→  processed: { variant: 'default', label: 'Données supprimées' },
+    88→  expired: { variant: 'outline', label: 'Expiré' },
+    89→}
+    90→
+    91→function getStatusBadge(status: string) {
+    92→  const info = STATUS_VARIANTS[status] || { variant: 'outline' as const, label: status }
+    93→  return (
+    94→    <Badge variant={info.variant} className="text-xs">
+    95→      {info.label}
+    96→    </Badge>
+    97→  )
+    98→}
+    99→
+   100→function formatDate(dateStr: string | null): string {
+   101→  if (!dateStr) return '—'
+   102→  return new Date(dateStr).toLocaleDateString('fr-FR', {
+   103→    day: '2-digit',
+   104→    month: '2-digit',
+   105→    year: 'numeric',
+   106→    hour: '2-digit',
+   107→    minute: '2-digit',
+   108→  })
+   109→}
+   110→
+   111→/* ─── Main Component ─── */
+   112→export function PrivacyDashboard() {
+   113→  const [consents, setConsents] = useState<ConsentRecord[]>([])
+   114→  const [exports, setExports] = useState<ExportRequest[]>([])
+   115→  const [deletions, setDeletions] = useState<DeletionRequest[]>([])
+   116→  const [loading, setLoading] = useState(true)
+   117→  const [exporting, setExporting] = useState(false)
+   118→  const [deleting, setDeleting] = useState(false)
+   119→  const [error, setError] = useState<string | null>(null)
+   120→  const [success, setSuccess] = useState<string | null>(null)
+   121→  const [deletionReason, setDeletionReason] = useState('')
+   122→
+   123→  // Check if there's a pending deletion request
+   124→  const hasPendingDeletion = deletions.some((d) => d.status === 'pending')
+   125→  // Check if data has already been processed (deleted)
+   126→  const hasProcessedDeletion = deletions.some((d) => d.status === 'processed')
+   127→
+   128→  const token = typeof window !== 'undefined'
+   129→    ? (document.cookie.match(/session=([^;]+)/)?.[1] || localStorage.getItem('cp_token') || '')
+   130→    : ''
+   131→
+   132→  const authHeaders = useCallback(() => ({
+   133→    'Content-Type': 'application/json',
+   134→    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+   135→    credentials: 'include',
+   136→  }), [token])
+   137→
+   138→  /* ─── Fetch all data ─── */
+   139→  const fetchData = useCallback(async () => {
+   140→    setLoading(true)
+   141→    setError(null)
+   142→    try {
+   143→      const [consentRes, exportRes, deletionRes] = await Promise.allSettled([
+   144→        fetch('/api/rgpd/consent', { headers: authHeaders(), credentials: 'include' as RequestCredentials }),
+   145→        fetch('/api/rgpd/export', { headers: authHeaders(), credentials: 'include' as RequestCredentials }),
+   146→        fetch('/api/rgpd/delete-request', { headers: authHeaders(), credentials: 'include' as RequestCredentials }),
+   147→      ])
+   148→
+   149→      if (consentRes.status === 'fulfilled' && consentRes.value.ok) {
+   150→        const json = await consentRes.value.json()
+   151→        setConsents(json.data?.consents || json.data || [])
+   152→      }
+   153→      if (exportRes.status === 'fulfilled' && exportRes.value.ok) {
+   154→        const json = await exportRes.value.json()
+   155→        setExports(json.data?.requests || json.data || [])
+   156→      }
+   157→      if (deletionRes.status === 'fulfilled' && deletionRes.value.ok) {
+   158→        const json = await deletionRes.value.json()
+   159→        setDeletions(json.data?.requests || json.data || [])
+   160→      }
+   161→    } catch {
+   162→      setError('Erreur lors du chargement des données RGPD.')
+   163→    } finally {
+   164→      setLoading(false)
+   165→    }
+   166→  }, [authHeaders])
+   167→
+   168→  useEffect(() => {
+   169→    fetchData()
+   170→  }, [fetchData])
+   171→
+   172→  /* ─── Withdraw consent ─── */
+   173→  const handleWithdrawConsent = async (consentType: string) => {
+   174→    try {
+   175→      const res = await fetch('/api/rgpd/consent', {
+   176→        method: 'DELETE',
+   177→        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+   178→        credentials: 'include',
+   179→        body: JSON.stringify({ consentType }),
+   180→      })
+   181→      if (res.ok) {
+   182→        setSuccess(`Consentement ${consentType} retiré avec succès.`)
+   183→        fetchData()
+   184→      } else {
+   185→        const json = await res.json().catch(() => null)
+   186→        setError(json?.error?.message || 'Impossible de retirer le consentement.')
+   187→      }
+   188→    } catch {
+   189→      setError('Impossible de retirer le consentement.')
+   190→    }
+   191→    setTimeout(() => setSuccess(null), 3000)
+   192→  }
+   193→
+   194→  /* ─── Request data export ─── */
+   195→  const handleExport = async () => {
+   196→    setExporting(true)
+   197→    setError(null)
+   198→    try {
+   199→      const res = await fetch('/api/rgpd/export', {
+   200→        method: 'POST',
+   201→        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+   202→        credentials: 'include',
+   203→      })
+   204→      if (res.ok) {
+   205→        const json = await res.json()
+   206→        setSuccess('Export de données généré avec succès. Téléchargement en cours...')
+   207→        if (json.data?.data) {
+   208→          // Auto-download the JSON export
+   209→          const blob = new Blob([JSON.stringify(json.data.data, null, 2)], { type: 'application/json' })
+   210→          const url = URL.createObjectURL(blob)
+   211→          const a = document.createElement('a')
+   212→          a.href = url
+   213→          a.download = `creapulse-export-${new Date().toISOString().split('T')[0]}.json`
+   214→          document.body.appendChild(a)
+   215→          a.click()
+   216→          document.body.removeChild(a)
+   217→          URL.revokeObjectURL(url)
+   218→        }
+   219→        fetchData()
+   220→      } else {
+   221→        const json = await res.json().catch(() => null)
+   222→        setError(json?.error?.message || 'Impossible de générer l\'export.')
+   223→      }
+   224→    } catch {
+   225→      setError('Erreur lors de la demande d\'export.')
+   226→    } finally {
+   227→      setExporting(false)
+   228→      setTimeout(() => setSuccess(null), 5000)
+   229→    }
+   230→  }
+   231→
+   232→  /* ─── Request data deletion ─── */
+   233→  const handleDeleteRequest = async () => {
+   234→    setDeleting(true)
+   235→    setError(null)
+   236→    try {
+   237→      const res = await fetch('/api/rgpd/delete-request', {
+   238→        method: 'POST',
+   239→        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+   240→        credentials: 'include',
+   241→        body: JSON.stringify({ reason: deletionReason || undefined }),
+   242→      })
+   243→      if (res.ok) {
+   244→        setSuccess('Demande de suppression envoyée. Un conseiller examinera votre demande.')
+   245→        setDeletionReason('')
+   246→        fetchData()
+   247→      } else {
+   248→        const json = await res.json().catch(() => null)
+   249→        setError(json?.error?.message || 'Impossible de créer la demande de suppression.')
+   250→      }
+   251→    } catch {
+   252→      setError('Erreur lors de la demande de suppression.')
+   253→    } finally {
+   254→      setDeleting(false)
+   255→      setTimeout(() => setSuccess(null), 5000)
+   256→    }
+   257→  }
+   258→
+   259→  /* ─── Render ─── */
+   260→  if (loading) {
+   261→    return (
+   262→      <div className="flex items-center justify-center min-h-[60vh]">
+   263→        <Loader2 className="h-8 w-8 text-primary animate-spin" />
+   264→      </div>
+   265→    )
+   266→  }
+   267→
+   268→  return (
+   269→    <motion.div
+   270→      initial={{ opacity: 0, y: 20 }}
+   271→      animate={{ opacity: 1, y: 0 }}
+   272→      transition={{ duration: 0.4 }}
+   273→      className="p-4 md:p-6 lg:p-8 space-y-6 max-w-4xl mx-auto"
+   274→    >
+   275→      {/* Header */}
+   276→      <div className="flex items-center gap-4">
+   277→        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
+   278→          <Shield className="h-7 w-7 text-primary" />
+   279→        </div>
+   280→        <div>
+   281→          <h1 className="text-2xl font-bold text-foreground">Vie Privée & Données</h1>
+   282→          <p className="text-sm text-muted-foreground mt-0.5">
+   283→            Gérez vos consentements, exportez vos données ou demandez leur suppression.
+   284→          </p>
+   285→        </div>
+   286→      </div>
+   287→
+   288→      {/* Success/Error messages */}
+   289→      <AnimatePresence mode="wait">
+   290→        {success && (
+   291→          <motion.div
+   292→            key="success"
+   293→            initial={{ opacity: 0, y: -10 }}
+   294→            animate={{ opacity: 1, y: 0 }}
+   295→            exit={{ opacity: 0, y: -10 }}
+   296→            className="flex items-center gap-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-3 text-sm text-green-800 dark:text-green-200"
+   297→          >
+   298→            <Check className="h-4 w-4 shrink-0" />
+   299→            {success}
+   300→          </motion.div>
+   301→        )}
+   302→        {error && (
+   303→          <motion.div
+   304→            key="error"
+   305→            initial={{ opacity: 0, y: -10 }}
+   306→            animate={{ opacity: 1, y: 0 }}
+   307→            exit={{ opacity: 0, y: -10 }}
+   308→            className="flex items-center gap-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3 text-sm text-red-800 dark:text-red-200"
+   309→          >
+   310→            <AlertCircle className="h-4 w-4 shrink-0" />
+   311→            {error}
+   312→          </motion.div>
+   313→        )}
+   314→      </AnimatePresence>
+   315→
+   316→      {/* Data Already Deleted Banner */}
+   317→      {hasProcessedDeletion && (
+   318→        <motion.div
+   319→          initial={{ opacity: 0, scale: 0.98 }}
+   320→          animate={{ opacity: 1, scale: 1 }}
+   321→          className="flex items-start gap-3 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-4"
+   322→        >
+   323→          <Database className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+   324→          <div>
+   325→            <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">Données supprimées</p>
+   326→            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+   327→              Vos données personnelles ont été supprimées conformément à votre demande. Votre compte a été anonymisé.
+   328→              Certaines fonctionnalités peuvent ne plus être disponibles.
+   329→            </p>
+   330→          </div>
+   331→        </motion.div>
+   332→      )}
+   333→
+   334→      {/* ─── Consent Management ─── */}
+   335→      <Card>
+   336→        <CardHeader>
+   337→          <div className="flex items-center justify-between">
+   338→            <div>
+   339→              <CardTitle className="flex items-center gap-2">
+   340→                <Shield className="h-5 w-5 text-primary" />
+   341→                Consentements
+   342→              </CardTitle>
+   343→              <CardDescription className="mt-1">
+   344→                Vos autorisations de traitement de données.
+   345→              </CardDescription>
+   346→            </div>
+   347→            <Button
+   348→              variant="ghost"
+   349→              size="sm"
+   350→              className="text-xs gap-1"
+   351→              onClick={fetchData}
+   352→            >
+   353→              <RefreshCw className="h-3 w-3" />
+   354→              Actualiser
+   355→            </Button>
+   356→          </div>
+   357→        </CardHeader>
+   358→        <CardContent>
+   359→          {consents.length === 0 ? (
+   360→            <p className="text-sm text-muted-foreground py-4 text-center">
+   361→              Aucun consentement enregistré. Les consentements sont enregistrés lors de votre première connexion.
+   362→            </p>
+   363→          ) : (
+   364→            <div className="space-y-3">
+   365→              {consents.map((consent) => {
+   366→                const info = CONSENT_LABELS[consent.consentType] || {
+   367→                  label: consent.consentType,
+   368→                  description: '',
+   369→                }
+   370→                const isGranted = consent.status === 'GRANTED'
+   371→
+   372→                return (
+   373→                  <div
+   374→                    key={consent.id}
+   375→                    className={cn(
+   376→                      'flex items-center justify-between rounded-lg border p-3 transition-colors',
+   377→                      isGranted
+   378→                        ? 'border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10'
+   379→                        : 'border-muted bg-muted/30'
+   380→                    )}
+   381→                  >
+   382→                    <div className="flex items-center gap-3 flex-1 min-w-0">
+   383→                      <div className={cn(
+   384→                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+   385→                        isGranted ? 'bg-green-100 dark:bg-green-900/30' : 'bg-muted'
+   386→                      )}>
+   387→                        {isGranted ? (
+   388→                          <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+   389→                        ) : (
+   390→                          <X className="h-4 w-4 text-muted-foreground" />
+   391→                        )}
+   392→                      </div>
+   393→                      <div className="flex-1 min-w-0">
+   394→                        <p className="text-sm font-medium text-foreground">{info.label}</p>
+   395→                        <p className="text-xs text-muted-foreground mt-0.5">{info.description}</p>
+   396→                      </div>
+   397→                    </div>
+   398→                    <div className="flex items-center gap-2 ml-3 shrink-0">
+   399→                      {getStatusBadge(consent.status)}
+   400→                      {isGranted && (
+   401→                        <Button
+   402→                          variant="ghost"
+   403→                          size="sm"
+   404→                          className="text-xs text-destructive hover:text-destructive"
+   405→                          onClick={() => handleWithdrawConsent(consent.consentType)}
+   406→                        >
+   407→                          Retirer
+   408→                        </Button>
+   409→                      )}
+   410→                    </div>
+   411→                  </div>
+   412→                )
+   413→              })}
+   414→            </div>
+   415→          )}
+   416→        </CardContent>
+   417→      </Card>
+   418→
+   419→      {/* ─── Data Export ─── */}
+   420→      <Card>
+   421→        <CardHeader>
+   422→          <CardTitle className="flex items-center gap-2">
+   423→            <Download className="h-5 w-5 text-primary" />
+   424→            Export de Données
+   425→          </CardTitle>
+   426→          <CardDescription className="mt-1">
+   427→            Téléchargez toutes vos données au format JSON (droit à la portabilité).
+   428→          </CardDescription>
+   429→        </CardHeader>
+   430→        <CardContent className="space-y-4">
+   431→          <div className="flex items-center gap-3">
+   432→            <Button
+   433→              onClick={handleExport}
+   434→              disabled={exporting || hasProcessedDeletion}
+   435→              className="gap-2"
+   436→            >
+   437→              {exporting ? (
+   438→                <Loader2 className="h-4 w-4 animate-spin" />
+   439→              ) : (
+   440→                <Download className="h-4 w-4" />
+   441→              )}
+   442→              {exporting ? 'Génération en cours...' : 'Exporter mes données'}
+   443→            </Button>
+   444→            <p className="text-xs text-muted-foreground">
+   445→              Fichier JSON contenant l&apos;ensemble de vos données personnelles, parcours, diagnostics et documents.
+   446→            </p>
+   447→          </div>
+   448→
+   449→          {/* Export info box */}
+   450→          <div className="rounded-lg border border-muted bg-muted/30 p-3">
+   451→            <div className="flex items-start gap-2">
+   452→              <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+   453→              <div className="text-xs text-muted-foreground space-y-1">
+   454→                <p>L&apos;export inclut : profil, parcours créateur, diagnostics Kiviat/RIASEC, analyses financières,
+   455→                  juridiques et de marché, documents BMC/BP/zéro-brouillon, feedbacks, consentements, messages et notifications.</p>
+   456→                <p>Disponible au téléchargement pendant 30 jours après la demande.</p>
+   457→              </div>
+   458→            </div>
+   459→          </div>
+   460→
+   461→          {exports.length > 0 && (
+   462→            <>
+   463→              <Separator />
+   464→              <div>
+   465→                <p className="text-sm font-medium text-foreground mb-2">Historique des exports</p>
+   466→                <div className="space-y-2 max-h-48 overflow-y-auto">
+   467→                  {exports.map((exp) => (
+   468→                    <div
+   469→                      key={exp.id}
+   470→                      className="flex items-center justify-between rounded-lg border border-border p-2.5 text-sm"
+   471→                    >
+   472→                      <div className="flex items-center gap-2">
+   473→                        <FileText className="h-4 w-4 text-muted-foreground" />
+   474→                        <span className="text-muted-foreground">
+   475→                          {formatDate(exp.requestedAt)}
+   476→                        </span>
+   477→                        {exp.error && (
+   478→                          <span className="text-xs text-destructive">(erreur)</span>
+   479→                        )}
+   480→                      </div>
+   481→                      {getStatusBadge(exp.status)}
+   482→                    </div>
+   483→                  ))}
+   484→                </div>
+   485→              </div>
+   486→            </>
+   487→          )}
+   488→        </CardContent>
+   489→      </Card>
+   490→
+   491→      {/* ─── Data Deletion ─── */}
+   492→      <Card>
+   493→        <CardHeader>
+   494→          <CardTitle className="flex items-center gap-2">
+   495→            <Trash2 className="h-5 w-5 text-destructive" />
+   496→            Suppression de Données
+   497→          </CardTitle>
+   498→          <CardDescription className="mt-1">
+   499→            Demandez la suppression de vos données (droit à l&apos;oubli — Article 17 RGPD).
+   500→          </CardDescription>
+   501→        </CardHeader>
+   502→        <CardContent className="space-y-4">
+   503→          <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+   504→            <div className="flex items-start gap-3">
+   505→              <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+   506→              <div>
+   507→                <p className="text-sm font-medium text-foreground">Action irréversible</p>
+   508→                <p className="text-xs text-muted-foreground mt-1">
+   509→                  La suppression de vos données est définitive. Votre compte et tous vos parcours,
+   510→                  résultats, documents, messages et notifications seront supprimés. Votre compte sera
+   511→                  anonymisé et désactivé. Cette action sera revue par un conseiller avant d&apos;être exécutée.
+   512→                </p>
+   513→              </div>
+   514→            </div>
+   515→          </div>
+   516→
+   517→          {/* Deletion request button with confirmation dialog */}
+   518→          <AlertDialog>
+   519→            <AlertDialogTrigger asChild>
+   520→              <Button
+   521→                variant="destructive"
+   522→                disabled={deleting || hasPendingDeletion || hasProcessedDeletion}
+   523→                className="gap-2"
+   524→              >
+   525→                {deleting ? (
+   526→                  <Loader2 className="h-4 w-4 animate-spin" />
+   527→                ) : (
+   528→                  <Trash2 className="h-4 w-4" />
+   529→                )}
+   530→                {deleting
+   531→                  ? 'Envoi en cours...'
+   532→                  : hasPendingDeletion
+   533→                    ? 'Demande en attente de traitement'
+   534→                    : hasProcessedDeletion
+   535→                      ? 'Données déjà supprimées'
+   536→                      : 'Demander la suppression de mes données'}
+   537→              </Button>
+   538→            </AlertDialogTrigger>
+   539→            <AlertDialogContent>
+   540→              <AlertDialogHeader>
+   541→                <AlertDialogTitle className="flex items-center gap-2">
+   542→                  <AlertTriangle className="h-5 w-5 text-destructive" />
+   543→                  Confirmer la demande de suppression
+   544→                </AlertDialogTitle>
+   545→                <AlertDialogDescription className="space-y-3 pt-2">
+   546→                  <p>
+   547→                    Vous êtes sur le point de demander la suppression définitive de toutes vos données personnelles.
+   548→                    Cette action est <strong>irréversible</strong> une fois approuvée par un conseiller.
+   549→                  </p>
+   550→                  <div className="rounded-lg bg-muted/50 p-3 text-xs space-y-1">
+   551→                    <p className="font-medium text-foreground">Les données suivantes seront supprimées :</p>
+   552→                    <ul className="list-disc list-inside text-muted-foreground space-y-0.5">
+   553→                      <li>Profil, parcours créateur et diagnostic</li>
+   554→                      <li>Résultats Kiviat, RIASEC et modules</li>
+   555→                      <li>Analyses financières, juridiques et de marché</li>
+   556→                      <li>Documents (BMC, BP, zéro-brouillon)</li>
+   557→                      <li>Messages et conversations</li>
+   558→                      <li>Notifications et consentements</li>
+   559→                      <li>Fichiers et documents uploadés</li>
+   560→                      <li>Programme d&apos;accompagnement à l&apos;amorçage (PAA)</li>
+   561→                    </ul>
+   562→                  </div>
+   563→                  <p className="text-muted-foreground">
+   564→                    Un conseiller examinera votre demande. Vous pouvez optionnellement indiquer une raison.
+   565→                  </p>
+   566→                </AlertDialogDescription>
+   567→              </AlertDialogHeader>
+   568→              <div className="px-6 pb-2">
+   569→                <Textarea
+   570→                  placeholder="Raison de la demande (optionnel)..."
+   571→                  value={deletionReason}
+   572→                  onChange={(e) => setDeletionReason(e.target.value)}
+   573→                  rows={3}
+   574→                  className="text-sm"
+   575→                />
+   576→              </div>
+   577→              <AlertDialogFooter>
+   578→                <AlertDialogCancel onClick={() => setDeletionReason('')}>
+   579→                  Annuler
+   580→                </AlertDialogCancel>
+   581→                <AlertDialogAction
+   582→                  onClick={handleDeleteRequest}
+   583→                  disabled={deleting}
+   584→                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+   585→                >
+   586→                  {deleting ? (
+   587→                    <>
+   588→                      <Loader2 className="h-4 w-4 animate-spin" />
+   589→                      Envoi...
+   590→                    </>
+   591→                  ) : (
+   592→                    'Confirmer la demande'
+   593→                  )}
+   594→                </AlertDialogAction>
+   595→              </AlertDialogFooter>
+   596→            </AlertDialogContent>
+   597→          </AlertDialog>
+   598→
+   599→          {/* Deletion history */}
+   600→          {deletions.length > 0 && (
+   601→            <>
+   602→              <Separator />
+   603→              <div>
+   604→                <p className="text-sm font-medium text-foreground mb-2">Historique des demandes</p>
+   605→                <div className="space-y-2 max-h-64 overflow-y-auto">
+   606→                  {deletions.map((del) => (
+   607→                    <div
+   608→                      key={del.id}
+   609→                      className={cn(
+   610→                        'rounded-lg border p-3 text-sm',
+   611→                        del.status === 'processed'
+   612→                          ? 'border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10'
+   613→                          : 'border-border',
+   614→                      )}
+   615→                    >
+   616→                      <div className="flex items-center justify-between">
+   617→                        <div className="flex items-center gap-2">
+   618→                          {del.status === 'processed' ? (
+   619→                            <Database className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+   620→                          ) : (
+   621→                            <Clock className="h-4 w-4 text-muted-foreground" />
+   622→                          )}
+   623→                          <span className="text-muted-foreground">
+   624→                            {formatDate(del.requestedAt)}
+   625→                          </span>
+   626→                        </div>
+   627→                        {getStatusBadge(del.status)}
+   628→                      </div>
+   629→                      {del.notes && (
+   630→                        <p className="text-xs text-muted-foreground mt-2 ml-6">{del.notes}</p>
+   631→                      )}
+   632→                      {del.processedAt && del.status === 'processed' && (
+   633→                        <p className="text-xs text-amber-700 dark:text-amber-300 mt-1 ml-6">
+   634→                          Données effectivement supprimées le {formatDate(del.processedAt)}
+   635→                        </p>
+   636→                      )}
+   637→                    </div>
+   638→                  ))}
+   639→                </div>
+   640→              </div>
+   641→            </>
+   642→          )}
+   643→        </CardContent>
+   644→      </Card>
+   645→
+   646→      {/* RGPD Info */}
+   647→      <div className="rounded-lg border bg-muted/30 p-5 space-y-3">
+   648→        <h3 className="text-sm font-semibold text-foreground">Vos droits RGPD</h3>
+   649→        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   650→          {[
+   651→            { title: 'Droit d\'accès', desc: 'Accéder à vos données personnelles via l\'export.' },
+   652→            { title: 'Droit de rectification', desc: 'Corriger vos données inexactes depuis votre profil.' },
+   653→            { title: 'Droit à la portabilité', desc: 'Exporter vos données au format structuré JSON.' },
+   654→            { title: 'Droit à l\';oubli', desc: 'Demander la suppression définitive de vos données.' },
+   655→            { title: 'Droit d\'opposition', desc: 'Retirer vos consentements à tout moment.' },
+   656→            { title: 'Droit à la limitation', desc: 'Demander la restriction du traitement de vos données.' },
+   657→          ].map((right) => (
+   658→            <div key={right.title} className="flex items-start gap-2">
+   659→              <Check className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+   660→              <div>
+   661→                <p className="text-xs font-medium text-foreground">{right.title}</p>
+   662→                <p className="text-xs text-muted-foreground">{right.desc}</p>
+   663→              </div>
+   664→            </div>
+   665→          ))}
+   666→        </div>
+   667→        <p className="text-xs text-muted-foreground">
+   668→          Conformément au Règlement Général sur la Protection des Données (RGPD — Règlement UE 2016/679),
+   669→          vous disposez de droits sur vos données personnelles. Pour toute demande, contactez votre conseiller
+   670→          ou le Délégué à la Protection des Données (DPO) du GIDEF Île-de-France.
+   671→        </p>
+   672→      </div>
+   673→    </motion.div>
+   674→  )
+   675→}
+   676→

@@ -1,0 +1,994 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import {
+     6→  RadarChart,
+     7→  PolarGrid,
+     8→  PolarAngleAxis,
+     9→  PolarRadiusAxis,
+    10→  Radar,
+    11→  ResponsiveContainer,
+    12→  Tooltip,
+    13→} from 'recharts'
+    14→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+    15→import { Button } from '@/components/ui/button'
+    16→import { Badge } from '@/components/ui/badge'
+    17→import { Progress } from '@/components/ui/progress'
+    18→import { Separator } from '@/components/ui/separator'
+    19→import { Skeleton } from '@/components/ui/skeleton'
+    20→import {
+    21→  Sparkles,
+    22→  Brain,
+    23→  Target,
+    24→  TrendingUp,
+    25→  AlertTriangle,
+    26→  CheckCircle2,
+    27→  Loader2,
+    28→  RefreshCw,
+    29→  User,
+    30→  Lightbulb,
+    31→  Eye,
+    32→  FlaskConical,
+    33→  Pentagon,
+    34→  ArrowRight,
+    35→  Download,
+    36→  Shield,
+    37→  BarChart3,
+    38→} from 'lucide-react'
+    39→import { cn } from '@/lib/utils'
+    40→import { toast } from 'sonner'
+    41→import { useAuthStore } from '@/lib/zustand/store'
+    42→
+    43→// ────────────────────────────────────────────
+    44→// Types
+    45→// ────────────────────────────────────────────
+    46→
+    47→interface BilanData {
+    48→  parcours: {
+    49→    profil: {
+    50→      firstName: string | null
+    51→      lastName: string | null
+    52→      email: string
+    53→      employmentStatus: string | null
+    54→      educationLevel: string | null
+    55→      skills: string[]
+    56→      creationMotivation: string | null
+    57→      previousExperience: boolean | null
+    58→      availableTimePerWeek: number | null
+    59→      rqthStatus: boolean
+    60→      supportNeeds: string[]
+    61→      completionPercent: number
+    62→    }
+    63→    projet: {
+    64→      projectTitle: string | null
+    65→      projectSector: string | null
+    66→      projectStage: string | null
+    67→      targetAudience: string | null
+    68→      valueProposition: string | null
+    69→      completionPercent: number
+    70→    }
+    71→    vision: {
+    72→      visionStatement: string | null
+    73→      objectivesCount: number
+    74→      coreValues: string[]
+    75→      milestonesCount: number
+    76→      motivation: string | null
+    77→      completionPercent: number
+    78→    }
+    79→    riasec: {
+    80→      completed: boolean
+    81→      scores: Record<string, { score: number; isDominant: boolean }>
+    82→      dominantTypes: string[]
+    83→      totalScore: number
+    84→      moduleScore: number
+    85→    }
+    86→    kiviat: {
+    87→      completed: boolean
+    88→      scores: Record<string, number>
+    89→      average: number
+    90→      strengths: string[]
+    91→      weaknesses: string[]
+    92→      moduleScore: number
+    93→    }
+    94→    bilanSaved: boolean
+    95→  }
+    96→  bilan: {
+    97→    synthesis: string
+    98→    coherenceAnalysis: string
+    99→    strengths: string[]
+   100→    weaknesses: string[]
+   101→    recommendations: string[]
+   102→    priorityActions: Array<{ title: string; description: string; priority: 'high' | 'medium' | 'low' }>
+   103→    globalScore: number
+   104→    globalScoreLabel: string
+   105→  } | null
+   106→  localScore: number
+   107→  localScoreLabel: string
+   108→  generatedAt: string | null
+   109→}
+   110→
+   111→type GenerateStatus = 'idle' | 'loading' | 'done' | 'error'
+   112→
+   113→// ────────────────────────────────────────────
+   114→// Constants
+   115→// ────────────────────────────────────────────
+   116→
+   117→const RIASEC_LABELS: Record<string, string> = {
+   118→  R: 'Réaliste',
+   119→  I: 'Investigateur',
+   120→  A: 'Artistique',
+   121→  S: 'Social',
+   122→  E: 'Entreprenant',
+   123→  C: 'Conventionnel',
+   124→}
+   125→
+   126→const KIVIAT_LABELS: Record<string, string> = {
+   127→  creativite: 'Créativité',
+   128→  leadership: 'Leadership',
+   129→  gestion_financiere: 'Gestion fin.',
+   130→  communication: 'Communication',
+   131→  resolution_problemes: 'Résolution pb.',
+   132→  perseverance: 'Persévérance',
+   133→  adaptabilite: 'Adaptabilité',
+   134→  organisation: 'Organisation',
+   135→}
+   136→
+   137→const PRIORITY_CONFIG = {
+   138→  high: { label: 'Haute', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', border: 'border-red-200 dark:border-red-800' },
+   139→  medium: { label: 'Moyenne', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', border: 'border-amber-200 dark:border-amber-800' },
+   140→  low: { label: 'Basse', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', border: 'border-green-200 dark:border-green-800' },
+   141→}
+   142→
+   143→// ────────────────────────────────────────────
+   144→// Main Component
+   145→// ────────────────────────────────────────────
+   146→
+   147→export function BilanIA() {
+   148→  const [data, setData] = useState<BilanData | null>(null)
+   149→  const [loading, setLoading] = useState(true)
+   150→  const [generateStatus, setGenerateStatus] = useState<GenerateStatus>('idle')
+   151→  const [activeSection, setActiveSection] = useState<'overview' | 'synthesis' | 'details'>('overview')
+   152→  const token = useAuthStore((s) => s.token)
+   153→
+   154→  // ── Load data ──
+   155→  useEffect(() => {
+   156→    async function loadBilan() {
+   157→      if (!token) {
+   158→        setLoading(false)
+   159→        return
+   160→      }
+   161→      try {
+   162→        const res = await fetch('/api/bilan', {
+   163→          headers: { Authorization: `Bearer ${token}` },
+   164→          credentials: 'include',
+   165→        })
+   166→        if (res.ok) {
+   167→          const json = await res.json()
+   168→          if (json.success && json.data) {
+   169→            setData(json.data)
+   170→            if (json.data.bilan) {
+   171→              setGenerateStatus('done')
+   172→            }
+   173→          }
+   174→        }
+   175→      } catch { /* silent */ }
+   176→      setLoading(false)
+   177→    }
+   178→    loadBilan()
+   179→  }, [token])
+   180→
+   181→  // ── Generate bilan ──
+   182→  const handleGenerate = useCallback(async () => {
+   183→    if (!token) {
+   184→      toast.error('Vous devez être connecté(e) pour générer votre bilan')
+   185→      return
+   186→    }
+   187→    setGenerateStatus('loading')
+   188→    try {
+   189→      const res = await fetch('/api/bilan', {
+   190→        method: 'POST',
+   191→        headers: {
+   192→          'Content-Type': 'application/json',
+   193→          Authorization: `Bearer ${token}`,
+   194→        },
+   195→        credentials: 'include',
+   196→      })
+   197→      if (res.ok) {
+   198→        const json = await res.json()
+   199→        if (json.success && json.data) {
+   200→          setData(json.data)
+   201→          setGenerateStatus('done')
+   202→          setActiveSection('synthesis')
+   203→          toast.success('Bilan IA généré avec succès !')
+   204→        } else {
+   205→          const errData = json.error
+   206→          toast.error(errData?.message || 'Erreur lors de la génération')
+   207→          setGenerateStatus('error')
+   208→        }
+   209→      } else {
+   210→        setGenerateStatus('error')
+   211→        toast.error('Erreur lors de la génération du bilan')
+   212→      }
+   213→    } catch {
+   214→      setGenerateStatus('error')
+   215→      toast.error('Erreur réseau')
+   216→    }
+   217→  }, [token])
+   218→
+   219→  // ── Export bilan ──
+   220→  const handleExport = useCallback(() => {
+   221→    if (!data?.bilan) return
+   222→    const lines: string[] = []
+   223→    lines.push('═══════════════════════════════════════')
+   224→    lines.push('  BILAN IA — CreaPulse / GIDEF')
+   225→    lines.push(`  Généré le ${new Date().toLocaleDateString('fr-FR')}`)
+   226→    lines.push('═══════════════════════════════════════')
+   227→    lines.push('')
+   228→    lines.push(`Score global : ${data.bilan.globalScore}/100 — ${data.bilan.globalScoreLabel}`)
+   229→    lines.push('')
+   230→    lines.push('── SYNTHÈSE ──')
+   231→    lines.push(data.bilan.synthesis)
+   232→    lines.push('')
+   233→
+   234→    if (data.bilan.coherenceAnalysis) {
+   235→      lines.push('── COHÉRENCE PROFIL / PROJET ──')
+   236→      lines.push(data.bilan.coherenceAnalysis)
+   237→      lines.push('')
+   238→    }
+   239→
+   240→    lines.push('── POINTS FORTS ──')
+   241→    data.bilan.strengths.forEach((s, i) => lines.push(`  ${i + 1}. ${s}`))
+   242→    lines.push('')
+   243→
+   244→    lines.push('── AXES D\'AMÉLIORATION ──')
+   245→    data.bilan.weaknesses.forEach((w, i) => lines.push(`  ${i + 1}. ${w}`))
+   246→    lines.push('')
+   247→
+   248→    lines.push('── RECOMMANDATIONS ──')
+   249→    data.bilan.recommendations.forEach((r, i) => lines.push(`  ${i + 1}. ${r}`))
+   250→    lines.push('')
+   251→
+   252→    lines.push('── ACTIONS PRIORITAIRES ──')
+   253→    data.bilan.priorityActions.forEach((a) => {
+   254→      const prio = PRIORITY_CONFIG[a.priority]
+   255→      lines.push(`  [${prio.label}] ${a.title}`)
+   256→      lines.push(`    ${a.description}`)
+   257→      lines.push('')
+   258→    })
+   259→
+   260→    lines.push('═══════════════════════════════════════')
+   261→
+   262→    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' })
+   263→    const url = URL.createObjectURL(blob)
+   264→    const a = document.createElement('a')
+   265→    a.href = url
+   266→    a.download = `bilan-ia-${new Date().toISOString().slice(0, 10)}.txt`
+   267→    document.body.appendChild(a)
+   268→    a.click()
+   269→    document.body.removeChild(a)
+   270→    URL.revokeObjectURL(url)
+   271→    toast.success('Bilan exporté !')
+   272→  }, [data])
+   273→
+   274→  // ── Compute ──
+   275→  const globalScore = data?.bilan?.globalScore || data?.localScore || 0
+   276→  const globalLabel = data?.bilan?.globalScoreLabel || data?.localScoreLabel || 'Profil Émergent'
+   277→
+   278→  // ── Loading skeleton ──
+   279→  if (loading) {
+   280→    return (
+   281→      <div className="px-4 py-6 md:px-8 md:py-8 max-w-5xl mx-auto w-full space-y-6">
+   282→        <Skeleton className="h-8 w-64" />
+   283→        <Skeleton className="h-4 w-48" />
+   284→        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+   285→          <Skeleton className="h-64" />
+   286→          <Skeleton className="h-64 lg:col-span-2" />
+   287→        </div>
+   288→        <Skeleton className="h-96" />
+   289→      </div>
+   290→    )
+   291→  }
+   292→
+   293→  return (
+   294→    <motion.div
+   295→      initial={{ opacity: 0, y: 20 }}
+   296→      animate={{ opacity: 1, y: 0 }}
+   297→      transition={{ duration: 0.4 }}
+   298→      className="px-4 py-6 md:px-8 md:py-8 max-w-5xl mx-auto w-full space-y-6"
+   299→    >
+   300→      {/* Header */}
+   301→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   302→        <div>
+   303→          <h1 className="text-2xl md:text-3xl font-bold text-foreground flex items-center gap-3">
+   304→            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-teal-600 shadow-md">
+   305→              <Brain className="h-5 w-5 text-white" />
+   306→            </div>
+   307→            Bilan IA
+   308→          </h1>
+   309→          <p className="mt-1 text-muted-foreground">
+   310→            Synthèse intelligente de votre parcours entrepreneurial
+   311→          </p>
+   312→        </div>
+   313→        <div className="flex items-center gap-2">
+   314→          {data?.bilan && (
+   315→            <Button variant="outline" onClick={handleExport} className="gap-2 rounded-full" size="sm">
+   316→              <Download className="h-4 w-4" />
+   317→              <span className="hidden sm:inline">Exporter</span>
+   318→            </Button>
+   319→          )}
+   320→          <Button
+   321→            onClick={handleGenerate}
+   322→            disabled={generateStatus === 'loading'}
+   323→            className={cn(
+   324→              'gap-2 rounded-full',
+   325→              !data?.bilan && 'shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30'
+   326→            )}
+   327→            size="sm"
+   328→          >
+   329→            {generateStatus === 'loading' ? (
+   330→              <Loader2 className="h-4 w-4 animate-spin" />
+   331→            ) : data?.bilan ? (
+   332→              <RefreshCw className="h-4 w-4" />
+   333→            ) : (
+   334→              <Sparkles className="h-4 w-4" />
+   335→            )}
+   336→            {generateStatus === 'loading'
+   337→              ? 'Analyse en cours...'
+   338→              : data?.bilan
+   339→                ? 'Régénérer'
+   340→                : 'Générer mon bilan IA'}
+   341→          </Button>
+   342→        </div>
+   343→      </div>
+   344→
+   345→      {/* Module completion overview */}
+   346→      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+   347→        <Card className="border-none shadow-sm bg-muted/30">
+   348→          <CardContent className="p-4">
+   349→            <div className="flex items-center gap-3 mb-3">
+   350→              <BarChart3 className="h-5 w-5 text-primary" />
+   351→              <span className="text-sm font-medium text-foreground">Avancement du parcours</span>
+   352→            </div>
+   353→            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+   354→              {[
+   355→                { label: 'Profil', icon: User, pct: data?.parcours.profil.completionPercent || 0 },
+   356→                { label: 'Projet', icon: Lightbulb, pct: data?.parcours.projet.completionPercent || 0 },
+   357→                { label: 'Vision', icon: Eye, pct: data?.parcours.vision.completionPercent || 0 },
+   358→                { label: 'RIASEC', icon: FlaskConical, pct: data?.parcours.riasec.completed ? 100 : 0 },
+   359→                { label: 'Kiviat', icon: Pentagon, pct: data?.parcours.kiviat.completed ? 100 : 0 },
+   360→              ].map((mod) => (
+   361→                <div key={mod.label} className="space-y-1.5">
+   362→                  <div className="flex items-center justify-between">
+   363→                    <div className="flex items-center gap-1.5">
+   364→                      <mod.icon className="h-3.5 w-3.5 text-muted-foreground" />
+   365→                      <span className="text-xs text-muted-foreground">{mod.label}</span>
+   366→                    </div>
+   367→                    <span className={cn(
+   368→                      'text-xs font-bold',
+   369→                      mod.pct >= 80 ? 'text-green-600' : mod.pct >= 40 ? 'text-amber-600' : 'text-muted-foreground'
+   370→                    )}>
+   371→                      {mod.pct}%
+   372→                    </span>
+   373→                  </div>
+   374→                  <Progress value={mod.pct} className="h-1.5" />
+   375→                </div>
+   376→              ))}
+   377→            </div>
+   378→          </CardContent>
+   379→        </Card>
+   380→      </motion.div>
+   381→
+   382→      {/* Global Score Card */}
+   383→      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+   384→        <Card className="border-none shadow-md overflow-hidden">
+   385→          <div className={cn(
+   386→            'h-1.5',
+   387→            globalScore >= 70 ? 'bg-gradient-to-r from-green-500 to-teal-500' :
+   388→            globalScore >= 40 ? 'bg-gradient-to-r from-amber-400 to-orange-500' :
+   389→            'bg-gradient-to-r from-red-400 to-amber-500'
+   390→          )} />
+   391→          <CardContent className="p-6 md:p-8">
+   392→            <div className="flex flex-col sm:flex-row items-center gap-6">
+   393→              {/* Score circle */}
+   394→              <div className="relative flex items-center justify-center shrink-0">
+   395→                <svg width="130" height="130" viewBox="0 0 130 130">
+   396→                  <circle
+   397→                    cx="65" cy="65" r="55"
+   398→                    fill="none"
+   399→                    stroke="currentColor"
+   400→                    strokeWidth="10"
+   401→                    className="text-muted/50"
+   402→                  />
+   403→                  <circle
+   404→                    cx="65" cy="65" r="55"
+   405→                    fill="none"
+   406→                    stroke="currentColor"
+   407→                    strokeWidth="10"
+   408→                    strokeLinecap="round"
+   409→                    strokeDasharray={`${(globalScore / 100) * 345.6} 345.6`}
+   410→                    transform="rotate(-90 65 65)"
+   411→                    className={cn(
+   412→                      globalScore >= 70 ? 'text-teal-500' :
+   413→                      globalScore >= 40 ? 'text-amber-500' :
+   414→                      'text-red-500'
+   415→                    )}
+   416→                  />
+   417→                </svg>
+   418→                <div className="absolute inset-0 flex flex-col items-center justify-center">
+   419→                  <span className={cn(
+   420→                    'text-3xl font-bold tabular-nums',
+   421→                    globalScore >= 70 ? 'text-teal-600 dark:text-teal-400' :
+   422→                    globalScore >= 40 ? 'text-amber-600 dark:text-amber-400' :
+   423→                    'text-red-600 dark:text-red-400'
+   424→                  )}>
+   425→                    {globalScore}
+   426→                  </span>
+   427→                  <span className="text-xs text-muted-foreground">/ 100</span>
+   428→                </div>
+   429→              </div>
+   430→
+   431→              <div className="flex-1 text-center sm:text-left space-y-2">
+   432→                <h3 className="text-xl font-bold text-foreground">{globalLabel}</h3>
+   433→                <p className="text-sm text-muted-foreground">
+   434→                  {data?.bilan
+   435→                    ? 'Votre bilan personnalisé est prêt. Explorez la synthèse et les recommandations.'
+   436→                    : 'Complétez les modules de votre parcours puis générez votre bilan IA pour obtenir une synthèse personnalisée.'}
+   437→                </p>
+   438→                {!data?.bilan && (
+   439→                  <div className="flex flex-wrap gap-2 pt-2">
+   440→                    {(data?.parcours.riasec.completed ? [] : [{ l: 'Passer le RIASEC', p: 'high' }]).concat(
+   441→                      data?.parcours.kiviat.completed ? [] : [{ l: 'Passer le Kiviat', p: 'medium' }]
+   442→                    ).map((item, idx) => (
+   443→                      <Badge key={idx} variant="outline" className="text-xs">
+   444→                        <AlertTriangle className="h-3 w-3 mr-1" />
+   445→                        {item.l}
+   446→                      </Badge>
+   447→                    ))}
+   448→                  </div>
+   449→                )}
+   450→                {data?.generatedAt && (
+   451→                  <p className="text-xs text-muted-foreground">
+   452→                    Dernière génération : {new Date(data.generatedAt).toLocaleString('fr-FR')}
+   453→                  </p>
+   454→                )}
+   455→              </div>
+   456→            </div>
+   457→          </CardContent>
+   458→        </Card>
+   459→      </motion.div>
+   460→
+   461→      {/* No bilan state */}
+   462→      {!data?.bilan && generateStatus !== 'loading' && (
+   463→        <motion.div
+   464→          initial={{ opacity: 0, y: 10 }}
+   465→          animate={{ opacity: 1, y: 0 }}
+   466→          transition={{ delay: 0.3 }}
+   467→        >
+   468→          <Card className="border-none shadow-sm">
+   469→            <CardContent className="p-8 text-center space-y-4">
+   470→              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 mx-auto">
+   471→                <Brain className="h-8 w-8 text-primary" />
+   472→              </div>
+   473→              <h3 className="text-lg font-semibold text-foreground">
+   474→                Prêt pour votre bilan personnalisé ?
+   475→              </h3>
+   476→              <p className="text-sm text-muted-foreground max-w-md mx-auto">
+   477→                L&apos;IA CreaPulse analysera votre profil créateur, votre projet, votre vision et les résultats de vos tests RIASEC et Kiviat pour produire une synthèse sur mesure.
+   478→              </p>
+   479→              <div className="flex flex-wrap justify-center gap-3 pt-2">
+   480→                {[
+   481→                  { label: 'Profil', done: (data?.parcours.profil.completionPercent || 0) >= 50 },
+   482→                  { label: 'Projet', done: (data?.parcours.projet.completionPercent || 0) >= 50 },
+   483→                  { label: 'RIASEC', done: data?.parcours.riasec.completed },
+   484→                  { label: 'Kiviat', done: data?.parcours.kiviat.completed },
+   485→                ].map((mod) => (
+   486→                  <div key={mod.label} className="flex items-center gap-1.5">
+   487→                    {mod.done ? (
+   488→                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+   489→                    ) : (
+   490→                      <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30" />
+   491→                    )}
+   492→                    <span className={cn('text-sm', mod.done ? 'text-foreground' : 'text-muted-foreground')}>
+   493→                      {mod.label}
+   494→                    </span>
+   495→                  </div>
+   496→                ))}
+   497→              </div>
+   498→              <Button
+   499→                onClick={handleGenerate}
+   500→                disabled={generateStatus === 'loading'}
+   501→                className="gap-2 rounded-full shadow-md shadow-primary/20 mt-2"
+   502→                size="lg"
+   503→              >
+   504→                <Sparkles className="h-5 w-5" />
+   505→                Générer mon bilan IA
+   506→              </Button>
+   507→            </CardContent>
+   508→          </Card>
+   509→        </motion.div>
+   510→      )}
+   511→
+   512→      {/* Loading state */}
+   513→      {generateStatus === 'loading' && (
+   514→        <motion.div
+   515→          initial={{ opacity: 0 }}
+   516→          animate={{ opacity: 1 }}
+   517→          className="flex flex-col items-center justify-center py-12 space-y-4"
+   518→        >
+   519→          <div className="relative">
+   520→            <div className="h-20 w-20 rounded-full border-4 border-primary/20 animate-spin" />
+   521→            <div className="absolute inset-0 flex items-center justify-center">
+   522→              <Brain className="h-8 w-8 text-primary" />
+   523→            </div>
+   524→          </div>
+   525→          <h3 className="text-lg font-semibold text-foreground">Analyse en cours...</h3>
+   526→          <p className="text-sm text-muted-foreground text-center max-w-md">
+   527→            L&apos;IA analyse vos données de parcours pour générer votre bilan personnalisé. Cela peut prendre quelques secondes.
+   528→          </p>
+   529→        </motion.div>
+   530→      )}
+   531→
+   532→      {/* Bilan Content */}
+   533→      <AnimatePresence mode="wait">
+   534→        {data?.bilan && generateStatus !== 'loading' && (
+   535→          <motion.div
+   536→            key="bilan-content"
+   537→            initial={{ opacity: 0, y: 20 }}
+   538→            animate={{ opacity: 1, y: 0 }}
+   539→            exit={{ opacity: 0, y: -20 }}
+   540→            transition={{ duration: 0.4 }}
+   541→            className="space-y-6"
+   542→          >
+   543→            {/* Tab navigation */}
+   544→            <div className="flex gap-1 p-1 bg-muted/50 rounded-xl w-fit">
+   545→              {[
+   546→                { id: 'overview' as const, label: 'Vue d\'ensemble', icon: BarChart3 },
+   547→                { id: 'synthesis' as const, label: 'Synthèse IA', icon: Sparkles },
+   548→                { id: 'details' as const, label: 'Détails & Tests', icon: Target },
+   549→              ].map((tab) => (
+   550→                <button
+   551→                  key={tab.id}
+   552→                  onClick={() => setActiveSection(tab.id)}
+   553→                  className={cn(
+   554→                    'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all',
+   555→                    activeSection === tab.id
+   556→                      ? 'bg-background text-foreground shadow-sm'
+   557→                      : 'text-muted-foreground hover:text-foreground'
+   558→                  )}
+   559→                >
+   560→                  <tab.icon className="h-4 w-4" />
+   561→                  <span className="hidden sm:inline">{tab.label}</span>
+   562→                </button>
+   563→              ))}
+   564→            </div>
+   565→
+   566→            {/* Overview Tab */}
+   567→            {activeSection === 'overview' && (
+   568→              <div className="space-y-6">
+   569→                {/* Synthesis */}
+   570→                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+   571→                  <Card className="border-none shadow-sm">
+   572→                    <CardHeader>
+   573→                      <CardTitle className="text-lg flex items-center gap-2">
+   574→                        <Sparkles className="h-5 w-5 text-amber-500" />
+   575→                        Synthèse
+   576→                      </CardTitle>
+   577→                    </CardHeader>
+   578→                    <CardContent>
+   579→                      <p className="text-sm text-muted-foreground leading-relaxed">{data.bilan.synthesis}</p>
+   580→                    </CardContent>
+   581→                  </Card>
+   582→                </motion.div>
+   583→
+   584→                {/* Coherence Analysis */}
+   585→                {data.bilan.coherenceAnalysis && (
+   586→                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+   587→                    <Card className="border-none shadow-sm">
+   588→                      <CardHeader>
+   589→                        <CardTitle className="text-lg flex items-center gap-2">
+   590→                          <Shield className="h-5 w-5 text-primary" />
+   591→                        Cohérence profil / projet
+   592→                        </CardTitle>
+   593→                      </CardHeader>
+   594→                      <CardContent>
+   595→                        <p className="text-sm text-muted-foreground leading-relaxed">{data.bilan.coherenceAnalysis}</p>
+   596→                      </CardContent>
+   597→                    </Card>
+   598→                  </motion.div>
+   599→                )}
+   600→
+   601→                {/* Strengths / Weaknesses */}
+   602→                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+   603→                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+   604→                    <Card className="border-none shadow-sm h-full">
+   605→                      <CardHeader className="pb-3">
+   606→                        <CardTitle className="text-base flex items-center gap-2">
+   607→                          <TrendingUp className="h-4 w-4 text-green-500" />
+   608→                          Points forts ({data.bilan.strengths.length})
+   609→                        </CardTitle>
+   610→                      </CardHeader>
+   611→                      <CardContent className="pt-0 space-y-2">
+   612→                        {data.bilan.strengths.map((s, i) => (
+   613→                          <div key={i} className="flex items-start gap-2">
+   614→                            <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
+   615→                            <span className="text-sm text-foreground">{s}</span>
+   616→                          </div>
+   617→                        ))}
+   618→                      </CardContent>
+   619→                    </Card>
+   620→                  </motion.div>
+   621→
+   622→                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+   623→                    <Card className="border-none shadow-sm h-full">
+   624→                      <CardHeader className="pb-3">
+   625→                        <CardTitle className="text-base flex items-center gap-2">
+   626→                          <AlertTriangle className="h-4 w-4 text-amber-500" />
+   627→                          Axes d&apos;amélioration ({data.bilan.weaknesses.length})
+   628→                        </CardTitle>
+   629→                      </CardHeader>
+   630→                      <CardContent className="pt-0 space-y-2">
+   631→                        {data.bilan.weaknesses.map((w, i) => (
+   632→                          <div key={i} className="flex items-start gap-2">
+   633→                            <div className="h-4 w-4 rounded-full bg-amber-200 dark:bg-amber-800 mt-0.5 shrink-0" />
+   634→                            <span className="text-sm text-foreground">{w}</span>
+   635→                          </div>
+   636→                        ))}
+   637→                      </CardContent>
+   638→                    </Card>
+   639→                  </motion.div>
+   640→                </div>
+   641→
+   642→                {/* Priority Actions */}
+   643→                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+   644→                  <Card className="border-none shadow-sm">
+   645→                    <CardHeader>
+   646→                      <CardTitle className="text-lg flex items-center gap-2">
+   647→                        <Target className="h-5 w-5 text-primary" />
+   648→                        Actions prioritaires
+   649→                      </CardTitle>
+   650→                    </CardHeader>
+   651→                    <CardContent className="space-y-3">
+   652→                      {data.bilan.priorityActions.map((action, idx) => {
+   653→                        const prio = PRIORITY_CONFIG[action.priority]
+   654→                        return (
+   655→                          <div
+   656→                            key={idx}
+   657→                            className={cn(
+   658→                              'flex items-start gap-4 p-4 rounded-xl border-2',
+   659→                              prio.border,
+   660→                              'bg-background'
+   661→                            )}
+   662→                          >
+   663→                            <div className={cn(
+   664→                              'flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold shrink-0',
+   665→                              action.priority === 'high' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+   666→                              action.priority === 'medium' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' :
+   667→                              'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+   668→                            )}>
+   669→                              {idx + 1}
+   670→                            </div>
+   671→                            <div className="flex-1 min-w-0">
+   672→                              <div className="flex items-center gap-2">
+   673→                                <h4 className="text-sm font-semibold text-foreground">{action.title}</h4>
+   674→                                <Badge className={cn('text-[10px] px-1.5', prio.color)} variant="secondary">
+   675→                                  {prio.label}
+   676→                                </Badge>
+   677→                              </div>
+   678→                              <p className="text-xs text-muted-foreground mt-0.5">{action.description}</p>
+   679→                            </div>
+   680→                            <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
+   681→                          </div>
+   682→                        )
+   683→                      })}
+   684→                    </CardContent>
+   685→                  </Card>
+   686→                </motion.div>
+   687→              </div>
+   688→            )}
+   689→
+   690→            {/* Synthesis Tab */}
+   691→            {activeSection === 'synthesis' && (
+   692→              <div className="space-y-6">
+   693→                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+   694→                  <Card className="border-none shadow-sm">
+   695→                    <CardHeader>
+   696→                      <CardTitle className="text-lg flex items-center gap-2">
+   697→                        <Sparkles className="h-5 w-5 text-amber-500" />
+   698→                        Analyse complète
+   699→                      </CardTitle>
+   700→                    </CardHeader>
+   701→                    <CardContent className="space-y-6">
+   702→                      <div>
+   703→                        <h4 className="text-sm font-semibold text-foreground mb-2">Synthèse</h4>
+   704→                        <p className="text-sm text-muted-foreground leading-relaxed bg-muted/30 rounded-xl p-4">
+   705→                          {data.bilan.synthesis}
+   706→                        </p>
+   707→                      </div>
+   708→
+   709→                      {data.bilan.coherenceAnalysis && (
+   710→                        <div>
+   711→                          <h4 className="text-sm font-semibold text-foreground mb-2">Cohérence profil / projet</h4>
+   712→                          <p className="text-sm text-muted-foreground leading-relaxed bg-muted/30 rounded-xl p-4">
+   713→                            {data.bilan.coherenceAnalysis}
+   714→                          </p>
+   715→                        </div>
+   716→                      )}
+   717→
+   718→                      <Separator />
+   719→
+   720→                      <div>
+   721→                        <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+   722→                          <Lightbulb className="h-4 w-4 text-amber-500" />
+   723→                          Recommandations personnalisées
+   724→                        </h4>
+   725→                        <div className="space-y-2">
+   726→                          {data.bilan.recommendations.map((r, i) => (
+   727→                            <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors">
+   728→                              <Badge variant="outline" className="shrink-0 mt-0.5 text-xs font-bold">
+   729→                                {i + 1}
+   730→                              </Badge>
+   731→                              <span className="text-sm text-foreground">{r}</span>
+   732→                            </div>
+   733→                          ))}
+   734→                        </div>
+   735→                      </div>
+   736→                    </CardContent>
+   737→                  </Card>
+   738→                </motion.div>
+   739→              </div>
+   740→            )}
+   741→
+   742→            {/* Details Tab */}
+   743→            {activeSection === 'details' && (
+   744→              <div className="space-y-6">
+   745→                {/* RIASEC Details */}
+   746→                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+   747→                  <Card className="border-none shadow-sm">
+   748→                    <CardHeader>
+   749→                      <div className="flex items-center justify-between">
+   750→                        <CardTitle className="text-lg flex items-center gap-2">
+   751→                          <FlaskConical className="h-5 w-5 text-purple-500" />
+   752→                          Résultats RIASEC
+   753→                        </CardTitle>
+   754→                        <Badge variant={data.parcours.riasec.completed ? 'default' : 'outline'}>
+   755→                          {data.parcours.riasec.completed ? 'Complété' : 'Non complété'}
+   756→                        </Badge>
+   757→                      </div>
+   758→                    </CardHeader>
+   759→                    <CardContent>
+   760→                      {data.parcours.riasec.completed ? (
+   761→                        <div className="space-y-4">
+   762→                          <div className="flex flex-wrap gap-2 mb-4">
+   763→                            {data.parcours.riasec.dominantTypes.map((t) => (
+   764→                              <Badge key={t} className="text-sm" variant="secondary">
+   765→                                {RIASEC_LABELS[t] || t} ★
+   766→                              </Badge>
+   767→                            ))}
+   768→                          </div>
+   769→                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   770→                            {/* RIASEC Radar */}
+   771→                            <div className="aspect-square max-w-[300px] mx-auto">
+   772→                              <ResponsiveContainer width="100%" height="100%">
+   773→                                <RadarChart
+   774→                                  data={Object.entries(data.parcours.riasec.scores).map(([k, v]) => ({
+   775→                                    dimension: RIASEC_LABELS[k] || k,
+   776→                                    score: v.score,
+   777→                                    fullMark: 25,
+   778→                                  }))}
+   779→                                  cx="50%" cy="50%" outerRadius="70%"
+   780→                                >
+   781→                                  <PolarGrid stroke="hsl(var(--border))" />
+   782→                                  <PolarAngleAxis dataKey="dimension" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+   783→                                  <PolarRadiusAxis angle={90} domain={[0, 25]} tick={{ fontSize: 9 }} tickCount={6} />
+   784→                                  <Radar dataKey="score" stroke="#A855F7" fill="#A855F7" fillOpacity={0.15} strokeWidth={2} />
+   785→                                </RadarChart>
+   786→                              </ResponsiveContainer>
+   787→                            </div>
+   788→                            {/* Score bars */}
+   789→                            <div className="space-y-3">
+   790→                              {Object.entries(data.parcours.riasec.scores)
+   791→                                .sort(([, a], [, b]) => b.score - a.score)
+   792→                                .map(([type, val]) => (
+   793→                                  <div key={type} className="space-y-1">
+   794→                                    <div className="flex items-center justify-between">
+   795→                                      <span className={cn('text-sm', val.isDominant && 'font-semibold text-foreground')}>
+   796→                                        {RIASEC_LABELS[type] || type}
+   797→                                        {val.isDominant && ' ★'}
+   798→                                      </span>
+   799→                                      <span className="text-sm font-bold text-muted-foreground">{val.score}/25</span>
+   800→                                    </div>
+   801→                                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+   802→                                      <motion.div
+   803→                                        initial={{ width: 0 }}
+   804→                                        animate={{ width: `${(val.score / 25) * 100}%` }}
+   805→                                        transition={{ duration: 0.8 }}
+   806→                                        className="h-full rounded-full bg-purple-500"
+   807→                                      />
+   808→                                    </div>
+   809→                                  </div>
+   810→                                ))}
+   811→                            </div>
+   812→                          </div>
+   813→                        </div>
+   814→                      ) : (
+   815→                        <p className="text-sm text-muted-foreground text-center py-4">
+   816→                          Passez le test RIASEC pour voir vos résultats détaillés ici.
+   817→                        </p>
+   818→                      )}
+   819→                    </CardContent>
+   820→                  </Card>
+   821→                </motion.div>
+   822→
+   823→                {/* Kiviat Details */}
+   824→                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+   825→                  <Card className="border-none shadow-sm">
+   826→                    <CardHeader>
+   827→                      <div className="flex items-center justify-between">
+   828→                        <CardTitle className="text-lg flex items-center gap-2">
+   829→                          <Pentagon className="h-5 w-5 text-teal-500" />
+   830→                          Résultats Kiviat
+   831→                        </CardTitle>
+   832→                        <Badge variant={data.parcours.kiviat.completed ? 'default' : 'outline'}>
+   833→                          {data.parcours.kiviat.completed ? 'Complété' : 'Non complété'}
+   834→                        </Badge>
+   835→                      </div>
+   836→                    </CardHeader>
+   837→                    <CardContent>
+   838→                      {data.parcours.kiviat.completed ? (
+   839→                        <div className="space-y-4">
+   840→                          <div className="flex items-center gap-4">
+   841→                            <span className="text-sm text-muted-foreground">Score moyen :</span>
+   842→                            <span className="text-lg font-bold text-primary">{data.parcours.kiviat.average}/10</span>
+   843→                          </div>
+   844→                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   845→                            {/* Kiviat Radar */}
+   846→                            <div className="aspect-square max-w-[300px] mx-auto">
+   847→                              <ResponsiveContainer width="100%" height="100%">
+   848→                                <RadarChart
+   849→                                  data={Object.entries(data.parcours.kiviat.scores).map(([k, v]) => ({
+   850→                                    dimension: KIVIAT_LABELS[k] || k,
+   851→                                    score: v,
+   852→                                    fullMark: 10,
+   853→                                  }))}
+   854→                                  cx="50%" cy="50%" outerRadius="70%"
+   855→                                >
+   856→                                  <PolarGrid stroke="hsl(var(--border))" />
+   857→                                  <PolarAngleAxis dataKey="dimension" tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} />
+   858→                                  <PolarRadiusAxis angle={90} domain={[0, 10]} tick={{ fontSize: 8 }} tickCount={6} />
+   859→                                  <Radar dataKey="score" stroke="#00838F" fill="#00838F" fillOpacity={0.15} strokeWidth={2} />
+   860→                                </RadarChart>
+   861→                              </ResponsiveContainer>
+   862→                            </div>
+   863→                            {/* Score bars */}
+   864→                            <div className="space-y-3">
+   865→                              {Object.entries(data.parcours.kiviat.scores)
+   866→                                .sort(([, a], [, b]) => b - a)
+   867→                                .map(([cat, score]) => (
+   868→                                  <div key={cat} className="space-y-1">
+   869→                                    <div className="flex items-center justify-between">
+   870→                                      <span className="text-sm">{KIVIAT_LABELS[cat] || cat}</span>
+   871→                                      <span className={cn(
+   872→                                        'text-sm font-bold',
+   873→                                        score >= 7 ? 'text-green-600' : score >= 4 ? 'text-amber-600' : 'text-red-600'
+   874→                                      )}>{score}/10</span>
+   875→                                    </div>
+   876→                                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+   877→                                      <motion.div
+   878→                                        initial={{ width: 0 }}
+   879→                                        animate={{ width: `${score * 10}%` }}
+   880→                                        transition={{ duration: 0.8 }}
+   881→                                        className={cn(
+   882→                                          'h-full rounded-full',
+   883→                                          score >= 7 ? 'bg-green-500' : score >= 4 ? 'bg-amber-500' : 'bg-red-500'
+   884→                                        )}
+   885→                                      />
+   886→                                    </div>
+   887→                                  </div>
+   888→                                ))}
+   889→                            </div>
+   890→                          </div>
+   891→                        </div>
+   892→                      ) : (
+   893→                        <p className="text-sm text-muted-foreground text-center py-4">
+   894→                          Passez le test Kiviat pour voir vos résultats détaillés ici.
+   895→                        </p>
+   896→                      )}
+   897→                    </CardContent>
+   898→                  </Card>
+   899→                </motion.div>
+   900→
+   901→                {/* Profil & Project Summary */}
+   902→                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+   903→                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+   904→                    {/* Profil summary */}
+   905→                    <Card className="border-none shadow-sm">
+   906→                      <CardHeader className="pb-3">
+   907→                        <CardTitle className="text-base flex items-center gap-2">
+   908→                          <User className="h-4 w-4 text-primary" />
+   909→                          Profil Créateur
+   910→                        </CardTitle>
+   911→                      </CardHeader>
+   912→                      <CardContent className="pt-0 space-y-2 text-sm">
+   913→                        <div className="flex justify-between">
+   914→                          <span className="text-muted-foreground">Nom</span>
+   915→                          <span className="font-medium">{data.parcours.profil.firstName} {data.parcours.profil.lastName || ''}</span>
+   916→                        </div>
+   917→                        <div className="flex justify-between">
+   918→                          <span className="text-muted-foreground">Statut</span>
+   919→                          <span className="font-medium">{data.parcours.profil.employmentStatus || '—'}</span>
+   920→                        </div>
+   921→                        <div className="flex justify-between">
+   922→                          <span className="text-muted-foreground">Disponibilité</span>
+   923→                          <span className="font-medium">{data.parcours.profil.availableTimePerWeek || '?'}h/sem</span>
+   924→                        </div>
+   925→                        {data.parcours.profil.skills.length > 0 && (
+   926→                          <div className="pt-2">
+   927→                            <span className="text-muted-foreground">Compétences :</span>
+   928→                            <div className="flex flex-wrap gap-1 mt-1">
+   929→                              {data.parcours.profil.skills.map((s) => (
+   930→                                <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
+   931→                              ))}
+   932→                            </div>
+   933→                          </div>
+   934→                        )}
+   935→                      </CardContent>
+   936→                    </Card>
+   937→
+   938→                    {/* Project summary */}
+   939→                    <Card className="border-none shadow-sm">
+   940→                      <CardHeader className="pb-3">
+   941→                        <CardTitle className="text-base flex items-center gap-2">
+   942→                          <Lightbulb className="h-4 w-4 text-amber-500" />
+   943→                          Mon Projet
+   944→                        </CardTitle>
+   945→                      </CardHeader>
+   946→                      <CardContent className="pt-0 space-y-2 text-sm">
+   947→                        <div className="flex justify-between">
+   948→                          <span className="text-muted-foreground">Titre</span>
+   949→                          <span className="font-medium text-right max-w-[60%] truncate">{data.parcours.projet.projectTitle || '—'}</span>
+   950→                        </div>
+   951→                        <div className="flex justify-between">
+   952→                          <span className="text-muted-foreground">Secteur</span>
+   953→                          <span className="font-medium">{data.parcours.projet.projectSector || '—'}</span>
+   954→                        </div>
+   955→                        <div className="flex justify-between">
+   956→                          <span className="text-muted-foreground">Stade</span>
+   957→                          <span className="font-medium">{data.parcours.projet.projectStage || '—'}</span>
+   958→                        </div>
+   959→                        <div className="flex justify-between">
+   960→                          <span className="text-muted-foreground">Cible</span>
+   961→                          <span className="font-medium text-right max-w-[60%] truncate">{data.parcours.projet.targetAudience || '—'}</span>
+   962→                        </div>
+   963→                      </CardContent>
+   964→                    </Card>
+   965→                  </div>
+   966→                </motion.div>
+   967→              </div>
+   968→            )}
+   969→
+   970→            {/* Bottom actions */}
+   971→            <motion.div
+   972→              initial={{ opacity: 0 }}
+   973→              animate={{ opacity: 1 }}
+   974→              transition={{ delay: 0.5 }}
+   975→              className="flex flex-col sm:flex-row items-center justify-center gap-3 pb-4"
+   976→            >
+   977→              <Button variant="outline" onClick={handleExport} className="gap-2 rounded-full">
+   978→                <Download className="h-4 w-4" />
+   979→                Exporter le bilan
+   980→              </Button>
+   981→              <Button onClick={handleGenerate} disabled={generateStatus === 'loading'} className="gap-2 rounded-full" variant="outline">
+   982→                <RefreshCw className={cn('h-4 w-4', generateStatus === 'loading' && 'animate-spin')} />
+   983→                Régénérer le bilan
+   984→              </Button>
+   985→            </motion.div>
+   986→          </motion.div>
+   987→        )}
+   988→      </AnimatePresence>
+   989→    </motion.div>
+   990→  )
+   991→}
+   992→
+   993→export default BilanIA
+   994→

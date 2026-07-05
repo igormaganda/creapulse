@@ -85,6 +85,7 @@ export async function GET(request: NextRequest) {
 
     const requestsData = myRequests.map((r) => ({
       id: r.id,
+      mentorId: r.mentorId,
       mentorName: `${r.mentor.user.firstName || ''} ${r.mentor.user.lastName || ''}`.trim(),
       mentorAvatarUrl: r.mentor.user.avatarUrl,
       message: r.message,
@@ -96,6 +97,7 @@ export async function GET(request: NextRequest) {
 
     const activeMentorshipData = activeMentorships.map((ms) => ({
       id: ms.id,
+      mentorId: ms.mentorId,
       mentorName: `${ms.mentor.user.firstName || ''} ${ms.mentor.user.lastName || ''}`.trim(),
       mentorAvatarUrl: ms.mentor.user.avatarUrl,
       status: ms.status,
@@ -155,15 +157,43 @@ export async function POST(request: NextRequest) {
       return error('ACTIVE_MENTORSHIP', 'Vous avez déjà un mentorat actif avec ce mentor', 409)
     }
 
-    // Create request
-    const mentorRequest = await db.mentorshipRequest.create({
-      data: {
-        mentorId,
-        menteeId: payload.userId,
-        message,
-        objectives,
-      },
+    // Check maxMentees limit
+    const activeCount = await db.mentorship.count({
+      where: { mentorId, status: 'ACTIVE' },
     })
+    if (activeCount >= mentor.maxMentees) {
+      return error('MENTOR_FULL', 'Ce mentor a atteint sa limite de mentorés', 409)
+    }
+
+    // Create request (using transaction for data integrity)
+    let mentorRequest
+    try {
+      mentorRequest = await db.$transaction(async (tx) => {
+        // Re-check duplicate inside transaction
+        const dup = await tx.mentorshipRequest.findFirst({
+          where: { mentorId, menteeId: payload.userId, status: 'PENDING' },
+        })
+        if (dup) {
+          const err = new Error('DUPLICATE') as Error & { code: string }
+          err.code = 'DUPLICATE'
+          throw err
+        }
+
+        return tx.mentorshipRequest.create({
+          data: {
+            mentorId,
+            menteeId: payload.userId,
+            message,
+            objectives,
+          },
+        })
+      })
+    } catch (txErr: unknown) {
+      if (txErr instanceof Error && (txErr as Error & { code?: string }).code === 'DUPLICATE') {
+        return error('DUPLICATE_REQUEST', 'Vous avez déjà une demande en attente auprès de ce mentor', 409)
+      }
+      throw txErr
+    }
 
     // Fire-and-forget: notify the mentor about the new request
     db.user.findUnique({ where: { id: payload.userId }, select: { firstName: true, lastName: true } })

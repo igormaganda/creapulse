@@ -1,0 +1,915 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Input } from '@/components/ui/input'
+     9→import { Textarea } from '@/components/ui/textarea'
+    10→import { Separator } from '@/components/ui/separator'
+    11→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    12→import { Checkbox } from '@/components/ui/checkbox'
+    13→import {
+    14→  Dialog,
+    15→  DialogContent,
+    16→  DialogHeader,
+    17→  DialogTitle,
+    18→  DialogDescription,
+    19→} from '@/components/ui/dialog'
+    20→import {
+    21→  Select,
+    22→  SelectContent,
+    23→  SelectItem,
+    24→  SelectTrigger,
+    25→  SelectValue,
+    26→} from '@/components/ui/select'
+    27→import { cn } from '@/lib/utils'
+    28→import { toast } from 'sonner'
+    29→import {
+    30→  GraduationCap,
+    31→  Search,
+    32→  Star,
+    33→  MapPin,
+    34→  Clock,
+    35→  Send,
+    36→  Loader2,
+    37→  X,
+    38→  CheckCircle2,
+    39→  XCircle,
+    40→  AlertCircle,
+    41→  MessageSquare,
+    42→  Target,
+    43→  User,
+    44→  Calendar,
+    45→  Briefcase,
+    46→  ChevronRight,
+    47→  SlidersHorizontal,
+    48→} from 'lucide-react'
+    49→
+    50→// ────────────────────────────────────────────
+    51→// Types
+    52→// ────────────────────────────────────────────
+    53→
+    54→interface Mentor {
+    55→  id: string
+    56→  name: string
+    57→  email: string
+    58→  avatarUrl: string | null
+    59→  bio: string
+    60→  expertise: string[]
+    61→  sectors: string[]
+    62→  location: string
+    63→  availability: 'AVAILABLE' | 'LIMITED' | 'UNAVAILABLE'
+    64→  maxMentees: number
+    65→  rating: number
+    66→  reviewCount: number
+    67→}
+    68→
+    69→interface MentorRequest {
+    70→  id: string
+    71→  mentorName: string
+    72→  mentorAvatarUrl: string | null
+    73→  message: string
+    74→  objectives: string[]
+    75→  status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELLED'
+    76→  createdAt: string
+    77→  updatedAt: string
+    78→}
+    79→
+    80→// ────────────────────────────────────────────
+    81→// Constants
+    82→// ────────────────────────────────────────────
+    83→
+    84→const AVAILABILITY_CONFIG = {
+    85→  AVAILABLE: { label: 'Disponible', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', dot: 'bg-emerald-500' },
+    86→  LIMITED: { label: 'Disponibilité limitée', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20', dot: 'bg-amber-500' },
+    87→  UNAVAILABLE: { label: 'Indisponible', color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20', dot: 'bg-red-500' },
+    88→}
+    89→
+    90→const REQUEST_STATUS_CONFIG = {
+    91→  PENDING: { label: 'En attente', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20', icon: Clock },
+    92→  ACCEPTED: { label: 'Acceptée', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', icon: CheckCircle2 },
+    93→  REJECTED: { label: 'Refusée', color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20', icon: XCircle },
+    94→  CANCELLED: { label: 'Annulée', color: 'text-muted-foreground', bg: 'bg-muted', icon: XCircle },
+    95→}
+    96→
+    97→const EXPERTISE_OPTIONS = [
+    98→  'Business Plan', 'Financement', 'Marketing Digital', 'Stratégie',
+    99→  'Gestion d\'équipe', 'Commerce International', 'Innovation',
+   100→  'Fiscalité', 'Droit des sociétés', 'Développement commercial',
+   101→  'Gestion de projet', 'Ressources Humaines',
+   102→]
+   103→
+   104→const SECTOR_OPTIONS = [
+   105→  'Tech / Numérique', 'Commerce', 'Restauration', 'BTP',
+   106→  'Santé / Bien-être', 'Formation', 'Services', 'Industrie',
+   107→  'Immobilier', 'Événementiel', 'Artisanat', 'Autre',
+   108→]
+   109→
+   110→const MENTOR_OBJECTIVES = [
+   111→  'Valider mon idée de business',
+   112→  'Structurer mon business plan',
+   113→  'Préparer ma levée de fonds',
+   114→  'Développer mon réseau',
+   115→  'Améliorer ma stratégie marketing',
+   116→  'Gérer mes finances',
+   117→  'Recruter et manager une équipe',
+   118→  'Préparer le lancement',
+   119→]
+   120→
+   121→const AVATAR_COLORS = [
+   122→  'bg-rose-500', 'bg-amber-500', 'bg-emerald-500', 'bg-sky-500',
+   123→  'bg-violet-500', 'bg-orange-500', 'bg-teal-500', 'bg-pink-500',
+   124→  'bg-indigo-500', 'bg-lime-500',
+   125→]
+   126→
+   127→const MOCK_MENTORS: Mentor[] = [
+   128→  {
+   129→    id: 'mentor-1',
+   130→    name: 'Sophie Laurent',
+   131→    email: 'sophie.laurent@mentor.fr',
+   132→    avatarUrl: null,
+   133→    bio: 'Ancienne directrice générale de PME avec 20 ans d\'expérience en stratégie et management. Spécialisée dans l\'accompagnement de startups tech et de projets innovants.',
+   134→    expertise: ['Stratégie', 'Gestion d\'équipe', 'Développement commercial'],
+   135→    sectors: ['Tech / Numérique', 'Services'],
+   136→    location: 'Paris',
+   137→    availability: 'AVAILABLE',
+   138→    maxMentees: 3,
+   139→    rating: 4.9,
+   140→    reviewCount: 24,
+   141→  },
+   142→  {
+   143→    id: 'mentor-2',
+   144→    name: 'Marc Dubois',
+   145→    email: 'marc.dubois@mentor.fr',
+   146→    avatarUrl: null,
+   147→    bio: 'Expert-comptable et consultant financier. Accompagne les créateurs sur la structuration financière, le business plan et les relations bancaires.',
+   148→    expertise: ['Financement', 'Fiscalité', 'Business Plan'],
+   149→    sectors: ['Commerce', 'Services', 'Artisanat'],
+   150→    location: 'Créteil',
+   151→    availability: 'AVAILABLE',
+   152→    maxMentees: 4,
+   153→    rating: 4.7,
+   154→    reviewCount: 18,
+   155→  },
+   156→  {
+   157→    id: 'mentor-3',
+   158→    name: 'Amina Benali',
+   159→    email: 'amina.benali@mentor.fr',
+   160→    avatarUrl: null,
+   161→    bio: 'Fondatrice de deux startups à succès (e-commerce et SaaS). Passionnée par le marketing digital et la croissance utilisateur.',
+   162→    expertise: ['Marketing Digital', 'Innovation', 'Commerce International'],
+   163→    sectors: ['Tech / Numérique', 'Commerce', 'Événementiel'],
+   164→    location: 'Paris',
+   165→    availability: 'LIMITED',
+   166→    maxMentees: 2,
+   167→    rating: 4.8,
+   168→    reviewCount: 31,
+   169→  },
+   170→  {
+   171→    id: 'mentor-4',
+   172→    name: 'Philippe Martin',
+   173→    email: 'philippe.martin@mentor.fr',
+   174→    avatarUrl: null,
+   175→    bio: 'Avocat spécialisé en droit des affaires. Conseille sur le choix du statut juridique, les contrats et la propriété intellectuelle.',
+   176→    expertise: ['Droit des sociétés', 'Gestion de projet'],
+   177→    sectors: ['BTP', 'Industrie', 'Immobilier'],
+   178→    location: 'Nanterre',
+   179→    availability: 'AVAILABLE',
+   180→    maxMentees: 3,
+   181→    rating: 4.5,
+   182→    reviewCount: 12,
+   183→  },
+   184→  {
+   185→    id: 'mentor-5',
+   186→    name: 'Claire Moreau',
+   187→    email: 'claire.moreau@mentor.fr',
+   188→    avatarUrl: null,
+   189→    bio: 'DRH chevronnée avec expérience en recrutement, management et culture d\'entreprise. Aide les créateurs à structurer leur équipe.',
+   190→    expertise: ['Ressources Humaines', 'Gestion d\'équipe'],
+   191→    sectors: ['Services', 'Formation', 'Santé / Bien-être'],
+   192→    location: 'Versailles',
+   193→    availability: 'AVAILABLE',
+   194→    maxMentees: 5,
+   195→    rating: 4.6,
+   196→    reviewCount: 9,
+   197→  },
+   198→  {
+   199→    id: 'mentor-6',
+   200→    name: 'Thomas Petit',
+   201→    email: 'thomas.petit@mentor.fr',
+   202→    avatarUrl: null,
+   203→    bio: 'Serial entrepreneur, fondateur de 3 entreprises. Expert en levée de fonds et en pitch deck. Accompagne les startups dans leur recherche de financement.',
+   204→    expertise: ['Financement', 'Business Plan', 'Stratégie'],
+   205→    sectors: ['Tech / Numérique', 'Innovation'],
+   206→    location: 'Paris',
+   207→    availability: 'LIMITED',
+   208→    maxMentees: 2,
+   209→    rating: 4.9,
+   210→    reviewCount: 42,
+   211→  },
+   212→  {
+   213→    id: 'mentor-7',
+   214→    name: 'Isabelle Roux',
+   215→    email: 'isabelle.roux@mentor.fr',
+   216→    avatarUrl: null,
+   217→    bio: 'Consultante en développement commercial B2B. Experte en prospection, négociation et fidélisation client.',
+   218→    expertise: ['Développement commercial', 'Stratégie'],
+   219→    sectors: ['Commerce', 'Commerce International', 'Services'],
+   220→    location: 'Boulogne-Billancourt',
+   221→    availability: 'AVAILABLE',
+   222→    maxMentees: 3,
+   223→    rating: 4.4,
+   224→    reviewCount: 15,
+   225→  },
+   226→  {
+   227→    id: 'mentor-8',
+   228→    name: 'Jean-Pierre Garnier',
+   229→    email: 'jp.garnier@mentor.fr',
+   230→    avatarUrl: null,
+   231→    bio: 'Chef d\'entreprise retraité du secteur de la restauration. Mentor bénévole avec une grande expérience en gestion opérationnelle.',
+   232→    expertise: ['Gestion de projet', 'Business Plan'],
+   233→    sectors: ['Restauration', 'Artisanat', 'Commerce'],
+   234→    location: 'Saint-Denis',
+   235→    availability: 'UNAVAILABLE',
+   236→    maxMentees: 2,
+   237→    rating: 4.3,
+   238→    reviewCount: 7,
+   239→  },
+   240→  {
+   241→    id: 'mentor-9',
+   242→    name: 'Nadia Kaci',
+   243→    email: 'nadia.kaci@mentor.fr',
+   244→    avatarUrl: null,
+   245→    bio: 'Experte en transformation digitale et innovation. Ancienne consultante McKinsey. Accompagne les projets tech et de la transition écologique.',
+   246→    expertise: ['Innovation', 'Stratégie', 'Marketing Digital'],
+   247→    sectors: ['Tech / Numérique', 'BTP', 'Industrie'],
+   248→    location: 'Paris',
+   249→    availability: 'AVAILABLE',
+   250→    maxMentees: 3,
+   251→    rating: 4.8,
+   252→    reviewCount: 20,
+   253→  },
+   254→  {
+   255→    id: 'mentor-10',
+   256→    name: 'François Lefevre',
+   257→    email: 'francois.lefevre@mentor.fr',
+   258→    avatarUrl: null,
+   259→    bio: 'Gérant de franchise et expert en entrepreneuriat. Accompagne les créateurs dans le montage de projets de franchise et de commerce.',
+   260→    expertise: ['Business Plan', 'Financement', 'Commerce International'],
+   261→    sectors: ['Commerce', 'Restauration', 'Services'],
+   262→    location: 'Montreuil',
+   263→    availability: 'AVAILABLE',
+   264→    maxMentees: 4,
+   265→    rating: 4.6,
+   266→    reviewCount: 13,
+   267→  },
+   268→]
+   269→
+   270→const MOCK_REQUESTS: MentorRequest[] = [
+   271→  {
+   272→    id: 'req-1',
+   273→    mentorName: 'Sophie Laurent',
+   274→    mentorAvatarUrl: null,
+   275→    message: 'Bonjour Sophie, je suis en train de développer une startup dans la EdTech et j\'aimerais bénéficier de votre expérience en stratégie pour valider mon modèle économique.',
+   276→    objectives: ['Valider mon idée de business', 'Structurer mon business plan'],
+   277→    status: 'ACCEPTED',
+   278→    createdAt: '2025-01-20T10:00:00Z',
+   279→    updatedAt: '2025-01-22T14:00:00Z',
+   280→  },
+   281→  {
+   282→    id: 'req-2',
+   283→    mentorName: 'Thomas Petit',
+   284→    mentorAvatarUrl: null,
+   285→    message: 'Bonjour Thomas, je prépare ma première levée de fonds seed et je recherche un mentor pour m\'aider à préparer mon pitch deck et mes rendez-vous investisseurs.',
+   286→    objectives: ['Préparer ma levée de fonds', 'Améliorer ma stratégie marketing'],
+   287→    status: 'PENDING',
+   288→    createdAt: '2025-02-01T09:00:00Z',
+   289→    updatedAt: '2025-02-01T09:00:00Z',
+   290→  },
+   291→]
+   292→
+   293→// ────────────────────────────────────────────
+   294→// Component
+   295→// ────────────────────────────────────────────
+   296→
+   297→export function Mentorat() {
+   298→  const [mentors, setMentors] = useState<Mentor[]>(MOCK_MENTORS)
+   299→  const [requests, setRequests] = useState<MentorRequest[]>(MOCK_REQUESTS)
+   300→  const [loading, setLoading] = useState(true)
+   301→  const [activeTab, setActiveTab] = useState('mentors')
+   302→
+   303→  // Filters
+   304→  const [searchQuery, setSearchQuery] = useState('')
+   305→  const [selectedExpertise, setSelectedExpertise] = useState('')
+   306→  const [selectedSector, setSelectedSector] = useState('')
+   307→  const [selectedAvailability, setSelectedAvailability] = useState('')
+   308→
+   309→  // Request dialog
+   310→  const [requestDialogOpen, setRequestDialogOpen] = useState(false)
+   311→  const [selectedMentor, setSelectedMentor] = useState<Mentor | null>(null)
+   312→  const [requestMessage, setRequestMessage] = useState('')
+   313→  const [requestObjectives, setRequestObjectives] = useState<string[]>([])
+   314→  const [sending, setSending] = useState(false)
+   315→
+   316→  // Mentor detail
+   317→  const [selectedDetailMentor, setSelectedDetailMentor] = useState<Mentor | null>(null)
+   318→
+   319→  // Load data
+   320→  useEffect(() => {
+   321→    const fetchData = async () => {
+   322→      try {
+   323→        const token = localStorage.getItem('creapulse-token')
+   324→        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+   325→        if (token) headers['Authorization'] = `Bearer ${token}`
+   326→
+   327→        const res = await fetch('/api/mentorat', { headers })
+   328→        if (res.ok) {
+   329→          const json = await res.json()
+   330→          if (json.success && json.data) {
+   331→            if (json.data.mentors?.length > 0) setMentors(json.data.mentors)
+   332→            if (json.data.myRequests) setRequests(json.data.myRequests)
+   333→          }
+   334→        }
+   335→      } catch {
+   336→        // Use mock data
+   337→      } finally {
+   338→        setLoading(false)
+   339→      }
+   340→    }
+   341→    fetchData()
+   342→  }, [])
+   343→
+   344→  // Filter mentors
+   345→  const filteredMentors = useMemo(() => {
+   346→    let result = mentors
+   347→    if (searchQuery.trim()) {
+   348→      const q = searchQuery.toLowerCase()
+   349→      result = result.filter((m) =>
+   350→        m.name.toLowerCase().includes(q) ||
+   351→        m.bio.toLowerCase().includes(q) ||
+   352→        m.expertise.some((e) => e.toLowerCase().includes(q)) ||
+   353→        m.sectors.some((s) => s.toLowerCase().includes(q))
+   354→      )
+   355→    }
+   356→    if (selectedExpertise) {
+   357→      result = result.filter((m) => m.expertise.includes(selectedExpertise))
+   358→    }
+   359→    if (selectedSector) {
+   360→      result = result.filter((m) => m.sectors.includes(selectedSector))
+   361→    }
+   362→    if (selectedAvailability) {
+   363→      result = result.filter((m) => m.availability === selectedAvailability)
+   364→    }
+   365→    return result
+   366→  }, [mentors, searchQuery, selectedExpertise, selectedSector, selectedAvailability])
+   367→
+   368→  const openRequestDialog = useCallback((mentor: Mentor) => {
+   369→    setSelectedMentor(mentor)
+   370→    setRequestMessage('')
+   371→    setRequestObjectives([])
+   372→    setRequestDialogOpen(true)
+   373→  }, [])
+   374→
+   375→  const sendRequest = async () => {
+   376→    if (!selectedMentor || !requestMessage.trim() || requestObjectives.length === 0) return
+   377→    setSending(true)
+   378→    try {
+   379→      const token = localStorage.getItem('creapulse-token')
+   380→      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+   381→      if (token) headers['Authorization'] = `Bearer ${token}`
+   382→
+   383→      const res = await fetch('/api/mentorat', {
+   384→        method: 'POST',
+   385→        headers,
+   386→        body: JSON.stringify({
+   387→          mentorId: selectedMentor.id,
+   388→          message: requestMessage,
+   389→          objectives: requestObjectives,
+   390→        }),
+   391→      })
+   392→
+   393→      if (res.ok) {
+   394→        setRequests((prev) => [
+   395→          {
+   396→            id: `req-${Date.now()}`,
+   397→            mentorName: selectedMentor.name,
+   398→            mentorAvatarUrl: selectedMentor.avatarUrl,
+   399→            message: requestMessage,
+   400→            objectives: requestObjectives,
+   401→            status: 'PENDING',
+   402→            createdAt: new Date().toISOString(),
+   403→            updatedAt: new Date().toISOString(),
+   404→          },
+   405→          ...prev,
+   406→        ])
+   407→        toast.success('Demande de mentorat envoyée avec succès !')
+   408→        setRequestDialogOpen(false)
+   409→      } else {
+   410→        const json = await res.json()
+   411→        toast.error(json.error?.message || 'Erreur lors de l\'envoi de la demande')
+   412→      }
+   413→    } catch {
+   414→      toast.error('Erreur lors de l\'envoi de la demande')
+   415→    } finally {
+   416→      setSending(false)
+   417→    }
+   418→  }
+   419→
+   420→  const toggleObjective = (objective: string) => {
+   421→    setRequestObjectives((prev) =>
+   422→      prev.includes(objective) ? prev.filter((o) => o !== objective) : [...prev, objective]
+   423→    )
+   424→  }
+   425→
+   426→  const clearFilters = () => {
+   427→    setSearchQuery('')
+   428→    setSelectedExpertise('')
+   429→    setSelectedSector('')
+   430→    setSelectedAvailability('')
+   431→  }
+   432→
+   433→  const activeFiltersCount = [selectedExpertise, selectedSector, selectedAvailability].filter(Boolean).length
+   434→
+   435→  if (loading) {
+   436→    return (
+   437→      <div className="flex items-center justify-center min-h-[60vh]">
+   438→        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+   439→      </div>
+   440→    )
+   441→  }
+   442→
+   443→  return (
+   444→    <motion.div
+   445→      initial={{ opacity: 0, y: 20 }}
+   446→      animate={{ opacity: 1, y: 0 }}
+   447→      transition={{ duration: 0.4 }}
+   448→      className="p-4 md:p-6 lg:p-8 space-y-6"
+   449→    >
+   450→      {/* Header */}
+   451→      <div className="flex items-center gap-3">
+   452→        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 shadow-lg">
+   453→          <GraduationCap className="h-6 w-6 text-white" />
+   454→        </div>
+   455→        <div>
+   456→          <h2 className="text-2xl font-bold text-foreground">Mentorat</h2>
+   457→          <p className="text-sm text-muted-foreground">Trouvez un mentor pour vous accompagner dans votre parcours</p>
+   458→        </div>
+   459→      </div>
+   460→
+   461→      {/* Tabs */}
+   462→      <Tabs value={activeTab} onValueChange={setActiveTab}>
+   463→        <TabsList className="w-full sm:w-auto">
+   464→          <TabsTrigger value="mentors" className="gap-1.5">
+   465→            <User className="h-4 w-4" />
+   466→            Mentors disponibles ({mentors.filter(m => m.availability !== 'UNAVAILABLE').length})
+   467→          </TabsTrigger>
+   468→          <TabsTrigger value="requests" className="gap-1.5">
+   469→            <MessageSquare className="h-4 w-4" />
+   470→            Mes demandes ({requests.filter(r => r.status === 'PENDING').length > 0 ? `${requests.filter(r => r.status === 'PENDING').length} en attente` : requests.length})
+   471→          </TabsTrigger>
+   472→        </TabsList>
+   473→
+   474→        {/* Mentors Tab */}
+   475→        <TabsContent value="mentors" className="space-y-4 mt-4">
+   476→          {/* Search & Filters */}
+   477→          <div className="flex flex-col sm:flex-row gap-3">
+   478→            <div className="relative flex-1">
+   479→              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   480→              <Input
+   481→                placeholder="Rechercher un mentor..."
+   482→                value={searchQuery}
+   483→                onChange={(e) => setSearchQuery(e.target.value)}
+   484→                className="pl-9 h-10"
+   485→              />
+   486→              {searchQuery && (
+   487→                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+   488→                  <X className="h-4 w-4" />
+   489→                </button>
+   490→              )}
+   491→            </div>
+   492→            <Button variant="outline" size="sm" className="h-10 gap-2" onClick={() => {
+   493→              if (activeFiltersCount > 0) clearFilters()
+   494→            }}>
+   495→              <SlidersHorizontal className="h-4 w-4" />
+   496→              Filtres
+   497→              {activeFiltersCount > 0 && (
+   498→                <Badge variant="default" className="h-5 min-w-5 px-1.5 text-xs rounded-full">{activeFiltersCount}</Badge>
+   499→              )}
+   500→            </Button>
+   501→          </div>
+   502→
+   503→          {/* Filter Dropdowns */}
+   504→          <div className="flex flex-wrap gap-3">
+   505→            <Select value={selectedExpertise} onValueChange={(v) => setSelectedExpertise(v === '__all__' ? '' : v)}>
+   506→              <SelectTrigger className="w-full sm:w-48 h-9 text-sm">
+   507→                <Briefcase className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+   508→                <SelectValue placeholder="Expertise" />
+   509→              </SelectTrigger>
+   510→              <SelectContent>
+   511→                <SelectItem value="__all__">Toutes les expertises</SelectItem>
+   512→                {EXPERTISE_OPTIONS.map((e) => (
+   513→                  <SelectItem key={e} value={e}>{e}</SelectItem>
+   514→                ))}
+   515→              </SelectContent>
+   516→            </Select>
+   517→
+   518→            <Select value={selectedSector} onValueChange={(v) => setSelectedSector(v === '__all__' ? '' : v)}>
+   519→              <SelectTrigger className="w-full sm:w-48 h-9 text-sm">
+   520→                <Target className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+   521→                <SelectValue placeholder="Secteur" />
+   522→              </SelectTrigger>
+   523→              <SelectContent>
+   524→                <SelectItem value="__all__">Tous les secteurs</SelectItem>
+   525→                {SECTOR_OPTIONS.map((s) => (
+   526→                  <SelectItem key={s} value={s}>{s}</SelectItem>
+   527→                ))}
+   528→              </SelectContent>
+   529→            </Select>
+   530→
+   531→            <Select value={selectedAvailability} onValueChange={(v) => setSelectedAvailability(v === '__all__' ? '' : v)}>
+   532→              <SelectTrigger className="w-full sm:w-48 h-9 text-sm">
+   533→                <Clock className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+   534→                <SelectValue placeholder="Disponibilité" />
+   535→              </SelectTrigger>
+   536→              <SelectContent>
+   537→                <SelectItem value="__all__">Toutes</SelectItem>
+   538→                <SelectItem value="AVAILABLE">Disponible</SelectItem>
+   539→                <SelectItem value="LIMITED">Limitée</SelectItem>
+   540→                <SelectItem value="UNAVAILABLE">Indisponible</SelectItem>
+   541→              </SelectContent>
+   542→            </Select>
+   543→          </div>
+   544→
+   545→          {/* Results count */}
+   546→          <p className="text-sm text-muted-foreground">
+   547→            {filteredMentors.length} mentor{filteredMentors.length !== 1 ? 's' : ''} trouvé{filteredMentors.length !== 1 ? 's' : ''}
+   548→          </p>
+   549→
+   550→          {/* Mentor Grid */}
+   551→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   552→            {filteredMentors.map((mentor, idx) => (
+   553→              <MentorCard
+   554→                key={mentor.id}
+   555→                mentor={mentor}
+   556→                index={idx}
+   557→                onRequest={() => openRequestDialog(mentor)}
+   558→                onViewDetail={() => setSelectedDetailMentor(mentor)}
+   559→                hasPendingRequest={requests.some(r => r.mentorName === mentor.name && r.status === 'PENDING')}
+   560→                hasActiveMentorship={requests.some(r => r.mentorName === mentor.name && r.status === 'ACCEPTED')}
+   561→              />
+   562→            ))}
+   563→          </div>
+   564→
+   565→          {filteredMentors.length === 0 && (
+   566→            <div className="text-center py-12">
+   567→              <p className="text-muted-foreground">Aucun mentor ne correspond à vos critères.</p>
+   568→              <Button variant="outline" size="sm" className="mt-3" onClick={clearFilters}>
+   569→                Réinitialiser les filtres
+   570→              </Button>
+   571→            </div>
+   572→          )}
+   573→        </TabsContent>
+   574→
+   575→        {/* Requests Tab */}
+   576→        <TabsContent value="requests" className="space-y-4 mt-4">
+   577→          {requests.length === 0 ? (
+   578→            <Card className="border-none shadow-sm">
+   579→              <CardContent className="p-8 text-center">
+   580→                <MessageSquare className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+   581→                <p className="text-lg font-medium text-foreground">Aucune demande</p>
+   582→                <p className="text-sm text-muted-foreground mt-1">Vous n&apos;avez pas encore envoyé de demande de mentorat.</p>
+   583→                <Button className="mt-4" onClick={() => setActiveTab('mentors')}>Trouver un mentor</Button>
+   584→              </CardContent>
+   585→            </Card>
+   586→          ) : (
+   587→            <div className="space-y-3">
+   588→              {requests.map((req) => (
+   589→                <RequestCard key={req.id} request={req} />
+   590→              ))}
+   591→            </div>
+   592→          )}
+   593→        </TabsContent>
+   594→      </Tabs>
+   595→
+   596→      {/* Request Dialog */}
+   597→      <Dialog open={requestDialogOpen} onOpenChange={setRequestDialogOpen}>
+   598→        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+   599→          <DialogHeader>
+   600→            <DialogTitle className="flex items-center gap-2">
+   601→              <Send className="h-5 w-5 text-primary" />
+   602→              Demande de mentorat
+   603→            </DialogTitle>
+   604→            <DialogDescription>
+   605→              Envoyez une demande à {selectedMentor?.name}
+   606→            </DialogDescription>
+   607→          </DialogHeader>
+   608→          <div className="space-y-4 mt-4">
+   609→            {/* Mentor info */}
+   610→            {selectedMentor && (
+   611→              <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
+   612→                <MentorAvatar mentor={selectedMentor} size="sm" />
+   613→                <div>
+   614→                  <p className="text-sm font-semibold text-foreground">{selectedMentor.name}</p>
+   615→                  <p className="text-xs text-muted-foreground">{selectedMentor.expertise.slice(0, 3).join(' · ')}</p>
+   616→                </div>
+   617→              </div>
+   618→            )}
+   619→
+   620→            {/* Objectives */}
+   621→            <div>
+   622→              <label className="text-sm font-medium text-foreground mb-2 block">
+   623→                Vos objectifs <span className="text-destructive">*</span>
+   624→              </label>
+   625→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+   626→                {MENTOR_OBJECTIVES.map((obj) => (
+   627→                  <label key={obj} className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors">
+   628→                    <Checkbox
+   629→                      checked={requestObjectives.includes(obj)}
+   630→                      onCheckedChange={() => toggleObjective(obj)}
+   631→                      className="mt-0.5"
+   632→                    />
+   633→                    <span className="text-sm text-muted-foreground leading-snug">{obj}</span>
+   634→                  </label>
+   635→                ))}
+   636→              </div>
+   637→            </div>
+   638→
+   639→            {/* Message */}
+   640→            <div>
+   641→              <label className="text-sm font-medium text-foreground mb-2 block">
+   642→                Votre message <span className="text-destructive">*</span>
+   643→              </label>
+   644→              <Textarea
+   645→                placeholder="Présentez votre projet et expliquez pourquoi vous souhaitez être mentoré(e)..."
+   646→                value={requestMessage}
+   647→                onChange={(e) => setRequestMessage(e.target.value)}
+   648→                rows={4}
+   649→                className="resize-none"
+   650→              />
+   651→              <p className="text-xs text-muted-foreground mt-1">{requestMessage.length}/500 caractères min. 10</p>
+   652→            </div>
+   653→
+   654→            {/* Submit */}
+   655→            <div className="flex gap-3">
+   656→              <Button variant="outline" onClick={() => setRequestDialogOpen(false)} className="flex-1">
+   657→                Annuler
+   658→              </Button>
+   659→              <Button
+   660→                onClick={sendRequest}
+   661→                disabled={sending || requestMessage.length < 10 || requestObjectives.length === 0}
+   662→                className="flex-1 gap-2"
+   663→              >
+   664→                {sending ? (
+   665→                  <Loader2 className="h-4 w-4 animate-spin" />
+   666→                ) : (
+   667→                  <Send className="h-4 w-4" />
+   668→                )}
+   669→                Envoyer la demande
+   670→              </Button>
+   671→            </div>
+   672→          </div>
+   673→        </DialogContent>
+   674→      </Dialog>
+   675→
+   676→      {/* Mentor Detail Dialog */}
+   677→      <Dialog open={!!selectedDetailMentor} onOpenChange={() => setSelectedDetailMentor(null)}>
+   678→        <DialogContent className="max-w-lg">
+   679→          <DialogHeader>
+   680→            <DialogTitle>Profil du Mentor</DialogTitle>
+   681→          </DialogHeader>
+   682→          {selectedDetailMentor && (
+   683→            <div className="space-y-4 mt-2">
+   684→              <div className="flex items-center gap-4">
+   685→                <MentorAvatar mentor={selectedDetailMentor} size="lg" />
+   686→                <div>
+   687→                  <h3 className="text-lg font-bold text-foreground">{selectedDetailMentor.name}</h3>
+   688→                  <div className="flex items-center gap-2 mt-1">
+   689→                    <Badge variant="secondary" className="text-xs gap-1">
+   690→                      <Star className="h-3 w-3 text-amber-500 fill-amber-500" />
+   691→                      {selectedDetailMentor.rating}
+   692→                    </Badge>
+   693→                    <Badge variant="secondary" className="text-xs">
+   694→                      {selectedDetailMentor.reviewCount} avis
+   695→                    </Badge>
+   696→                  </div>
+   697→                </div>
+   698→              </div>
+   699→
+   700→              <Separator />
+   701→
+   702→              <div>
+   703→                <h4 className="text-sm font-semibold text-foreground mb-1.5">Bio</h4>
+   704→                <p className="text-sm text-muted-foreground leading-relaxed">{selectedDetailMentor.bio}</p>
+   705→              </div>
+   706→
+   707→              <div>
+   708→                <h4 className="text-sm font-semibold text-foreground mb-1.5">Expertises</h4>
+   709→                <div className="flex flex-wrap gap-1.5">
+   710→                  {selectedDetailMentor.expertise.map((e) => (
+   711→                    <Badge key={e} variant="secondary" className="text-xs">{e}</Badge>
+   712→                  ))}
+   713→                </div>
+   714→              </div>
+   715→
+   716→              <div>
+   717→                <h4 className="text-sm font-semibold text-foreground mb-1.5">Secteurs</h4>
+   718→                <div className="flex flex-wrap gap-1.5">
+   719→                  {selectedDetailMentor.sectors.map((s) => (
+   720→                    <Badge key={s} variant="outline" className="text-xs">{s}</Badge>
+   721→                  ))}
+   722→                </div>
+   723→              </div>
+   724→
+   725→              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+   726→                <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4" />{selectedDetailMentor.location}</span>
+   727→                <AvailabilityBadge availability={selectedDetailMentor.availability} />
+   728→              </div>
+   729→
+   730→              <Button
+   731→                className="w-full gap-2"
+   732→                onClick={() => {
+   733→                  setSelectedDetailMentor(null)
+   734→                  openRequestDialog(selectedDetailMentor)
+   735→                }}
+   736→                disabled={selectedDetailMentor.availability === 'UNAVAILABLE'}
+   737→              >
+   738→                <Send className="h-4 w-4" />
+   739→                {selectedDetailMentor.availability === 'UNAVAILABLE' ? 'Indisponible' : 'Demander un mentor'}
+   740→              </Button>
+   741→            </div>
+   742→          )}
+   743→        </DialogContent>
+   744→      </Dialog>
+   745→    </motion.div>
+   746→  )
+   747→}
+   748→
+   749→// ────────────────────────────────────────────
+   750→// Sub-components
+   751→// ────────────────────────────────────────────
+   752→
+   753→function MentorAvatar({ mentor, size = 'md' }: { mentor: Mentor; size?: 'sm' | 'md' | 'lg' }) {
+   754→  const initials = mentor.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+   755→  const colorIndex = mentor.name.charCodeAt(0) % AVATAR_COLORS.length
+   756→  const colorClass = AVATAR_COLORS[colorIndex]
+   757→
+   758→  const sizeClass = size === 'sm' ? 'h-10 w-10 text-sm' : size === 'lg' ? 'h-16 w-16 text-xl' : 'h-12 w-12 text-base'
+   759→
+   760→  return (
+   761→    <div className={cn('flex items-center justify-center rounded-full text-white font-semibold shrink-0', sizeClass, colorClass)}>
+   762→      {initials}
+   763→    </div>
+   764→  )
+   765→}
+   766→
+   767→function AvailabilityBadge({ availability }: { availability: Mentor['availability'] }) {
+   768→  const config = AVAILABILITY_CONFIG[availability]
+   769→  return (
+   770→    <span className={cn('flex items-center gap-1.5 text-xs font-medium', config.color)}>
+   771→      <span className={cn('h-2 w-2 rounded-full', config.dot)} />
+   772→      {config.label}
+   773→    </span>
+   774→  )
+   775→}
+   776→
+   777→function MentorCard({
+   778→  mentor,
+   779→  index,
+   780→  onRequest,
+   781→  onViewDetail,
+   782→  hasPendingRequest,
+   783→  hasActiveMentorship,
+   784→}: {
+   785→  mentor: Mentor
+   786→  index: number
+   787→  onRequest: () => void
+   788→  onViewDetail: () => void
+   789→  hasPendingRequest: boolean
+   790→  hasActiveMentorship: boolean
+   791→}) {
+   792→  return (
+   793→    <motion.div
+   794→      initial={{ opacity: 0, y: 12 }}
+   795→      animate={{ opacity: 1, y: 0 }}
+   796→      transition={{ delay: index * 0.05 }}
+   797→    >
+   798→      <Card className="h-full hover:shadow-md hover:border-primary/30 transition-all duration-300">
+   799→        <CardContent className="p-4 space-y-3">
+   800→          {/* Header */}
+   801→          <div className="flex items-start gap-3">
+   802→            <MentorAvatar mentor={mentor} />
+   803→            <div className="flex-1 min-w-0">
+   804→              <button onClick={onViewDetail} className="text-sm font-semibold text-foreground hover:text-primary transition-colors text-left">
+   805→                {mentor.name}
+   806→                <ChevronRight className="h-3.5 w-3.5 inline ml-0.5" />
+   807→              </button>
+   808→              <div className="flex items-center gap-2 mt-0.5">
+   809→                <AvailabilityBadge availability={mentor.availability} />
+   810→              </div>
+   811→            </div>
+   812→          </div>
+   813→
+   814→          {/* Rating */}
+   815→          <div className="flex items-center gap-1">
+   816→            {[1, 2, 3, 4, 5].map((s) => (
+   817→              <Star
+   818→                key={s}
+   819→                className={cn(
+   820→                  'h-3.5 w-3.5',
+   821→                  s <= Math.round(mentor.rating) ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground/30'
+   822→                )}
+   823→              />
+   824→            ))}
+   825→            <span className="text-xs text-muted-foreground ml-1">{mentor.rating} ({mentor.reviewCount})</span>
+   826→          </div>
+   827→
+   828→          {/* Bio */}
+   829→          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{mentor.bio}</p>
+   830→
+   831→          {/* Location */}
+   832→          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+   833→            <MapPin className="h-3 w-3 shrink-0" />
+   834→            <span>{mentor.location}</span>
+   835→          </div>
+   836→
+   837→          {/* Expertise */}
+   838→          <div className="flex flex-wrap gap-1">
+   839→            {mentor.expertise.slice(0, 3).map((e) => (
+   840→              <Badge key={e} variant="secondary" className="text-[10px] px-1.5 py-0 h-5">{e}</Badge>
+   841→            ))}
+   842→            {mentor.expertise.length > 3 && (
+   843→              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5">+{mentor.expertise.length - 3}</Badge>
+   844→            )}
+   845→          </div>
+   846→
+   847→          {/* Action */}
+   848→          <Button
+   849→            size="sm"
+   850→            className="w-full gap-2 rounded-full"
+   851→            disabled={mentor.availability === 'UNAVAILABLE' || hasActiveMentorship}
+   852→            variant={hasPendingRequest ? 'outline' : 'default'}
+   853→            onClick={hasPendingRequest ? undefined : onRequest}
+   854→          >
+   855→            {hasActiveMentorship ? (
+   856→              <><CheckCircle2 className="h-3.5 w-3.5" /> Mentorat actif</>
+   857→            ) : hasPendingRequest ? (
+   858→              <><Clock className="h-3.5 w-3.5" /> Demande en attente</>
+   859→            ) : mentor.availability === 'UNAVAILABLE' ? (
+   860→              <><XCircle className="h-3.5 w-3.5" /> Indisponible</>
+   861→            ) : (
+   862→              <><Send className="h-3.5 w-3.5" /> Demander un mentor</>
+   863→            )}
+   864→          </Button>
+   865→        </CardContent>
+   866→      </Card>
+   867→    </motion.div>
+   868→  )
+   869→}
+   870→
+   871→function RequestCard({ request }: { request: MentorRequest }) {
+   872→  const config = REQUEST_STATUS_CONFIG[request.status]
+   873→  const StatusIcon = config.icon
+   874→
+   875→  const initials = request.mentorName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+   876→  const colorIndex = request.mentorName.charCodeAt(0) % AVATAR_COLORS.length
+   877→  const colorClass = AVATAR_COLORS[colorIndex]
+   878→
+   879→  return (
+   880→    <motion.div
+   881→      initial={{ opacity: 0, x: -8 }}
+   882→      animate={{ opacity: 1, x: 0 }}
+   883→    >
+   884→      <Card className="hover:shadow-sm transition-all">
+   885→        <CardContent className="p-4">
+   886→          <div className="flex items-start gap-3">
+   887→            <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white text-sm font-semibold', colorClass)}>
+   888→              {initials}
+   889→            </div>
+   890→            <div className="flex-1 min-w-0">
+   891→              <div className="flex items-center gap-2">
+   892→                <h4 className="text-sm font-semibold text-foreground">{request.mentorName}</h4>
+   893→                <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium', config.bg, config.color)}>
+   894→                  <StatusIcon className="h-3 w-3" />
+   895→                  {config.label}
+   896→                </span>
+   897→              </div>
+   898→              <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{request.message}</p>
+   899→              <div className="flex flex-wrap gap-1 mt-2">
+   900→                {request.objectives.map((obj) => (
+   901→                  <Badge key={obj} variant="outline" className="text-[10px]">{obj}</Badge>
+   902→                ))}
+   903→              </div>
+   904→              <p className="text-[10px] text-muted-foreground mt-2">
+   905→                <Calendar className="h-3 w-3 inline mr-1" />
+   906→                {new Date(request.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+   907→              </p>
+   908→            </div>
+   909→          </div>
+   910→        </CardContent>
+   911→      </Card>
+   912→    </motion.div>
+   913→  )
+   914→}
+   915→

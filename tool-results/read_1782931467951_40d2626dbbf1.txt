@@ -1,0 +1,1049 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useRef } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Input } from '@/components/ui/input'
+     9→import { Textarea } from '@/components/ui/textarea'
+    10→import { Label } from '@/components/ui/label'
+    11→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    12→import { Slider } from '@/components/ui/slider'
+    13→import { Checkbox } from '@/components/ui/checkbox'
+    14→import { Progress } from '@/components/ui/progress'
+    15→import { Separator } from '@/components/ui/separator'
+    16→import { Skeleton } from '@/components/ui/skeleton'
+    17→import {
+    18→  Select,
+    19→  SelectContent,
+    20→  SelectItem,
+    21→  SelectTrigger,
+    22→  SelectValue,
+    23→} from '@/components/ui/select'
+    24→import {
+    25→  User,
+    26→  Upload,
+    27→  Sparkles,
+    28→  Save,
+    29→  CheckCircle2,
+    30→  Clock,
+    31→  Phone,
+    32→  Loader2,
+    33→  X,
+    34→  Plus,
+    35→  FileText,
+    36→  Briefcase,
+    37→  Heart,
+    38→  Accessibility,
+    39→  Timer,
+    40→} from 'lucide-react'
+    41→import dynamic from 'next/dynamic'
+    42→import { cn } from '@/lib/utils'
+    43→import { toast } from 'sonner'
+    44→import { useAuthStore } from '@/lib/zustand/store'
+    45→
+    46→/* ─── Dynamic imports ─── */
+    47→const FileUpload = dynamic(() => import('../file-upload').then(m => ({ default: m.FileUpload })), { ssr: false })
+    48→
+    49→// ────────────────────────────────────────────
+    50→// Types
+    51→// ────────────────────────────────────────────
+    52→
+    53→interface ProfilData {
+    54→  firstName: string | null
+    55→  lastName: string | null
+    56→  email: string
+    57→  avatarUrl: string | null
+    58→  birthdate: string | null
+    59→  phone: string | null
+    60→  address: string | null
+    61→  employmentStatus: string | null
+    62→  educationLevel: string | null
+    63→  lastDiploma: string | null
+    64→  skills: string[]
+    65→  creationMotivation: string | null
+    66→  previousExperience: boolean | null
+    67→  previousExperienceDetails: string | null
+    68→  availableTimePerWeek: number | null
+    69→  hasDisability: boolean
+    70→  rqthStatus: boolean
+    71→  disabilityRate: number | null
+    72→  supportNeeds: string[]
+    73→}
+    74→
+    75→type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+    76→
+    77→// ────────────────────────────────────────────
+    78→// Constants
+    79→// ────────────────────────────────────────────
+    80→
+    81→const STORAGE_KEY = 'creapulse-profil'
+    82→
+    83→const EMPLOYMENT_OPTIONS = [
+    84→  { value: 'EMPLOYED', label: 'Salarié(e)' },
+    85→  { value: 'UNEMPLOYED', label: 'Demandeur/demandeuse d\'emploi' },
+    86→  { value: 'SELF_EMPLOYED', label: 'Auto-entrepreneur(e)' },
+    87→  { value: 'STUDENT', label: 'Étudiant(e)' },
+    88→  { value: 'RETIRED', label: 'Retraité(e)' },
+    89→  { value: 'INACTIVE', label: 'Inactif/ve' },
+    90→  { value: 'OTHER', label: 'Autre' },
+    91→]
+    92→
+    93→const EDUCATION_OPTIONS = [
+    94→  { value: 'sans_diplome', label: 'Sans diplôme' },
+    95→  { value: 'bep_cap', label: 'BEP / CAP' },
+    96→  { value: 'bac', label: 'Baccalauréat' },
+    97→  { value: 'bac_plus2', label: 'Bac +2 (BTS, DUT, DEUG)' },
+    98→  { value: 'bac_plus3', label: 'Bac +3 (Licence, BUT)' },
+    99→  { value: 'bac_plus5', label: 'Bac +5 (Master, Ingénieur)' },
+   100→  { value: 'bac_plus8', label: 'Bac +8 (Doctorat)' },
+   101→]
+   102→
+   103→const SUPPORT_NEEDS_OPTIONS = [
+   104→  { value: 'financement', label: 'Financement & aides' },
+   105→  { value: 'juridique', label: 'Conseil juridique' },
+   106→  { value: 'marketing', label: 'Marketing & communication' },
+   107→  { value: 'technique', label: 'Compétences techniques' },
+   108→  { value: 'reseau', label: 'Mise en réseau' },
+   109→  { value: 'coaching', label: 'Coaching personnel' },
+   110→  { value: 'formation', label: 'Formation continue' },
+   111→  { value: 'local', label: 'Local & immobilier' },
+   112→]
+   113→
+   114→const SUGGESTED_SKILLS = [
+   115→  'Gestion de projet', 'Vente', 'Marketing digital', 'Comptabilité',
+   116→  'Développement web', 'Design graphique', 'Rédaction', 'Community management',
+   117→  'Logistique', 'Négociation', 'Leadership', 'Analyse de données',
+   118→]
+   119→
+   120→const DEFAULT_PROFIL: ProfilData = {
+   121→  firstName: null, lastName: null, email: '', avatarUrl: null,
+   122→  birthdate: null, phone: null, address: null,
+   123→  employmentStatus: null, educationLevel: null, lastDiploma: null,
+   124→  skills: [], creationMotivation: null, previousExperience: null,
+   125→  previousExperienceDetails: null, availableTimePerWeek: null,
+   126→  hasDisability: false, rqthStatus: false, disabilityRate: null,
+   127→  supportNeeds: [],
+   128→}
+   129→
+   130→// ────────────────────────────────────────────
+   131→// Helpers
+   132→// ────────────────────────────────────────────
+   133→
+   134→function calculateCompletion(data: ProfilData): number {
+   135→  let filled = 0
+   136→  let total = 14
+   137→  if (data.firstName) filled++
+   138→  if (data.lastName) filled++
+   139→  if (data.birthdate) filled++
+   140→  if (data.phone) filled++
+   141→  if (data.address) filled++
+   142→  if (data.employmentStatus) filled++
+   143→  if (data.educationLevel) filled++
+   144→  if (data.lastDiploma) filled++
+   145→  if (data.skills.length > 0) filled++
+   146→  if (data.creationMotivation) filled++
+   147→  if (data.previousExperience !== null) filled++
+   148→  if (data.availableTimePerWeek !== null) filled++
+   149→  if (data.supportNeeds.length > 0) filled++
+   150→  if (data.previousExperience && data.previousExperienceDetails) filled++
+   151→  return Math.round((filled / total) * 100)
+   152→}
+   153→
+   154→function getCompletionColor(pct: number): string {
+   155→  if (pct >= 80) return 'text-green-600 dark:text-green-400'
+   156→  if (pct >= 50) return 'text-amber-600 dark:text-amber-400'
+   157→  return 'text-muted-foreground'
+   158→}
+   159→
+   160→// ────────────────────────────────────────────
+   161→// Main Component
+   162→// ────────────────────────────────────────────
+   163→
+   164→export function ProfilCreateur() {
+   165→  const [data, setData] = useState<ProfilData>(DEFAULT_PROFIL)
+   166→  const [loading, setLoading] = useState(true)
+   167→  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+   168→  const [newSkill, setNewSkill] = useState('')
+   169→  const [activeTab, setActiveTab] = useState('personal')
+   170→  const [hasChanges, setHasChanges] = useState(false)
+   171→  const [cvFile, setCvFile] = useState<{ name: string; size: number; uploadedAt: string } | null>(null)
+   172→  const [isUploading, setIsUploading] = useState(false)
+   173→  const [isDragOver, setIsDragOver] = useState(false)
+   174→  const fileInputRef = useRef<HTMLInputElement>(null)
+   175→  const token = useAuthStore((s) => s.token)
+   176→
+   177→  // ── Load data ──
+   178→  useEffect(() => {
+   179→    async function loadProfil() {
+   180→      // Try localStorage first
+   181→      const saved = localStorage.getItem(STORAGE_KEY)
+   182→      if (saved) {
+   183→        try {
+   184→          const parsed = JSON.parse(saved)
+   185→          setData(parsed)
+   186→          setLoading(false)
+   187→          // Then fetch from API in background (always try — cookie auth)
+   188→          fetchFromApi()
+   189→          return
+   190→        } catch { /* ignore */ }
+   191→      }
+   192→      // Fetch from API (always try — cookie auth)
+   193→      await fetchFromApi()
+   194→    }
+   195→
+   196→    async function fetchFromApi() {
+   197→      try {
+   198→        const authHeaders: Record<string, string> = {}
+   199→        if (token) authHeaders['Authorization'] = `Bearer ${token}`
+   200→        const res = await fetch('/api/profil', {
+   201→          headers: authHeaders,
+   202→          credentials: 'include',
+   203→        })
+   204→        if (res.ok) {
+   205→          const json = await res.json()
+   206→          if (json.success && json.data) {
+   207→            setData((prev) => ({ ...prev, ...json.data }))
+   208→            localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...DEFAULT_PROFIL, ...json.data }))
+   209→          }
+   210→        }
+   211→      } catch { /* silent */ }
+   212→      setLoading(false)
+   213→    }
+   214→
+   215→    loadProfil()
+   216→  }, [])
+   217→
+   218→  // ── Auto-save to localStorage on change ──
+   219→  useEffect(() => {
+   220→    if (!loading) {
+   221→      localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+   222→    }
+   223→  }, [data, loading])
+   224→
+   225→  // ── Update field helper ──
+   226→  const updateField = useCallback(<K extends keyof ProfilData>(key: K, value: ProfilData[K]) => {
+   227→    setData((prev) => ({ ...prev, [key]: value }))
+   228→    setHasChanges(true)
+   229→  }, [])
+   230→
+   231→  // ── Add skill ──
+   232→  const addSkill = useCallback((skill: string) => {
+   233→    const trimmed = skill.trim()
+   234→    if (trimmed && !data.skills.includes(trimmed)) {
+   235→      setData((prev) => ({ ...prev, skills: [...prev.skills, trimmed] }))
+   236→      setHasChanges(true)
+   237→    }
+   238→    setNewSkill('')
+   239→  }, [data.skills])
+   240→
+   241→  // ── Remove skill ──
+   242→  const removeSkill = useCallback((skill: string) => {
+   243→    setData((prev) => ({ ...prev, skills: prev.skills.filter((s) => s !== skill) }))
+   244→    setHasChanges(true)
+   245→  }, [])
+   246→
+   247→  // ── Toggle support need ──
+   248→  const toggleSupportNeed = useCallback((need: string) => {
+   249→    setData((prev) => ({
+   250→      ...prev,
+   251→      supportNeeds: prev.supportNeeds.includes(need)
+   252→        ? prev.supportNeeds.filter((n) => n !== need)
+   253→        : [...prev.supportNeeds, need],
+   254→    }))
+   255→    setHasChanges(true)
+   256→  }, [])
+   257→
+   258→  // ── Save to API ──
+   259→  const handleSave = async () => {
+   260→    setSaveStatus('saving')
+   261→    try {
+   262→      const res = await fetch('/api/profil', {
+   263→        method: 'PUT',
+   264→        headers: {
+   265→          'Content-Type': 'application/json',
+   266→          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+   267→        },
+   268→        credentials: 'include',
+   269→        body: JSON.stringify(data),
+   270→      })
+   271→      if (res.ok) {
+   272→        setSaveStatus('saved')
+   273→        setHasChanges(false)
+   274→        toast.success('Profil sauvegardé avec succès !')
+   275→        setTimeout(() => setSaveStatus('idle'), 3000)
+   276→      } else {
+   277→        const errData = await res.json().catch(() => ({}))
+   278→        setSaveStatus('error')
+   279→        if (res.status === 401) {
+   280→          toast.error('Vous devez être connecté(e) pour sauvegarder', {
+   281→            description: 'Votre session a peut-être expiré. Reconnectez-vous.',
+   282→          })
+   283→        } else {
+   284→          toast.error('Erreur lors de la sauvegarde', {
+   285→            description: errData?.error?.message || 'Veuillez réessayer.',
+   286→          })
+   287→        }
+   288→      }
+   289→    } catch {
+   290→      setSaveStatus('error')
+   291→      toast.error('Erreur réseau')
+   292→    }
+   293→  }
+   294→
+   295→  const completion = calculateCompletion(data)
+   296→
+   297→  if (loading) {
+   298→    return (
+   299→      <div className="px-4 py-6 md:px-8 md:py-8 max-w-4xl mx-auto w-full space-y-6">
+   300→        <Skeleton className="h-8 w-64" />
+   301→        <Skeleton className="h-4 w-48" />
+   302→        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   303→          <Skeleton className="h-48" />
+   304→          <Skeleton className="h-48" />
+   305→        </div>
+   306→      </div>
+   307→    )
+   308→  }
+   309→
+   310→  return (
+   311→    <motion.div
+   312→      initial={{ opacity: 0, y: 20 }}
+   313→      animate={{ opacity: 1, y: 0 }}
+   314→      transition={{ duration: 0.4 }}
+   315→      className="px-4 py-6 md:px-8 md:py-8 max-w-4xl mx-auto w-full space-y-6"
+   316→    >
+   317→      {/* Header */}
+   318→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   319→        <div>
+   320→          <h1 className="text-2xl md:text-3xl font-bold text-foreground flex items-center gap-3">
+   321→            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+   322→              <User className="h-5 w-5 text-primary" />
+   323→            </div>
+   324→            Profil Créateur
+   325→          </h1>
+   326→          <p className="mt-1 text-muted-foreground">
+   327→            Complétez votre profil pour un accompagnement personnalisé
+   328→          </p>
+   329→        </div>
+   330→
+   331→        {/* Save button */}
+   332→        <div className="flex items-center gap-3">
+   333→          {hasChanges && (
+   334→            <span className="text-xs text-amber-500 flex items-center gap-1">
+   335→              <Clock className="h-3 w-3" />
+   336→              Modifications non sauvegardées
+   337→            </span>
+   338→          )}
+   339→          <Button
+   340→            onClick={handleSave}
+   341→            disabled={saveStatus === 'saving' || !hasChanges}
+   342→            className="gap-2 rounded-full"
+   343→            size="sm"
+   344→          >
+   345→            {saveStatus === 'saving' ? (
+   346→              <Loader2 className="h-4 w-4 animate-spin" />
+   347→            ) : saveStatus === 'saved' ? (
+   348→              <CheckCircle2 className="h-4 w-4" />
+   349→            ) : (
+   350→              <Save className="h-4 w-4" />
+   351→            )}
+   352→            {saveStatus === 'saving' ? 'Sauvegarde...' : saveStatus === 'saved' ? 'Sauvegardé !' : 'Sauvegarder'}
+   353→          </Button>
+   354→        </div>
+   355→      </div>
+   356→
+   357→      {/* Progress indicator */}
+   358→      <motion.div
+   359→        initial={{ opacity: 0, y: 10 }}
+   360→        animate={{ opacity: 1, y: 0 }}
+   361→        transition={{ delay: 0.1 }}
+   362→      >
+   363→        <Card className="border-none shadow-sm bg-muted/30">
+   364→          <CardContent className="p-4">
+   365→            <div className="flex items-center justify-between mb-2">
+   366→              <span className="text-sm font-medium text-foreground">Complétion du profil</span>
+   367→              <span className={cn('text-sm font-bold', getCompletionColor(completion))}>
+   368→                {completion}%
+   369→              </span>
+   370→            </div>
+   371→            <Progress value={completion} className="h-2.5" />
+   372→            <p className="mt-2 text-xs text-muted-foreground">
+   373→              {completion < 30
+   374→                ? 'Commencez par remplir vos informations personnelles'
+   375→                : completion < 60
+   376→                  ? 'Bien commencé ! Pensez à compléter votre profil entrepreneurial'
+   377→                  : completion < 100
+   378→                    ? 'Presque terminé ! Quelques informations manquantes'
+   379→                    : 'Votre profil est complet !'
+   380→              }
+   381→            </p>
+   382→          </CardContent>
+   383→        </Card>
+   384→      </motion.div>
+   385→
+   386→      {/* Tabs */}
+   387→      <Tabs value={activeTab} onValueChange={setActiveTab}>
+   388→        <TabsList className="grid w-full grid-cols-3 mb-6">
+   389→          <TabsTrigger value="personal" className="gap-2 text-xs sm:text-sm">
+   390→            <User className="h-4 w-4 hidden sm:block" />
+   391→            Informations
+   392→          </TabsTrigger>
+   393→          <TabsTrigger value="entrepreneurial" className="gap-2 text-xs sm:text-sm">
+   394→            <Briefcase className="h-4 w-4 hidden sm:block" />
+   395→            Profil entrepreneurial
+   396→          </TabsTrigger>
+   397→          <TabsTrigger value="cv" className="gap-2 text-xs sm:text-sm">
+   398→            <Upload className="h-4 w-4 hidden sm:block" />
+   399→            CV
+   400→          </TabsTrigger>
+   401→        </TabsList>
+   402→
+   403→        {/* ── TAB 1: Personal Info ── */}
+   404→        <TabsContent value="personal">
+   405→          <motion.div
+   406→            initial={{ opacity: 0, y: 10 }}
+   407→            animate={{ opacity: 1, y: 0 }}
+   408→            transition={{ duration: 0.3 }}
+   409→            className="space-y-6"
+   410→          >
+   411→            {/* Read-only personal info card (counselor-entered) */}
+   412→            <Card className="border-none shadow-sm">
+   413→              <CardHeader>
+   414→                <CardTitle className="text-lg flex items-center gap-2">
+   415→                  <User className="h-5 w-5 text-primary" />
+   416→                  Informations personnelles
+   417→                </CardTitle>
+   418→                <CardDescription>
+   419→                  Informations saisies par votre conseiller
+   420→                </CardDescription>
+   421→              </CardHeader>
+   422→              <CardContent>
+   423→                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   424→                  <div>
+   425→                    <span className="text-sm text-muted-foreground">Prénom :</span>{' '}
+   426→                    <span className="text-sm font-medium">{data.firstName || '—'}</span>
+   427→                  </div>
+   428→                  <div>
+   429→                    <span className="text-sm text-muted-foreground">Nom :</span>{' '}
+   430→                    <span className="text-sm font-medium">{data.lastName || '—'}</span>
+   431→                  </div>
+   432→                  <div>
+   433→                    <span className="text-sm text-muted-foreground">Email :</span>{' '}
+   434→                    <span className="text-sm font-medium">{data.email || '—'}</span>
+   435→                  </div>
+   436→                  <div className="space-y-2">
+   437→                    <Label htmlFor="birthdate" className="text-sm font-medium">
+   438→                      Date de naissance
+   439→                    </Label>
+   440→                    <Input
+   441→                      id="birthdate"
+   442→                      type="date"
+   443→                      value={data.birthdate || ''}
+   444→                      onChange={(e) => updateField('birthdate', e.target.value || null)}
+   445→                      className="max-w-[220px] relative z-10"
+   446→                      max={new Date().toLocaleDateString('en-CA')}
+   447→                    />
+   448→                  </div>
+   449→                </div>
+   450→              </CardContent>
+   451→            </Card>
+   452→
+   453→            {/* Editable contact info */}
+   454→            <Card className="border-none shadow-sm">
+   455→              <CardHeader>
+   456→                <CardTitle className="text-lg flex items-center gap-2">
+   457→                  <Phone className="h-5 w-5 text-primary" />
+   458→                  Coordonnées
+   459→                </CardTitle>
+   460→                <CardDescription>
+   461→                  Informations que vous pouvez modifier
+   462→                </CardDescription>
+   463→              </CardHeader>
+   464→              <CardContent className="space-y-5">
+   465→                <div className="space-y-2">
+   466→                  <Label htmlFor="phone">Téléphone</Label>
+   467→                  <Input
+   468→                    id="phone"
+   469→                    type="tel"
+   470→                    placeholder="06 12 34 56 78"
+   471→                    value={data.phone || ''}
+   472→                    onChange={(e) => updateField('phone', e.target.value || null)}
+   473→                  />
+   474→                </div>
+   475→
+   476→                <div className="space-y-2">
+   477→                  <Label htmlFor="address">Adresse</Label>
+   478→                  <Input
+   479→                    id="address"
+   480→                    placeholder="Votre adresse complète"
+   481→                    value={data.address || ''}
+   482→                    onChange={(e) => updateField('address', e.target.value || null)}
+   483→                  />
+   484→                </div>
+   485→              </CardContent>
+   486→            </Card>
+   487→          </motion.div>
+   488→        </TabsContent>
+   489→
+   490→        {/* ── TAB 2: Entrepreneurial Profile ── */}
+   491→        <TabsContent value="entrepreneurial">
+   492→          <motion.div
+   493→            initial={{ opacity: 0, y: 10 }}
+   494→            animate={{ opacity: 1, y: 0 }}
+   495→            transition={{ duration: 0.3 }}
+   496→            className="space-y-6"
+   497→          >
+   498→            {/* Employment status & education */}
+   499→            <Card className="border-none shadow-sm">
+   500→              <CardHeader>
+   501→                <CardTitle className="text-lg flex items-center gap-2">
+   502→                  <Briefcase className="h-5 w-5 text-primary" />
+   503→                  Situation professionnelle
+   504→                </CardTitle>
+   505→              </CardHeader>
+   506→              <CardContent className="space-y-5">
+   507→                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   508→                  <div className="space-y-2">
+   509→                    <Label>Statut professionnel</Label>
+   510→                    <Select
+   511→                      value={data.employmentStatus || ''}
+   512→                      onValueChange={(val) => updateField('employmentStatus', val || null)}
+   513→                    >
+   514→                      <SelectTrigger>
+   515→                        <SelectValue placeholder="Sélectionnez..." />
+   516→                      </SelectTrigger>
+   517→                      <SelectContent position="popper" className="z-[250]">
+   518→                        {EMPLOYMENT_OPTIONS.map((opt) => (
+   519→                          <SelectItem key={opt.value} value={opt.value}>
+   520→                            {opt.label}
+   521→                          </SelectItem>
+   522→                        ))}
+   523→                      </SelectContent>
+   524→                    </Select>
+   525→                  </div>
+   526→                  <div className="space-y-2">
+   527→                    <Label>Niveau d&apos;études</Label>
+   528→                    <Select
+   529→                      value={data.educationLevel || ''}
+   530→                      onValueChange={(val) => updateField('educationLevel', val || null)}
+   531→                    >
+   532→                      <SelectTrigger>
+   533→                        <SelectValue placeholder="Sélectionnez..." />
+   534→                      </SelectTrigger>
+   535→                      <SelectContent position="popper" className="z-[250]">
+   536→                        {EDUCATION_OPTIONS.map((opt) => (
+   537→                          <SelectItem key={opt.value} value={opt.value}>
+   538→                            {opt.label}
+   539→                          </SelectItem>
+   540→                        ))}
+   541→                      </SelectContent>
+   542→                    </Select>
+   543→                  </div>
+   544→                </div>
+   545→
+   546→                <div className="space-y-2">
+   547→                  <Label htmlFor="lastDiploma">Dernier diplôme obtenu</Label>
+   548→                  <Input
+   549→                    id="lastDiploma"
+   550→                    placeholder="Ex: BTS Communication, Master en informatique..."
+   551→                    value={data.lastDiploma || ''}
+   552→                    onChange={(e) => updateField('lastDiploma', e.target.value || null)}
+   553→                  />
+   554→                </div>
+   555→
+   556→                {/* Skills */}
+   557→                <div className="space-y-3">
+   558→                  <Label>Compétences</Label>
+   559→                  <div className="flex flex-wrap gap-2 mb-3">
+   560→                    {data.skills.map((skill) => (
+   561→                      <Badge key={skill} variant="secondary" className="gap-1.5 py-1.5 px-3">
+   562→                        {skill}
+   563→                        <button onClick={() => removeSkill(skill)} className="ml-1 hover:text-destructive transition-colors">
+   564→                          <X className="h-3 w-3" />
+   565→                        </button>
+   566→                      </Badge>
+   567→                    ))}
+   568→                    {data.skills.length === 0 && (
+   569→                      <p className="text-sm text-muted-foreground">Ajoutez vos compétences</p>
+   570→                    )}
+   571→                  </div>
+   572→                  <div className="flex gap-2">
+   573→                    <Input
+   574→                      placeholder="Ajouter une compétence..."
+   575→                      value={newSkill}
+   576→                      onChange={(e) => setNewSkill(e.target.value)}
+   577→                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSkill(newSkill) } }}
+   578→                      className="flex-1"
+   579→                    />
+   580→                    <Button variant="outline" size="sm" onClick={() => addSkill(newSkill)} disabled={!newSkill.trim()}>
+   581→                      <Plus className="h-4 w-4" />
+   582→                    </Button>
+   583→                  </div>
+   584→                  {/* Suggested skills */}
+   585→                  {data.skills.length < 5 && (
+   586→                    <div className="mt-3">
+   587→                      <p className="text-xs text-muted-foreground mb-2">Suggestions :</p>
+   588→                      <div className="flex flex-wrap gap-1.5">
+   589→                        {SUGGESTED_SKILLS.filter((s) => !data.skills.includes(s)).slice(0, 6).map((skill) => (
+   590→                          <button
+   591→                            key={skill}
+   592→                            onClick={() => addSkill(skill)}
+   593→                            className="text-xs px-2 py-1 rounded-full border border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+   594→                          >
+   595→                            + {skill}
+   596→                          </button>
+   597→                        ))}
+   598→                      </div>
+   599→                    </div>
+   600→                  )}
+   601→                </div>
+   602→              </CardContent>
+   603→            </Card>
+   604→
+   605→            <Card className="border-none shadow-sm">
+   606→              <CardHeader>
+   607→                <CardTitle className="text-lg flex items-center gap-2">
+   608→                  <Heart className="h-5 w-5 text-coral-500" />
+   609→                  Motivation & expérience
+   610→                </CardTitle>
+   611→                <CardDescription>
+   612→                  Comprendre votre parcours entrepreneurial
+   613→                </CardDescription>
+   614→              </CardHeader>
+   615→              <CardContent className="space-y-5">
+   616→                <div className="space-y-2">
+   617→                  <Label htmlFor="motivation">Quelle est votre motivation pour créer une entreprise ?</Label>
+   618→                  <Textarea
+   619→                    id="motivation"
+   620→                    placeholder="Décrivez ce qui vous motive à entreprendre..."
+   621→                    value={data.creationMotivation || ''}
+   622→                    onChange={(e) => updateField('creationMotivation', e.target.value || null)}
+   623→                    rows={4}
+   624→                  />
+   625→                </div>
+   626→
+   627→                <Separator />
+   628→
+   629→                <div className="space-y-4">
+   630→                  <Label className="text-base font-medium">Avez-vous déjà eu une expérience entrepreneuriale ?</Label>
+   631→                  <div className="flex gap-3">
+   632→                    <Button
+   633→                      variant={data.previousExperience === true ? 'default' : 'outline'}
+   634→                      onClick={() => updateField('previousExperience', true)}
+   635→                      className="flex-1"
+   636→                    >
+   637→                      Oui
+   638→                    </Button>
+   639→                    <Button
+   640→                      variant={data.previousExperience === false ? 'default' : 'outline'}
+   641→                      onClick={() => { updateField('previousExperience', false); updateField('previousExperienceDetails', null) }}
+   642→                      className="flex-1"
+   643→                    >
+   644→                      Non
+   645→                    </Button>
+   646→                  </div>
+   647→
+   648→                  <AnimatePresence>
+   649→                    {data.previousExperience === true && (
+   650→                      <motion.div
+   651→                        initial={{ height: 0, opacity: 0 }}
+   652→                        animate={{ height: 'auto', opacity: 1 }}
+   653→                        exit={{ height: 0, opacity: 0 }}
+   654→                        transition={{ duration: 0.3 }}
+   655→                        className="overflow-hidden"
+   656→                      >
+   657→                        <div className="space-y-2 pt-2">
+   658→                          <Label htmlFor="experienceDetails">Décrivez votre expérience</Label>
+   659→                          <Textarea
+   660→                            id="experienceDetails"
+   661→                            placeholder="Type d'activité, durée, résultats..."
+   662→                            value={data.previousExperienceDetails || ''}
+   663→                            onChange={(e) => updateField('previousExperienceDetails', e.target.value || null)}
+   664→                            rows={3}
+   665→                          />
+   666→                        </div>
+   667→                      </motion.div>
+   668→                    )}
+   669→                  </AnimatePresence>
+   670→                </div>
+   671→              </CardContent>
+   672→            </Card>
+   673→
+   674→            <Card className="border-none shadow-sm">
+   675→              <CardHeader>
+   676→                <CardTitle className="text-lg flex items-center gap-2">
+   677→                  <Timer className="h-5 w-5 text-primary" />
+   678→                  Disponibilité
+   679→                </CardTitle>
+   680→              </CardHeader>
+   681→              <CardContent className="space-y-5">
+   682→                <div className="space-y-4">
+   683→                  <div className="flex items-center justify-between">
+   684→                    <Label>Temps disponible par semaine</Label>
+   685→                    <Badge variant="secondary" className="text-base font-bold">
+   686→                      {data.availableTimePerWeek ?? 0}h / semaine
+   687→                    </Badge>
+   688→                  </div>
+   689→                  <Slider
+   690→                    value={[data.availableTimePerWeek ?? 0]}
+   691→                    onValueChange={(val) => updateField('availableTimePerWeek', val[0])}
+   692→                    min={0}
+   693→                    max={80}
+   694→                    step={1}
+   695→                    className="w-full"
+   696→                  />
+   697→                  <div className="flex justify-between text-xs text-muted-foreground">
+   698→                    <span>0h</span>
+   699→                    <span>20h</span>
+   700→                    <span>40h</span>
+   701→                    <span>60h</span>
+   702→                    <span>80h</span>
+   703→                  </div>
+   704→                </div>
+   705→              </CardContent>
+   706→            </Card>
+   707→
+   708→            <Card className="border-none shadow-sm">
+   709→              <CardHeader>
+   710→                <CardTitle className="text-lg flex items-center gap-2">
+   711→                  <Accessibility className="h-5 w-5 text-purple-500" />
+   712→                  Situation de handicap
+   713→                </CardTitle>
+   714→                <CardDescription>
+   715→                  Ces informations nous permettent d&apos;adapter notre accompagnement
+   716→                </CardDescription>
+   717→              </CardHeader>
+   718→              <CardContent className="space-y-5">
+   719→                <div className="flex items-center justify-between p-4 rounded-xl bg-muted/50">
+   720→                  <div className="flex items-center gap-3">
+   721→                    <Accessibility className="h-5 w-5 text-muted-foreground" />
+   722→                    <div>
+   723→                      <p className="text-sm font-medium">Reconnaissance RQTH</p>
+   724→                      <p className="text-xs text-muted-foreground">Reconnaissance de la Qualité de Travailleur Handicapé</p>
+   725→                    </div>
+   726→                  </div>
+   727→                  <Checkbox
+   728→                    checked={data.rqthStatus}
+   729→                    onCheckedChange={(checked) => updateField('rqthStatus', !!checked)}
+   730→                  />
+   731→                </div>
+   732→
+   733→                <AnimatePresence>
+   734→                  {data.rqthStatus && (
+   735→                    <motion.div
+   736→                      initial={{ height: 0, opacity: 0 }}
+   737→                      animate={{ height: 'auto', opacity: 1 }}
+   738→                      exit={{ height: 0, opacity: 0 }}
+   739→                      transition={{ duration: 0.3 }}
+   740→                      className="overflow-hidden space-y-3"
+   741→                    >
+   742→                      <div className="flex items-center justify-between">
+   743→                        <Label>Taux de handicap</Label>
+   744→                        <Badge variant="secondary">
+   745→                          {data.disabilityRate ?? 0}%
+   746→                        </Badge>
+   747→                      </div>
+   748→                      <Slider
+   749→                        value={[data.disabilityRate ?? 0]}
+   750→                        onValueChange={(val) => updateField('disabilityRate', val[0])}
+   751→                        min={0}
+   752→                        max={100}
+   753→                        step={5}
+   754→                      />
+   755→                    </motion.div>
+   756→                  )}
+   757→                </AnimatePresence>
+   758→              </CardContent>
+   759→            </Card>
+   760→
+   761→            <Card className="border-none shadow-sm">
+   762→              <CardHeader>
+   763→                <CardTitle className="text-lg">Besoins en accompagnement</CardTitle>
+   764→                <CardDescription>
+   765→                  Sélectionnez les domaines dans lesquels vous avez besoin de soutien
+   766→                </CardDescription>
+   767→              </CardHeader>
+   768→              <CardContent>
+   769→                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   770→                  {SUPPORT_NEEDS_OPTIONS.map((need) => (
+   771→                    <label
+   772→                      key={need.value}
+   773→                      className={cn(
+   774→                        'flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all',
+   775→                        data.supportNeeds.includes(need.value)
+   776→                          ? 'border-primary bg-primary/5'
+   777→                          : 'border-transparent bg-muted/50 hover:bg-muted'
+   778→                      )}
+   779→                    >
+   780→                      <Checkbox
+   781→                        checked={data.supportNeeds.includes(need.value)}
+   782→                        onCheckedChange={() => toggleSupportNeed(need.value)}
+   783→                      />
+   784→                      <span className="text-sm">{need.label}</span>
+   785→                    </label>
+   786→                  ))}
+   787→                </div>
+   788→              </CardContent>
+   789→            </Card>
+   790→          </motion.div>
+   791→        </TabsContent>
+   792→
+   793→        {/* ── TAB 3: CV Upload ── */}
+   794→        <TabsContent value="cv">
+   795→          <motion.div
+   796→            initial={{ opacity: 0, y: 10 }}
+   797→            animate={{ opacity: 1, y: 0 }}
+   798→            transition={{ duration: 0.3 }}
+   799→            className="space-y-6"
+   800→          >
+   801→            <Card className="border-none shadow-sm">
+   802→              <CardHeader>
+   803→                <CardTitle className="text-lg flex items-center gap-2">
+   804→                  <FileText className="h-5 w-5 text-primary" />
+   805→                  Importer votre CV
+   806→                </CardTitle>
+   807→                <CardDescription>
+   808→                  Votre CV nous permet d&apos;identifier vos compétences et votre parcours
+   809→                </CardDescription>
+   810→              </CardHeader>
+   811→              <CardContent className="space-y-5">
+   812→                {/* Hidden file input */}
+   813→                <input
+   814→                  ref={fileInputRef}
+   815→                  type="file"
+   816→                  accept=".pdf,.doc,.docx"
+   817→                  className="hidden"
+   818→                  onChange={async (e) => {
+   819→                    const file = e.target.files?.[0]
+   820→                    if (!file) return
+   821→                    if (file.size > 5 * 1024 * 1024) {
+   822→                      toast.error('Fichier trop volumineux', { description: 'La taille maximale est de 5 Mo.' })
+   823→                      return
+   824→                    }
+   825→                    setIsUploading(true)
+   826→                    try {
+   827→                      const formData = new FormData()
+   828→                      formData.append('file', file)
+   829→                      const uploadHeaders: Record<string, string> = {}
+   830→                      if (token) uploadHeaders['Authorization'] = `Bearer ${token}`
+   831→                      const res = await fetch('/api/upload', {
+   832→                        method: 'POST',
+   833→                        headers: uploadHeaders,
+   834→                        body: formData,
+   835→                        credentials: 'include',
+   836→                      })
+   837→                      if (res.ok) {
+   838→                        setCvFile({ name: file.name, size: file.size, uploadedAt: new Date().toLocaleString('fr-FR') })
+   839→                        toast.success('CV importé avec succès', { description: `${file.name} a été téléchargé.` })
+   840→                      } else if (res.status === 401) {
+   841→                        toast.error('Vous devez être connecté(e)', { description: 'Votre session a expiré. Reconnectez-vous.' })
+   842→                      } else {
+   843→                        const errData = await res.json().catch(() => ({}))
+   844→                        toast.error('Erreur lors de l\'import', { description: errData?.error?.message || 'Impossible de télécharger le fichier.' })
+   845→                      }
+   846→                    } catch {
+   847→                      toast.error('Erreur réseau', { description: 'Vérifiez votre connexion.' })
+   848→                    } finally {
+   849→                      setIsUploading(false)
+   850→                      // Reset input so same file can be re-selected
+   851→                      if (fileInputRef.current) fileInputRef.current.value = ''
+   852→                    }
+   853→                  }}
+   854→                />
+   855→
+   856→                {/* Upload area */}
+   857→                <div
+   858→                  className={cn(
+   859→                    'border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer group',
+   860→                    isDragOver
+   861→                      ? 'border-primary bg-primary/10'
+   862→                      : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-primary/5',
+   863→                    isUploading && 'pointer-events-none opacity-60'
+   864→                  )}
+   865→                  onClick={() => fileInputRef.current?.click()}
+   866→                  onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
+   867→                  onDragLeave={() => setIsDragOver(false)}
+   868→                  onDrop={(e) => {
+   869→                    e.preventDefault()
+   870→                    setIsDragOver(false)
+   871→                    const file = e.dataTransfer.files?.[0]
+   872→                    if (file) {
+   873→                      const dt = new DataTransfer()
+   874→                      dt.items.add(file)
+   875→                      if (fileInputRef.current) {
+   876→                        fileInputRef.current.files = dt.files
+   877→                        fileInputRef.current.dispatchEvent(new Event('change', { bubbles: true }))
+   878→                      }
+   879→                    }
+   880→                  }}
+   881→                >
+   882→                  {isUploading ? (
+   883→                    <div className="flex flex-col items-center gap-3">
+   884→                      <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+   885→                      <p className="text-sm text-muted-foreground">Téléchargement en cours...</p>
+   886→                    </div>
+   887→                  ) : cvFile ? (
+   888→                    <div className="flex flex-col items-center gap-3">
+   889→                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-green-100 dark:bg-green-900/30 transition-colors">
+   890→                        <CheckCircle2 className="h-7 w-7 text-green-600 dark:text-green-400" />
+   891→                      </div>
+   892→                      <div>
+   893→                        <p className="text-sm font-medium text-foreground">{cvFile.name}</p>
+   894→                        <p className="text-xs text-muted-foreground mt-1">
+   895→                          {(cvFile.size / 1024).toFixed(1)} Ko — importé le {cvFile.uploadedAt}
+   896→                        </p>
+   897→                      </div>
+   898→                      <Badge variant="secondary" className="text-xs text-green-600 bg-green-100 dark:bg-green-900/30 dark:text-green-400">
+   899→                        Importé
+   900→                      </Badge>
+   901→                    </div>
+   902→                  ) : (
+   903→                    <motion.div
+   904→                      whileHover={{ scale: 1.05 }}
+   905→                      whileTap={{ scale: 0.95 }}
+   906→                      className="flex flex-col items-center gap-3"
+   907→                    >
+   908→                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
+   909→                        <Upload className="h-7 w-7 text-primary" />
+   910→                      </div>
+   911→                      <div>
+   912→                        <p className="text-sm font-medium text-foreground">
+   913→                          Glissez-déposez votre CV ici
+   914→                        </p>
+   915→                        <p className="text-xs text-muted-foreground mt-1">
+   916→                          ou cliquez pour sélectionner (PDF, DOCX — max 5 Mo)
+   917→                        </p>
+   918→                      </div>
+   919→                    </motion.div>
+   920→                  )}
+   921→                </div>
+   922→              </CardContent>
+   923→            </Card>
+   924→
+   925→            {/* General document upload (reusable FileUpload component) */}
+   926→            <Card className="border-none shadow-sm">
+   927→              <CardHeader>
+   928→                <CardTitle className="text-lg flex items-center gap-2">
+   929→                  <Upload className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+   930→                  Mes documents
+   931→                </CardTitle>
+   932→                <CardDescription>
+   933→                  Importez vos documents complémentaires (lettre de motivation, diplômes, Kbis, etc.)
+   934→                </CardDescription>
+   935→              </CardHeader>
+   936→              <CardContent>
+   937→                <FileUpload
+   938→                  accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp"
+   939→                  maxSize={10 * 1024 * 1024}
+   940→                  maxFiles={5}
+   941→                  label=""
+   942→                  description=""
+   943→                />
+   944→              </CardContent>
+   945→            </Card>
+   946→
+   947→            {/* Skills extracted from CV (mock display) */}
+   948→            <Card className="border-none shadow-sm">
+   949→              <CardHeader>
+   950→                <CardTitle className="text-lg flex items-center gap-2">
+   951→                  <Sparkles className="h-5 w-5 text-amber-500" />
+   952→                  Compétences détectées
+   953→                </CardTitle>
+   954→                <CardDescription>
+   955→                  Compétences issues de votre profil et parcours
+   956→                </CardDescription>
+   957→              </CardHeader>
+   958→              <CardContent>
+   959→                {data.skills.length > 0 ? (
+   960→                  <div className="flex flex-wrap gap-2">
+   961→                    {data.skills.map((skill, i) => (
+   962→                      <motion.div
+   963→                        key={skill}
+   964→                        initial={{ opacity: 0, scale: 0.8 }}
+   965→                        animate={{ opacity: 1, scale: 1 }}
+   966→                        transition={{ delay: i * 0.05 }}
+   967→                      >
+   968→                        <Badge variant="secondary" className="py-1.5 px-3 text-sm">
+   969→                          {skill}
+   970→                        </Badge>
+   971→                      </motion.div>
+   972→                    ))}
+   973→                  </div>
+   974→                ) : (
+   975→                  <div className="text-center py-6">
+   976→                    <p className="text-sm text-muted-foreground">
+   977→                      Aucune compétence détectée. Ajoutez vos compétences dans l&apos;onglet &quot;Informations&quot;.
+   978→                    </p>
+   979→                  </div>
+   980→                )}
+   981→              </CardContent>
+   982→            </Card>
+   983→
+   984→            {/* CV Preview (mock) */}
+   985→            <Card className="border-none shadow-sm">
+   986→              <CardHeader>
+   987→                <CardTitle className="text-lg">Aperçu du profil</CardTitle>
+   988→              </CardHeader>
+   989→              <CardContent>
+   990→                <div className="rounded-xl border bg-muted/30 p-6 space-y-4">
+   991→                  <div className="flex items-center gap-4">
+   992→                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-lg">
+   993→                      {data.firstName?.[0] || ''}{data.lastName?.[0] || ''}
+   994→                    </div>
+   995→                    <div>
+   996→                      <h3 className="text-lg font-semibold text-foreground">
+   997→                        {data.firstName} {data.lastName || '—'}
+   998→                      </h3>
+   999→                      <p className="text-sm text-muted-foreground">{data.email}</p>
+  1000→                    </div>
+  1001→                  </div>
+  1002→                  <Separator />
+  1003→                  <div className="grid grid-cols-2 gap-4 text-sm">
+  1004→                    <div>
+  1005→                      <span className="text-muted-foreground">Statut :</span>
+  1006→                      <span className="ml-2 font-medium">
+  1007→                        {EMPLOYMENT_OPTIONS.find((o) => o.value === data.employmentStatus)?.label || 'Non défini'}
+  1008→                      </span>
+  1009→                    </div>
+  1010→                    <div>
+  1011→                      <span className="text-muted-foreground">Formation :</span>
+  1012→                      <span className="ml-2 font-medium">
+  1013→                        {EDUCATION_OPTIONS.find((o) => o.value === data.educationLevel)?.label || 'Non défini'}
+  1014→                      </span>
+  1015→                    </div>
+  1016→                    <div>
+  1017→                      <span className="text-muted-foreground">Diplôme :</span>
+  1018→                      <span className="ml-2 font-medium">{data.lastDiploma || 'Non défini'}</span>
+  1019→                    </div>
+  1020→                    <div>
+  1021→                      <span className="text-muted-foreground">Téléphone :</span>
+  1022→                      <span className="ml-2 font-medium">{data.phone || 'Non défini'}</span>
+  1023→                    </div>
+  1024→                  </div>
+  1025→                  {data.skills.length > 0 && (
+  1026→                    <>
+  1027→                      <Separator />
+  1028→                      <div>
+  1029→                        <p className="text-sm text-muted-foreground mb-2">Compétences :</p>
+  1030→                        <div className="flex flex-wrap gap-1.5">
+  1031→                          {data.skills.map((s) => (
+  1032→                            <Badge key={s} variant="outline" className="text-xs">{s}</Badge>
+  1033→                          ))}
+  1034→                        </div>
+  1035→                      </div>
+  1036→                    </>
+  1037→                  )}
+  1038→                </div>
+  1039→              </CardContent>
+  1040→            </Card>
+  1041→          </motion.div>
+  1042→        </TabsContent>
+  1043→      </Tabs>
+  1044→    </motion.div>
+  1045→  )
+  1046→}
+  1047→
+  1048→export default ProfilCreateur
+  1049→

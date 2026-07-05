@@ -1,0 +1,1197 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useMemo, useCallback } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import { Card, CardContent } from '@/components/ui/card'
+     6→import { Badge } from '@/components/ui/badge'
+     7→import { Button } from '@/components/ui/button'
+     8→import { Input } from '@/components/ui/input'
+     9→import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+    10→import { Separator } from '@/components/ui/separator'
+    11→import {
+    12→  Dialog,
+    13→  DialogContent,
+    14→  DialogDescription,
+    15→  DialogFooter,
+    16→  DialogHeader,
+    17→  DialogTitle,
+    18→  DialogTrigger,
+    19→} from '@/components/ui/dialog'
+    20→import {
+    21→  Select,
+    22→  SelectContent,
+    23→  SelectItem,
+    24→  SelectTrigger,
+    25→  SelectValue,
+    26→} from '@/components/ui/select'
+    27→import { cn } from '@/lib/utils'
+    28→import {
+    29→  Video,
+    30→  Plus,
+    31→  Phone,
+    32→  PhoneOff,
+    33→  Calendar,
+    34→  Clock,
+    35→  Users,
+    36→  X,
+    37→  MonitorPlay,
+    38→  AlertCircle,
+    39→  ChevronRight,
+    40→  MoreVertical,
+    41→  Copy,
+    42→  ExternalLink,
+    43→  CheckCircle2,
+    44→} from 'lucide-react'
+    45→
+    46→/* ═══════════════════════════════════════════════════════════
+    47→   Types
+    48→   ═══════════════════════════════════════════════════════════ */
+    49→type SessionStatus = 'WAITING' | 'ACTIVE' | 'ENDED' | 'CANCELLED'
+    50→
+    51→interface VisioSession {
+    52→  id: string
+    53→  roomName: string
+    54→  roomSubject: string
+    55→  beneficiaryId: string
+    56→  beneficiaryName: string
+    57→  beneficiaryInitials: string
+    58→  conseillerName: string
+    59→  scheduledAt: string
+    60→  status: SessionStatus
+    61→  duration?: number // in minutes
+    62→  jitsiUrl?: string
+    63→}
+    64→
+    65→/* ═══════════════════════════════════════════════════════════
+    66→   Status config
+    67→   ═══════════════════════════════════════════════════════════ */
+    68→const statusConfig: Record<SessionStatus, { label: string; color: string; dotColor: string; bg: string }> = {
+    69→  WAITING: {
+    70→    label: 'En attente',
+    71→    color: 'text-amber-700 dark:text-amber-400',
+    72→    dotColor: 'bg-amber-500',
+    73→    bg: 'bg-amber-100 dark:bg-amber-900/30',
+    74→  },
+    75→  ACTIVE: {
+    76→    label: 'En cours',
+    77→    color: 'text-emerald-700 dark:text-emerald-400',
+    78→    dotColor: 'bg-emerald-500 animate-pulse',
+    79→    bg: 'bg-emerald-100 dark:bg-emerald-900/30',
+    80→  },
+    81→  ENDED: {
+    82→    label: 'Terminee',
+    83→    color: 'text-muted-foreground',
+    84→    dotColor: 'bg-muted-foreground',
+    85→    bg: 'bg-muted',
+    86→  },
+    87→  CANCELLED: {
+    88→    label: 'Annulee',
+    89→    color: 'text-red-600 dark:text-red-400',
+    90→    dotColor: 'bg-red-500',
+    91→    bg: 'bg-red-100 dark:bg-red-900/30',
+    92→  },
+    93→}
+    94→
+    95→/* ═══════════════════════════════════════════════════════════
+    96→   Mock data
+    97→   ═══════════════════════════════════════════════════════════ */
+    98→const mockBeneficiaires = [
+    99→  { id: 'b1', name: 'Amadou Diallo' },
+   100→  { id: 'b2', name: 'Lea Fontaine' },
+   101→  { id: 'b3', name: 'Marc Renaud' },
+   102→  { id: 'b4', name: 'Clara Dubois' },
+   103→  { id: 'b5', name: 'Karim Benali' },
+   104→  { id: 'b6', name: 'Julie Moreau' },
+   105→  { id: 'b7', name: 'Thomas Leroy' },
+   106→  { id: 'b8', name: 'Fatima Hassani' },
+   107→  { id: 'b9', name: 'Hugo Petit' },
+   108→  { id: 'b10', name: 'Nadia Bouzid' },
+   109→]
+   110→
+   111→const initialSessions: VisioSession[] = [
+   112→  {
+   113→    id: 'vs1',
+   114→    roomName: 'creapulse-suivi-amadou-diallo',
+   115→    roomSubject: 'Suivi Business Plan',
+   116→    beneficiaryId: 'b1',
+   117→    beneficiaryName: 'Amadou Diallo',
+   118→    beneficiaryInitials: 'AD',
+   119→    conseillerName: 'Sophie Martin',
+   120→    scheduledAt: new Date(Date.now() + 15 * 60000).toISOString(),
+   121→    status: 'WAITING',
+   122→    jitsiUrl: 'https://meet.jit.si/creapulse-suivi-amadou-diallo',
+   123→  },
+   124→  {
+   125→    id: 'vs2',
+   126→    roomName: 'creapulse-bilan-lea-fontaine',
+   127→    roomSubject: 'Bilan Trimestriel',
+   128→    beneficiaryId: 'b2',
+   129→    beneficiaryName: 'Lea Fontaine',
+   130→    beneficiaryInitials: 'LF',
+   131→    conseillerName: 'Sophie Martin',
+   132→    scheduledAt: new Date(Date.now() - 20 * 60000).toISOString(),
+   133→    status: 'ACTIVE',
+   134→    duration: 20,
+   135→    jitsiUrl: 'https://meet.jit.si/creapulse-bilan-lea-fontaine',
+   136→  },
+   137→  {
+   138→    id: 'vs3',
+   139→    roomName: 'creapulse-atelier-marc-renaud',
+   140→    roomSubject: 'Atelier Creation - Canvas',
+   141→    beneficiaryId: 'b3',
+   142→    beneficiaryName: 'Marc Renaud',
+   143→    beneficiaryInitials: 'MR',
+   144→    conseillerName: 'Sophie Martin',
+   145→    scheduledAt: new Date(Date.now() + 2 * 3600000).toISOString(),
+   146→    status: 'WAITING',
+   147→    jitsiUrl: 'https://meet.jit.si/creapulse-atelier-marc-renaud',
+   148→  },
+   149→  {
+   150→    id: 'vs4',
+   151→    roomName: 'creapulse-suivi-clara-dubois',
+   152→    roomSubject: 'Suivi Post-lancement',
+   153→    beneficiaryId: 'b4',
+   154→    beneficiaryName: 'Clara Dubois',
+   155→    beneficiaryInitials: 'CD',
+   156→    conseillerName: 'Sophie Martin',
+   157→    scheduledAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+   158→    status: 'ENDED',
+   159→    duration: 45,
+   160→    jitsiUrl: 'https://meet.jit.si/creapulse-suivi-clara-dubois',
+   161→  },
+   162→  {
+   163→    id: 'vs5',
+   164→    roomName: 'creapulse-financement-karim',
+   165→    roomSubject: 'Point Financement',
+   166→    beneficiaryId: 'b5',
+   167→    beneficiaryName: 'Karim Benali',
+   168→    beneficiaryInitials: 'KB',
+   169→    conseillerName: 'Sophie Martin',
+   170→    scheduledAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+   171→    status: 'CANCELLED',
+   172→  },
+   173→]
+   174→
+   175→/* ═══════════════════════════════════════════════════════════
+   176→   Helpers
+   177→   ═══════════════════════════════════════════════════════════ */
+   178→const JITSI_SERVER = process.env.NEXT_PUBLIC_JITSI_SERVER_URL || 'https://meet.jit.si'
+   179→
+   180→function formatDateFr(dateStr: string): string {
+   181→  const d = new Date(dateStr)
+   182→  return d.toLocaleDateString('fr-FR', {
+   183→    weekday: 'short',
+   184→    day: 'numeric',
+   185→    month: 'short',
+   186→    hour: '2-digit',
+   187→    minute: '2-digit',
+   188→  })
+   189→}
+   190→
+   191→function formatDuration(minutes: number): string {
+   192→  if (minutes < 60) return `${minutes} min`
+   193→  const h = Math.floor(minutes / 60)
+   194→  const m = minutes % 60
+   195→  return m > 0 ? `${h}h ${m}min` : `${h}h`
+   196→}
+   197→
+   198→function generateRoomName(subject: string, beneficiaryName: string): string {
+   199→  const slug = subject
+   200→    .toLowerCase()
+   201→    .replace(/[^a-z0-9]+/g, '-')
+   202→    .replace(/(^-|-$)/g, '')
+   203→  const nameSlug = beneficiaryName
+   204→    .toLowerCase()
+   205→    .replace(/\s+/g, '-')
+   206→  const ts = Date.now().toString(36)
+   207→  return `creapulse-${slug}-${nameSlug}-${ts}`
+   208→}
+   209→
+   210→function isSessionActive(session: VisioSession): boolean {
+   211→  return session.status === 'ACTIVE'
+   212→}
+   213→
+   214→function isSessionPast(session: VisioSession): boolean {
+   215→  return session.status === 'ENDED' || session.status === 'CANCELLED'
+   216→}
+   217→
+   218→/* ═══════════════════════════════════════════════════════════
+   219→   Session Card
+   220→   ═══════════════════════════════════════════════════════════ */
+   221→function SessionCard({
+   222→  session,
+   223→  isSelected,
+   224→  onSelect,
+   225→  onJoin,
+   226→}: {
+   227→  session: VisioSession
+   228→  isSelected: boolean
+   229→  onSelect: () => void
+   230→  onJoin: () => void
+   231→}) {
+   232→  const status = statusConfig[session.status]
+   233→  const past = isSessionPast(session)
+   234→  const active = isSessionActive(session)
+   235→
+   236→  return (
+   237→    <motion.div
+   238→      layout
+   239→      initial={{ opacity: 0, y: 8 }}
+   240→      animate={{ opacity: 1, y: 0 }}
+   241→      exit={{ opacity: 0, x: -20 }}
+   242→      transition={{ duration: 0.2 }}
+   243→    >
+   244→      <Card
+   245→        className={cn(
+   246→          'group cursor-pointer transition-all duration-200 hover:shadow-md',
+   247→          isSelected
+   248→            ? 'border-primary shadow-md ring-1 ring-primary/20'
+   249→            : active
+   250→              ? 'border-emerald-300 hover:border-emerald-400'
+   251→              : past
+   252→                ? 'border-border/60 opacity-75'
+   253→                : 'border-border hover:border-primary/30'
+   254→        )}
+   255→        onClick={onSelect}
+   256→      >
+   257→        <CardContent className="p-3.5">
+   258→          <div className="flex items-start gap-3">
+   259→            {/* Avatar */}
+   260→            <Avatar className="h-9 w-9 shrink-0 mt-0.5">
+   261→              <AvatarFallback
+   262→                className={cn(
+   263→                  'text-xs font-bold',
+   264→                  active
+   265→                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
+   266→                    : past
+   267→                      ? 'bg-muted text-muted-foreground'
+   268→                      : 'bg-primary/10 text-primary'
+   269→                )}
+   270→              >
+   271→                {session.beneficiaryInitials}
+   272→              </AvatarFallback>
+   273→            </Avatar>
+   274→
+   275→            {/* Info */}
+   276→            <div className="flex-1 min-w-0">
+   277→              <div className="flex items-center gap-2">
+   278→                <p
+   279→                  className={cn(
+   280→                    'text-sm font-semibold text-foreground truncate',
+   281→                    past && 'line-through opacity-60'
+   282→                  )}
+   283→                >
+   284→                  {session.beneficiaryName}
+   285→                </p>
+   286→                <Badge
+   287→                  variant="secondary"
+   288→                  className={cn('text-[10px] px-2 py-0 gap-1 shrink-0', status.bg, status.color)}
+   289→                >
+   290→                  <span className={cn('inline-block h-1.5 w-1.5 rounded-full', status.dotColor)} />
+   291→                  {status.label}
+   292→                </Badge>
+   293→              </div>
+   294→
+   295→              <p className="text-xs text-muted-foreground truncate mt-0.5">
+   296→                {session.roomSubject}
+   297→              </p>
+   298→
+   299→              <div className="mt-1.5 flex items-center gap-3 text-[11px] text-muted-foreground">
+   300→                <span className="flex items-center gap-1">
+   301→                  <Calendar className="h-3 w-3" />
+   302→                  {formatDateFr(session.scheduledAt)}
+   303→                </span>
+   304→                {session.duration && (
+   305→                  <span className="flex items-center gap-1">
+   306→                    <Clock className="h-3 w-3" />
+   307→                    {formatDuration(session.duration)}
+   308→                  </span>
+   309→                )}
+   310→              </div>
+   311→            </div>
+   312→
+   313→            {/* Right: action */}
+   314→            <div className="flex items-center gap-1.5 shrink-0">
+   315→              {active && (
+   316→                <Button
+   317→                  size="sm"
+   318→                  className="h-7 px-2.5 text-[11px] gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+   319→                  onClick={(e) => {
+   320→                    e.stopPropagation()
+   321→                    onJoin()
+   322→                  }}
+   323→                >
+   324→                  <Phone className="h-3 w-3" />
+   325→                  Rejoindre
+   326→                </Button>
+   327→              )}
+   328→              {!past && !active && (
+   329→                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+   330→                  <ChevronRight className="h-3.5 w-3.5 text-primary" />
+   331→                </div>
+   332→              )}
+   333→              {past && (
+   334→                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted">
+   335→                  <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground" />
+   336→                </div>
+   337→              )}
+   338→            </div>
+   339→          </div>
+   340→        </CardContent>
+   341→      </Card>
+   342→    </motion.div>
+   343→  )
+   344→}
+   345→
+   346→/* ═══════════════════════════════════════════════════════════
+   347→   Jitsi Room View
+   348→   ═══════════════════════════════════════════════════════════ */
+   349→function JitsiRoomView({ session, onLeave }: { session: VisioSession; onLeave: () => void }) {
+   350→  const [copied, setCopied] = useState(false)
+   351→  const displayName = session.conseillerName
+   352→
+   353→  const jitsiUrl = `${JITSI_SERVER}/${session.roomName}#config.startWithVideoMuted=true&config.prejoinPageEnabled=false&config.displayName=${encodeURIComponent(displayName)}&config.disableDeepLinking=true&interfaceConfig.SHOW_JITSI_WATERMARK=false&interfaceConfig.SHOW_WATERMARK_FOR_GUESTS=false`
+   354→
+   355→  const handleCopyLink = useCallback(() => {
+   356→    navigator.clipboard.writeText(`${JITSI_SERVER}/${session.roomName}`).then(() => {
+   357→      setCopied(true)
+   358→      setTimeout(() => setCopied(false), 2000)
+   359→    })
+   360→  }, [session.roomName])
+   361→
+   362→  return (
+   363→    <motion.div
+   364→      initial={{ opacity: 0, scale: 0.97 }}
+   365→      animate={{ opacity: 1, scale: 1 }}
+   366→      exit={{ opacity: 0, scale: 0.97 }}
+   367→      transition={{ duration: 0.3 }}
+   368→      className="flex flex-col h-full"
+   369→    >
+   370→      {/* Top bar */}
+   371→      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
+   372→        <div className="flex items-center gap-3 min-w-0">
+   373→          <div className="flex items-center gap-2">
+   374→            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+   375→              <Video className="h-4 w-4 text-emerald-600" />
+   376→            </div>
+   377→            <div className="min-w-0">
+   378→              <p className="text-sm font-semibold text-foreground truncate">
+   379→                {session.roomSubject}
+   380→              </p>
+   381→              <p className="text-[11px] text-muted-foreground truncate">
+   382→                avec {session.beneficiaryName}
+   383→              </p>
+   384→            </div>
+   385→          </div>
+   386→          <Badge
+   387→            variant="secondary"
+   388→            className="text-[10px] px-2 py-0 gap-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+   389→          >
+   390→            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+   391→            En direct
+   392→          </Badge>
+   393→        </div>
+   394→
+   395→        <div className="flex items-center gap-2 shrink-0">
+   396→          <Button
+   397→            variant="outline"
+   398→            size="sm"
+   399→            className="h-8 px-2.5 text-[11px] gap-1.5"
+   400→            onClick={handleCopyLink}
+   401→          >
+   402→            {copied ? (
+   403→              <>
+   404→                <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+   405→                Copie
+   406→              </>
+   407→            ) : (
+   408→              <>
+   409→                <Copy className="h-3 w-3" />
+   410→                Copier le lien
+   411→              </>
+   412→            )}
+   413→          </Button>
+   414→          <Button
+   415→            size="sm"
+   416→            variant="destructive"
+   417→            className="h-8 px-2.5 text-[11px] gap-1.5"
+   418→            onClick={onLeave}
+   419→          >
+   420→            <PhoneOff className="h-3 w-3" />
+   421→            Quitter
+   422→          </Button>
+   423→        </div>
+   424→      </div>
+   425→
+   426→      {/* Jitsi iframe */}
+   427→      <div className="flex-1 relative bg-black">
+   428→        <iframe
+   429→          src={jitsiUrl}
+   430→          allow="camera; microphone; fullscreen; display-capture; autoplay"
+   431→          className="absolute inset-0 w-full h-full border-none"
+   432→          title={`Visioconférence - ${session.roomSubject}`}
+   433→        />
+   434→      </div>
+   435→    </motion.div>
+   436→  )
+   437→}
+   438→
+   439→/* ═══════════════════════════════════════════════════════════
+   440→   Empty State
+   441→   ═══════════════════════════════════════════════════════════ */
+   442→function EmptyState({ onCreateClick }: { onCreateClick: () => void }) {
+   443→  return (
+   444→    <motion.div
+   445→      initial={{ opacity: 0, y: 20 }}
+   446→      animate={{ opacity: 1, y: 0 }}
+   447→      transition={{ duration: 0.5, ease: 'easeOut' }}
+   448→      className="flex flex-col items-center justify-center h-full p-8 text-center"
+   449→    >
+   450→      {/* Illustration */}
+   451→      <motion.div
+   452→        initial={{ scale: 0.8, opacity: 0 }}
+   453→        animate={{ scale: 1, opacity: 1 }}
+   454→        transition={{ duration: 0.6, delay: 0.1 }}
+   455→        className="relative"
+   456→      >
+   457→        <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-teal-50 to-emerald-50 dark:from-teal-900/20 dark:to-emerald-900/20">
+   458→          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#00838F] to-emerald-600 shadow-lg shadow-teal-500/25">
+   459→            <Video className="h-8 w-8 text-white" />
+   460→          </div>
+   461→        </div>
+   462→        {/* Floating elements */}
+   463→        <motion.div
+   464→          animate={{ y: [0, -6, 0] }}
+   465→          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+   466→          className="absolute -top-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md"
+   467→        >
+   468→          <Users className="h-4 w-4 text-[#00838F]" />
+   469→        </motion.div>
+   470→        <motion.div
+   471→          animate={{ y: [0, 4, 0] }}
+   472→          transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+   473→          className="absolute -bottom-1 -left-3 flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-md"
+   474→        >
+   475→          <MonitorPlay className="h-3.5 w-3.5 text-emerald-600" />
+   476→        </motion.div>
+   477→      </motion.div>
+   478→
+   479→      <motion.div
+   480→        initial={{ opacity: 0, y: 10 }}
+   481→        animate={{ opacity: 1, y: 0 }}
+   482→        transition={{ duration: 0.4, delay: 0.2 }}
+   483→        className="mt-6 max-w-sm"
+   484→      >
+   485→        <h3 className="text-lg font-bold text-foreground">
+   486→          Visioconference
+   487→        </h3>
+   488→        <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+   489→          Planifiez et lancez des sessions visio avec vos beneficiaires directement depuis cette interface. 
+   490→          Selectionnez une session dans la liste ou creez-en une nouvelle.
+   491→        </p>
+   492→      </motion.div>
+   493→
+   494→      <motion.div
+   495→        initial={{ opacity: 0, y: 10 }}
+   496→        animate={{ opacity: 1, y: 0 }}
+   497→        transition={{ duration: 0.4, delay: 0.35 }}
+   498→        className="mt-6 flex flex-col sm:flex-row items-center gap-3"
+   499→      >
+   500→        <Button
+   501→          onClick={onCreateClick}
+   502→          className="gap-2 bg-gradient-to-r from-[#00838F] to-emerald-600 hover:from-[#006978] hover:to-emerald-700 text-white shadow-lg shadow-teal-500/20"
+   503→        >
+   504→          <Plus className="h-4 w-4" />
+   505→          Creer une session visio
+   506→        </Button>
+   507→      </motion.div>
+   508→
+   509→      {/* Feature hints */}
+   510→      <motion.div
+   511→        initial={{ opacity: 0 }}
+   512→        animate={{ opacity: 1 }}
+   513→        transition={{ duration: 0.4, delay: 0.5 }}
+   514→        className="mt-8 flex flex-wrap justify-center gap-4 text-xs text-muted-foreground"
+   515→      >
+   516→        <div className="flex items-center gap-1.5">
+   517→          <div className="h-1.5 w-1.5 rounded-full bg-[#00838F]" />
+   518→          Partage d&apos;ecran
+   519→        </div>
+   520→        <div className="flex items-center gap-1.5">
+   521→          <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+   522→          Chat integre
+   523→        </div>
+   524→        <div className="flex items-center gap-1.5">
+   525→          <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+   526→          Enregistrement
+   527→        </div>
+   528→      </motion.div>
+   529→    </motion.div>
+   530→  )
+   531→}
+   532→
+   533→/* ═══════════════════════════════════════════════════════════
+   534→   Create Session Dialog
+   535→   ═══════════════════════════════════════════════════════════ */
+   536→function CreateSessionDialog({
+   537→  open,
+   538→  onOpenChange,
+   539→  onCreate,
+   540→}: {
+   541→  open: boolean
+   542→  onOpenChange: (v: boolean) => void
+   543→  onCreate: (session: Omit<VisioSession, 'id' | 'status' | 'duration' | 'jitsiUrl'>) => void
+   544→}) {
+   545→  const [beneficiaryId, setBeneficiaryId] = useState('')
+   546→  const [subject, setSubject] = useState('')
+   547→  const [date, setDate] = useState('')
+   548→  const [time, setTime] = useState('')
+   549→
+   550→  const handleSubmit = () => {
+   551→    if (!beneficiaryId || !subject || !date || !time) return
+   552→    const beneficiary = mockBeneficiaires.find((b) => b.id === beneficiaryId)
+   553→    if (!beneficiary) return
+   554→    const initials = `${beneficiary.name.split(' ')[0][0]}${beneficiary.name.split(' ').slice(-1)[0][0]}`.toUpperCase()
+   555→    const roomName = generateRoomName(subject, beneficiary.name)
+   556→    const scheduledAt = new Date(`${date}T${time}`).toISOString()
+   557→
+   558→    onCreate({
+   559→      roomName,
+   560→      roomSubject: subject,
+   561→      beneficiaryId,
+   562→      beneficiaryName: beneficiary.name,
+   563→      beneficiaryInitials: initials,
+   564→      conseillerName: 'Sophie Martin',
+   565→      scheduledAt,
+   566→    })
+   567→
+   568→    // Reset form
+   569→    setBeneficiaryId('')
+   570→    setSubject('')
+   571→    setDate('')
+   572→    setTime('')
+   573→    onOpenChange(false)
+   574→  }
+   575→
+   576→  return (
+   577→    <Dialog open={open} onOpenChange={onOpenChange}>
+   578→      <DialogContent className="sm:max-w-[460px]">
+   579→        <DialogHeader>
+   580→          <DialogTitle className="flex items-center gap-2">
+   581→            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#00838F] to-emerald-600">
+   582→              <Video className="h-4 w-4 text-white" />
+   583→            </div>
+   584→            Nouvelle session visio
+   585→          </DialogTitle>
+   586→          <DialogDescription>
+   587→            Planifiez une visioconference avec un beneficiaire.
+   588→          </DialogDescription>
+   589→        </DialogHeader>
+   590→
+   591→        <div className="space-y-4 py-2">
+   592→          {/* Beneficiary select */}
+   593→          <div className="space-y-2">
+   594→            <label className="text-sm font-medium text-foreground">
+   595→              Beneficiaire <span className="text-destructive">*</span>
+   596→            </label>
+   597→            <Select value={beneficiaryId} onValueChange={setBeneficiaryId}>
+   598→              <SelectTrigger>
+   599→                <SelectValue placeholder="Selectionner un beneficiaire" />
+   600→              </SelectTrigger>
+   601→              <SelectContent>
+   602→                {mockBeneficiaires.map((b) => (
+   603→                  <SelectItem key={b.id} value={b.id}>
+   604→                    {b.name}
+   605→                  </SelectItem>
+   606→                ))}
+   607→              </SelectContent>
+   608→            </Select>
+   609→          </div>
+   610→
+   611→          {/* Subject */}
+   612→          <div className="space-y-2">
+   613→            <label className="text-sm font-medium text-foreground">
+   614→              Objet de la session <span className="text-destructive">*</span>
+   615→            </label>
+   616→            <Input
+   617→              placeholder="ex: Suivi Business Plan"
+   618→              value={subject}
+   619→              onChange={(e) => setSubject(e.target.value)}
+   620→            />
+   621→          </div>
+   622→
+   623→          {/* Date + Time */}
+   624→          <div className="grid grid-cols-2 gap-3">
+   625→            <div className="space-y-2">
+   626→              <label className="text-sm font-medium text-foreground">
+   627→                Date <span className="text-destructive">*</span>
+   628→              </label>
+   629→              <Input
+   630→                type="date"
+   631→                value={date}
+   632→                onChange={(e) => setDate(e.target.value)}
+   633→              />
+   634→            </div>
+   635→            <div className="space-y-2">
+   636→              <label className="text-sm font-medium text-foreground">
+   637→                Heure <span className="text-destructive">*</span>
+   638→              </label>
+   639→              <Input
+   640→                type="time"
+   641→                value={time}
+   642→                onChange={(e) => setTime(e.target.value)}
+   643→              />
+   644→            </div>
+   645→          </div>
+   646→        </div>
+   647→
+   648→        <DialogFooter>
+   649→          <Button variant="outline" onClick={() => onOpenChange(false)}>
+   650→            Annuler
+   651→          </Button>
+   652→          <Button
+   653→            onClick={handleSubmit}
+   654→            disabled={!beneficiaryId || !subject || !date || !time}
+   655→            className="gap-1.5 bg-gradient-to-r from-[#00838F] to-emerald-600 hover:from-[#006978] hover:to-emerald-700 text-white"
+   656→          >
+   657→            <Video className="h-4 w-4" />
+   658→            Creer la session
+   659→          </Button>
+   660→        </DialogFooter>
+   661→      </DialogContent>
+   662→    </Dialog>
+   663→  )
+   664→}
+   665→
+   666→/* ═══════════════════════════════════════════════════════════
+   667→   Main VisioView Component
+   668→   ═══════════════════════════════════════════════════════════ */
+   669→export function VisioView() {
+   670→  const [sessions, setSessions] = useState<VisioSession[]>(initialSessions)
+   671→  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
+   672→  const [isInRoom, setIsInRoom] = useState(false)
+   673→  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+   674→  const [sessionFilter, setSessionFilter] = useState<'all' | 'upcoming' | 'past'>('all')
+   675→  const [searchQuery, setSearchQuery] = useState('')
+   676→  const [loading, setLoading] = useState(false)
+   677→
+   678→  // Try fetching sessions from API
+   679→  useEffect(() => {
+   680→    async function fetchSessions() {
+   681→      try {
+   682→        setLoading(true)
+   683→        const res = await fetch('/api/visio/sessions')
+   684→        if (res.ok) {
+   685→          const data = await res.json()
+   686→          if (Array.isArray(data) && data.length > 0) {
+   687→            setSessions(data)
+   688→          }
+   689→        }
+   690→      } catch {
+   691→        // API not available — use mock data
+   692→      } finally {
+   693→        setLoading(false)
+   694→      }
+   695→    }
+   696→    fetchSessions()
+   697→  }, [])
+   698→
+   699→  const selectedSession = useMemo(
+   700→    () => sessions.find((s) => s.id === selectedSessionId) ?? null,
+   701→    [sessions, selectedSessionId]
+   702→  )
+   703→
+   704→  const filteredSessions = useMemo(() => {
+   705→    return sessions.filter((s) => {
+   706→      const matchesSearch =
+   707→        !searchQuery ||
+   708→        s.beneficiaryName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+   709→        s.roomSubject.toLowerCase().includes(searchQuery.toLowerCase())
+   710→
+   711→      if (sessionFilter === 'upcoming') return matchesSearch && !isSessionPast(s)
+   712→      if (sessionFilter === 'past') return matchesSearch && isSessionPast(s)
+   713→      return matchesSearch
+   714→    })
+   715→  }, [sessions, sessionFilter, searchQuery])
+   716→
+   717→  const upcomingSessions = useMemo(
+   718→    () => sessions.filter((s) => !isSessionPast(s)),
+   719→    [sessions]
+   720→  )
+   721→  const activeSessions = useMemo(
+   722→    () => sessions.filter((s) => s.status === 'ACTIVE'),
+   723→    [sessions]
+   724→  )
+   725→
+   726→  const handleCreateSession = useCallback(
+   727→    (data: Omit<VisioSession, 'id' | 'status' | 'duration' | 'jitsiUrl'>) => {
+   728→      const newSession: VisioSession = {
+   729→        ...data,
+   730→        id: `vs-${Date.now()}`,
+   731→        status: 'WAITING',
+   732→        jitsiUrl: `${JITSI_SERVER}/${data.roomName}`,
+   733→      }
+   734→      setSessions((prev) => [newSession, ...prev])
+   735→      setSelectedSessionId(newSession.id)
+   736→
+   737→      // Try POST to API
+   738→      fetch('/api/visio/sessions', {
+   739→        method: 'POST',
+   740→        headers: { 'Content-Type': 'application/json' },
+   741→        body: JSON.stringify({
+   742→          beneficiaryId: data.beneficiaryId,
+   743→          roomSubject: data.roomSubject,
+   744→        }),
+   745→      }).catch(() => {
+   746→        // API not available — local state only
+   747→      })
+   748→    },
+   749→    []
+   750→  )
+   751→
+   752→  const handleJoinSession = useCallback((session: VisioSession) => {
+   753→    setSelectedSessionId(session.id)
+   754→    setIsInRoom(true)
+   755→  }, [])
+   756→
+   757→  const handleLeaveRoom = useCallback(() => {
+   758→    setIsInRoom(false)
+   759→    // Don't deselect — keep session info visible
+   760→  }, [])
+   761→
+   762→  // If in room, show full Jitsi view
+   763→  if (isInRoom && selectedSession) {
+   764→    return (
+   765→      <div className="h-[calc(100vh-8rem)] -m-4 md:-m-6 lg:-m-8">
+   766→        <JitsiRoomView session={selectedSession} onLeave={handleLeaveRoom} />
+   767→      </div>
+   768→    )
+   769→  }
+   770→
+   771→  return (
+   772→    <div className="space-y-5">
+   773→      {/* Header */}
+   774→      <motion.div
+   775→        initial={{ opacity: 0, y: -10 }}
+   776→        animate={{ opacity: 1, y: 0 }}
+   777→        transition={{ duration: 0.4 }}
+   778→        className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+   779→      >
+   780→        <div>
+   781→          <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+   782→            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#00838F] to-emerald-600">
+   783→              <Video className="h-4 w-4 text-white" />
+   784→            </div>
+   785→            Visioconference
+   786→          </h2>
+   787→          <p className="text-sm text-muted-foreground mt-1">
+   788→            {upcomingSessions.length} session{upcomingSessions.length > 1 ? 's' : ''} a venir
+   789→            {activeSessions.length > 0 && (
+   790→              <span className="text-emerald-600 font-medium">
+   791→                {' '}&middot; {activeSessions.length} en cours
+   792→              </span>
+   793→            )}
+   794→          </p>
+   795→        </div>
+   796→
+   797→        <CreateSessionDialog
+   798→          open={createDialogOpen}
+   799→          onOpenChange={setCreateDialogOpen}
+   800→          onCreate={handleCreateSession}
+   801→        />
+   802→
+   803→        <Button
+   804→          onClick={() => setCreateDialogOpen(true)}
+   805→          className="gap-2 bg-gradient-to-r from-[#00838F] to-emerald-600 hover:from-[#006978] hover:to-emerald-700 text-white shadow-lg shadow-teal-500/20"
+   806→        >
+   807→          <Plus className="h-4 w-4" />
+   808→          Creer une session visio
+   809→        </Button>
+   810→      </motion.div>
+   811→
+   812→      {/* Quick stats */}
+   813→      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+   814→        {[
+   815→          {
+   816→            label: 'A venir',
+   817→            value: upcomingSessions.filter((s) => s.status === 'WAITING').length,
+   818→            color: 'text-[#00838F]',
+   819→            bg: 'bg-[#00838F]/10',
+   820→          },
+   821→          {
+   822→            label: 'En cours',
+   823→            value: activeSessions.length,
+   824→            color: 'text-emerald-600',
+   825→            bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+   826→          },
+   827→          {
+   828→            label: 'Terminees',
+   829→            value: sessions.filter((s) => s.status === 'ENDED').length,
+   830→            color: 'text-muted-foreground',
+   831→            bg: 'bg-muted',
+   832→          },
+   833→          {
+   834→            label: 'Annulees',
+   835→            value: sessions.filter((s) => s.status === 'CANCELLED').length,
+   836→            color: 'text-red-500',
+   837→            bg: 'bg-red-50 dark:bg-red-900/20',
+   838→          },
+   839→        ].map((stat, i) => (
+   840→          <motion.div
+   841→            key={stat.label}
+   842→            initial={{ opacity: 0, y: 16 }}
+   843→            animate={{ opacity: 1, y: 0 }}
+   844→            transition={{ duration: 0.3, delay: i * 0.06 }}
+   845→          >
+   846→            <Card className="border-none shadow-sm bg-card">
+   847→              <CardContent className="p-4">
+   848→                <p className="text-xs text-muted-foreground">{stat.label}</p>
+   849→                <p className={`mt-1 text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+   850→              </CardContent>
+   851→            </Card>
+   852→          </motion.div>
+   853→        ))}
+   854→      </div>
+   855→
+   856→      {/* Main content: session list + detail/empty state */}
+   857→      <div className="flex flex-col lg:flex-row gap-5 min-h-[480px]">
+   858→        {/* Left panel: session list */}
+   859→        <motion.div
+   860→          initial={{ opacity: 0, x: -12 }}
+   861→          animate={{ opacity: 1, x: 0 }}
+   862→          transition={{ duration: 0.3, delay: 0.15 }}
+   863→          className="w-full lg:w-96 shrink-0"
+   864→        >
+   865→          <Card className="border-border h-full flex flex-col">
+   866→            {/* Search + filters */}
+   867→            <div className="p-4 space-y-3 border-b border-border">
+   868→              <div className="relative">
+   869→                <Users className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   870→                <Input
+   871→                  placeholder="Rechercher une session..."
+   872→                  value={searchQuery}
+   873→                  onChange={(e) => setSearchQuery(e.target.value)}
+   874→                  className="pl-9 h-9 text-sm"
+   875→                />
+   876→                {searchQuery && (
+   877→                  <button
+   878→                    className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+   879→                    onClick={() => setSearchQuery('')}
+   880→                  >
+   881→                    <X className="h-3.5 w-3.5" />
+   882→                  </button>
+   883→                )}
+   884→              </div>
+   885→
+   886→              {/* Filter tabs */}
+   887→              <div className="flex items-center gap-1 rounded-lg bg-muted p-1">
+   888→                {(['all', 'upcoming', 'past'] as const).map((filter) => (
+   889→                  <button
+   890→                    key={filter}
+   891→                    onClick={() => setSessionFilter(filter)}
+   892→                    className={cn(
+   893→                      'flex-1 text-xs font-medium py-1.5 px-3 rounded-md transition-all duration-200',
+   894→                      sessionFilter === filter
+   895→                        ? 'bg-card text-foreground shadow-sm'
+   896→                        : 'text-muted-foreground hover:text-foreground'
+   897→                    )}
+   898→                  >
+   899→                    {filter === 'all' ? 'Toutes' : filter === 'upcoming' ? 'A venir' : 'Passees'}
+   900→                  </button>
+   901→                ))}
+   902→              </div>
+   903→            </div>
+   904→
+   905→            {/* Session list */}
+   906→            <div className="flex-1 overflow-y-auto max-h-[400px] lg:max-h-[520px] p-3 space-y-2">
+   907→              {loading ? (
+   908→                <div className="flex items-center justify-center py-12">
+   909→                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+   910→                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+   911→                    <span className="text-xs">Chargement...</span>
+   912→                  </div>
+   913→                </div>
+   914→              ) : filteredSessions.length === 0 ? (
+   915→                <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+   916→                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted">
+   917→                    <AlertCircle className="h-6 w-6 text-muted-foreground" />
+   918→                  </div>
+   919→                  <p className="mt-3 text-sm font-medium text-foreground">Aucune session</p>
+   920→                  <p className="mt-1 text-xs text-muted-foreground">
+   921→                    {searchQuery
+   922→                      ? 'Aucun resultat pour votre recherche'
+   923→                      : sessionFilter !== 'all'
+   924→                        ? 'Aucune session dans cette categorie'
+   925→                        : 'Creez votre premiere session visio'}
+   926→                  </p>
+   927→                  {!searchQuery && sessionFilter === 'all' && (
+   928→                    <Button
+   929→                      variant="outline"
+   930→                      size="sm"
+   931→                      className="mt-3 gap-1.5 text-xs"
+   932→                      onClick={() => setCreateDialogOpen(true)}
+   933→                    >
+   934→                      <Plus className="h-3 w-3" />
+   935→                      Creer une session
+   936→                    </Button>
+   937→                  )}
+   938→                </div>
+   939→              ) : (
+   940→                <AnimatePresence mode="popLayout">
+   941→                  {filteredSessions.map((session) => (
+   942→                    <SessionCard
+   943→                      key={session.id}
+   944→                      session={session}
+   945→                      isSelected={selectedSessionId === session.id}
+   946→                      onSelect={() => {
+   947→                        setSelectedSessionId(session.id)
+   948→                        if (session.status === 'ACTIVE') {
+   949→                          setIsInRoom(true)
+   950→                        }
+   951→                      }}
+   952→                      onJoin={() => handleJoinSession(session)}
+   953→                    />
+   954→                  ))}
+   955→                </AnimatePresence>
+   956→              )}
+   957→            </div>
+   958→          </Card>
+   959→        </motion.div>
+   960→
+   961→        {/* Right panel: detail or empty state */}
+   962→        <motion.div
+   963→          initial={{ opacity: 0, x: 12 }}
+   964→          animate={{ opacity: 1, x: 0 }}
+   965→          transition={{ duration: 0.3, delay: 0.2 }}
+   966→          className="flex-1 min-h-[400px]"
+   967→        >
+   968→          <Card className="h-full border-border">
+   969→            <AnimatePresence mode="wait">
+   970→              {selectedSession && !isInRoom ? (
+   971→                <motion.div
+   972→                  key="detail"
+   973→                  initial={{ opacity: 0, y: 10 }}
+   974→                  animate={{ opacity: 1, y: 0 }}
+   975→                  exit={{ opacity: 0, y: -10 }}
+   976→                  transition={{ duration: 0.25 }}
+   977→                  className="h-full flex flex-col"
+   978→                >
+   979→                  {/* Session header */}
+   980→                  <div className="p-5 border-b border-border">
+   981→                    <div className="flex items-center gap-4">
+   982→                      <Avatar className="h-12 w-12">
+   983→                        <AvatarFallback
+   984→                          className={cn(
+   985→                            'text-sm font-bold',
+   986→                            isSessionActive(selectedSession)
+   987→                              ? 'bg-emerald-100 text-emerald-700'
+   988→                              : isSessionPast(selectedSession)
+   989→                                ? 'bg-muted text-muted-foreground'
+   990→                                : 'bg-primary/10 text-primary'
+   991→                          )}
+   992→                        >
+   993→                          {selectedSession.beneficiaryInitials}
+   994→                        </AvatarFallback>
+   995→                      </Avatar>
+   996→
+   997→                      <div className="flex-1 min-w-0">
+   998→                        <h3 className="text-base font-bold text-foreground">
+   999→                          {selectedSession.roomSubject}
+  1000→                        </h3>
+  1001→                        <p className="text-sm text-muted-foreground">
+  1002→                          avec {selectedSession.beneficiaryName}
+  1003→                        </p>
+  1004→                      </div>
+  1005→
+  1006→                      <Badge
+  1007→                        variant="secondary"
+  1008→                        className={cn(
+  1009→                          'text-xs px-3 py-1 gap-1.5',
+  1010→                          statusConfig[selectedSession.status].bg,
+  1011→                          statusConfig[selectedSession.status].color
+  1012→                        )}
+  1013→                      >
+  1014→                        <span
+  1015→                          className={cn(
+  1016→                            'inline-block h-2 w-2 rounded-full',
+  1017→                            statusConfig[selectedSession.status].dotColor
+  1018→                          )}
+  1019→                        />
+  1020→                        {statusConfig[selectedSession.status].label}
+  1021→                      </Badge>
+  1022→                    </div>
+  1023→
+  1024→                    {/* Session info */}
+  1025→                    <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+  1026→                      <div className="flex items-center gap-1.5">
+  1027→                        <Calendar className="h-4 w-4" />
+  1028→                        {formatDateFr(selectedSession.scheduledAt)}
+  1029→                      </div>
+  1030→                      {selectedSession.duration && (
+  1031→                        <div className="flex items-center gap-1.5">
+  1032→                          <Clock className="h-4 w-4" />
+  1033→                          {formatDuration(selectedSession.duration)}
+  1034→                        </div>
+  1035→                      )}
+  1036→                      <div className="flex items-center gap-1.5">
+  1037→                        <Users className="h-4 w-4" />
+  1038→                        {selectedSession.conseillerName}
+  1039→                      </div>
+  1040→                    </div>
+  1041→                  </div>
+  1042→
+  1043→                  {/* Session detail body */}
+  1044→                  <div className="flex-1 flex items-center justify-center p-8">
+  1045→                    {selectedSession.status === 'ACTIVE' ? (
+  1046→                      <div className="text-center space-y-4">
+  1047→                        <div className="relative inline-block">
+  1048→                          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-emerald-100 dark:bg-emerald-900/30">
+  1049→                            <Video className="h-10 w-10 text-emerald-600" />
+  1050→                          </div>
+  1051→                          <div className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500">
+  1052→                            <span className="flex h-2.5 w-2.5 rounded-full bg-white animate-ping" />
+  1053→                            <span className="absolute h-2.5 w-2.5 rounded-full bg-white" />
+  1054→                          </div>
+  1055→                        </div>
+  1056→                        <div>
+  1057→                          <h4 className="text-lg font-bold text-foreground">
+  1058→                            Session en cours
+  1059→                          </h4>
+  1060→                          <p className="text-sm text-muted-foreground mt-1">
+  1061→                            Cette session est active. Rejoignez la maintenant.
+  1062→                          </p>
+  1063→                        </div>
+  1064→                        <Button
+  1065→                          onClick={() => handleJoinSession(selectedSession)}
+  1066→                          className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+  1067→                          size="lg"
+  1068→                        >
+  1069→                          <Phone className="h-4 w-4" />
+  1070→                          Rejoindre la visioconference
+  1071→                        </Button>
+  1072→
+  1073→                        <Button
+  1074→                          variant="outline"
+  1075→                          size="sm"
+  1076→                          className="gap-1.5 mt-2"
+  1077→                          onClick={() => {
+  1078→                            navigator.clipboard.writeText(
+  1079→                              `${JITSI_SERVER}/${selectedSession.roomName}`
+  1080→                            )
+  1081→                          }}
+  1082→                        >
+  1083→                          <Copy className="h-3.5 w-3.5" />
+  1084→                          Copier le lien d&apos;invitation
+  1085→                        </Button>
+  1086→                      </div>
+  1087→                    ) : selectedSession.status === 'WAITING' ? (
+  1088→                      <div className="text-center space-y-4">
+  1089→                        <div className="inline-block">
+  1090→                          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-900/20">
+  1091→                            <Clock className="h-10 w-10 text-amber-600" />
+  1092→                          </div>
+  1093→                        </div>
+  1094→                        <div>
+  1095→                          <h4 className="text-lg font-bold text-foreground">
+  1096→                            Session planifiee
+  1097→                          </h4>
+  1098→                          <p className="text-sm text-muted-foreground mt-1">
+  1099→                            Cette session est en attente. Elle sera accessible a l&apos;heure prevue.
+  1100→                          </p>
+  1101→                        </div>
+  1102→
+  1103→                        {/* Countdown or time until */}
+  1104→                        <div className="inline-flex items-center gap-2 rounded-lg bg-muted px-4 py-2.5">
+  1105→                          <Calendar className="h-4 w-4 text-muted-foreground" />
+  1106→                          <span className="text-sm font-medium text-foreground">
+  1107→                            {formatDateFr(selectedSession.scheduledAt)}
+  1108→                          </span>
+  1109→                        </div>
+  1110→
+  1111→                        <div className="flex items-center justify-center gap-3">
+  1112→                          <Button
+  1113→                            variant="outline"
+  1114→                            size="sm"
+  1115→                            className="gap-1.5"
+  1116→                            onClick={() => {
+  1117→                              navigator.clipboard.writeText(
+  1118→                                `${JITSI_SERVER}/${selectedSession.roomName}`
+  1119→                              )
+  1120→                            }}
+  1121→                          >
+  1122→                            <Copy className="h-3.5 w-3.5" />
+  1123→                            Copier le lien
+  1124→                          </Button>
+  1125→                          <Button
+  1126→                            size="sm"
+  1127→                            variant="outline"
+  1128→                            className="gap-1.5"
+  1129→                            onClick={() => {
+  1130→                              setSessions((prev) =>
+  1131→                                prev.map((s) =>
+  1132→                                  s.id === selectedSession.id
+  1133→                                    ? { ...s, status: 'ACTIVE' as SessionStatus }
+  1134→                                    : s
+  1135→                                )
+  1136→                              )
+  1137→                            }}
+  1138→                          >
+  1139→                            <Video className="h-3.5 w-3.5 text-emerald-600" />
+  1140→                            Demarrer maintenant
+  1141→                          </Button>
+  1142→                        </div>
+  1143→                      </div>
+  1144→                    ) : (
+  1145→                      <div className="text-center space-y-4">
+  1146→                        <div className="inline-block">
+  1147→                          <div className={cn(
+  1148→                            'flex h-20 w-20 items-center justify-center rounded-2xl',
+  1149→                            selectedSession.status === 'CANCELLED'
+  1150→                              ? 'bg-red-100 dark:bg-red-900/20'
+  1151→                              : 'bg-muted'
+  1152→                          )}>
+  1153→                            {selectedSession.status === 'CANCELLED' ? (
+  1154→                              <X className="h-10 w-10 text-red-500" />
+  1155→                            ) : (
+  1156→                              <CheckCircle2 className="h-10 w-10 text-muted-foreground" />
+  1157→                            )}
+  1158→                          </div>
+  1159→                        </div>
+  1160→                        <div>
+  1161→                          <h4 className="text-lg font-bold text-foreground">
+  1162→                            {selectedSession.status === 'CANCELLED'
+  1163→                              ? 'Session annulee'
+  1164→                              : 'Session terminee'}
+  1165→                          </h4>
+  1166→                          <p className="text-sm text-muted-foreground mt-1">
+  1167→                            {selectedSession.status === 'CANCELLED'
+  1168→                              ? 'Cette session a ete annulee.'
+  1169→                              : selectedSession.duration
+  1170→                                ? `Session de ${formatDuration(selectedSession.duration)} terminee avec succes.`
+  1171→                                : 'Session terminee.'}
+  1172→                          </p>
+  1173→                        </div>
+  1174→                      </div>
+  1175→                    )}
+  1176→                  </div>
+  1177→                </motion.div>
+  1178→              ) : (
+  1179→                <motion.div
+  1180→                  key="empty"
+  1181→                  initial={{ opacity: 0, scale: 0.98 }}
+  1182→                  animate={{ opacity: 1, scale: 1 }}
+  1183→                  exit={{ opacity: 0, scale: 0.98 }}
+  1184→                  transition={{ duration: 0.25 }}
+  1185→                  className="h-full"
+  1186→                >
+  1187→                  <EmptyState onCreateClick={() => setCreateDialogOpen(true)} />
+  1188→                </motion.div>
+  1189→              )}
+  1190→            </AnimatePresence>
+  1191→          </Card>
+  1192→        </motion.div>
+  1193→      </div>
+  1194→    </div>
+  1195→  )
+  1196→}
+  1197→

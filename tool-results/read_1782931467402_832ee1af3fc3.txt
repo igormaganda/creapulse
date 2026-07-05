@@ -1,0 +1,758 @@
+     1→'use client'
+     2→
+     3→import { useEffect, useMemo, useState } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import { toast } from 'sonner'
+     6→import { cn } from '@/lib/utils'
+     7→import { useBureauStore } from '@/components/bureau/bureau-store'
+     8→
+     9→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    10→import { Badge } from '@/components/ui/badge'
+    11→import { Button } from '@/components/ui/button'
+    12→import { Progress } from '@/components/ui/progress'
+    13→import { Separator } from '@/components/ui/separator'
+    14→import { Skeleton } from '@/components/ui/skeleton'
+    15→
+    16→import {
+    17→  CheckCircle2,
+    18→  Circle,
+    19→  Clock,
+    20→  Star,
+    21→  Target,
+    22→  ArrowRight,
+    23→  Rocket,
+    24→  Calendar,
+    25→  BookOpen,
+    26→  Users,
+    27→  BarChart3,
+    28→  RefreshCw,
+    29→  Play,
+    30→  Sparkles,
+    31→  Trophy,
+    32→  Timer,
+    33→} from 'lucide-react'
+    34→
+    35→// ─── Types ──────────────────────────────────────────────
+    36→
+    37→type MilestoneStatus = 'done' | 'in_progress' | 'upcoming' | 'overdue'
+    38→
+    39→interface Milestone {
+    40→  day: string
+    41→  label: string
+    42→  description: string
+    43→  status: MilestoneStatus
+    44→  completedAt?: string
+    45→  plannedDate?: string
+    46→}
+    47→
+    48→interface AtelierSession {
+    49→  id: string
+    50→  title: string
+    51→  description: string
+    52→  completed: boolean
+    53→  completedAt?: string
+    54→  category: string
+    55→}
+    56→
+    57→interface PAAProgram {
+    58→  id: string
+    59→  startDate: string
+    60→  status: 'active' | 'completed' | 'not_started'
+    61→  milestones: Milestone[]
+    62→  ateliers: AtelierSession[]
+    63→  objectifsCount: number
+    64→  objectifsAvgProgress: number
+    65→  satisfactionScore: number | null
+    66→  overallProgress: number
+    67→  daysRemaining: number
+    68→  daysElapsed: number
+    69→}
+    70→
+    71→// ─── Animation Variants ─────────────────────────────────────
+    72→
+    73→const containerVariants = {
+    74→  hidden: { opacity: 0 },
+    75→  visible: {
+    76→    opacity: 1,
+    77→    transition: { staggerChildren: 0.08 },
+    78→  },
+    79→}
+    80→
+    81→const itemVariants = {
+    82→  hidden: { opacity: 0, y: 16 },
+    83→  visible: {
+    84→    opacity: 1,
+    85→    y: 0,
+    86→    transition: { duration: 0.4, ease: 'easeOut' },
+    87→  },
+    88→}
+    89→
+    90→// ─── Helper: Circular Progress ──────────────────────────────
+    91→
+    92→function CircularProgress({
+    93→  value,
+    94→  size = 100,
+    95→  strokeWidth = 8,
+    96→  className,
+    97→  label,
+    98→}: {
+    99→  value: number
+   100→  size?: number
+   101→  strokeWidth?: number
+   102→  className?: string
+   103→  label?: string
+   104→}) {
+   105→  const radius = (size - strokeWidth) / 2
+   106→  const circumference = 2 * Math.PI * radius
+   107→  const offset = circumference - (value / 100) * circumference
+   108→
+   109→  const getColor = (v: number) => {
+   110→    if (v >= 80) return 'text-emerald-400'
+   111→    if (v >= 40) return 'text-amber-400'
+   112→    return 'text-neutral-400'
+   113→  }
+   114→
+   115→  return (
+   116→    <div className={cn('relative inline-flex items-center justify-center', className)}>
+   117→      <svg width={size} height={size} className="transform -rotate-90">
+   118→        <circle
+   119→          cx={size / 2}
+   120→          cy={size / 2}
+   121→          r={radius}
+   122→          fill="none"
+   123→          stroke="currentColor"
+   124→          strokeWidth={strokeWidth}
+   125→          className="text-muted/40"
+   126→        />
+   127→        <circle
+   128→          cx={size / 2}
+   129→          cy={size / 2}
+   130→          r={radius}
+   131→          fill="none"
+   132→          stroke="currentColor"
+   133→          strokeWidth={strokeWidth}
+   134→          strokeDasharray={circumference}
+   135→          strokeDashoffset={offset}
+   136→          strokeLinecap="round"
+   137→          className={cn(getColor(value), 'transition-all duration-1000 ease-out')}
+   138→        />
+   139→      </svg>
+   140→      <div className="absolute flex flex-col items-center">
+   141→        <span className="text-lg font-bold text-foreground">{value}%</span>
+   142→        {label && (
+   143→          <span className="text-[9px] text-muted-foreground leading-tight">{label}</span>
+   144→        )}
+   145→      </div>
+   146→    </div>
+   147→  )
+   148→}
+   149→
+   150→// ─── Loading Skeleton ──────────────────────────────────────
+   151→
+   152→function LoadingSkeleton() {
+   153→  return (
+   154→    <div className="p-4 md:p-6 space-y-6">
+   155→      <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+   156→        <div className="flex-1 space-y-3">
+   157→          <Skeleton className="h-8 w-80" />
+   158→          <Skeleton className="h-4 w-96" />
+   159→        </div>
+   160→        <Skeleton className="h-24 w-24 rounded-full" />
+   161→      </div>
+   162→
+   163→      <div className="space-y-4">
+   164→        {Array.from({ length: 5 }).map((_, i) => (
+   165→          <div key={i} className="flex items-center gap-4">
+   166→            <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+   167→            <div className="flex-1 space-y-2">
+   168→              <Skeleton className="h-5 w-48" />
+   169→              <Skeleton className="h-3 w-64" />
+   170→            </div>
+   171→            <Skeleton className="h-6 w-20 rounded-full" />
+   172→          </div>
+   173→        ))}
+   174→      </div>
+   175→
+   176→      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+   177→        {Array.from({ length: 3 }).map((_, i) => (
+   178→          <Skeleton key={i} className="h-32 rounded-xl" />
+   179→        ))}
+   180→      </div>
+   181→
+   182→      <div className="grid grid-cols-3 gap-3">
+   183→        {Array.from({ length: 9 }).map((_, i) => (
+   184→          <Skeleton key={i} className="h-24 rounded-xl" />
+   185→        ))}
+   186→      </div>
+   187→    </div>
+   188→  )
+   189→}
+   190→
+   191→// ─── Milestone Status Helpers ──────────────────────────────
+   192→
+   193→function getMilestoneIcon(status: MilestoneStatus) {
+   194→  switch (status) {
+   195→    case 'done':
+   196→      return <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+   197→    case 'in_progress':
+   198→      return <Clock className="w-5 h-5 text-amber-400 animate-pulse" />
+   199→    case 'overdue':
+   200→      return <Circle className="w-5 h-5 text-rose-400" />
+   201→    default:
+   202→      return <Circle className="w-5 h-5 text-muted-foreground/40" />
+   203→  }
+   204→}
+   205→
+   206→function getMilestoneBadge(status: MilestoneStatus) {
+   207→  const config = {
+   208→    done: { label: 'Terminé', className: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
+   209→    in_progress: { label: 'En cours', className: 'bg-amber-500/15 text-amber-400 border-amber-500/30' },
+   210→    overdue: { label: 'En retard', className: 'bg-rose-500/15 text-rose-400 border-rose-500/30' },
+   211→    upcoming: { label: 'À venir', className: 'bg-neutral-500/15 text-neutral-400 border-neutral-500/30' },
+   212→  }
+   213→  const c = config[status]
+   214→  return <Badge className={cn('text-[10px] px-2 py-0 border', c.className)}>{c.label}</Badge>
+   215→}
+   216→
+   217→function getMilestoneLineClass(status: MilestoneStatus, isLast: boolean) {
+   218→  if (isLast) return ''
+   219→  if (status === 'done') return 'bg-emerald-500/40'
+   220→  if (status === 'in_progress') return 'bg-gradient-to-b from-amber-500/40 to-muted/20'
+   221→  return 'bg-muted/20'
+   222→}
+   223→
+   224→// ─── Atelier Category Colors ──────────────────────────────
+   225→
+   226→const ATELIER_CATEGORIES: Record<string, { color: string; icon: typeof BookOpen }> = {
+   227→  identite: { color: 'bg-purple-500/15 text-purple-400', icon: Users },
+   228→  marche: { color: 'bg-teal-500/15 text-teal-400', icon: BarChart3 },
+   229→  finance: { color: 'bg-amber-500/15 text-amber-400', icon: Target },
+   230→  operationnel: { color: 'bg-sky-500/15 text-sky-400', icon: Rocket },
+   231→  communication: { color: 'bg-rose-500/15 text-rose-400', icon: Sparkles },
+   232→  juridique: { color: 'bg-indigo-500/15 text-indigo-400', icon: BookOpen },
+   233→}
+   234→
+   235→function getAtelierCategoryStyle(category: string) {
+   236→  return ATELIER_CATEGORIES[category] || ATELIER_CATEGORIES.identite
+   237→}
+   238→
+   239→// ─── Default Program (when API returns no data) ──────────────
+   240→
+   241→const DEFAULT_MILESTONES: Milestone[] = [
+   242→  { day: 'J0', label: 'Prise de contact', description: 'Démarrage du programme PAA', status: 'upcoming' },
+   243→  { day: 'J10', label: 'Entretien Diagnostic', description: 'Diagnostic entrepreneurial approfondi', status: 'upcoming' },
+   244→  { day: 'J10-J60', label: 'Ateliers thématiques', description: 'Minimum 3 ateliers parmi les 9 proposés', status: 'upcoming' },
+   245→  { day: 'J30', label: 'Entretien de Suivi', description: 'Point de progression à mi-parcours', status: 'upcoming' },
+   246→  { day: 'J60', label: 'Entretien de Conclusion', description: 'Bilan final du programme', status: 'upcoming' },
+   247→  { day: 'J90', label: 'Suivi post-programme', description: 'Accompagnement après la fin du programme', status: 'upcoming' },
+   248→]
+   249→
+   250→const DEFAULT_ATELIERS: AtelierSession[] = [
+   251→  { id: 'a1', title: 'Identité entrepreneuriale', description: 'Clarifier votre vision et valeurs', completed: false, category: 'identite' },
+   252→  { id: 'a2', title: 'Étude de marché', description: 'Analyser votre environnement concurrentiel', completed: false, category: 'marche' },
+   253→  { id: 'a3', title: 'Business Model', description: 'Structurer votre modèle économique', completed: false, category: 'marche' },
+   254→  { id: 'a4', title: 'Plan financier', description: 'Construire vos prévisions financières', completed: false, category: 'finance' },
+   255→  { id: 'a5', title: 'Marketing digital', description: 'Définir votre stratégie de communication', completed: false, category: 'communication' },
+   256→  { id: 'a6', title: 'Juridique & Statuts', description: 'Choisir le bon statut juridique', completed: false, category: 'juridique' },
+   257→  { id: 'a7', title: 'Gestion opérationnelle', description: 'Organiser votre activité au quotidien', completed: false, category: 'operationnel' },
+   258→  { id: 'a8', title: 'Financement & Aides', description: 'Identifier les dispositifs de financement', completed: false, category: 'finance' },
+   259→  { id: 'a9', title: 'Pitch & Réseau', description: 'Préparer votre discours et développer votre réseau', completed: false, category: 'communication' },
+   260→]
+   261→
+   262→// ─── Main Component ──────────────────────────────────────
+   263→
+   264→export function ParcoursPaaModule() {
+   265→  const [program, setProgram] = useState<PAAProgram | null>(null)
+   266→  const [loading, setLoading] = useState(true)
+   267→  const [starting, setStarting] = useState(false)
+   268→  const setModule = useBureauStore((s) => s.setModule)
+   269→
+   270→  // Fetch program data on mount
+   271→  useEffect(() => {
+   272→    const fetchProgram = async () => {
+   273→      try {
+   274→        const res = await fetch('/api/paa/program', { credentials: 'include' })
+   275→        if (res.ok) {
+   276→          const json = await res.json()
+   277→          if (json.success && json.data) {
+   278→            setProgram(json.data)
+   279→          }
+   280→        }
+   281→      } catch {
+   282→        // Silently fail — will show "start program" state
+   283→      } finally {
+   284→        setLoading(false)
+   285→      }
+   286→    }
+   287→    fetchProgram()
+   288→  }, [])
+   289→
+   290→  // Derived data
+   291→  const milestones = program?.milestones || DEFAULT_MILESTONES
+   292→  const ateliers = program?.ateliers || DEFAULT_ATELIERS
+   293→  const overallProgress = program?.overallProgress || 0
+   294→  const daysRemaining = program?.daysRemaining ?? 60
+   295→  const objectifsCount = program?.objectifsCount || 0
+   296→  const objectifsAvgProgress = program?.objectifsAvgProgress || 0
+   297→  const satisfactionScore = program?.satisfactionScore
+   298→  const completedAteliers = ateliers.filter((a) => a.completed).length
+   299→  const hasProgram = program && program.status !== 'not_started'
+   300→
+   301→  // Handle start program
+   302→  const handleStartProgram = async () => {
+   303→    setStarting(true)
+   304→    try {
+   305→      const res = await fetch('/api/paa/program', {
+   306→        method: 'POST',
+   307→        headers: { 'Content-Type': 'application/json' },
+   308→        credentials: 'include',
+   309→      })
+   310→      if (res.ok) {
+   311→        const json = await res.json()
+   312→        if (json.success && json.data) {
+   313→          setProgram(json.data)
+   314→          toast.success('Programme PAA démarré !', {
+   315→            description: 'Votre parcours de 60 jours commence maintenant.',
+   316→          })
+   317→        }
+   318→      }
+   319→    } catch {
+   320→      toast.error('Erreur', {
+   321→        description: 'Impossible de démarrer le programme. Réessayez plus tard.',
+   322→      })
+   323→    } finally {
+   324→      setStarting(false)
+   325→    }
+   326→  }
+   327→
+   328→  // Navigation handlers
+   329→  const handleNavigateObjectifs = () => setModule('objectifs-smart')
+   330→  const handleNavigateSwot = () => setModule('swot')
+   331→
+   332→  // Loading state
+   333→  if (loading) return <LoadingSkeleton />
+   334→
+   335→  // No program state — show start button
+   336→  if (!hasProgram) {
+   337→    return (
+   338→      <motion.div
+   339→        variants={containerVariants}
+   340→        initial="hidden"
+   341→        animate="visible"
+   342→        className="p-4 md:p-6 space-y-6"
+   343→      >
+   344→        <motion.div variants={itemVariants}>
+   345→          <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+   346→            <div className="flex-1 space-y-2">
+   347→              <div className="flex items-center gap-3">
+   348→                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-teal-600 shadow-lg">
+   349→                  <Rocket className="h-6 w-6 text-white" />
+   350→                </div>
+   351→                <div>
+   352→                  <h1 className="text-xl md:text-2xl font-bold text-foreground">
+   353→                    Parcours PAA — Programme d&apos;Accompagnement à l&apos;Amorçage
+   354→                  </h1>
+   355→                  <p className="text-sm text-muted-foreground">
+   356→                    Programme structuré de 60 jours pour lancer votre projet entrepreneurial
+   357→                  </p>
+   358→                </div>
+   359→              </div>
+   360→            </div>
+   361→          </div>
+   362→        </motion.div>
+   363→
+   364→        <motion.div variants={itemVariants}>
+   365→          <Card className="border-teal-500/20 bg-teal-500/5">
+   366→            <CardContent className="flex flex-col items-center gap-6 py-12">
+   367→              <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-teal-500/15">
+   368→                <Play className="h-10 w-10 text-teal-400" />
+   369→              </div>
+   370→              <div className="text-center space-y-2">
+   371→                <h2 className="text-lg font-semibold text-foreground">
+   372→                  Prêt à démarrer votre parcours PAA ?
+   373→                </h2>
+   374→                <p className="text-sm text-muted-foreground max-w-md">
+   375→                  Le Programme d&apos;Accompagnement à l&apos;Amorçage vous guide sur 60 jours à travers
+   376→                  des entretiens, ateliers thématiques et suivis personnalisés.
+   377→                </p>
+   378→              </div>
+   379→              <div className="grid grid-cols-3 gap-6 text-center">
+   380→                <div>
+   381→                  <p className="text-2xl font-bold text-teal-400">6</p>
+   382→                  <p className="text-xs text-muted-foreground">Jalons clés</p>
+   383→                </div>
+   384→                <div>
+   385→                  <p className="text-2xl font-bold text-teal-400">9</p>
+   386→                  <p className="text-xs text-muted-foreground">Ateliers thématiques</p>
+   387→                </div>
+   388→                <div>
+   389→                  <p className="text-2xl font-bold text-teal-400">60</p>
+   390→                  <p className="text-xs text-muted-foreground">Jours de programme</p>
+   391→                </div>
+   392→              </div>
+   393→              <Button
+   394→                onClick={handleStartProgram}
+   395→                disabled={starting}
+   396→                size="lg"
+   397→                className="gap-2 bg-teal-600 hover:bg-teal-700"
+   398→              >
+   399→                {starting ? (
+   400→                  <RefreshCw className="h-4 w-4 animate-spin" />
+   401→                ) : (
+   402→                  <Rocket className="h-4 w-4" />
+   403→                )}
+   404→                Démarrer mon programme PAA
+   405→              </Button>
+   406→            </CardContent>
+   407→          </Card>
+   408→        </motion.div>
+   409→      </motion.div>
+   410→    )
+   411→  }
+   412→
+   413→  // Active program view
+   414→  return (
+   415→    <motion.div
+   416→      variants={containerVariants}
+   417→      initial="hidden"
+   418→      animate="visible"
+   419→      className="p-4 md:p-6 space-y-6"
+   420→    >
+   421→      {/* ─── Header ─── */}
+   422→      <motion.div
+   423→        variants={itemVariants}
+   424→        className="flex flex-col md:flex-row items-start md:items-center gap-6"
+   425→      >
+   426→        <div className="flex-1 space-y-2">
+   427→          <div className="flex items-center gap-3">
+   428→            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-teal-600 shadow-lg">
+   429→              <Rocket className="h-6 w-6 text-white" />
+   430→            </div>
+   431→            <div>
+   432→              <div className="flex items-center gap-3">
+   433→                <h1 className="text-xl md:text-2xl font-bold text-foreground">
+   434→                  Parcours PAA — Programme d&apos;Accompagnement à l&apos;Amorçage
+   435→                </h1>
+   436→                {daysRemaining > 0 && (
+   437→                  <Badge className="bg-teal-500/15 text-teal-400 border-teal-500/30 text-[10px]">
+   438→                    <Timer className="w-3 h-3 mr-1" />
+   439→                    {daysRemaining} jour{daysRemaining > 1 ? 's' : ''} restant{daysRemaining > 1 ? 's' : ''}
+   440→                  </Badge>
+   441→                )}
+   442→                {program?.status === 'completed' && (
+   443→                  <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px]">
+   444→                    <Trophy className="w-3 h-3 mr-1" />
+   445→                    Terminé
+   446→                  </Badge>
+   447→                )}
+   448→              </div>
+   449→              <p className="text-sm text-muted-foreground">
+   450→                {program?.startDate
+   451→                  ? `Démarré le ${new Date(program.startDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`
+   452→                  : 'Programme d\'accompagnement entrepreneurial structuré'}
+   453→                {' · '}
+   454→                {completedAteliers} atelier{completedAteliers > 1 ? 's' : ''} terminé{completedAteliers > 1 ? 's' : ''} sur {ateliers.length}
+   455→              </p>
+   456→            </div>
+   457→          </div>
+   458→        </div>
+   459→
+   460→        <CircularProgress
+   461→          value={overallProgress}
+   462→          size={96}
+   463→          strokeWidth={7}
+   464→          label="Progression"
+   465→        />
+   466→      </motion.div>
+   467→
+   468→      {/* ─── Quick Stats Row ─── */}
+   469→      <motion.div variants={itemVariants}>
+   470→        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+   471→          <Card className="border-none shadow-sm bg-card">
+   472→            <CardContent className="p-4 flex items-center gap-3">
+   473→              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-500/15">
+   474→                <Calendar className="h-5 w-5 text-teal-400" />
+   475→              </div>
+   476→              <div>
+   477→                <p className="text-xs text-muted-foreground">Jours écoulés</p>
+   478→                <p className="text-xl font-bold text-foreground">{program?.daysElapsed || 0}</p>
+   479→              </div>
+   480→            </CardContent>
+   481→          </Card>
+   482→          <Card className="border-none shadow-sm bg-card">
+   483→            <CardContent className="p-4 flex items-center gap-3">
+   484→              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/15">
+   485→                <BookOpen className="h-5 w-5 text-purple-400" />
+   486→              </div>
+   487→              <div>
+   488→                <p className="text-xs text-muted-foreground">Ateliers</p>
+   489→                <p className="text-xl font-bold text-foreground">{completedAteliers}/{ateliers.length}</p>
+   490→              </div>
+   491→            </CardContent>
+   492→          </Card>
+   493→          <Card className="border-none shadow-sm bg-card">
+   494→            <CardContent className="p-4 flex items-center gap-3">
+   495→              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15">
+   496→                <Target className="h-5 w-5 text-amber-400" />
+   497→              </div>
+   498→              <div>
+   499→                <p className="text-xs text-muted-foreground">Objectifs SMART</p>
+   500→                <p className="text-xl font-bold text-foreground">{objectifsCount} ({objectifsAvgProgress}%)</p>
+   501→              </div>
+   502→            </CardContent>
+   503→          </Card>
+   504→          <Card className="border-none shadow-sm bg-card">
+   505→            <CardContent className="p-4 flex items-center gap-3">
+   506→              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/15">
+   507→                <Star className="h-5 w-5 text-rose-400" />
+   508→              </div>
+   509→              <div>
+   510→                <p className="text-xs text-muted-foreground">Satisfaction</p>
+   511→                <p className="text-xl font-bold text-foreground">
+   512→                  {satisfactionScore !== null ? `${satisfactionScore}/5` : '—'}
+   513→                </p>
+   514→              </div>
+   515→            </CardContent>
+   516→          </Card>
+   517→        </div>
+   518→      </motion.div>
+   519→
+   520→      <Separator className="opacity-40" />
+   521→
+   522→      {/* ─── Timeline Visualization ─── */}
+   523→      <motion.div variants={itemVariants}>
+   524→        <Card>
+   525→          <CardHeader className="pb-3">
+   526→            <div className="flex items-center gap-2">
+   527→              <ArrowRight className="w-5 h-5 text-teal-400" />
+   528→              <CardTitle className="text-sm font-semibold">Jalons du Programme</CardTitle>
+   529→            </div>
+   530→          </CardHeader>
+   531→          <CardContent>
+   532→            <div className="space-y-0">
+   533→              {milestones.map((milestone, index) => {
+   534→                const isLast = index === milestones.length - 1
+   535→                return (
+   536→                  <div key={milestone.day} className="flex gap-4">
+   537→                    {/* Left: timeline line + dot */}
+   538→                    <div className="flex flex-col items-center">
+   539→                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-border bg-card z-10">
+   540→                        {getMilestoneIcon(milestone.status)}
+   541→                      </div>
+   542→                      {!isLast && (
+   543→                        <div className={cn('w-0.5 flex-1 min-h-[40px]', getMilestoneLineClass(milestone.status, isLast))} />
+   544→                      )}
+   545→                    </div>
+   546→
+   547→                    {/* Right: content */}
+   548→                    <div className={cn('pb-6 flex-1', isLast && 'pb-0')}>
+   549→                      <div className="flex flex-wrap items-center gap-2">
+   550→                        <Badge variant="outline" className="text-[10px] px-2 py-0 font-mono">
+   551→                          {milestone.day}
+   552→                        </Badge>
+   553→                        <p className="text-sm font-semibold text-foreground">{milestone.label}</p>
+   554→                        {getMilestoneBadge(milestone.status)}
+   555→                      </div>
+   556→                      <p className="text-xs text-muted-foreground mt-1">{milestone.description}</p>
+   557→                      {milestone.completedAt && (
+   558→                        <p className="text-[10px] text-muted-foreground mt-1">
+   559→                          Terminé le {new Date(milestone.completedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+   560→                        </p>
+   561→                      )}
+   562→                    </div>
+   563→                  </div>
+   564→                )
+   565→              })}
+   566→            </div>
+   567→          </CardContent>
+   568→        </Card>
+   569→      </motion.div>
+   570→
+   571→      <Separator className="opacity-40" />
+   572→
+   573→      {/* ─── Ateliers Grid ─── */}
+   574→      <motion.div variants={itemVariants}>
+   575→        <div className="flex items-center justify-between mb-3">
+   576→          <div className="flex items-center gap-2">
+   577→            <BookOpen className="w-5 h-5 text-purple-400" />
+   578→            <h3 className="text-sm font-semibold text-foreground">Ateliers Thématiques</h3>
+   579→            <Badge
+   580→              className={cn(
+   581→                'text-[10px] px-2 py-0 border',
+   582→                completedAteliers >= 3
+   583→                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+   584→                  : 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+   585→              )}
+   586→            >
+   587→              {completedAteliers >= 3 ? 'Minimum atteint ✓' : `${completedAteliers}/3 minimum`}
+   588→            </Badge>
+   589→          </div>
+   590→        </div>
+   591→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   592→          {ateliers.map((atelier) => {
+   593→            const catStyle = getAtelierCategoryStyle(atelier.category)
+   594→            const CatIcon = catStyle.icon
+   595→            return (
+   596→              <motion.div
+   597→                key={atelier.id}
+   598→                whileHover={{ y: -2 }}
+   599→                transition={{ duration: 0.2 }}
+   600→              >
+   601→                <Card
+   602→                  className={cn(
+   603→                    'h-full transition-all duration-200 hover:shadow-md',
+   604→                    atelier.completed
+   605→                      ? 'border-emerald-500/20 bg-emerald-500/5'
+   606→                      : 'border-border'
+   607→                  )}
+   608→                >
+   609→                  <CardContent className="p-4">
+   610→                    <div className="flex items-start gap-3">
+   611→                      <div className={cn(
+   612→                        'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+   613→                        catStyle.color
+   614→                      )}>
+   615→                        <CatIcon className="w-4 h-4" />
+   616→                      </div>
+   617→                      <div className="flex-1 min-w-0">
+   618→                        <div className="flex items-center gap-2">
+   619→                          <p className={cn(
+   620→                            'text-xs font-semibold truncate',
+   621→                            atelier.completed ? 'text-emerald-300' : 'text-foreground'
+   622→                          )}>
+   623→                            {atelier.title}
+   624→                          </p>
+   625→                          {atelier.completed && (
+   626→                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+   627→                          )}
+   628→                        </div>
+   629→                        <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
+   630→                          {atelier.description}
+   631→                        </p>
+   632→                      </div>
+   633→                    </div>
+   634→                  </CardContent>
+   635→                </Card>
+   636→              </motion.div>
+   637→            )
+   638→          })}
+   639→        </div>
+   640→      </motion.div>
+   641→
+   642→      <Separator className="opacity-40" />
+   643→
+   644→      {/* ─── Objectifs SMART Summary ─── */}
+   645→      <motion.div variants={itemVariants}>
+   646→        <Card>
+   647→          <CardContent className="p-4">
+   648→            <div className="flex items-center justify-between">
+   649→              <div className="flex items-center gap-3">
+   650→                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/15">
+   651→                  <Target className="h-5 h-5 text-amber-400" />
+   652→                </div>
+   653→                <div>
+   654→                  <p className="text-sm font-semibold text-foreground">Objectifs SMART</p>
+   655→                  <p className="text-xs text-muted-foreground">
+   656→                    {objectifsCount} objectif{objectifsCount > 1 ? 's' : ''} défini{objectifsCount > 1 ? 's' : ''}
+   657→                    {objectifsCount > 0 && ` · Progression moyenne : ${objectifsAvgProgress}%`}
+   658→                  </p>
+   659→                </div>
+   660→              </div>
+   661→              {objectifsCount > 0 && (
+   662→                <div className="w-32">
+   663→                  <Progress value={objectifsAvgProgress} className="h-2" />
+   664→                </div>
+   665→              )}
+   666→              <Button
+   667→                variant="outline"
+   668→                size="sm"
+   669→                className="gap-1.5 text-xs"
+   670→                onClick={handleNavigateObjectifs}
+   671→              >
+   672→                Voir mes Objectifs SMART
+   673→                <ArrowRight className="w-3 h-3" />
+   674→              </Button>
+   675→            </div>
+   676→          </CardContent>
+   677→        </Card>
+   678→      </motion.div>
+   679→
+   680→      {/* ─── Satisfaction Score ─── */}
+   681→      {satisfactionScore !== null && (
+   682→        <motion.div variants={itemVariants}>
+   683→          <Card>
+   684→            <CardContent className="p-4">
+   685→              <div className="flex items-center justify-between">
+   686→                <div className="flex items-center gap-3">
+   687→                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/15">
+   688→                    <Star className="h-5 h-5 text-rose-400" />
+   689→                  </div>
+   690→                  <div>
+   691→                    <p className="text-sm font-semibold text-foreground">Satisfaction</p>
+   692→                    <p className="text-xs text-muted-foreground">
+   693→                      Note moyenne des retours sur le programme
+   694→                    </p>
+   695→                  </div>
+   696→                </div>
+   697→                <div className="flex items-center gap-1.5">
+   698→                  {Array.from({ length: 5 }).map((_, i) => (
+   699→                    <Star
+   700→                      key={i}
+   701→                      className={cn(
+   702→                        'w-5 h-5',
+   703→                        i < Math.round(satisfactionScore)
+   704→                          ? 'text-amber-400 fill-amber-400'
+   705→                          : 'text-muted/30'
+   706→                      )}
+   707→                    />
+   708→                  ))}
+   709→                  <span className="text-lg font-bold text-foreground ml-2">{satisfactionScore}</span>
+   710→                </div>
+   711→              </div>
+   712→            </CardContent>
+   713→          </Card>
+   714→        </motion.div>
+   715→      )}
+   716→
+   717→      {/* ─── SWOT Action ─── */}
+   718→      <motion.div variants={itemVariants}>
+   719→        <Card className="border-indigo-500/20 bg-indigo-500/5">
+   720→          <CardContent className="p-4">
+   721→            <div className="flex items-center justify-between">
+   722→              <div className="flex items-center gap-3">
+   723→                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/15">
+   724→                  <BarChart3 className="h-5 h-5 text-indigo-400" />
+   725→                </div>
+   726→                <div>
+   727→                  <p className="text-sm font-semibold text-foreground">Matrice SWOT</p>
+   728→                  <p className="text-xs text-muted-foreground">
+   729→                    Analysez vos forces, faiblesses, opportunités et menaces
+   730→                  </p>
+   731→                </div>
+   732→              </div>
+   733→              <Button
+   734→                variant="outline"
+   735→                size="sm"
+   736→                className="gap-1.5 text-xs border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10"
+   737→                onClick={handleNavigateSwot}
+   738→              >
+   739→                Voir ma Matrice SWOT
+   740→                <ArrowRight className="w-3 h-3" />
+   741→              </Button>
+   742→            </div>
+   743→          </CardContent>
+   744→        </Card>
+   745→      </motion.div>
+   746→
+   747→      {/* ─── Footer Info ─── */}
+   748→      <motion.div
+   749→        variants={itemVariants}
+   750→        className="flex items-center justify-center gap-2 py-4"
+   751→      >
+   752→        <p className="text-[11px] text-muted-foreground/60">
+   753→          Programme d&apos;Accompagnement à l&apos;Amorçage · 60 jours · Minimum 3 ateliers requis
+   754→        </p>
+   755→      </motion.div>
+   756→    </motion.div>
+   757→  )
+   758→}

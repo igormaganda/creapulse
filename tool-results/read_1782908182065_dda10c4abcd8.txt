@@ -1,0 +1,2002 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import ReactMarkdown from 'react-markdown'
+     6→
+     7→import { Button } from '@/components/ui/button'
+     8→import { Input } from '@/components/ui/input'
+     9→import { Textarea } from '@/components/ui/textarea'
+    10→import { Label } from '@/components/ui/label'
+    11→import { Badge } from '@/components/ui/badge'
+    12→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    13→import { ScrollArea } from '@/components/ui/scroll-area'
+    14→import { Separator } from '@/components/ui/separator'
+    15→import { Progress } from '@/components/ui/progress'
+    16→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+    17→import {
+    18→  Select,
+    19→  SelectContent,
+    20→  SelectItem,
+    21→  SelectTrigger,
+    22→  SelectValue,
+    23→} from '@/components/ui/select'
+    24→import {
+    25→  Tooltip,
+    26→  TooltipContent,
+    27→  TooltipProvider,
+    28→  TooltipTrigger,
+    29→} from '@/components/ui/tooltip'
+    30→import {
+    31→  FileText,
+    32→  Save,
+    33→  Eye,
+    34→  Download,
+    35→  Sparkles,
+    36→  Check,
+    37→  Circle,
+    38→  ChevronLeft,
+    39→  ChevronRight,
+    40→  Loader2,
+    41→  Plus,
+    42→  Trash2,
+    43→  Building2,
+    44→  Users,
+    45→  Target,
+    46→  TrendingUp,
+    47→  Calculator,
+    48→  BarChart3,
+    49→  Shield,
+    50→  MapPin,
+    51→  CalendarDays,
+    52→  Briefcase,
+    53→  Lightbulb,
+    54→  ArrowUpRight,
+    55→  Package,
+    56→  UserCheck,
+    57→  Crown,
+    58→} from 'lucide-react'
+    59→import { toast } from 'sonner'
+    60→import { cn } from '@/lib/utils'
+    61→import { BusinessPlanPdf } from '@/components/bureau/export/business-plan-pdf'
+    62→
+    63→// ─── Section Definitions ─────────────────────
+    64→
+    65→type SectionType = 'textarea' | 'swot' | 'financing-table' | 'result-table' | 'treasury-table' | 'investments-list' | 'bilan-table' | 'select' | 'timeline' | 'products-list' | 'associates-list' | 'cogerants-list'
+    66→
+    67→interface SectionDef {
+    68→  id: string
+    69→  title: string
+    70→  description: string
+    71→  type: SectionType
+    72→  hasAiSuggestion: boolean
+    73→  icon: React.ElementType
+    74→  color: string
+    75→}
+    76→
+    77→const PRESENTATION_SECTIONS: SectionDef[] = [
+    78→  { id: 'resume', title: 'Résumé opérationnel', description: 'Synthèse de votre projet et de ses perspectives', type: 'textarea', hasAiSuggestion: true, icon: FileText, color: 'text-[#00838F] bg-[#00838F]/10' },
+    79→  { id: 'equipe', title: "Présentation de l'équipe", description: 'Les membres clés et leurs compétences', type: 'textarea', hasAiSuggestion: true, icon: Users, color: 'text-[#FF6B35] bg-[#FF6B35]/10' },
+    80→  { id: 'historique', title: 'Historique et contexte', description: "L'origine du projet et son évolution", type: 'textarea', hasAiSuggestion: true, icon: Briefcase, color: 'text-[#FFB74D] bg-[#FFB74D]/10' },
+    81→  { id: 'vision', title: 'Vision et mission', description: 'Votre vision à long terme et votre mission', type: 'textarea', hasAiSuggestion: true, icon: Lightbulb, color: 'text-purple-600 bg-purple-600/10' },
+    82→  { id: 'valeurs', title: 'Valeurs et engagements', description: 'Les valeurs fondamentales de votre entreprise', type: 'textarea', hasAiSuggestion: true, icon: Shield, color: 'text-green-600 bg-green-600/10' },
+    83→]
+    84→
+    85→const MARCHE_SECTIONS: SectionDef[] = [
+    86→  { id: 'etude-marche', title: 'Étude de marché', description: 'Analyse du marché global et des tendances', type: 'textarea', hasAiSuggestion: true, icon: TrendingUp, color: 'text-[#00838F] bg-[#00838F]/10' },
+    87→  { id: 'segmentation', title: 'Segmentation client', description: 'Identification et profil de vos segments de clientèle', type: 'textarea', hasAiSuggestion: true, icon: Users, color: 'text-[#FF6B35] bg-[#FF6B35]/10' },
+    88→  { id: 'concurrence', title: 'Analyse concurrentielle', description: "Étude de vos concurrents et positionnement", type: 'textarea', hasAiSuggestion: true, icon: BarChart3, color: 'text-[#FFB74D] bg-[#FFB74D]/10' },
+    89→  { id: 'strategie-marketing', title: 'Stratégie marketing', description: 'Votre approche marketing et communication', type: 'textarea', hasAiSuggestion: true, icon: Target, color: 'text-purple-600 bg-purple-600/10' },
+    90→  { id: 'plan-commercial', title: 'Plan commercial', description: 'Votre stratégie de vente et de distribution', type: 'textarea', hasAiSuggestion: true, icon: ArrowUpRight, color: 'text-green-600 bg-green-600/10' },
+    91→  { id: 'swot', title: 'Analyse SWOT', description: 'Forces, faiblesses, opportunités, menaces', type: 'swot', hasAiSuggestion: true, icon: Shield, color: 'text-[#00838F] bg-[#00838F]/10' },
+    92→]
+    93→
+    94→const FINANCES_SECTIONS: SectionDef[] = [
+    95→  { id: 'financement', title: 'Plan de financement initial', description: "Sources et montants de financement de lancement", type: 'financing-table', hasAiSuggestion: false, icon: Calculator, color: 'text-[#00838F] bg-[#00838F]/10' },
+    96→  { id: 'compte-resultat', title: 'Compte de résultat prévisionnel', description: "Prévisions sur 3 ans (CA, charges, résultat)", type: 'result-table', hasAiSuggestion: false, icon: BarChart3, color: 'text-[#FF6B35] bg-[#FF6B35]/10' },
+    97→  { id: 'tresorerie', title: 'Plan de trésorerie', description: "Suivi mensuel des encaissements et décaissements", type: 'treasury-table', hasAiSuggestion: false, icon: TrendingUp, color: 'text-[#FFB74D] bg-[#FFB74D]/10' },
+    98→  { id: 'seuil-rentabilite', title: 'Seuil de rentabilité', description: 'Calcul automatique du point mort', type: 'textarea', hasAiSuggestion: false, icon: Target, color: 'text-green-600 bg-green-600/10' },
+    99→  { id: 'investissements', title: 'Investissements', description: "Liste des investissements prévus", type: 'investments-list', hasAiSuggestion: false, icon: Building2, color: 'text-purple-600 bg-purple-600/10' },
+   100→  { id: 'bilan', title: 'Bilan prévisionnel', description: 'Vue simplifiée du bilan prévisionnel', type: 'bilan-table', hasAiSuggestion: false, icon: Calculator, color: 'text-[#00838F] bg-[#00838F]/10' },
+   101→]
+   102→
+   103→const OPERATIONS_SECTIONS: SectionDef[] = [
+   104→  { id: 'statut-juridique', title: 'Statut juridique', description: 'Forme juridique adaptée à votre projet', type: 'select', hasAiSuggestion: false, icon: Shield, color: 'text-[#00838F] bg-[#00838F]/10' },
+   105→  { id: 'localisation', title: 'Localisation et implantation', description: "Choix du lieu et justification stratégique", type: 'textarea', hasAiSuggestion: true, icon: MapPin, color: 'text-[#FF6B35] bg-[#FF6B35]/10' },
+   106→  { id: 'organisation', title: 'Organisation et moyens humains', description: "Structure organisationnelle et effectifs", type: 'textarea', hasAiSuggestion: true, icon: Users, color: 'text-[#FFB74D] bg-[#FFB74D]/10' },
+   107→  { id: 'production', title: 'Catalogue produits / services', description: 'Produits et services proposés avec prix, quantités et marges', type: 'products-list', hasAiSuggestion: false, icon: Package, color: 'text-purple-600 bg-purple-600/10' },
+   108→  { id: 'associes', title: 'Associés et répartition du capital', description: 'Nombre de parts, capital apporté et répartition', type: 'associates-list', hasAiSuggestion: false, icon: Crown, color: 'text-[#00838F] bg-[#00838F]/10' },
+   109→  { id: 'cogerants', title: 'Co-gérance', description: 'Co-gérants et répartition des responsabilités', type: 'cogerants-list', hasAiSuggestion: false, icon: UserCheck, color: 'text-[#FF6B35] bg-[#FF6B35]/10' },
+   110→  { id: 'calendrier', title: 'Calendrier de réalisation', description: 'Jalons clés et planning de lancement', type: 'timeline', hasAiSuggestion: false, icon: CalendarDays, color: 'text-green-600 bg-green-600/10' },
+   111→]
+   112→
+   113→const ALL_SECTIONS = [...PRESENTATION_SECTIONS, ...MARCHE_SECTIONS, ...FINANCES_SECTIONS, ...OPERATIONS_SECTIONS]
+   114→
+   115→const TAB_GROUPS: { id: string; label: string; icon: React.ElementType; sections: SectionDef[] }[] = [
+   116→  { id: 'presentation', label: 'Présentation', icon: FileText, sections: PRESENTATION_SECTIONS },
+   117→  { id: 'marche', label: 'Marché', icon: TrendingUp, sections: MARCHE_SECTIONS },
+   118→  { id: 'finances', label: 'Finances', icon: Calculator, sections: FINANCES_SECTIONS },
+   119→  { id: 'operations', label: 'Opérations', icon: Building2, sections: OPERATIONS_SECTIONS },
+   120→]
+   121→
+   122→const STATUT_JURIDIQUE_OPTIONS = [
+   123→  { value: 'auto-entrepreneur', label: 'Auto-entrepreneur (Micro-entreprise)' },
+   124→  { value: 'eurl', label: 'EURL (Entreprise Unipersonnelle à Responsabilité Limitée)' },
+   125→  { value: 'sas', label: 'SAS (Société par Actions Simplifiée)' },
+   126→  { value: 'sasu', label: 'SASU (SAS Unipersonnelle)' },
+   127→  { value: 'sarl', label: 'SARL (Société à Responsabilité Limitée)' },
+   128→  { value: 'sa', label: 'SA (Société Anonyme)' },
+   129→  { value: 'sei', label: 'SEI (Société d\'Exercice Libéral à Responsabilité Limitée)' },
+   130→  { value: 'snc', label: 'SNC (Société en Nom Collectif)' },
+   131→  { value: 'association', label: 'Association loi 1901' },
+   132→  { value: 'autre', label: 'Autre' },
+   133→]
+   134→
+   135→const MONTHS_FR = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
+   136→
+   137→// ─── Types ──────────────────────────────────
+   138→
+   139→interface SwotData {
+   140→  strengths: string
+   141→  weaknesses: string
+   142→  opportunities: string
+   143→  threats: string
+   144→}
+   145→
+   146→interface FinancingRow {
+   147→  id: string
+   148→  source: string
+   149→  montant: number
+   150→}
+   151→
+   152→interface TreasuryMonth {
+   153→  month: string
+   154→  encaissements: number
+   155→  decaissements: number
+   156→  solde: number
+   157→}
+   158→
+   159→interface Investment {
+   160→  id: string
+   161→  name: string
+   162→  amount: number
+   163→}
+   164→
+   165→interface Milestone {
+   166→  id: string
+   167→  title: string
+   168→  date: string
+   169→  completed: boolean
+   170→}
+   171→
+   172→interface BpProduct {
+   173→  id: string
+   174→  nom: string
+   175→  description: string
+   176→  prixVente: number
+   177→  coutUnitaire: number
+   178→  quantiteMensuelle: number
+   179→  marge: number
+   180→}
+   181→
+   182→interface Associate {
+   183→  id: string
+   184→  nom: string
+   185→  prenom: string
+   186→  role: string
+   187→  nombreParts: number
+   188→  pourcentage: number
+   189→  apportCapital: number
+   190→}
+   191→
+   192→interface Cogerant {
+   193→  id: string
+   194→  nom: string
+   195→  prenom: string
+   196→  fonction: string
+   197→  email: string
+   198→  telephone: string
+   199→}
+   200→
+   201→interface BpSections {
+   202→  [key: string]: unknown
+   203→}
+   204→
+   205→// ─── Default data ───────────────────────────
+   206→
+   207→function genId(): string {
+   208→  return Math.random().toString(36).slice(2, 9)
+   209→}
+   210→
+   211→const DEFAULT_SECTIONS: BpSections = {
+   212→  resume: '',
+   213→  equipe: '',
+   214→  historique: '',
+   215→  vision: '',
+   216→  valeurs: '',
+   217→  'etude-marche': '',
+   218→  segmentation: '',
+   219→  concurrence: '',
+   220→  'strategie-marketing': '',
+   221→  'plan-commercial': '',
+   222→  swot: { strengths: '', weaknesses: '', opportunities: '', threats: '' },
+   223→  financement: [],
+   224→  'compte-resultat': {
+   225→    year1: { ca: 0, charges: 0, resultat: 0 },
+   226→    year2: { ca: 0, charges: 0, resultat: 0 },
+   227→    year3: { ca: 0, charges: 0, resultat: 0 },
+   228→  },
+   229→  tresorerie: [],
+   230→  'seuil-rentabilite': '',
+   231→  investissements: [],
+   232→  bilan: {
+   233→    actif: { immobilisations: 0, stocks: 0, creances: 0, tresorerie: 0 },
+   234→    passif: { capital: 0, emprunts: 0, fournisseurs: 0, autresDettes: 0 },
+   235→  },
+   236→  'statut-juridique': '',
+   237→  localisation: '',
+   238→  organisation: '',
+   239→  production: [],
+   240→  associes: [],
+   241→  cogerants: [],
+   242→  calendrier: [],
+   243→}
+   244→
+   245→// ─── Helpers ────────────────────────────────
+   246→
+   247→function isSectionFilled(key: string, value: unknown): boolean {
+   248→  if (value === null || value === undefined) return false
+   249→  if (typeof value === 'string') return value.trim().length > 0
+   250→  if (Array.isArray(value)) return value.length > 0
+   251→  if (typeof value === 'object') {
+   252→    const obj = value as Record<string, unknown>
+   253→    return Object.values(obj).some(
+   254→      (v) => typeof v === 'string' && v.trim().length > 0 || typeof v === 'number' && v !== 0,
+   255→    )
+   256→  }
+   257→  return false
+   258→}
+   259→
+   260→function formatCurrency(value: number): string {
+   261→  return new Intl.NumberFormat('fr-FR', {
+   262→    style: 'currency',
+   263→    currency: 'EUR',
+   264→    minimumFractionDigits: 0,
+   265→    maximumFractionDigits: 0,
+   266→  }).format(value)
+   267→}
+   268→
+   269→// ─── Main Component ─────────────────────────
+   270→
+   271→interface PipelineStatus {
+   272→  parcours: boolean
+   273→  marche: boolean
+   274→  financier: boolean
+   275→  juridique: boolean
+   276→  creasim: boolean
+   277→}
+   278→
+   279→const DEFAULT_PIPELINE: PipelineStatus = {
+   280→  parcours: false,
+   281→  marche: false,
+   282→  financier: false,
+   283→  juridique: false,
+   284→  creasim: false,
+   285→}
+   286→
+   287→export function BusinessPlanModule() {
+   288→  const [sections, setSections] = useState<BpSections>(DEFAULT_SECTIONS)
+   289→  const [activeTab, setActiveTab] = useState('presentation')
+   290→  const [activeSection, setActiveSection] = useState<string | null>(null)
+   291→  const [isLoading, setIsLoading] = useState(true)
+   292→  const [isSaving, setIsSaving] = useState(false)
+   293→  const [isGeneratingParcours, setIsGeneratingParcours] = useState(false)
+   294→  const [isSyncing, setIsSyncing] = useState(false)
+   295→  const [aiLoading, setAiLoading] = useState<string | null>(null)
+   296→  const [previewOpen, setPreviewOpen] = useState(false)
+   297→  const [exportPdfOpen, setExportPdfOpen] = useState(false)
+   298→  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+   299→  const [projectContext, setProjectContext] = useState<Record<string, string | null> | null>(null)
+   300→  const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus>(DEFAULT_PIPELINE)
+   301→
+   302→
+   303→  // ─── Load data on mount ──────────────────
+   304→  useEffect(() => {
+   305→    async function load() {
+   306→      // Try localStorage first
+   307→      const saved = localStorage.getItem('creapulse-bp')
+   308→      if (saved) {
+   309→        try {
+   310→          const parsed = JSON.parse(saved) as BpSections
+   311→          setSections(parsed)
+   312→        } catch { /* ignore */ }
+   313→      }
+   314→
+   315→      // Then try API
+   316→      try {
+   317→        const res = await fetch('/api/business-plan')
+   318→        if (res.ok) {
+   319→          const json = await res.json()
+   320→          if (json.success && json.data?.sections) {
+   321→            const apiSections = json.data.sections as BpSections
+   322→            // Merge with defaults for any missing keys
+   323→            const merged = { ...DEFAULT_SECTIONS, ...apiSections }
+   324→            setSections(merged)
+   325→            localStorage.setItem('creapulse-bp', JSON.stringify(merged))
+   326→          }
+   327→          if (json.data?.projectContext) {
+   328→            setProjectContext(json.data.projectContext)
+   329→          }
+   330→        }
+   331→      } catch { /* ignore */ }
+   332→
+   333→      setIsLoading(false)
+   334→    }
+   335→    load()
+   336→  }, [])
+   337→
+   338→  // ─── Auto-save to localStorage ──────────
+   339→  useEffect(() => {
+   340→    if (!isLoading) {
+   341→      localStorage.setItem('creapulse-bp', JSON.stringify(sections))
+   342→    }
+   343→  }, [sections, isLoading])
+   344→
+   345→  // ─── Completion tracking ────────────────
+   346→  const completionInfo = useMemo(() => {
+   347→    let filled = 0
+   348→    ALL_SECTIONS.forEach((s) => {
+   349→      if (isSectionFilled(s.id, sections[s.id])) filled++
+   350→    })
+   351→    return { filled, total: ALL_SECTIONS.length, percent: Math.round((filled / ALL_SECTIONS.length) * 100) }
+   352→  }, [sections])
+   353→
+   354→  // ─── Update section helper ──────────────
+   355→  const updateSection = useCallback((key: string, value: unknown) => {
+   356→    setSections((prev) => ({ ...prev, [key]: value }))
+   357→  }, [])
+   358→
+   359→  // ─── Save to API ────────────────────────
+   360→  const handleSave = useCallback(async () => {
+   361→    setIsSaving(true)
+   362→    try {
+   363→      const res = await fetch('/api/business-plan', {
+   364→        method: 'PUT',
+   365→        headers: { 'Content-Type': 'application/json' },
+   366→        body: JSON.stringify({ sections }),
+   367→      })
+   368→      const json = await res.json()
+   369→      if (json.success) {
+   370→        toast.success(`Business plan sauvegardé — ${completionInfo.filled}/${completionInfo.total} sections remplies (${completionInfo.percent}%)`)
+   371→      } else {
+   372→        toast.error(json.error?.message || 'Erreur lors de la sauvegarde')
+   373→      }
+   374→    } catch {
+   375→      toast.error('Erreur de connexion au serveur')
+   376→    } finally {
+   377→      setIsSaving(false)
+   378→    }
+   379→  }, [sections, completionInfo])
+   380→
+   381→  // ─── AI Suggestion ──────────────────────
+   382→  const handleAiSuggest = useCallback(async (sectionDef: SectionDef) => {
+   383→    setAiLoading(sectionDef.id)
+   384→    try {
+   385→      const contextStr = projectContext
+   386→        ? `${projectContext.projectTitle || ''} ${projectContext.projectSector || ''} ${projectContext.targetAudience || ''}`
+   387→        : ''
+   388→
+   389→      const res = await fetch('/api/business-plan', {
+   390→        method: 'POST',
+   391→        headers: { 'Content-Type': 'application/json' },
+   392→        body: JSON.stringify({
+   393→          action: 'ai-suggest',
+   394→          sectionId: sectionDef.id,
+   395→          sectionTitle: sectionDef.title,
+   396→          existingContent: typeof sections[sectionDef.id] === 'string' ? (sections[sectionDef.id] as string) : undefined,
+   397→          projectContext: contextStr || undefined,
+   398→        }),
+   399→      })
+   400→
+   401→      const json = await res.json()
+   402→      if (json.success && json.data?.suggestion) {
+   403→        if (sectionDef.type === 'swot') {
+   404→          updateSection(sectionDef.id, {
+   405→            ...(sections[sectionDef.id] as SwotData || { strengths: '', weaknesses: '', opportunities: '', threats: '' }),
+   406→            strengths: json.data.suggestion,
+   407→          })
+   408→        } else {
+   409→          updateSection(sectionDef.id, json.data.suggestion)
+   410→        }
+   411→        toast.success('Suggestion IA appliquée ! Modifiez le contenu si nécessaire.')
+   412→      } else {
+   413→        toast.error(json.error?.message || 'Erreur lors de la génération IA')
+   414→      }
+   415→    } catch {
+   416→      toast.error('Erreur de connexion au serveur')
+   417→    } finally {
+   418→      setAiLoading(null)
+   419→    }
+   420→  }, [sections, projectContext, updateSection])
+   421→
+   422→  // ─── Generate from Parcours ─────────────
+   423→  const handleGenerateFromParcours = useCallback(async () => {
+   424→    setIsGeneratingParcours(true)
+   425→    try {
+   426→      const res = await fetch('/api/business-plan', {
+   427→        method: 'POST',
+   428→        headers: { 'Content-Type': 'application/json' },
+   429→        body: JSON.stringify({ action: 'generate-from-parcours' }),
+   430→      })
+   431→      const json = await res.json()
+   432→      if (json.success && json.data?.sections) {
+   433→        setSections(prev => {
+   434→          const merged = { ...DEFAULT_SECTIONS, ...prev, ...json.data.sections }
+   435→          localStorage.setItem('creapulse-bp', JSON.stringify(merged))
+   436→          return merged
+   437→        })
+   438→        setPipelineStatus(prev => ({ ...prev, parcours: true }))
+   439→        toast.success('Business Plan généré depuis votre parcours entrepreneurial')
+   440→      } else {
+   441→        toast.error(json.error?.message || 'Erreur lors de la génération depuis le parcours')
+   442→      }
+   443→    } catch {
+   444→      toast.error('Erreur de connexion au serveur')
+   445→    } finally {
+   446→      setIsGeneratingParcours(false)
+   447→    }
+   448→  }, [])
+   449→
+   450→  // ─── Sync Simulators ─────────────────────
+   451→  const handleSyncSimulators = useCallback(async () => {
+   452→    setIsSyncing(true)
+   453→    try {
+   454→      const res = await fetch('/api/business-plan', {
+   455→        method: 'POST',
+   456→        headers: { 'Content-Type': 'application/json' },
+   457→        body: JSON.stringify({ action: 'sync-simulators' }),
+   458→      })
+   459→      const json = await res.json()
+   460→      if (json.success && json.data) {
+   461→        if (json.data.sections) {
+   462→          setSections(prev => {
+   463→            const merged = { ...DEFAULT_SECTIONS, ...prev, ...json.data.sections }
+   464→            localStorage.setItem('creapulse-bp', JSON.stringify(merged))
+   465→            return merged
+   466→          })
+   467→        }
+   468→        if (json.data.syncedSources) {
+   469→          setPipelineStatus(prev => ({
+   470→            ...prev,
+   471→            ...(json.data.syncedSources.marche && { marche: true }),
+   472→            ...(json.data.syncedSources.financier && { financier: true }),
+   473→            ...(json.data.syncedSources.juridique && { juridique: true }),
+   474→            ...(json.data.syncedSources.creasim && { creasim: true }),
+   475→          }))
+   476→        }
+   477→        const summary = json.data.summary || 'Données synchronisées'
+   478→        toast.success(`Simulateurs synchronisés — ${summary}`)
+   479→      } else {
+   480→        toast.error(json.error?.message || 'Erreur lors de la synchronisation')
+   481→      }
+   482→    } catch {
+   483→      toast.error('Erreur de connexion au serveur')
+   484→    } finally {
+   485→      setIsSyncing(false)
+   486→    }
+   487→  }, [])
+   488→
+   489→  // ─── Export PDF ──────────────────────────
+   490→  const handleExportPdf = useCallback(() => {
+   491→    setExportPdfOpen(true)
+   492→  }, [])
+   493→
+   494→  // ─── Section finder ─────────────────────
+   495→  const findSectionDef = useCallback((id: string): SectionDef | undefined => {
+   496→    return ALL_SECTIONS.find((s) => s.id === id)
+   497→  }, [])
+   498→
+   499→  // ─── Set first section on tab change ────
+   500→  useEffect(() => {
+   501→    const group = TAB_GROUPS.find((g) => g.id === activeTab)
+   502→    if (group && !activeSection) {
+   503→      setActiveSection(group.sections[0]?.id || null)
+   504→    }
+   505→    // Ensure activeSection is within the tab
+   506→    if (activeSection) {
+   507→      const group2 = TAB_GROUPS.find((g) => g.id === activeTab)
+   508→      if (group2 && !group2.sections.some((s) => s.id === activeSection)) {
+   509→        setActiveSection(group2.sections[0]?.id || null)
+   510→      }
+   511→    }
+   512→  }, [activeTab, activeSection])
+   513→
+   514→  // ─── Loading skeleton ───────────────────
+   515→  if (isLoading) {
+   516→    return (
+   517→      <div className="p-4 md:p-6 lg:p-8 space-y-6">
+   518→        <div className="h-8 w-64 bg-muted animate-pulse rounded" />
+   519→        <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+   520→        <div className="grid grid-cols-4 gap-4">
+   521→          {[...Array(4)].map((_, i) => (
+   522→            <div key={i} className="h-32 bg-muted animate-pulse rounded-xl" />
+   523→          ))}
+   524→        </div>
+   525→      </div>
+   526→    )
+   527→  }
+   528→
+   529→  // ─── Render section content ─────────────
+   530→  const renderSectionContent = (sectionDef: SectionDef) => {
+   531→    const val = sections[sectionDef.id]
+   532→
+   533→    switch (sectionDef.type) {
+   534→      case 'textarea':
+   535→        return (
+   536→          <div className="space-y-3">
+   537→            {sectionDef.hasAiSuggestion && (
+   538→              <Button
+   539→                variant="outline"
+   540→                size="sm"
+   541→                className="gap-1.5 border-[#FFB74D]/40 text-[#FFB74D] hover:bg-[#FFB74D]/10 hover:text-[#FFB74D]"
+   542→                onClick={() => handleAiSuggest(sectionDef)}
+   543→                disabled={aiLoading === sectionDef.id}
+   544→              >
+   545→                {aiLoading === sectionDef.id ? (
+   546→                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+   547→                ) : (
+   548→                  <Sparkles className="h-3.5 w-3.5" />
+   549→                )}
+   550→                Aide IA
+   551→              </Button>
+   552→            )}
+   553→            <Textarea
+   554→              value={(val as string) || ''}
+   555→              onChange={(e) => updateSection(sectionDef.id, e.target.value)}
+   556→              placeholder={`Rédigez le contenu de la section "${sectionDef.title}"...`}
+   557→              className="min-h-[200px] resize-y text-sm leading-relaxed"
+   558→            />
+   559→            <div className="flex items-center justify-between">
+   560→              <span className="text-xs text-muted-foreground">
+   561→                {(val as string)?.length || 0} caractères
+   562→              </span>
+   563→              {(val as string)?.length > 0 && (
+   564→                <Badge variant="secondary" className="text-xs gap-1">
+   565→                  <Eye className="h-3 w-3" />
+   566→                  Aperçu
+   567→                </Badge>
+   568→              )}
+   569→            </div>
+   570→            {(val as string)?.length > 0 && (
+   571→              <div className="prose prose-sm dark:prose-invert max-w-none rounded-lg border bg-muted/30 p-4">
+   572→                <ReactMarkdown>{val as string}</ReactMarkdown>
+   573→              </div>
+   574→            )}
+   575→          </div>
+   576→        )
+   577→
+   578→      case 'swot':
+   579→        return (
+   580→          <div className="space-y-3">
+   581→            {sectionDef.hasAiSuggestion && (
+   582→              <Button
+   583→                variant="outline"
+   584→                size="sm"
+   585→                className="gap-1.5 border-[#FFB74D]/40 text-[#FFB74D] hover:bg-[#FFB74D]/10 hover:text-[#FFB74D]"
+   586→                onClick={() => handleAiSuggest(sectionDef)}
+   587→                disabled={aiLoading === sectionDef.id}
+   588→              >
+   589→                {aiLoading === sectionDef.id ? (
+   590→                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+   591→                ) : (
+   592→                  <Sparkles className="h-3.5 w-3.5" />
+   593→                )}
+   594→                Aide IA
+   595→              </Button>
+   596→            )}
+   597→            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   598→              {[
+   599→                { key: 'strengths', label: 'Forces', color: 'border-green-500/30 bg-green-50/50 dark:bg-green-900/10', icon: '💪' },
+   600→                { key: 'weaknesses', label: 'Faiblesses', color: 'border-red-500/30 bg-red-50/50 dark:bg-red-900/10', icon: '⚠️' },
+   601→                { key: 'opportunities', label: 'Opportunités', color: 'border-blue-500/30 bg-blue-50/50 dark:bg-blue-900/10', icon: '🚀' },
+   602→                { key: 'threats', label: 'Menaces', color: 'border-amber-500/30 bg-amber-50/50 dark:bg-amber-900/10', icon: '🛡️' },
+   603→              ].map((q) => (
+   604→                <div key={q.key} className={cn('rounded-lg border p-3', q.color)}>
+   605→                  <Label className="text-sm font-semibold flex items-center gap-1.5 mb-2">
+   606→                    <span>{q.icon}</span> {q.label}
+   607→                  </Label>
+   608→                  <Textarea
+   609→                    value={((val as SwotData)?.[q.key as keyof SwotData]) || ''}
+   610→                    onChange={(e) =>
+   611→                      updateSection(sectionDef.id, {
+   612→                        ...(val as SwotData || { strengths: '', weaknesses: '', opportunities: '', threats: '' }),
+   613→                        [q.key]: e.target.value,
+   614→                      })
+   615→                    }
+   616→                    placeholder={`Listez vos ${q.label.toLowerCase()}...`}
+   617→                    className="min-h-[100px] text-sm bg-background/60"
+   618→                  />
+   619→                </div>
+   620→              ))}
+   621→            </div>
+   622→          </div>
+   623→        )
+   624→
+   625→      case 'financing-table':
+   626→        return <FinancingTable value={val as FinancingRow[] || []} onChange={(v) => updateSection(sectionDef.id, v)} />
+   627→
+   628→      case 'result-table':
+   629→        return <ResultTable value={val as Record<string, Record<string, number>> || {}} onChange={(v) => updateSection(sectionDef.id, v)} />
+   630→
+   631→      case 'treasury-table':
+   632→        return <TreasuryTable value={val as TreasuryMonth[] || []} onChange={(v) => updateSection(sectionDef.id, v)} />
+   633→
+   634→      case 'investments-list':
+   635→        return <InvestmentsList value={val as Investment[] || []} onChange={(v) => updateSection(sectionDef.id, v)} />
+   636→
+   637→      case 'bilan-table':
+   638→        return <BilanTable value={val as Record<string, Record<string, number>> || {}} onChange={(v) => updateSection(sectionDef.id, v)} />
+   639→
+   640→      case 'select':
+   641→        return (
+   642→          <div className="space-y-3">
+   643→            <Select
+   644→              value={(val as string) || ''}
+   645→              onValueChange={(v) => updateSection(sectionDef.id, v)}
+   646→            >
+   647→              <SelectTrigger className="w-full">
+   648→                <SelectValue placeholder="Sélectionnez votre statut juridique..." />
+   649→              </SelectTrigger>
+   650→              <SelectContent>
+   651→                {STATUT_JURIDIQUE_OPTIONS.map((opt) => (
+   652→                  <SelectItem key={opt.value} value={opt.value}>
+   653→                    {opt.label}
+   654→                  </SelectItem>
+   655→                ))}
+   656→              </SelectContent>
+   657→            </Select>
+   658→            {(val as string) && (
+   659→              <p className="text-xs text-muted-foreground">
+   660→                Statut sélectionné : <span className="font-medium text-foreground">{STATUT_JURIDIQUE_OPTIONS.find(o => o.value === val)?.label}</span>
+   661→              </p>
+   662→            )}
+   663→          </div>
+   664→        )
+   665→
+   666→      case 'timeline':
+   667→        return <TimelineView value={val as Milestone[] || []} onChange={(v) => updateSection(sectionDef.id, v)} />
+   668→
+   669→      case 'products-list':
+   670→        return <ProductsList value={val as BpProduct[] || []} onChange={(v) => updateSection(sectionDef.id, v)} />
+   671→
+   672→      case 'associates-list':
+   673→        return <AssociatesList value={val as Associate[] || []} onChange={(v) => updateSection(sectionDef.id, v)} />
+   674→
+   675→      case 'cogerants-list':
+   676→        return <CogerantsList value={val as Cogerant[] || []} onChange={(v) => updateSection(sectionDef.id, v)} />
+   677→
+   678→      default:
+   679→        return null
+   680→    }
+   681→  }
+   682→
+   683→  // ─── Main Render ─────────────────────────
+   684→  return (
+   685→    <TooltipProvider>
+   686→      <motion.div
+   687→        initial={{ opacity: 0, y: 20 }}
+   688→        animate={{ opacity: 1, y: 0 }}
+   689→        transition={{ duration: 0.4 }}
+   690→        className="flex h-full"
+   691→      >
+   692→        {/* ═══ Left Sidebar ═══ */}
+   693→        <div
+   694→          className={cn(
+   695→            'hidden lg:flex flex-col border-r bg-muted/30 transition-all duration-300 overflow-hidden',
+   696→            sidebarCollapsed ? 'w-12' : 'w-72',
+   697→          )}
+   698→        >
+   699→          {/* Sidebar header */}
+   700→          <div className="flex items-center justify-between p-3 border-b">
+   701→            {!sidebarCollapsed && (
+   702→              <h3 className="text-sm font-semibold text-foreground truncate">Sections</h3>
+   703→            )}
+   704→            <Button
+   705→              variant="ghost"
+   706→              size="sm"
+   707→              className="h-7 w-7 p-0 shrink-0"
+   708→              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+   709→            >
+   710→              {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+   711→            </Button>
+   712→          </div>
+   713→
+   714→          {/* Progress */}
+   715→          {!sidebarCollapsed && (
+   716→            <div className="px-3 py-2 border-b">
+   717→              <div className="flex items-center justify-between mb-1">
+   718→                <span className="text-xs text-muted-foreground">Progression</span>
+   719→                <span className="text-xs font-semibold text-[#00838F]">{completionInfo.filled}/{completionInfo.total}</span>
+   720→              </div>
+   721→              <Progress value={completionInfo.percent} className="h-2" />
+   722→            </div>
+   723→          )}
+   724→
+   725→          {/* Section list */}
+   726→          <ScrollArea className="flex-1">
+   727→            <div className="p-2 space-y-1">
+   728→              {TAB_GROUPS.map((group) => (
+   729→                <div key={group.id} className="mb-1">
+   730→                  {!sidebarCollapsed && (
+   731→                    <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+   732→                      {group.label}
+   733→                    </p>
+   734→                  )}
+   735→                  {group.sections.map((s) => {
+   736→                    const filled = isSectionFilled(s.id, sections[s.id])
+   737→                    const isActive = activeSection === s.id
+   738→                    const Icon = s.icon
+   739→                    return (
+   740→                      <Tooltip key={s.id}>
+   741→                        <TooltipTrigger asChild>
+   742→                          <button
+   743→                            onClick={() => { setActiveSection(s.id); setActiveTab(group.id) }}
+   744→                            className={cn(
+   745→                              'w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
+   746→                              sidebarCollapsed ? 'justify-center px-1' : '',
+   747→                              isActive
+   748→                                ? 'bg-[#00838F]/10 text-[#00838F] font-medium'
+   749→                                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+   750→                            )}
+   751→                          >
+   752→                            {filled ? (
+   753→                              <Check className="h-4 w-4 text-green-500 shrink-0" />
+   754→                            ) : (
+   755→                              <Circle className="h-4 w-4 shrink-0 opacity-40" />
+   756→                            )}
+   757→                            {!sidebarCollapsed && <Icon className="h-3.5 w-3.5 shrink-0" />}
+   758→                            {!sidebarCollapsed && (
+   759→                              <span className="truncate">{s.title}</span>
+   760→                            )}
+   761→                          </button>
+   762→                        </TooltipTrigger>
+   763→                        {sidebarCollapsed && (
+   764→                          <TooltipContent side="right" className="text-xs">
+   765→                            {s.title}
+   766→                          </TooltipContent>
+   767→                        )}
+   768→                      </Tooltip>
+   769→                    )
+   770→                  })}
+   771→                </div>
+   772→              ))}
+   773→            </div>
+   774→          </ScrollArea>
+   775→        </div>
+   776→
+   777→        {/* ═══ Main Content Area ═══ */}
+   778→        <div className="flex-1 flex flex-col overflow-hidden">
+   779→          {/* Mobile Section Navigation (horizontal scroll) */}
+   780→          <div className="lg:hidden border-b bg-muted/30 overflow-x-auto scrollbar-none">
+   781→            <div className="flex items-center gap-1 p-2 min-w-max">
+   782→              {ALL_SECTIONS.map((s) => {
+   783→                const filled = isSectionFilled(s.id, sections[s.id])
+   784→                const isActive = activeSection === s.id
+   785→                const Icon = s.icon
+   786→                return (
+   787→                  <Button
+   788→                    key={s.id}
+   789→                    variant={isActive ? 'default' : 'ghost'}
+   790→                    size="sm"
+   791→                    className={cn(
+   792→                      'gap-1 h-8 shrink-0 text-xs',
+   793→                      isActive ? 'bg-[#00838F] text-white' : '',
+   794→                    )}
+   795→                    onClick={() => setActiveSection(s.id)}
+   796→                  >
+   797→                    {filled ? (
+   798→                      <Check className="h-3 w-3 text-green-400" />
+   799→                    ) : (
+   800→                      <Circle className="h-3 w-3 opacity-40" />
+   801→                    )}
+   802→                    <Icon className="h-3 w-3" />
+   803→                    <span className="hidden sm:inline">{s.title}</span>
+   804→                  </Button>
+   805→                )
+   806→              })}
+   807→            </div>
+   808→          </div>
+   809→
+   810→          {/* Header */}
+   811→          <div className="flex flex-col gap-3 p-4 md:px-6 border-b bg-background">
+   812→            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+   813→              <div className="flex items-center gap-3">
+   814→                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00838F]/10">
+   815→                  <FileText className="h-5 w-5 text-[#00838F]" />
+   816→                </div>
+   817→                <div>
+   818→                  <h2 className="text-xl font-bold text-foreground">Business Plan IA</h2>
+   819→                  <p className="text-xs text-muted-foreground">
+   820→                    {completionInfo.filled}/{completionInfo.total} sections complétées — {completionInfo.percent}%
+   821→                  </p>
+   822→                </div>
+   823→              </div>
+   824→              <div className="flex items-center gap-2 flex-wrap">
+   825→                <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExportPdf}>
+   826→                  <Download className="h-3.5 w-3.5" />
+   827→                  <span className="hidden sm:inline">Exporter PDF</span>
+   828→                </Button>
+   829→                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setPreviewOpen(true)}>
+   830→                  <Eye className="h-3.5 w-3.5" />
+   831→                  <span className="hidden sm:inline">Prévisualiser</span>
+   832→                </Button>
+   833→                <Button
+   834→                  size="sm"
+   835→                  className="gap-1.5 bg-[#00838F] hover:bg-[#00838F]/90 text-white"
+   836→                  onClick={handleSave}
+   837→                  disabled={isSaving}
+   838→                >
+   839→                  {isSaving ? (
+   840→                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+   841→                  ) : (
+   842→                    <Save className="h-3.5 w-3.5" />
+   843→                  )}
+   844→                  <span className="hidden sm:inline">Sauvegarder</span>
+   845→                </Button>
+   846→              </div>
+   847→            </div>
+   848→
+   849→            {/* ── AI Action Buttons ── */}
+   850→            <div className="flex flex-wrap items-center gap-2">
+   851→              <Button
+   852→                size="sm"
+   853→                className="gap-1.5 bg-[#FFB74D]/20 text-[#FFB74D] hover:bg-[#FFB74D]/30 border border-[#FFB74D]/30"
+   854→                onClick={handleGenerateFromParcours}
+   855→                disabled={isGeneratingParcours}
+   856→              >
+   857→                {isGeneratingParcours ? (
+   858→                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+   859→                ) : (
+   860→                  <Sparkles className="h-3.5 w-3.5" />
+   861→                )}
+   862→                {isGeneratingParcours ? 'Génération en cours...' : 'Générer depuis Parcours'}
+   863→              </Button>
+   864→              <Button
+   865→                variant="outline"
+   866→                size="sm"
+   867→                className="gap-1.5 border-[#00838F]/30 text-[#00838F] hover:bg-[#00838F]/10 hover:text-[#00838F]"
+   868→                onClick={handleSyncSimulators}
+   869→                disabled={isSyncing}
+   870→              >
+   871→                {isSyncing ? (
+   872→                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+   873→                ) : (
+   874→                  <TrendingUp className="h-3.5 w-3.5" />
+   875→                )}
+   876→                {isSyncing ? 'Synchronisation...' : 'Synchroniser les simulateurs'}
+   877→              </Button>
+   878→            </div>
+   879→
+   880→            {/* ── Pipeline Status Bar ── */}
+   881→            <div className="flex flex-wrap items-center gap-2">
+   882→              <span className="text-xs text-muted-foreground font-medium">Vue Pipeline :</span>
+   883→              {([
+   884→                { key: 'parcours' as const, label: 'Parcours', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
+   885→                { key: 'marche' as const, label: 'Marché', color: 'bg-teal-500/20 text-teal-400 border-teal-500/30' },
+   886→                { key: 'financier' as const, label: 'Financier', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
+   887→                { key: 'juridique' as const, label: 'Juridique', color: 'bg-teal-500/20 text-teal-400 border-teal-500/30' },
+   888→                { key: 'creasim' as const, label: 'CreaSim', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
+   889→              ]).map(item => (
+   890→                <Badge
+   891→                  key={item.key}
+   892→                  variant="outline"
+   893→                  className={cn(
+   894→                    'text-[10px] px-1.5 py-0 h-5 font-medium gap-0.5',
+   895→                    pipelineStatus[item.key] ? item.color : 'bg-white/5 text-neutral-500 border-white/10'
+   896→                  )}
+   897→                >
+   898→                  {pipelineStatus[item.key] ? (
+   899→                    <Check className="h-2.5 w-2.5" />
+   900→                  ) : (
+   901→                    <Circle className="h-2.5 w-2.5" />
+   902→                  )}
+   903→                  {item.label}
+   904→                </Badge>
+   905→              ))}
+   906→            </div>
+   907→          </div>
+   908→
+   909→          {/* Desktop Tabs + Content */}
+   910→          <div className="flex-1 overflow-y-auto">
+   911→            <div className="p-4 md:p-6 space-y-4">
+   912→              {/* Tab bar (desktop) */}
+   913→              <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+   914→                <TabsList className="bg-muted/80 hidden lg:flex">
+   915→                  {TAB_GROUPS.map((g) => {
+   916→                    const Icon = g.icon
+   917→                    const filled = g.sections.filter((s) => isSectionFilled(s.id, sections[s.id])).length
+   918→                    return (
+   919→                      <TabsTrigger
+   920→                        key={g.id}
+   921→                        value={g.id}
+   922→                        className="gap-1.5 data-[state=active]:bg-[#00838F] data-[state=active]:text-white"
+   923→                      >
+   924→                        <Icon className="h-4 w-4" />
+   925→                        {g.label}
+   926→                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
+   927→                          {filled}/{g.sections.length}
+   928→                        </Badge>
+   929→                      </TabsTrigger>
+   930→                    )
+   931→                  })}
+   932→                </TabsList>
+   933→
+   934→                {TAB_GROUPS.map((group) => (
+   935→                  <TabsContent key={group.id} value={group.id} className="mt-0 space-y-4">
+   936→                    {/* Active section content */}
+   937→                    {activeSection && renderSectionContent(findSectionDef(activeSection) as SectionDef)}
+   938→
+   939→                    {/* Quick navigation to other sections in group */}
+   940→                    <Separator />
+   941→                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+   942→                      {group.sections.map((s) => {
+   943→                        const filled = isSectionFilled(s.id, sections[s.id])
+   944→                        const isActive = activeSection === s.id
+   945→                        const Icon = s.icon
+   946→                        return (
+   947→                          <button
+   948→                            key={s.id}
+   949→                            onClick={() => setActiveSection(s.id)}
+   950→                            className={cn(
+   951→                              'flex items-center gap-2 rounded-lg border p-3 text-left transition-all',
+   952→                              isActive ? 'border-[#00838F]/40 bg-[#00838F]/5' : 'hover:border-muted-foreground/20',
+   953→                            )}
+   954→                          >
+   955→                            <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', s.color)}>
+   956→                              <Icon className="h-4 w-4" />
+   957→                            </div>
+   958→                            <div className="flex-1 min-w-0">
+   959→                              <p className="text-sm font-medium text-foreground truncate">{s.title}</p>
+   960→                              <p className="text-[10px] text-muted-foreground truncate">{s.description}</p>
+   961→                            </div>
+   962→                            {filled ? (
+   963→                              <Check className="h-4 w-4 text-green-500 shrink-0" />
+   964→                            ) : (
+   965→                              <Circle className="h-4 w-4 text-muted-foreground/30 shrink-0" />
+   966→                            )}
+   967→                          </button>
+   968→                        )
+   969→                      })}
+   970→                    </div>
+   971→                  </TabsContent>
+   972→                ))}
+   973→              </Tabs>
+   974→            </div>
+   975→          </div>
+   976→        </div>
+   977→
+   978→        {/* ═══ Preview Dialog ═══ */}
+   979→        <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+   980→          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+   981→            <DialogHeader>
+   982→              <DialogTitle className="flex items-center gap-2">
+   983→                <FileText className="h-5 w-5 text-[#00838F]" />
+   984→                Aperçu du Business Plan
+   985→              </DialogTitle>
+   986→              <DialogDescription>
+   987→                Prévisualisation de votre business plan avec {completionInfo.filled} sections remplies sur {completionInfo.total}
+   988→              </DialogDescription>
+   989→            </DialogHeader>
+   990→            <ScrollArea className="flex-1 pr-4">
+   991→              <div className="space-y-8 pb-8">
+   992→                {projectContext?.projectTitle && (
+   993→                  <div className="text-center">
+   994→                    <h1 className="text-3xl font-bold text-foreground">{projectContext.projectTitle}</h1>
+   995→                    {projectContext.projectSector && (
+   996→                      <p className="mt-2 text-muted-foreground">Secteur : {projectContext.projectSector}</p>
+   997→                    )}
+   998→                  </div>
+   999→                )}
+  1000→                {TAB_GROUPS.map((group) => (
+  1001→                  <section key={group.id}>
+  1002→                    <h2 className="text-xl font-bold text-[#00838F] border-b-2 border-[#00838F]/20 pb-2 mb-4">
+  1003→                      {group.label}
+  1004→                    </h2>
+  1005→                    <div className="space-y-6">
+  1006→                      {group.sections.map((s) => {
+  1007→                        const val = sections[s.id]
+  1008→                        const filled = isSectionFilled(s.id, val)
+  1009→                        if (!filled) return null
+  1010→                        return (
+  1011→                          <div key={s.id}>
+  1012→                            <h3 className="text-base font-semibold text-foreground mb-2">{s.title}</h3>
+  1013→                            {s.type === 'textarea' && typeof val === 'string' && (
+  1014→                              <div className="prose prose-sm dark:prose-invert max-w-none">
+  1015→                                <ReactMarkdown>{val}</ReactMarkdown>
+  1016→                              </div>
+  1017→                            )}
+  1018→                            {s.type === 'swot' && val && typeof val === 'object' ? (
+  1019→                              <div className="grid grid-cols-2 gap-3">
+  1020→                                {[
+  1021→                                  { key: 'strengths', label: 'Forces', bg: 'bg-green-50 dark:bg-green-900/10' },
+  1022→                                  { key: 'weaknesses', label: 'Faiblesses', bg: 'bg-red-50 dark:bg-red-900/10' },
+  1023→                                  { key: 'opportunities', label: 'Opportunités', bg: 'bg-blue-50 dark:bg-blue-900/10' },
+  1024→                                  { key: 'threats', label: 'Menaces', bg: 'bg-amber-50 dark:bg-amber-900/10' },
+  1025→                                ].map((q) => (
+  1026→                                  <div key={q.key} className={cn('rounded-lg p-3', q.bg)}>
+  1027→                                    <p className="text-sm font-semibold mb-1">{q.label}</p>
+  1028→                                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+  1029→                                      {(val as SwotData)[q.key as keyof SwotData] || 'Non rempli'}
+  1030→                                    </p>
+  1031→                                  </div>
+  1032→                                ))}
+  1033→                              </div>
+  1034→                            ) : null}
+  1035→                            {s.type === 'select' && (
+  1036→                              <p className="text-sm text-muted-foreground">
+  1037→                                {STATUT_JURIDIQUE_OPTIONS.find((o) => o.value === val)?.label || String(val)}
+  1038→                              </p>
+  1039→                            )}
+  1040→                            {s.type === 'financing-table' && Array.isArray(val) && (
+  1041→                              <table className="w-full text-sm">
+  1042→                                <thead>
+  1043→                                  <tr className="border-b">
+  1044→                                    <th className="text-left py-1 font-medium">Source</th>
+  1045→                                    <th className="text-right py-1 font-medium">Montant</th>
+  1046→                                  </tr>
+  1047→                                </thead>
+  1048→                                <tbody>
+  1049→                                  {(val as FinancingRow[]).map((row) => (
+  1050→                                    <tr key={row.id} className="border-b last:border-0">
+  1051→                                      <td className="py-1">{row.source}</td>
+  1052→                                      <td className="py-1 text-right">{formatCurrency(row.montant)}</td>
+  1053→                                    </tr>
+  1054→                                  ))}
+  1055→                                  <tr className="font-semibold">
+  1056→                                    <td className="py-1">Total</td>
+  1057→                                    <td className="py-1 text-right">
+  1058→                                      {formatCurrency((val as FinancingRow[]).reduce((sum, r) => sum + r.montant, 0))}
+  1059→                                    </td>
+  1060→                                  </tr>
+  1061→                                </tbody>
+  1062→                              </table>
+  1063→                            )}
+  1064→                            {s.type === 'investments-list' && Array.isArray(val) && val.length > 0 && (
+  1065→                              <ul className="text-sm space-y-1">
+  1066→                                {(val as Investment[]).map((inv) => (
+  1067→                                  <li key={inv.id} className="flex justify-between">
+  1068→                                    <span>{inv.name}</span>
+  1069→                                    <span className="font-medium">{formatCurrency(inv.amount)}</span>
+  1070→                                  </li>
+  1071→                                ))}
+  1072→                              </ul>
+  1073→                            )}
+  1074→                            {s.type === 'timeline' && Array.isArray(val) && val.length > 0 && (
+  1075→                              <div className="space-y-2">
+  1076→                                {(val as Milestone[]).map((m) => (
+  1077→                                  <div key={m.id} className="flex items-center gap-2 text-sm">
+  1078→                                    {m.completed ? <Check className="h-4 w-4 text-green-500" /> : <Circle className="h-4 w-4 text-muted-foreground/40" />}
+  1079→                                    <span className="font-medium">{m.date}</span>
+  1080→                                    <span className="text-muted-foreground">{m.title}</span>
+  1081→                                  </div>
+  1082→                                ))}
+  1083→                              </div>
+  1084→                            )}
+  1085→                            {(s.type === 'result-table' || s.type === 'bilan-table') && typeof val === 'object' && val !== null && !Array.isArray(val) && (
+  1086→                              <pre className="text-xs bg-muted rounded-lg p-3 overflow-x-auto">
+  1087→                                {JSON.stringify(val, null, 2)}
+  1088→                              </pre>
+  1089→                            )}
+  1090→                            {s.type === 'treasury-table' && Array.isArray(val) && (
+  1091→                              <pre className="text-xs bg-muted rounded-lg p-3 overflow-x-auto max-h-48">
+  1092→                                {JSON.stringify(val, null, 2)}
+  1093→                              </pre>
+  1094→                            )}
+  1095→                          </div>
+  1096→                        )
+  1097→                      })}
+  1098→                    </div>
+  1099→                  </section>
+  1100→                ))}
+  1101→              </div>
+  1102→            </ScrollArea>
+  1103→          </DialogContent>
+  1104→        </Dialog>
+  1105→
+  1106→        {/* ═══ Export PDF Dialog ═══ */}
+  1107→        <Dialog open={exportPdfOpen} onOpenChange={setExportPdfOpen}>
+  1108→          <DialogContent className="max-w-5xl max-h-[95vh] overflow-hidden flex flex-col p-0">
+  1109→            <BusinessPlanPdf onClose={() => setExportPdfOpen(false)} />
+  1110→          </DialogContent>
+  1111→        </Dialog>
+  1112→      </motion.div>
+  1113→    </TooltipProvider>
+  1114→  )
+  1115→}
+  1116→
+  1117→// ═══════════════════════════════════════════════
+  1118→// Sub-components for complex section types
+  1119→// ═══════════════════════════════════════════════
+  1120→
+  1121→// ─── Products List (Catalogue produits) ───────
+  1122→
+  1123→function ProductsList({ value, onChange }: { value: BpProduct[]; onChange: (v: BpProduct[]) => void }) {
+  1124→  const [showForm, setShowForm] = useState(false)
+  1125→  const [form, setForm] = useState({ nom: '', description: '', prixVente: '', coutUnitaire: '', quantiteMensuelle: '' })
+  1126→
+  1127→  const resetForm = () => setForm({ nom: '', description: '', prixVente: '', coutUnitaire: '', quantiteMensuelle: '' })
+  1128→
+  1129→  const add = () => {
+  1130→    if (!form.nom.trim() || !form.prixVente) return
+  1131→    const prixVente = parseFloat(form.prixVente) || 0
+  1132→    const coutUnitaire = parseFloat(form.coutUnitaire) || 0
+  1133→    const quantiteMensuelle = parseInt(form.quantiteMensuelle) || 0
+  1134→    const marge = prixVente > 0 ? Math.round(((prixVente - coutUnitaire) / prixVente) * 100) : 0
+  1135→    onChange([...value, {
+  1136→      id: genId(),
+  1137→      nom: form.nom.trim(),
+  1138→      description: form.description.trim(),
+  1139→      prixVente,
+  1140→      coutUnitaire,
+  1141→      quantiteMensuelle,
+  1142→      marge,
+  1143→    }])
+  1144→    resetForm()
+  1145→    setShowForm(false)
+  1146→  }
+  1147→
+  1148→  const remove = (id: string) => onChange(value.filter((p) => p.id !== id))
+  1149→  const update = (id: string, field: keyof BpProduct, val: string | number) => {
+  1150→    onChange(value.map((p) => {
+  1151→      if (p.id !== id) return p
+  1152→      const updated = { ...p, [field]: val }
+  1153→      if (field === 'prixVente' || field === 'coutUnitaire') {
+  1154→        const pv = typeof val === 'number' && field === 'prixVente' ? val : updated.prixVente
+  1155→        const cu = typeof val === 'number' && field === 'coutUnitaire' ? val : updated.coutUnitaire
+  1156→        updated.marge = pv > 0 ? Math.round(((pv - cu) / pv) * 100) : 0
+  1157→      }
+  1158→      return updated
+  1159→    }))
+  1160→  }
+  1161→
+  1162→  const caMensuel = value.reduce((s, p) => s + (p.prixVente * p.quantiteMensuelle), 0)
+  1163→  const margeMoyenne = value.length > 0 ? Math.round(value.reduce((s, p) => s + p.marge, 0) / value.length) : 0
+  1164→
+  1165→  return (
+  1166→    <div className="space-y-4">
+  1167→      {/* Summary cards */}
+  1168→      {value.length > 0 && (
+  1169→        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+  1170→          <div className="rounded-lg border bg-muted/30 p-3">
+  1171→            <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Produits</p>
+  1172→            <p className="text-xl font-bold text-foreground">{value.length}</p>
+  1173→          </div>
+  1174→          <div className="rounded-lg border bg-muted/30 p-3">
+  1175→            <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">CA mensuel</p>
+  1176→            <p className="text-xl font-bold text-[#00838F]">{formatCurrency(caMensuel)}</p>
+  1177→          </div>
+  1178→          <div className="rounded-lg border bg-muted/30 p-3 col-span-2 md:col-span-1">
+  1179→            <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Marge moyenne</p>
+  1180→            <p className={cn('text-xl font-bold', margeMoyenne >= 50 ? 'text-green-600' : margeMoyenne >= 30 ? 'text-amber-600' : 'text-red-600')}>
+  1181→              {margeMoyenne}%
+  1182→            </p>
+  1183→          </div>
+  1184→        </div>
+  1185→      )}
+  1186→
+  1187→      {/* Products list */}
+  1188→      {value.length > 0 && (
+  1189→        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+  1190→          {value.map((prod) => (
+  1191→            <div key={prod.id} className="rounded-lg border p-4 space-y-3 group">
+  1192→              <div className="flex items-start justify-between gap-2">
+  1193→                <div className="flex-1 min-w-0">
+  1194→                  <Input
+  1195→                    value={prod.nom}
+  1196→                    onChange={(e) => update(prod.id, 'nom', e.target.value)}
+  1197→                    className="h-8 text-sm font-semibold border-0 shadow-none focus-visible:ring-0 p-0"
+  1198→                    placeholder="Nom du produit..."
+  1199→                  />
+  1200→                  <Input
+  1201→                    value={prod.description}
+  1202→                    onChange={(e) => update(prod.id, 'description', e.target.value)}
+  1203→                    className="h-6 text-xs text-muted-foreground border-0 shadow-none focus-visible:ring-0 p-0 mt-0.5"
+  1204→                    placeholder="Description courte..."
+  1205→                  />
+  1206→                </div>
+  1207→                <div className="flex items-center gap-1 shrink-0">
+  1208→                  <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0 h-5', prod.marge >= 50 ? 'border-green-500/30 text-green-600 bg-green-50/50' : prod.marge >= 30 ? 'border-amber-500/30 text-amber-600 bg-amber-50/50' : 'border-red-500/30 text-red-600 bg-red-50/50')}>
+  1209→                    Marge {prod.marge}%
+  1210→                  </Badge>
+  1211→                  <Button
+  1212→                    variant="ghost"
+  1213→                    size="sm"
+  1214→                    className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500"
+  1215→                    onClick={() => remove(prod.id)}
+  1216→                  >
+  1217→                    <Trash2 className="h-3.5 w-3.5" />
+  1218→                  </Button>
+  1219→                </div>
+  1220→              </div>
+  1221→              <div className="grid grid-cols-3 gap-3">
+  1222→                <div>
+  1223→                  <Label className="text-[10px] text-muted-foreground">Prix de vente unitaire</Label>
+  1224→                  <div className="relative">
+  1225→                    <Input
+  1226→                      type="number"
+  1227→                      value={prod.prixVente || ''}
+  1228→                      onChange={(e) => update(prod.id, 'prixVente', parseFloat(e.target.value) || 0)}
+  1229→                      className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0 text-right pr-7"
+  1230→                      placeholder="0"
+  1231→                    />
+  1232→                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+  1233→                  </div>
+  1234→                </div>
+  1235→                <div>
+  1236→                  <Label className="text-[10px] text-muted-foreground">Coût unitaire</Label>
+  1237→                  <div className="relative">
+  1238→                    <Input
+  1239→                      type="number"
+  1240→                      value={prod.coutUnitaire || ''}
+  1241→                      onChange={(e) => update(prod.id, 'coutUnitaire', parseFloat(e.target.value) || 0)}
+  1242→                      className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0 text-right pr-7"
+  1243→                      placeholder="0"
+  1244→                    />
+  1245→                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+  1246→                  </div>
+  1247→                </div>
+  1248→                <div>
+  1249→                  <Label className="text-[10px] text-muted-foreground">Qté mensuelle</Label>
+  1250→                  <Input
+  1251→                    type="number"
+  1252→                    value={prod.quantiteMensuelle || ''}
+  1253→                    onChange={(e) => update(prod.id, 'quantiteMensuelle', parseInt(e.target.value) || 0)}
+  1254→                    className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0 text-right"
+  1255→                    placeholder="0"
+  1256→                  />
+  1257→                </div>
+  1258→              </div>
+  1259→              <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t">
+  1260→                <span>CA produit : <span className="font-medium text-foreground">{formatCurrency(prod.prixVente * prod.quantiteMensuelle)}/mois</span></span>
+  1261→                <span>Bénéfice unitaire : <span className="font-medium text-green-600">{formatCurrency(prod.prixVente - prod.coutUnitaire)}</span></span>
+  1262→              </div>
+  1263→            </div>
+  1264→          ))}
+  1265→        </div>
+  1266→      )}
+  1267→
+  1268→      {/* Add product button / form */}
+  1269→      {!showForm ? (
+  1270→        <Button variant="outline" size="sm" className="gap-1.5 w-full border-dashed" onClick={() => setShowForm(true)}>
+  1271→          <Plus className="h-3.5 w-3.5" />
+  1272→          Ajouter un produit ou service
+  1273→        </Button>
+  1274→      ) : (
+  1275→        <div className="rounded-lg border border-[#00838F]/30 bg-[#00838F]/5 p-4 space-y-3">
+  1276→          <p className="text-sm font-semibold text-foreground">Nouveau produit / service</p>
+  1277→          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+  1278→            <div>
+  1279→              <Label className="text-xs">Nom du produit *</Label>
+  1280→              <Input
+  1281→                value={form.nom}
+  1282→                onChange={(e) => setForm(f => ({ ...f, nom: e.target.value }))}
+  1283→                placeholder="Ex: Formation en ligne..."
+  1284→                className="h-9 text-sm"
+  1285→                autoFocus
+  1286→              />
+  1287→            </div>
+  1288→            <div>
+  1289→              <Label className="text-xs">Description</Label>
+  1290→              <Input
+  1291→                value={form.description}
+  1292→                onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
+  1293→                placeholder="Description courte..."
+  1294→                className="h-9 text-sm"
+  1295→              />
+  1296→            </div>
+  1297→            <div>
+  1298→              <Label className="text-xs">Prix de vente unitaire (€) *</Label>
+  1299→              <Input
+  1300→                type="number"
+  1301→                value={form.prixVente}
+  1302→                onChange={(e) => setForm(f => ({ ...f, prixVente: e.target.value }))}
+  1303→                placeholder="0"
+  1304→                className="h-9 text-sm"
+  1305→              />
+  1306→            </div>
+  1307→            <div>
+  1308→              <Label className="text-xs">Coût unitaire (€)</Label>
+  1309→              <Input
+  1310→                type="number"
+  1311→                value={form.coutUnitaire}
+  1312→                onChange={(e) => setForm(f => ({ ...f, coutUnitaire: e.target.value }))}
+  1313→                placeholder="0"
+  1314→                className="h-9 text-sm"
+  1315→              />
+  1316→            </div>
+  1317→            <div className="md:col-span-2">
+  1318→              <Label className="text-xs">Quantité vendue par mois</Label>
+  1319→              <Input
+  1320→                type="number"
+  1321→                value={form.quantiteMensuelle}
+  1322→                onChange={(e) => setForm(f => ({ ...f, quantiteMensuelle: e.target.value }))}
+  1323→                placeholder="0"
+  1324→                className="h-9 text-sm"
+  1325→              />
+  1326→            </div>
+  1327→          </div>
+  1328→          {form.prixVente && form.coutUnitaire && parseFloat(form.prixVente) > 0 && (
+  1329→            <p className="text-xs text-muted-foreground">
+  1330→              Marge estimée : <span className="font-semibold text-foreground">{Math.round(((parseFloat(form.prixVente) - parseFloat(form.coutUnitaire)) / parseFloat(form.prixVente)) * 100)}%</span>
+  1331→              {' '}&mdash; Bénéfice unitaire : <span className="font-semibold text-green-600">{formatCurrency(parseFloat(form.prixVente) - parseFloat(form.coutUnitaire))}</span>
+  1332→            </p>
+  1333→          )}
+  1334→          <div className="flex items-center gap-2">
+  1335→            <Button size="sm" className="bg-[#00838F] hover:bg-[#00838F]/90 text-white" onClick={add} disabled={!form.nom.trim() || !form.prixVente}>
+  1336→              <Plus className="h-3.5 w-3.5 mr-1" />
+  1337→              Ajouter
+  1338→            </Button>
+  1339→            <Button variant="ghost" size="sm" onClick={() => { setShowForm(false); resetForm() }}>
+  1340→              Annuler
+  1341→            </Button>
+  1342→          </div>
+  1343→        </div>
+  1344→      )}
+  1345→    </div>
+  1346→  )
+  1347→}
+  1348→
+  1349→// ─── Associates List (Répartition du capital) ──
+  1350→
+  1351→function AssociatesList({ value, onChange }: { value: Associate[]; onChange: (v: Associate[]) => void }) {
+  1352→  const [showForm, setShowForm] = useState(false)
+  1353→  const [form, setForm] = useState({ nom: '', prenom: '', role: '', nombreParts: '', pourcentage: '', apportCapital: '' })
+  1354→
+  1355→  const resetForm = () => setForm({ nom: '', prenom: '', role: '', nombreParts: '', pourcentage: '', apportCapital: '' })
+  1356→
+  1357→  const totalParts = value.reduce((s, a) => s + a.nombreParts, 0)
+  1358→  const totalCapital = value.reduce((s, a) => s + a.apportCapital, 0)
+  1359→  const totalPourcentage = value.reduce((s, a) => s + a.pourcentage, 0)
+  1360→
+  1361→  const add = () => {
+  1362→    if (!form.nom.trim() || !form.prenom.trim()) return
+  1363→    onChange([...value, {
+  1364→      id: genId(),
+  1365→      nom: form.nom.trim(),
+  1366→      prenom: form.prenom.trim(),
+  1367→      role: form.role.trim(),
+  1368→      nombreParts: parseInt(form.nombreParts) || 0,
+  1369→      pourcentage: parseFloat(form.pourcentage) || 0,
+  1370→      apportCapital: parseFloat(form.apportCapital) || 0,
+  1371→    }])
+  1372→    resetForm()
+  1373→    setShowForm(false)
+  1374→  }
+  1375→
+  1376→  const remove = (id: string) => onChange(value.filter((a) => a.id !== id))
+  1377→  const update = (id: string, field: keyof Associate, val: string | number) => {
+  1378→    onChange(value.map((a) => (a.id === id ? { ...a, [field]: val } : a)))
+  1379→  }
+  1380→
+  1381→  return (
+  1382→    <div className="space-y-4">
+  1383→      {/* Summary */}
+  1384→      {value.length > 0 && (
+  1385→        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+  1386→          <div className="rounded-lg border bg-muted/30 p-3">
+  1387→            <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Associés</p>
+  1388→            <p className="text-xl font-bold text-foreground">{value.length}</p>
+  1389→          </div>
+  1390→          <div className="rounded-lg border bg-muted/30 p-3">
+  1391→            <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Total parts</p>
+  1392→            <p className="text-xl font-bold text-[#00838F]">{totalParts.toLocaleString('fr-FR')}</p>
+  1393→          </div>
+  1394→          <div className="rounded-lg border bg-muted/30 p-3 col-span-2 md:col-span-1">
+  1395→            <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Capital total</p>
+  1396→            <p className="text-xl font-bold text-[#00838F]">{formatCurrency(totalCapital)}</p>
+  1397→          </div>
+  1398→        </div>
+  1399→      )}
+  1400→
+  1401→      {/* Percentage warning */}
+  1402→      {value.length > 0 && (totalPourcentage !== 100) && (
+  1403→        <p className={cn('text-xs px-3 py-1.5 rounded-md', totalPourcentage > 100 ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-amber-50 text-amber-600 border border-amber-200')}>
+  1404→          {totalPourcentage > 100
+  1405→            ? `Attention : le total des pourcentages dépasse 100% (${totalPourcentage}%)`
+  1406→            : `Répartition incomplète : ${totalPourcentage}% attribué sur 100%`}
+  1407→        </p>
+  1408→      )}
+  1409→
+  1410→      {/* Associates list */}
+  1411→      {value.length > 0 && (
+  1412→        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+  1413→          {value.map((assoc, idx) => (
+  1414→            <div key={assoc.id} className="rounded-lg border p-4 space-y-3 group">
+  1415→              <div className="flex items-start justify-between gap-2">
+  1416→                <div className="flex items-center gap-2">
+  1417→                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#00838F]/10 text-[#00838F] text-sm font-bold">
+  1418→                    {idx + 1}
+  1419→                  </div>
+  1420→                  <div className="flex-1 min-w-0">
+  1421→                    <div className="flex items-center gap-1.5">
+  1422→                      <Input
+  1423→                        value={assoc.prenom}
+  1424→                        onChange={(e) => update(assoc.id, 'prenom', e.target.value)}
+  1425→                        className="h-7 text-sm font-semibold border-0 shadow-none focus-visible:ring-0 p-0 w-24"
+  1426→                        placeholder="Prénom..."
+  1427→                      />
+  1428→                      <Input
+  1429→                        value={assoc.nom}
+  1430→                        onChange={(e) => update(assoc.id, 'nom', e.target.value)}
+  1431→                        className="h-7 text-sm font-semibold border-0 shadow-none focus-visible:ring-0 p-0 w-32"
+  1432→                        placeholder="Nom..."
+  1433→                      />
+  1434→                    </div>
+  1435→                    <Input
+  1436→                      value={assoc.role}
+  1437→                      onChange={(e) => update(assoc.id, 'role', e.target.value)}
+  1438→                      className="h-6 text-xs text-muted-foreground border-0 shadow-none focus-visible:ring-0 p-0 mt-0.5"
+  1439→                      placeholder="Rôle (ex: Gérant, Président...)"
+  1440→                    />
+  1441→                  </div>
+  1442→                </div>
+  1443→                <div className="flex items-center gap-1 shrink-0">
+  1444→                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-semibold">
+  1445→                    {assoc.pourcentage}%
+  1446→                  </Badge>
+  1447→                  <Button
+  1448→                    variant="ghost"
+  1449→                    size="sm"
+  1450→                    className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500"
+  1451→                    onClick={() => remove(assoc.id)}
+  1452→                  >
+  1453→                    <Trash2 className="h-3.5 w-3.5" />
+  1454→                  </Button>
+  1455→                </div>
+  1456→              </div>
+  1457→              <div className="grid grid-cols-3 gap-3">
+  1458→                <div>
+  1459→                  <Label className="text-[10px] text-muted-foreground">Nombre de parts</Label>
+  1460→                  <Input
+  1461→                    type="number"
+  1462→                    value={assoc.nombreParts || ''}
+  1463→                    onChange={(e) => update(assoc.id, 'nombreParts', parseInt(e.target.value) || 0)}
+  1464→                    className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0"
+  1465→                    placeholder="0"
+  1466→                  />
+  1467→                </div>
+  1468→                <div>
+  1469→                  <Label className="text-[10px] text-muted-foreground">Pourcentage (%)</Label>
+  1470→                  <Input
+  1471→                    type="number"
+  1472→                    value={assoc.pourcentage || ''}
+  1473→                    onChange={(e) => update(assoc.id, 'pourcentage', parseFloat(e.target.value) || 0)}
+  1474→                    className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0"
+  1475→                    placeholder="0"
+  1476→                  />
+  1477→                </div>
+  1478→                <div>
+  1479→                  <Label className="text-[10px] text-muted-foreground">Apport en capital</Label>
+  1480→                  <div className="relative">
+  1481→                    <Input
+  1482→                      type="number"
+  1483→                      value={assoc.apportCapital || ''}
+  1484→                      onChange={(e) => update(assoc.id, 'apportCapital', parseFloat(e.target.value) || 0)}
+  1485→                      className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0 text-right pr-7"
+  1486→                      placeholder="0"
+  1487→                    />
+  1488→                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+  1489→                  </div>
+  1490→                </div>
+  1491→              </div>
+  1492→            </div>
+  1493→          ))}
+  1494→        </div>
+  1495→      )}
+  1496→
+  1497→      {/* Add associate button / form */}
+  1498→      {!showForm ? (
+  1499→        <Button variant="outline" size="sm" className="gap-1.5 w-full border-dashed" onClick={() => setShowForm(true)}>
+  1500→          <Plus className="h-3.5 w-3.5" />
+  1501→          Ajouter un associé
+  1502→        </Button>
+  1503→      ) : (
+  1504→        <div className="rounded-lg border border-[#00838F]/30 bg-[#00838F]/5 p-4 space-y-3">
+  1505→          <p className="text-sm font-semibold text-foreground">Nouvel associé</p>
+  1506→          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+  1507→            <div>
+  1508→              <Label className="text-xs">Prénom *</Label>
+  1509→              <Input
+  1510→                value={form.prenom}
+  1511→                onChange={(e) => setForm(f => ({ ...f, prenom: e.target.value }))}
+  1512→                placeholder="Prénom..."
+  1513→                className="h-9 text-sm"
+  1514→                autoFocus
+  1515→              />
+  1516→            </div>
+  1517→            <div>
+  1518→              <Label className="text-xs">Nom *</Label>
+  1519→              <Input
+  1520→                value={form.nom}
+  1521→                onChange={(e) => setForm(f => ({ ...f, nom: e.target.value }))}
+  1522→                placeholder="Nom..."
+  1523→                className="h-9 text-sm"
+  1524→              />
+  1525→            </div>
+  1526→            <div>
+  1527→              <Label className="text-xs">Rôle / Fonction</Label>
+  1528→              <Input
+  1529→                value={form.role}
+  1530→                onChange={(e) => setForm(f => ({ ...f, role: e.target.value }))}
+  1531→                placeholder="Ex: Gérant, Président..."
+  1532→                className="h-9 text-sm"
+  1533→              />
+  1534→            </div>
+  1535→            <div>
+  1536→              <Label className="text-xs">Nombre de parts</Label>
+  1537→              <Input
+  1538→                type="number"
+  1539→                value={form.nombreParts}
+  1540→                onChange={(e) => setForm(f => ({ ...f, nombreParts: e.target.value }))}
+  1541→                placeholder="0"
+  1542→                className="h-9 text-sm"
+  1543→              />
+  1544→            </div>
+  1545→            <div>
+  1546→              <Label className="text-xs">Pourcentage (%)</Label>
+  1547→              <Input
+  1548→                type="number"
+  1549→                value={form.pourcentage}
+  1550→                onChange={(e) => setForm(f => ({ ...f, pourcentage: e.target.value }))}
+  1551→                placeholder="0"
+  1552→                className="h-9 text-sm"
+  1553→              />
+  1554→            </div>
+  1555→            <div>
+  1556→              <Label className="text-xs">Apport en capital (€)</Label>
+  1557→              <Input
+  1558→                type="number"
+  1559→                value={form.apportCapital}
+  1560→                onChange={(e) => setForm(f => ({ ...f, apportCapital: e.target.value }))}
+  1561→                placeholder="0"
+  1562→                className="h-9 text-sm"
+  1563→              />
+  1564→            </div>
+  1565→          </div>
+  1566→          <div className="flex items-center gap-2">
+  1567→            <Button size="sm" className="bg-[#00838F] hover:bg-[#00838F]/90 text-white" onClick={add} disabled={!form.nom.trim() || !form.prenom.trim()}>
+  1568→              <Plus className="h-3.5 w-3.5 mr-1" />
+  1569→              Ajouter
+  1570→            </Button>
+  1571→            <Button variant="ghost" size="sm" onClick={() => { setShowForm(false); resetForm() }}>
+  1572→              Annuler
+  1573→            </Button>
+  1574→          </div>
+  1575→        </div>
+  1576→      )}
+  1577→    </div>
+  1578→  )
+  1579→}
+  1580→
+  1581→// ─── Co-gérants List ──────────────────────────
+  1582→
+  1583→function CogerantsList({ value, onChange }: { value: Cogerant[]; onChange: (v: Cogerant[]) => void }) {
+  1584→  const [showForm, setShowForm] = useState(false)
+  1585→  const [form, setForm] = useState({ nom: '', prenom: '', fonction: '', email: '', telephone: '' })
+  1586→
+  1587→  const resetForm = () => setForm({ nom: '', prenom: '', fonction: '', email: '', telephone: '' })
+  1588→
+  1589→  const add = () => {
+  1590→    if (!form.nom.trim() || !form.prenom.trim()) return
+  1591→    onChange([...value, {
+  1592→      id: genId(),
+  1593→      nom: form.nom.trim(),
+  1594→      prenom: form.prenom.trim(),
+  1595→      fonction: form.fonction.trim(),
+  1596→      email: form.email.trim(),
+  1597→      telephone: form.telephone.trim(),
+  1598→    }])
+  1599→    resetForm()
+  1600→    setShowForm(false)
+  1601→  }
+  1602→
+  1603→  const remove = (id: string) => onChange(value.filter((c) => c.id !== id))
+  1604→  const update = (id: string, field: keyof Cogerant, val: string) => {
+  1605→    onChange(value.map((c) => (c.id === id ? { ...c, [field]: val } : c)))
+  1606→  }
+  1607→
+  1608→  return (
+  1609→    <div className="space-y-4">
+  1610→      {/* Info banner when no co-gérants */}
+  1611→      {value.length === 0 && !showForm && (
+  1612→        <div className="rounded-lg border bg-muted/30 p-4 text-center space-y-2">
+  1613→          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FF6B35]/10 mx-auto">
+  1614→            <UserCheck className="h-5 w-5 text-[#FF6B35]" />
+  1615→          </div>
+  1616→          <p className="text-sm text-muted-foreground">
+  1617→            Ajoutez les co-gérants de votre entreprise pour définir leurs rôles et responsabilités.
+  1618→          </p>
+  1619→        </div>
+  1620→      )}
+  1621→
+  1622→      {/* Co-gérants list */}
+  1623→      {value.length > 0 && (
+  1624→        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+  1625→          {value.map((cog, idx) => (
+  1626→            <div key={cog.id} className="rounded-lg border p-4 space-y-3 group">
+  1627→              <div className="flex items-start justify-between gap-2">
+  1628→                <div className="flex items-center gap-2">
+  1629→                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FF6B35]/10 text-[#FF6B35] text-sm font-bold">
+  1630→                    {idx + 1}
+  1631→                  </div>
+  1632→                  <div className="flex-1 min-w-0">
+  1633→                    <div className="flex items-center gap-1.5">
+  1634→                      <Input
+  1635→                        value={cog.prenom}
+  1636→                        onChange={(e) => update(cog.id, 'prenom', e.target.value)}
+  1637→                        className="h-7 text-sm font-semibold border-0 shadow-none focus-visible:ring-0 p-0 w-24"
+  1638→                        placeholder="Prénom..."
+  1639→                      />
+  1640→                      <Input
+  1641→                        value={cog.nom}
+  1642→                        onChange={(e) => update(cog.id, 'nom', e.target.value)}
+  1643→                        className="h-7 text-sm font-semibold border-0 shadow-none focus-visible:ring-0 p-0 w-32"
+  1644→                        placeholder="Nom..."
+  1645→                      />
+  1646→                    </div>
+  1647→                    <Input
+  1648→                      value={cog.fonction}
+  1649→                      onChange={(e) => update(cog.id, 'fonction', e.target.value)}
+  1650→                      className="h-6 text-xs text-muted-foreground border-0 shadow-none focus-visible:ring-0 p-0 mt-0.5"
+  1651→                      placeholder="Fonction (ex: Co-gérant, Directeur technique...)"
+  1652→                    />
+  1653→                  </div>
+  1654→                </div>
+  1655→                <Button
+  1656→                  variant="ghost"
+  1657→                  size="sm"
+  1658→                  className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 shrink-0"
+  1659→                  onClick={() => remove(cog.id)}
+  1660→                >
+  1661→                  <Trash2 className="h-3.5 w-3.5" />
+  1662→                </Button>
+  1663→              </div>
+  1664→              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+  1665→                <div>
+  1666→                  <Label className="text-[10px] text-muted-foreground">Email</Label>
+  1667→                  <Input
+  1668→                    type="email"
+  1669→                    value={cog.email}
+  1670→                    onChange={(e) => update(cog.id, 'email', e.target.value)}
+  1671→                    className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0"
+  1672→                    placeholder="email@exemple.com"
+  1673→                  />
+  1674→                </div>
+  1675→                <div>
+  1676→                  <Label className="text-[10px] text-muted-foreground">Téléphone</Label>
+  1677→                  <Input
+  1678→                    type="tel"
+  1679→                    value={cog.telephone}
+  1680→                    onChange={(e) => update(cog.id, 'telephone', e.target.value)}
+  1681→                    className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0"
+  1682→                    placeholder="06 00 00 00 00"
+  1683→                  />
+  1684→                </div>
+  1685→              </div>
+  1686→            </div>
+  1687→          ))}
+  1688→        </div>
+  1689→      )}
+  1690→
+  1691→      {/* Add co-gérant button / form */}
+  1692→      {!showForm ? (
+  1693→        <Button variant="outline" size="sm" className="gap-1.5 w-full border-dashed" onClick={() => setShowForm(true)}>
+  1694→          <Plus className="h-3.5 w-3.5" />
+  1695→          Ajouter un co-gérant
+  1696→        </Button>
+  1697→      ) : (
+  1698→        <div className="rounded-lg border border-[#FF6B35]/30 bg-[#FF6B35]/5 p-4 space-y-3">
+  1699→          <p className="text-sm font-semibold text-foreground">Nouveau co-gérant</p>
+  1700→          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+  1701→            <div>
+  1702→              <Label className="text-xs">Prénom *</Label>
+  1703→              <Input
+  1704→                value={form.prenom}
+  1705→                onChange={(e) => setForm(f => ({ ...f, prenom: e.target.value }))}
+  1706→                placeholder="Prénom..."
+  1707→                className="h-9 text-sm"
+  1708→                autoFocus
+  1709→              />
+  1710→            </div>
+  1711→            <div>
+  1712→              <Label className="text-xs">Nom *</Label>
+  1713→              <Input
+  1714→                value={form.nom}
+  1715→                onChange={(e) => setForm(f => ({ ...f, nom: e.target.value }))}
+  1716→                placeholder="Nom..."
+  1717→                className="h-9 text-sm"
+  1718→              />
+  1719→            </div>
+  1720→            <div>
+  1721→              <Label className="text-xs">Fonction</Label>
+  1722→              <Input
+  1723→                value={form.fonction}
+  1724→                onChange={(e) => setForm(f => ({ ...f, fonction: e.target.value }))}
+  1725→                placeholder="Ex: Co-gérant, Directeur..."
+  1726→                className="h-9 text-sm"
+  1727→              />
+  1728→            </div>
+  1729→            <div>
+  1730→              <Label className="text-xs">Email</Label>
+  1731→              <Input
+  1732→                type="email"
+  1733→                value={form.email}
+  1734→                onChange={(e) => setForm(f => ({ ...f, email: e.target.value }))}
+  1735→                placeholder="email@exemple.com"
+  1736→                className="h-9 text-sm"
+  1737→              />
+  1738→            </div>
+  1739→            <div className="md:col-span-2">
+  1740→              <Label className="text-xs">Téléphone</Label>
+  1741→              <Input
+  1742→                type="tel"
+  1743→                value={form.telephone}
+  1744→                onChange={(e) => setForm(f => ({ ...f, telephone: e.target.value }))}
+  1745→                placeholder="06 00 00 00 00"
+  1746→                className="h-9 text-sm"
+  1747→              />
+  1748→            </div>
+  1749→          </div>
+  1750→          <div className="flex items-center gap-2">
+  1751→            <Button size="sm" className="bg-[#FF6B35] hover:bg-[#FF6B35]/90 text-white" onClick={add} disabled={!form.nom.trim() || !form.prenom.trim()}>
+  1752→              <Plus className="h-3.5 w-3.5 mr-1" />
+  1753→              Ajouter
+  1754→            </Button>
+  1755→            <Button variant="ghost" size="sm" onClick={() => { setShowForm(false); resetForm() }}>
+  1756→              Annuler
+  1757→            </Button>
+  1758→          </div>
+  1759→        </div>
+  1760→      )}
+  1761→    </div>
+  1762→  )
+  1763→}
+  1764→
+  1765→// ─── Financing Table ──────────────────────────
+  1766→
+  1767→function FinancingTable({ value, onChange }: { value: FinancingRow[]; onChange: (v: FinancingRow[]) => void }) {
+  1768→  const [newSource, setNewSource] = useState('')
+  1769→  const [newMontant, setNewMontant] = useState('')
+  1770→
+  1771→  const addRow = () => {
+  1772→    if (!newSource.trim() || !newMontant) return
+  1773→    const montant = parseFloat(newMontant)
+  1774→    if (isNaN(montant)) return
+  1775→    onChange([...value, { id: genId(), source: newSource.trim(), montant }])
+  1776→    setNewSource('')
+  1777→    setNewMontant('')
+  1778→  }
+  1779→
+  1780→  const removeRow = (id: string) => onChange(value.filter((r) => r.id !== id))
+  1781→  const updateRow = (id: string, field: 'source' | 'montant', val: string | number) => {
+  1782→    onChange(value.map((r) => (r.id === id ? { ...r, [field]: val } : r)))
+  1783→  }
+  1784→
+  1785→  const total = value.reduce((s, r) => s + r.montant, 0)
+  1786→
+  1787→  return (
+  1788→    <div className="space-y-3">
+  1789→      <div className="rounded-lg border overflow-hidden">
+  1790→        <table className="w-full text-sm">
+  1791→          <thead>
+  1792→            <tr className="bg-muted/50 border-b">
+  1793→              <th className="text-left py-2 px-3 font-medium">Source de financement</th>
+  1794→              <th className="text-right py-2 px-3 font-medium w-36">Montant (€)</th>
+  1795→              <th className="w-10"></th>
+  1796→            </tr>
+  1797→          </thead>
+  1798→          <tbody>
+  1799→            {value.map((row) => (
+  1800→              <tr key={row.id} className="border-b last:border-0 group">
+  1801→                <td className="py-2 px-3">
+  1802→                  <Input
+  1803→                    value={row.source}
+  1804→                    onChange={(e) => updateRow(row.id, 'source', e.target.value)}
+  1805→                    className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0"
+  1806→                    placeholder="Ex: Apport personnel..."
+  1807→                  />
+  1808→                </td>
+  1809→                <td className="py-2 px-3">
+  1810→                  <div className="relative">
+  1811→                    <Input
+  1812→                      type="number"
+  1813→                      value={row.montant || ''}
+  1814→                      onChange={(e) => updateRow(row.id, 'montant', parseFloat(e.target.value) || 0)}
+  1815→                      className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0 text-right pr-7"
+  1816→                      placeholder="0"
+  1817→                    />
+  1818→                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+  1819→                  </div>
+  1820→                </td>
+  1821→                <td className="py-2 px-1">
+  1822→                  <Button
+  1823→                    variant="ghost"
+  1824→                    size="sm"
+  1825→                    className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500"
+  1826→                    onClick={() => removeRow(row.id)}
+  1827→                  >
+  1828→                    <Trash2 className="h-3.5 w-3.5" />
+  1829→                  </Button>
+  1830→                </td>
+  1831→              </tr>
+  1832→            ))}
+  1833→          </tbody>
+  1834→          {value.length > 0 && (
+  1835→            <tfoot>
+  1836→              <tr className="bg-muted/50 font-semibold">
+  1837→                <td className="py-2 px-3">Total</td>
+  1838→                <td className="py-2 px-3 text-right">{formatCurrency(total)}</td>
+  1839→                <td></td>
+  1840→              </tr>
+  1841→            </tfoot>
+  1842→          )}
+  1843→        </table>
+  1844→      </div>
+  1845→      <div className="flex items-center gap-2">
+  1846→        <Input
+  1847→          placeholder="Source..."
+  1848→          value={newSource}
+  1849→          onChange={(e) => setNewSource(e.target.value)}
+  1850→          className="flex-1 h-8 text-sm"
+  1851→          onKeyDown={(e) => e.key === 'Enter' && addRow()}
+  1852→        />
+  1853→        <div className="relative w-28">
+  1854→          <Input
+  1855→            type="number"
+  1856→            placeholder="0"
+  1857→            value={newMontant}
+  1858→            onChange={(e) => setNewMontant(e.target.value)}
+  1859→            className="pr-7 h-8 text-sm"
+  1860→            onKeyDown={(e) => e.key === 'Enter' && addRow()}
+  1861→          />
+  1862→          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+  1863→        </div>
+  1864→        <Button variant="outline" size="sm" className="h-8 w-8 p-0 shrink-0" onClick={addRow} disabled={!newSource.trim() || !newMontant}>
+  1865→          <Plus className="h-3.5 w-3.5" />
+  1866→        </Button>
+  1867→      </div>
+  1868→    </div>
+  1869→  )
+  1870→}
+  1871→
+  1872→// ─── Result Table (3-year P&L) ───────────────
+  1873→
+  1874→function ResultTable({ value, onChange }: {
+  1875→  value: Record<string, Record<string, number>>
+  1876→  onChange: (v: Record<string, Record<string, number>>) => void
+  1877→}) {
+  1878→  const years = ['year1', 'year2', 'year3']
+  1879→  const labels: Record<string, string> = { year1: 'Année 1', year2: 'Année 2', year3: 'Année 3' }
+  1880→  const fields = [
+  1881→    { key: 'ca', label: 'Chiffre d\'affaires' },
+  1882→    { key: 'charges', label: 'Charges totales' },
+  1883→    { key: 'resultat', label: 'Résultat net' },
+  1884→  ]
+  1885→
+  1886→  const update = (year: string, field: string, val: number) => {
+  1887→    onChange({
+  1888→      ...value,
+  1889→      [year]: { ...value[year], [field]: val },
+  1890→    })
+  1891→  }
+  1892→
+  1893→  return (
+  1894→    <div className="rounded-lg border overflow-x-auto">
+  1895→      <table className="w-full text-sm">
+  1896→        <thead>
+  1897→          <tr className="bg-muted/50 border-b">
+  1898→            <th className="text-left py-2 px-3 font-medium min-w-[140px]"></th>
+  1899→            {years.map((y) => (
+  1900→              <th key={y} className="text-right py-2 px-3 font-medium min-w-[120px]">{labels[y]}</th>
+  1901→            ))}
+  1902→          </tr>
+  1903→        </thead>
+  1904→        <tbody>
+  1905→          {fields.map((f) => (
+  1906→            <tr key={f.key} className={cn('border-b last:border-0', f.key === 'resultat' && 'font-semibold bg-muted/30')}>
+  1907→              <td className="py-2 px-3">{f.label}</td>
+  1908→              {years.map((y) => (
+  1909→                <td key={y} className="py-2 px-3">
+  1910→                  <div className="relative">
+  1911→                    <Input
+  1912→                      type="number"
+  1913→                      value={value[y]?.[f.key] || ''}
+  1914→                      onChange={(e) => update(y, f.key, parseFloat(e.target.value) || 0)}
+  1915→                      className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0 text-right pr-7"
+  1916→                      placeholder="0"
+  1917→                    />
+  1918→                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+  1919→                  </div>
+  1920→                </td>
+  1921→              ))}
+  1922→            </tr>
+  1923→          ))}
+  1924→        </tbody>
+  1925→      </table>
+  1926→    </div>
+  1927→  )
+  1928→}
+  1929→
+  1930→// ─── Treasury Table (12 months) ──────────────
+  1931→
+  1932→function TreasuryTable({ value, onChange }: { value: TreasuryMonth[]; onChange: (v: TreasuryMonth[]) => void }) {
+  1933→  const updateMonth = (idx: number, field: 'encaissements' | 'decaissements', val: number) => {
+  1934→    const newVal = [...value]
+  1935→    newVal[idx] = { ...newVal[idx], [field]: val }
+  1936→    // Recalculate solde
+  1937→    newVal[idx].solde = (newVal[idx].encaissements - newVal[idx].decaissements) + (idx > 0 ? newVal[idx - 1].solde : 0)
+  1938→    // Recalculate subsequent soldes
+  1939→    for (let i = idx + 1; i < newVal.length; i++) {
+  1940→      newVal[i].solde = (newVal[i].encaissements - newVal[i].decaissements) + newVal[i - 1].solde
+  1941→    }
+  1942→    onChange(newVal)
+  1943→  }
+  1944→
+  1945→  return (
+  1946→    <div className="rounded-lg border overflow-x-auto">
+  1947→      <table className="w-full text-sm">
+  1948→        <thead>
+  1949→          <tr className="bg-muted/50 border-b">
+  1950→            <th className="text-left py-2 px-3 font-medium sticky left-0 bg-muted/50 z-10 min-w-[50px]">Mois</th>
+  1951→            <th className="text-right py-2 px-3 font-medium min-w-[110px]">Encaissements</th>
+  1952→            <th className="text-right py-2 px-3 font-medium min-w-[110px]">Décaissements</th>
+  1953→            <th className="text-right py-2 px-3 font-medium min-w-[110px]">Solde cumulé</th>
+  1954→          </tr>
+  1955→        </thead>
+  1956→        <tbody>
+  1957→          {value.map((m, idx) => (
+  1958→            <tr key={m.month} className={cn('border-b last:border-0', m.solde < 0 && 'bg-red-50/50 dark:bg-red-900/5')}>
+  1959→              <td className="py-1.5 px-3 font-medium sticky left-0 bg-background z-10">{m.month}</td>
+  1960→              <td className="py-1.5 px-3">
+  1961→                <div className="relative">
+  1962→                  <Input
+  1963→                    type="number"
+  1964→                    value={m.encaissements || ''}
+  1965→                    onChange={(e) => updateMonth(idx, 'encaissements', parseFloat(e.target.value) || 0)}
+  1966→                    className="h-7 text-sm border-0 shadow-none focus-visible:ring-0 p-0 text-right pr-7"
+  1967→                    placeholder="0"
+  1968→                  />
+  1969→                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">€</span>
+  1970→                </div>
+  1971→              </td>
+  1972→              <td className="py-1.5 px-3">
+  1973→                <div className="relative">
+  1974→                  <Input
+  1975→                    type="number"
+  1976→                    value={m.decaissements || ''}
+  1977→                    onChange={(e) => updateMonth(idx, 'decaissements', parseFloat(e.target.value) || 0)}
+  1978→                    className="h-7 text-sm border-0 shadow-none focus-visible:ring-0 p-0 text-right pr-7"
+  1979→                    placeholder="0"
+  1980→                  />
+  1981→                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">€</span>
+  1982→                </div>
+  1983→              </td>
+  1984→              <td className={cn('py-1.5 px-3 text-right font-medium', m.solde < 0 ? 'text-red-500' : 'text-green-600 dark:text-green-400')}>
+  1985→                {formatCurrency(m.solde)}
+  1986→              </td>
+  1987→            </tr>
+  1988→          ))}
+  1989→        </tbody>
+  1990→      </table>
+  1991→    </div>
+  1992→  )
+  1993→}
+  1994→
+  1995→// ─── Investments List ────────────────────────
+  1996→
+  1997→function InvestmentsList({ value, onChange }: { value: Investment[]; onChange: (v: Investment[]) => void }) {
+  1998→  const [newName, setNewName] = useState('')
+  1999→  const [newAmount, setNewAmount] = useState('')
+  2000→
+
+[showing lines 1-2000 of 2247; use offset=2001 with limit to continue reading]

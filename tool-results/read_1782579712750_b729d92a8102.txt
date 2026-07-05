@@ -1,0 +1,714 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Textarea } from '@/components/ui/textarea'
+     9→import { Separator } from '@/components/ui/separator'
+    10→import {
+    11→  Popover,
+    12→  PopoverContent,
+    13→  PopoverTrigger,
+    14→} from '@/components/ui/popover'
+    15→import {
+    16→  Clock,
+    17→  Save,
+    18→  Sparkles,
+    19→  Loader2,
+    20→  Check,
+    21→  Info,
+    22→  Plus,
+    23→  X,
+    24→  Timer,
+    25→  CalendarDays,
+    26→  Wrench,
+    27→  ListTodo,
+    28→  Play,
+    29→  Pause,
+    30→} from 'lucide-react'
+    31→import { toast } from 'sonner'
+    32→import { cn } from '@/lib/utils'
+    33→import { authFetch } from '@/lib/auth-fetch'
+    34→
+    35→// ─── Types ──────────────────────────────────
+    36→
+    37→interface TaskItem {
+    38→  id: string
+    39→  text: string
+    40→}
+    41→
+    42→interface EisenhowerMatrix {
+    43→  urgentImportant: TaskItem[]
+    44→  urgentNotImportant: TaskItem[]
+    45→  notUrgentImportant: TaskItem[]
+    46→  notUrgentNotImportant: TaskItem[]
+    47→}
+    48→
+    49→interface WeekSchedule {
+    50→  [day: string]: string
+    51→}
+    52→
+    53→interface GestionTempsData {
+    54→  diagnostic: string
+    55→  eisenhower: EisenhowerMatrix
+    56→  weekSchedule: WeekSchedule
+    57→}
+    58→
+    59→const DAYS_FR = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
+    60→
+    61→const OUTILS_PRODUCTIVITE = [
+    62→  { name: 'Pomodoro (25/5)', description: 'Travail par cycles de 25 min, pause 5 min. Idéal pour les tâches concentrées.' },
+    63→  { name: 'Trello / Notion', description: 'Gestion de projets visuelle. Tableaux Kanban pour organiser vos tâches.' },
+    64→  { name: 'Google Agenda', description: 'Planification et rappels. Bloquez des créneaux pour chaque activité.' },
+    65→  { name: 'RescueTime / Toggl', description: 'Suivi du temps réel. Mesurez où passez réellement votre temps.' },
+    66→  { name: 'Time Blocking', description: 'Allocation de créneaux fixes pour chaque type d\'activité. Réduit la fragmentation.' },
+    67→  { name: 'Eat the Frog', description: 'Commencez par la tâche la plus difficile en priorité. Maximise la productivité matinale.' },
+    68→  { name: '2-Minute Rule', description: 'Si une tâche prend moins de 2 min, faites-la immédiatement. Évite l\'accumulation.' },
+    69→]
+    70→
+    71→const DEFAULT_DATA: GestionTempsData = {
+    72→  diagnostic: '',
+    73→  eisenhower: {
+    74→    urgentImportant: [],
+    75→    urgentNotImportant: [],
+    76→    notUrgentImportant: [],
+    77→    notUrgentNotImportant: [],
+    78→  },
+    79→  weekSchedule: {
+    80→    Lundi: '',
+    81→    Mardi: '',
+    82→    Mercredi: '',
+    83→    Jeudi: '',
+    84→    Vendredi: '',
+    85→    Samedi: '',
+    86→    Dimanche: '',
+    87→  },
+    88→}
+    89→
+    90→// ─── Helpers ────────────────────────────────
+    91→
+    92→function createTask(text: string): TaskItem {
+    93→  return { id: crypto.randomUUID(), text: text.trim() }
+    94→}
+    95→
+    96→function InfoPopover({ text }: { text: string }) {
+    97→  return (
+    98→    <Popover>
+    99→      <PopoverTrigger asChild>
+   100→        <button type="button" className="inline-flex items-center justify-center h-5 w-5 rounded-full text-muted-foreground hover:text-sky-600 hover:bg-sky-600/10 transition-colors shrink-0">
+   101→          <Info className="h-3.5 w-3.5" />
+   102→          <span className="sr-only">Aide</span>
+   103→        </button>
+   104→      </PopoverTrigger>
+   105→      <PopoverContent side="top" className="max-w-sm text-sm bg-popover border-border shadow-lg">
+   106→        <p className="text-muted-foreground leading-relaxed">{text}</p>
+   107→      </PopoverContent>
+   108→    </Popover>
+   109→  )
+   110→}
+   111→
+   112→// ─── Eisenhower Quadrant Sub-component ─────────
+   113→
+   114→function EisenhowerQuadrant({
+   115→  title,
+   116→  description,
+   117→  color,
+   118→  bgColor,
+   119→  borderColor,
+   120→  icon,
+   121→  tasks,
+   122→  onAdd,
+   123→  onRemove,
+   124→  placeholder,
+   125→}: {
+   126→  title: string
+   127→  description: string
+   128→  color: string
+   129→  bgColor: string
+   130→  borderColor: string
+   131→  icon: typeof Clock
+   132→  tasks: TaskItem[]
+   133→  onAdd: (text: string) => void
+   134→  onRemove: (id: string) => void
+   135→  placeholder: string
+   136→}) {
+   137→  const [input, setInput] = useState('')
+   138→  const Icon = icon
+   139→
+   140→  const handleAdd = () => {
+   141→    if (input.trim()) {
+   142→      onAdd(input.trim())
+   143→      setInput('')
+   144→    }
+   145→  }
+   146→
+   147→  return (
+   148→    <div className={cn('rounded-xl border-2 p-4 space-y-3', bgColor, borderColor)}>
+   149→      <div className="flex items-center gap-2">
+   150→        <div className={cn('flex h-7 w-7 items-center justify-center rounded-lg', color)}>
+   151→          <Icon className="h-3.5 w-3.5" />
+   152→        </div>
+   153→        <div>
+   154→          <p className={cn('text-sm font-semibold', color.replace('bg-', 'text-'))}>{title}</p>
+   155→          <p className="text-[11px] text-muted-foreground">{description}</p>
+   156→        </div>
+   157→      </div>
+   158→      <ul className="space-y-1.5 min-h-[40px]">
+   159→        {tasks.map((task) => (
+   160→          <li key={task.id} className="flex items-center justify-between gap-2 bg-background/60 rounded-lg px-3 py-2">
+   161→            <span className="text-sm">{task.text}</span>
+   162→            <button
+   163→              type="button"
+   164→              onClick={() => onRemove(task.id)}
+   165→              className="shrink-0 text-muted-foreground hover:text-red-500 transition-colors"
+   166→            >
+   167→              <X className="h-3.5 w-3.5" />
+   168→            </button>
+   169→          </li>
+   170→        ))}
+   171→      </ul>
+   172→      <div className="flex gap-2">
+   173→        <input
+   174→          type="text"
+   175→          value={input}
+   176→          onChange={(e) => setInput(e.target.value)}
+   177→          onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+   178→          placeholder={placeholder}
+   179→          className="flex-1 text-sm rounded-lg border border-border bg-background/60 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+   180→        />
+   181→        <Button size="sm" variant="outline" onClick={handleAdd} disabled={!input.trim()} className="shrink-0 h-8 w-8 p-0">
+   182→          <Plus className="h-3.5 w-3.5" />
+   183→        </Button>
+   184→      </div>
+   185→    </div>
+   186→  )
+   187→}
+   188→
+   189→// ─── Pomodoro Timer Component ───────────────
+   190→
+   191→function PomodoroTimer() {
+   192→  const WORK_DURATION = 25 * 60 // 25 min
+   193→  const SHORT_BREAK = 5 * 60
+   194→  const LONG_BREAK = 15 * 60
+   195→
+   196→  const [timeLeft, setTimeLeft] = useState(WORK_DURATION)
+   197→  const [isRunning, setIsRunning] = useState(false)
+   198→  const [mode, setMode] = useState<'work' | 'shortBreak' | 'longBreak'>('work')
+   199→  const [sessionsCompleted, setSessionsCompleted] = useState(0)
+   200→
+   201→  useEffect(() => {
+   202→    if (!isRunning) return
+   203→    const interval = setInterval(() => {
+   204→      setTimeLeft(prev => {
+   205→        if (prev <= 1) {
+   206→          setIsRunning(false)
+   207→          if (mode === 'work') {
+   208→            const newSessions = sessionsCompleted + 1
+   209→            setSessionsCompleted(newSessions)
+   210→            if (newSessions % 4 === 0) {
+   211→              setMode('longBreak')
+   212→              return LONG_BREAK
+   213→            }
+   214→            setMode('shortBreak')
+   215→            return SHORT_BREAK
+   216→          } else {
+   217→            setMode('work')
+   218→            return WORK_DURATION
+   219→          }
+   220→        }
+   221→        return prev - 1
+   222→      })
+   223→    }, 1000)
+   224→    return () => clearInterval(interval)
+   225→  }, [isRunning, mode, sessionsCompleted])
+   226→
+   227→  const reset = () => { setIsRunning(false); setMode('work'); setTimeLeft(WORK_DURATION) }
+   228→
+   229→  const switchMode = (m: 'work' | 'shortBreak' | 'longBreak') => {
+   230→    setIsRunning(false); setMode(m)
+   231→    setTimeLeft(m === 'work' ? WORK_DURATION : m === 'shortBreak' ? SHORT_BREAK : LONG_BREAK)
+   232→  }
+   233→
+   234→  const minutes = Math.floor(timeLeft / 60)
+   235→  const seconds = timeLeft % 60
+   236→  const totalDuration = mode === 'work' ? WORK_DURATION : mode === 'shortBreak' ? SHORT_BREAK : LONG_BREAK
+   237→  const progressPercent = ((totalDuration - timeLeft) / totalDuration) * 100
+   238→  const circumference = 2 * Math.PI * 90
+   239→  const strokeDashoffset = circumference - (progressPercent / 100) * circumference
+   240→
+   241→  const MODE_CONFIG = {
+   242→    work: { label: 'Travail', color: 'text-sky-600', stroke: 'stroke-sky-500', bg: 'bg-sky-100 dark:bg-sky-900/20' },
+   243→    shortBreak: { label: 'Pause courte', color: 'text-emerald-600', stroke: 'stroke-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-900/20' },
+   244→    longBreak: { label: 'Pause longue', color: 'text-amber-600', stroke: 'stroke-amber-500', bg: 'bg-amber-100 dark:bg-amber-900/20' },
+   245→  }
+   246→
+   247→  const config = MODE_CONFIG[mode]
+   248→
+   249→  return (
+   250→    <div className="flex flex-col items-center gap-4">
+   251→      {/* Mode selector */}
+   252→      <div className="flex gap-2">
+   253→        {(['work', 'shortBreak', 'longBreak'] as const).map(m => (
+   254→          <button
+   255→            key={m}
+   256→            type="button"
+   257→            onClick={() => switchMode(m)}
+   258→            className={cn(
+   259→              'px-3 py-1.5 rounded-lg text-xs font-medium border transition-all',
+   260→              mode === m ? MODE_CONFIG[m].bg + ' ' + MODE_CONFIG[m].color + ' border-current' : 'border-border text-muted-foreground hover:bg-muted/40',
+   261→            )}
+   262→          >
+   263→            {MODE_CONFIG[m].label}
+   264→          </button>
+   265→        ))}
+   266→      </div>
+   267→
+   268→      {/* Timer circle */}
+   269→      <div className="relative flex items-center justify-center">
+   270→        <svg className="w-48 h-48 -rotate-90" viewBox="0 0 200 200">
+   271→          <circle cx="100" cy="100" r="90" fill="none" stroke="currentColor" strokeWidth="6" className="text-muted/30" />
+   272→          <circle cx="100" cy="100" r="90" fill="none" strokeWidth="6" strokeLinecap="round"
+   273→            className={config.stroke}
+   274→            style={{ strokeDasharray: circumference, strokeDashoffset, transition: 'stroke-dashoffset 0.5s ease' }}
+   275→          />
+   276→        </svg>
+   277→        <div className="absolute flex flex-col items-center">
+   278→          <span className={cn('text-4xl font-bold tabular-nums', config.color)}>
+   279→            {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+   280→          </span>
+   281→          <span className="text-xs text-muted-foreground mt-1">{config.label}</span>
+   282→        </div>
+   283→      </div>
+   284→
+   285→      {/* Controls */}
+   286→      <div className="flex items-center gap-3">
+   287→        <Button variant="outline" size="sm" onClick={reset} className="gap-1"><X className="h-3.5 w-3.5" />Réinitialiser</Button>
+   288→        <Button size="lg" className={cn('gap-2 min-w-[120px]', mode === 'work' ? 'bg-sky-600 hover:bg-sky-700' : mode === 'shortBreak' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-600 hover:bg-amber-700', 'text-white')}
+   289→          onClick={() => setIsRunning(!isRunning)}>
+   290→          {isRunning ? <><Pause className="h-4 w-4" />Pause</> : <><Play className="h-4 w-4" />Démarrer</>}
+   291→        </Button>
+   292→      </div>
+   293→
+   294→      {/* Session counter */}
+   295→      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+   296→        <span>Sessions aujourd&apos;hui :</span>
+   297→        <div className="flex gap-1">
+   298→          {Array.from({ length: 4 }).map((_, i) => (
+   299→            <div key={i} className={cn('h-3 w-3 rounded-full transition-colors', i < (sessionsCompleted % 4) ? 'bg-sky-500' : 'bg-muted')} />
+   300→          ))}
+   301→        </div>
+   302→        <span className="font-medium">{sessionsCompleted} terminée{sessionsCompleted > 1 ? 's' : ''}</span>
+   303→      </div>
+   304→    </div>
+   305→  )
+   306→}
+   307→
+   308→// ─── Main Component ─────────────────────────
+   309→
+   310→export function GestionTempsModule() {
+   311→  const [isLoading, setIsLoading] = useState(true)
+   312→  const [isSaving, setIsSaving] = useState(false)
+   313→  const [aiLoading, setAiLoading] = useState(false)
+   314→  const [data, setData] = useState<GestionTempsData>(DEFAULT_DATA)
+   315→
+   316→  // ─── Load data on mount ──────────────────
+   317→  useEffect(() => {
+   318→    async function load() {
+   319→      const saved = localStorage.getItem('creapulse-gestion-temps')
+   320→      if (saved) {
+   321→        try {
+   322→          const parsed = JSON.parse(saved)
+   323→          if (parsed.diagnostic) setData(prev => ({ ...prev, diagnostic: parsed.diagnostic }))
+   324→          if (parsed.eisenhower) setData(prev => ({ ...prev, eisenhower: { ...prev.eisenhower, ...parsed.eisenhower } }))
+   325→          if (parsed.weekSchedule) setData(prev => ({ ...prev, weekSchedule: { ...prev.weekSchedule, ...parsed.weekSchedule } }))
+   326→        } catch { /* ignore */ }
+   327→      }
+   328→
+   329→      try {
+   330→        const res = await authFetch('/api/paa/ateliers', {
+   331→          method: 'POST',
+   332→          body: JSON.stringify({ action: 'get', atelierCode: 'gestion-temps' }),
+   333→        })
+   334→        if (res.ok) {
+   335→          const json = await res.json()
+   336→          if (json.success && json.data) {
+   337→            const d = json.data
+   338→            if (d.diagnostic) setData(prev => ({ ...prev, diagnostic: d.diagnostic }))
+   339→            if (d.eisenhower) setData(prev => ({ ...prev, eisenhower: { ...prev.eisenhower, ...d.eisenhower } }))
+   340→            if (d.weekSchedule) setData(prev => ({ ...prev, weekSchedule: { ...prev.weekSchedule, ...d.weekSchedule } }))
+   341→          }
+   342→        }
+   343→      } catch { /* ignore */ }
+   344→
+   345→      setIsLoading(false)
+   346→    }
+   347→    load()
+   348→  }, [])
+   349→
+   350→  // ─── Auto-save to localStorage ──────────
+   351→  useEffect(() => {
+   352→    if (!isLoading) {
+   353→      localStorage.setItem('creapulse-gestion-temps', JSON.stringify(data))
+   354→    }
+   355→  }, [isLoading, data])
+   356→
+   357→  // ─── Eisenhower helpers ─────────────────
+   358→  const addToQuadrant = useCallback((quadrant: keyof EisenhowerMatrix, text: string) => {
+   359→    setData(prev => ({
+   360→      ...prev,
+   361→      eisenhower: {
+   362→        ...prev.eisenhower,
+   363→        [quadrant]: [...prev.eisenhower[quadrant], createTask(text)],
+   364→      },
+   365→    }))
+   366→  }, [])
+   367→
+   368→  const removeFromQuadrant = useCallback((quadrant: keyof EisenhowerMatrix, id: string) => {
+   369→    setData(prev => ({
+   370→      ...prev,
+   371→      eisenhower: {
+   372→        ...prev.eisenhower,
+   373→        [quadrant]: prev.eisenhower[quadrant].filter(t => t.id !== id),
+   374→      },
+   375→    }))
+   376→  }, [])
+   377→
+   378→  // ─── Week schedule helper ───────────────
+   379→  const updateWeekDay = useCallback((day: string, value: string) => {
+   380→    setData(prev => ({
+   381→      ...prev,
+   382→      weekSchedule: { ...prev.weekSchedule, [day]: value },
+   383→    }))
+   384→  }, [])
+   385→
+   386→  // ─── Completion ─────────────────────────
+   387→  const completion = useMemo(() => {
+   388→    let filled = 0
+   389→    const total = 4
+   390→    if (data.diagnostic.trim()) filled++
+   391→    const totalTasks = Object.values(data.eisenhower).reduce((s, q) => s + q.length, 0)
+   392→    if (totalTasks > 0) filled++
+   393→    const filledDays = Object.values(data.weekSchedule).filter(v => v.trim()).length
+   394→    if (filledDays >= 3) filled++
+   395→    if (filledDays >= 5) filled++
+   396→    return { filled, total, percent: Math.round((filled / total) * 100) }
+   397→  }, [data])
+   398→
+   399→  // ─── Save to API ────────────────────────
+   400→  const handleSave = useCallback(async () => {
+   401→    setIsSaving(true)
+   402→    try {
+   403→      const res = await authFetch('/api/paa/ateliers', {
+   404→        method: 'PUT',
+   405→        body: JSON.stringify({
+   406→          atelierCode: 'gestion-temps',
+   407→          diagnostic: data.diagnostic,
+   408→          eisenhower: data.eisenhower,
+   409→          weekSchedule: data.weekSchedule,
+   410→        }),
+   411→      })
+   412→      const json = await res.json()
+   413→      if (!json.success) {
+   414→        toast.error(json.error?.message || 'Erreur lors de la sauvegarde')
+   415→        return
+   416→      }
+   417→      toast.success('Atelier Gestion du Temps sauvegardé')
+   418→    } catch {
+   419→      toast.error('Erreur de connexion au serveur')
+   420→    } finally {
+   421→      setIsSaving(false)
+   422→    }
+   423→  }, [data])
+   424→
+   425→  // ─── AI Analysis ────────────────────────
+   426→  const handleAiAnalysis = useCallback(async () => {
+   427→    setAiLoading(true)
+   428→    try {
+   429→      const res = await authFetch('/api/paa/ateliers', {
+   430→        method: 'POST',
+   431→        body: JSON.stringify({
+   432→          action: 'ai-analyze',
+   433→          atelierCode: 'gestion-temps',
+   434→          diagnostic: data.diagnostic,
+   435→          eisenhower: data.eisenhower,
+   436→        }),
+   437→      })
+   438→      const json = await res.json()
+   439→      if (json.success && json.data?.suggestion) {
+   440→        const suggestion = json.data.suggestion
+   441→        if (typeof suggestion === 'string') {
+   442→          setData(prev => ({ ...prev, diagnostic: prev.diagnostic ? prev.diagnostic + '\n\n💡 ' + suggestion : '💡 ' + suggestion }))
+   443→        } else if (suggestion.eisenhower) {
+   444→          setData(prev => ({ ...prev, eisenhower: { ...prev.eisenhower, ...suggestion.eisenhower } }))
+   445→        }
+   446→        toast.success('Analyse IA générée !')
+   447→      } else {
+   448→        toast.error(json.error?.message || 'Erreur lors de la génération IA')
+   449→      }
+   450→    } catch {
+   451→      toast.error('Erreur de connexion au serveur')
+   452→    } finally {
+   453→      setAiLoading(false)
+   454→    }
+   455→  }, [data])
+   456→
+   457→  // ─── Loading skeleton ───────────────────
+   458→  if (isLoading) {
+   459→    return (
+   460→      <div className="p-4 md:p-6 lg:p-8 space-y-6">
+   461→        <div className="h-8 w-64 bg-muted animate-pulse rounded" />
+   462→        <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+   463→        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   464→          {[...Array(4)].map((_, i) => (
+   465→            <div key={i} className="h-48 bg-muted animate-pulse rounded-xl" />
+   466→          ))}
+   467→        </div>
+   468→      </div>
+   469→    )
+   470→  }
+   471→
+   472→  // ─── Main Render ─────────────────────────
+   473→  return (
+   474→    <motion.div
+   475→      initial={{ opacity: 0, y: 20 }}
+   476→      animate={{ opacity: 1, y: 0 }}
+   477→      transition={{ duration: 0.4 }}
+   478→      className="flex-1 overflow-y-auto"
+   479→    >
+   480→      {/* Header */}
+   481→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 md:px-6 border-b bg-background">
+   482→        <div className="flex items-center gap-3">
+   483→          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/10">
+   484→            <Clock className="h-5 w-5 text-sky-600 dark:text-sky-400" />
+   485→          </div>
+   486→          <div>
+   487→            <div className="flex items-center gap-2">
+   488→              <h2 className="text-xl font-bold text-foreground">Gestion du Temps &amp; Productivité</h2>
+   489→              <Badge className="bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300 text-[10px] px-1.5">Atelier 5</Badge>
+   490→            </div>
+   491→            <p className="text-xs text-muted-foreground">
+   492→              {completion.filled}/{completion.total} sections — {completion.percent}%
+   493→            </p>
+   494→          </div>
+   495→        </div>
+   496→        <div className="flex items-center gap-2 flex-wrap">
+   497→          <Button
+   498→            variant="outline"
+   499→            size="sm"
+   500→            className="gap-1.5 border-amber-400/40 text-amber-500 hover:bg-amber-400/10"
+   501→            onClick={handleAiAnalysis}
+   502→            disabled={aiLoading}
+   503→          >
+   504→            {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+   505→            Aide IA
+   506→          </Button>
+   507→          <Button
+   508→            size="sm"
+   509→            className="gap-1.5 bg-sky-600 hover:bg-sky-700 text-white"
+   510→            onClick={handleSave}
+   511→            disabled={isSaving}
+   512→          >
+   513→            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+   514→            Enregistrer
+   515→          </Button>
+   516→        </div>
+   517→      </div>
+   518→
+   519→      {/* Content */}
+   520→      <div className="p-4 md:p-6 space-y-6">
+   521→        {/* ── Diagnostic temps ── */}
+   522→        <Card className="border-sky-200 dark:border-sky-800">
+   523→          <CardHeader className="pb-3">
+   524→            <div className="flex items-center gap-2">
+   525→              <CardTitle className="text-base flex items-center gap-2">
+   526→                <Timer className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+   527→                Où passez-vous votre temps ?
+   528→              </CardTitle>
+   529→              <InfoPopover text="Listez vos activités quotidiennes avec le temps approximatif passé sur chacune. Cela vous aidera à identifier les pertes de temps et à mieux prioriser." />
+   530→            </div>
+   531→            <CardDescription>Atelier 5 — Diagnostic de votre emploi du temps</CardDescription>
+   532→          </CardHeader>
+   533→          <CardContent>
+   534→            <Textarea
+   535→              value={data.diagnostic}
+   536→              onChange={(e) => setData(prev => ({ ...prev, diagnostic: e.target.value }))}
+   537→              placeholder={"- Prospection clients : 3h\n- Réalisation prestation : 4h\n- Comptabilité : 1h\n- Réseaux sociaux : 1.5h\n- Emails & admin : 1h\n- Formation : 30min"}
+   538→              className="min-h-[160px] text-sm resize-none"
+   539→            />
+   540→          </CardContent>
+   541→        </Card>
+   542→
+   543→        {/* ── Matrice Eisenhower ── */}
+   544→        <div className="space-y-4">
+   545→          <h3 className="text-base font-semibold flex items-center gap-2">
+   546→            <ListTodo className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+   547→            Matrice d&apos;Eisenhower
+   548→            <InfoPopover text="Classez vos tâches selon leur urgence et importance. Agissez sur les Urgent+Important, planifiez les Non-Urgent+Important, déléguez les Urgent+Non-Important, et éliminez les Non-Urgent+Non-Important." />
+   549→          </h3>
+   550→          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   551→            <EisenhowerQuadrant
+   552→              title="Urgent & Important"
+   553→              description="FAIRE — Actions immédiates"
+   554→              color="bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+   555→              bgColor="bg-red-50/50 dark:bg-red-950/20"
+   556→              borderColor="border-red-300 dark:border-red-800"
+   557→              icon={Timer}
+   558→              tasks={data.eisenhower.urgentImportant}
+   559→              onAdd={(text) => addToQuadrant('urgentImportant', text)}
+   560→              onRemove={(id) => removeFromQuadrant('urgentImportant', id)}
+   561→              placeholder="Ex: Livraison client urgente"
+   562→            />
+   563→            <EisenhowerQuadrant
+   564→              title="Urgent & Non-important"
+   565→              description="DÉLÉGUER — Confier à d'autres"
+   566→              color="bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400"
+   567→              bgColor="bg-amber-50/50 dark:bg-amber-950/20"
+   568→              borderColor="border-amber-300 dark:border-amber-800"
+   569→              icon={Clock}
+   570→              tasks={data.eisenhower.urgentNotImportant}
+   571→              onAdd={(text) => addToQuadrant('urgentNotImportant', text)}
+   572→              onRemove={(id) => removeFromQuadrant('urgentNotImportant', id)}
+   573→              placeholder="Ex: Répondre aux emails non-critiques"
+   574→            />
+   575→            <EisenhowerQuadrant
+   576→              title="Non-urgent & Important"
+   577→              description="PLANIFIER — Bloquer des créneaux"
+   578→              color="bg-sky-100 text-sky-700 dark:bg-sky-900/20 dark:text-sky-400"
+   579→              bgColor="bg-sky-50/50 dark:bg-sky-950/20"
+   580→              borderColor="border-sky-300 dark:border-sky-800"
+   581→              icon={CalendarDays}
+   582→              tasks={data.eisenhower.notUrgentImportant}
+   583→              onAdd={(text) => addToQuadrant('notUrgentImportant', text)}
+   584→              onRemove={(id) => removeFromQuadrant('notUrgentImportant', id)}
+   585→              placeholder="Ex: Stratégie, formation"
+   586→            />
+   587→            <EisenhowerQuadrant
+   588→              title="Non-urgent & Non-important"
+   589→              description="ÉLIMINER — Tâches à supprimer"
+   590→              color="bg-gray-100 text-gray-600 dark:bg-gray-800/20 dark:text-gray-400"
+   591→              bgColor="bg-gray-50/50 dark:bg-gray-950/20"
+   592→              borderColor="border-gray-300 dark:border-gray-700"
+   593→              icon={X}
+   594→              tasks={data.eisenhower.notUrgentNotImportant}
+   595→              onAdd={(text) => addToQuadrant('notUrgentNotImportant', text)}
+   596→              onRemove={(id) => removeFromQuadrant('notUrgentNotImportant', id)}
+   597→              placeholder="Ex: Scrolling réseaux sociaux"
+   598→            />
+   599→          </div>
+   600→        </div>
+   601→
+   602→        <Separator />
+   603→
+   604→        {/* ── Outils recommandés ── */}
+   605→        <Card>
+   606→          <CardHeader className="pb-3">
+   607→            <CardTitle className="text-base flex items-center gap-2">
+   608→              <Wrench className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+   609→              Outils de productivité recommandés
+   610→            </CardTitle>
+   611→          </CardHeader>
+   612→          <CardContent>
+   613→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   614→              {OUTILS_PRODUCTIVITE.map((outil, i) => (
+   615→                <div
+   616→                  key={i}
+   617→                  className="flex items-start gap-3 rounded-lg border border-border p-3 bg-muted/20 hover:bg-muted/40 transition-colors"
+   618→                >
+   619→                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-900/20">
+   620→                    <Wrench className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+   621→                  </div>
+   622→                  <div>
+   623→                    <p className="text-sm font-semibold">{outil.name}</p>
+   624→                    <p className="text-xs text-muted-foreground mt-0.5">{outil.description}</p>
+   625→                  </div>
+   626→                </div>
+   627→              ))}
+   628→            </div>
+   629→          </CardContent>
+   630→        </Card>
+   631→
+   632→        {/* ── Plan semaine type ── */}
+   633→        <Card className="border-sky-200 dark:border-sky-800">
+   634→          <CardHeader className="pb-3">
+   635→            <div className="flex items-center gap-2">
+   636→              <CardTitle className="text-base flex items-center gap-2">
+   637→                <CalendarDays className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+   638→                Plan de semaine type
+   639→              </CardTitle>
+   640→              <InfoPopover text="Organisez votre semaine idéale en allotant des créneaux pour chaque type d'activité. Bloquez les créneaux stratégiques en priorité le matin." />
+   641→            </div>
+   642→          </CardHeader>
+   643→          <CardContent>
+   644→            <div className="space-y-3">
+   645→              {DAYS_FR.map((day) => (
+   646→                <div key={day} className="flex flex-col sm:flex-row gap-2">
+   647→                  <div className="flex items-center gap-2 sm:w-32 shrink-0">
+   648→                    <Badge variant="outline" className="text-xs justify-center w-16">
+   649→                      {day.slice(0, 3)}
+   650→                    </Badge>
+   651→                  </div>
+   652→                  <input
+   653→                    type="text"
+   654→                    value={data.weekSchedule[day] || ''}
+   655→                    onChange={(e) => updateWeekDay(day, e.target.value)}
+   656→                    placeholder="8h-10h : Prospection | 10h-12h : Production | ..."
+   657→                    className="flex-1 text-sm rounded-lg border border-border bg-background/60 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+   658→                  />
+   659→                </div>
+   660→              ))}
+   661→            </div>
+   662→          </CardContent>
+   663→        </Card>
+   664→
+   665→        {/* ── Pomodoro Timer ── */}
+   666→        <Card className="border-sky-200 dark:border-sky-800">
+   667→          <CardHeader className="pb-3">
+   668→            <div className="flex items-center gap-2">
+   669→              <CardTitle className="text-base flex items-center gap-2">
+   670→                <Timer className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+   671→                Pomodoro Timer
+   672→              </CardTitle>
+   673→              <InfoPopover text="Le Pomodoro est une technique de productivité : travaillez 25 minutes à fond, puis prenez 5 minutes de pause. Toutes les 4 sessions, prenez une pause longue de 15 min." />
+   674→            </div>
+   675→          </CardHeader>
+   676→          <CardContent>
+   677→            <PomodoroTimer />
+   678→          </CardContent>
+   679→        </Card>
+   680→
+   681→        {/* ── Bottom Save Bar ── */}
+   682→        <Card className="bg-gradient-to-r from-sky-500/5 to-sky-300/5 border-sky-200 dark:border-sky-800">
+   683→          <CardContent className="py-4">
+   684→            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+   685→              <div className="flex items-center gap-3">
+   686→                <div className="flex items-center gap-1">
+   687→                  {Array.from({ length: completion.total }).map((_, i) => (
+   688→                    <div key={i} className={cn(
+   689→                      'h-2 w-2 rounded-full transition-colors',
+   690→                      i < completion.filled ? 'bg-sky-500' : 'bg-muted',
+   691→                    )} />
+   692→                  ))}
+   693→                </div>
+   694→                <span className="text-sm text-muted-foreground">
+   695→                  {completion.percent}% complété
+   696→                </span>
+   697→              </div>
+   698→              <Button
+   699→                size="sm"
+   700→                className="gap-1.5 bg-sky-600 hover:bg-sky-700 text-white"
+   701→                onClick={handleSave}
+   702→                disabled={isSaving}
+   703→              >
+   704→                {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+   705→                Enregistrer
+   706→              </Button>
+   707→            </div>
+   708→          </CardContent>
+   709→        </Card>
+   710→      </div>
+   711→    </motion.div>
+   712→  )
+   713→}
+   714→

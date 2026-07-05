@@ -192,7 +192,7 @@ export async function sendInactivityReminder(
   const html = emailShell(
     'Reprenez votre parcours entrepreneurial',
     `<p>Bonjour ${escapeHtml(firstName)},</p>
-     <p>On vous a pas vu depuis <strong>${daysInactive} jours</strong> sur CreaPulse. Votre parcours entrepreneurial vous attend !</p>
+     <p>On ne vous a pas vu depuis <strong>${daysInactive} jours</strong> sur CreaPulse. Votre parcours entrepreneurial vous attend !</p>
      <p>Reconnectez-vous pour reprendre là où vous en étiez et avancer dans vos modules.</p>
      ${ctaButton('https://creapulse.echo-entreprendre.fr', 'Reprendre mon parcours')}
      <p style="color:${BRAND.textLight};font-size:13px;margin-top:24px;">

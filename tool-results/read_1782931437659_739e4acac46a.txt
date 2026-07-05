@@ -1,0 +1,776 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Slider } from '@/components/ui/slider'
+     8→import { Badge } from '@/components/ui/badge'
+     9→import { Separator } from '@/components/ui/separator'
+    10→import { cn } from '@/lib/utils'
+    11→import {
+    12→  Calculator,
+    13→  Save,
+    14→  Sparkles,
+    15→  Loader2,
+    16→  TrendingUp,
+    17→  TrendingDown,
+    18→  DollarSign,
+    19→  Target,
+    20→  BarChart3,
+    21→  ArrowUpRight,
+    22→  ShieldCheck,
+    23→  FileSpreadsheet,
+    24→  RefreshCw,
+    25→  PieChart as PieChartIcon,
+    26→} from 'lucide-react'
+    27→import {
+    28→  BarChart,
+    29→  Bar,
+    30→  XAxis,
+    31→  YAxis,
+    32→  CartesianGrid,
+    33→  Tooltip,
+    34→  Legend,
+    35→  ResponsiveContainer,
+    36→  RadialBarChart,
+    37→  RadialBar,
+    38→} from 'recharts'
+    39→import { toast } from 'sonner'
+    40→import { ModuleIntroCard } from '../module-intro-card'
+    41→import { scanModule } from '@/lib/module-scanner'
+    42→
+    43→// ─── Helpers ──────────────────────────────────
+    44→
+    45→function formatCurrency(value: number): string {
+    46→  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value)
+    47→}
+    48→
+    49→// ─── Custom Gauge Component ───────────────────
+    50→
+    51→function ProfitabilityGauge({ value, label }: { value: number; label: string }) {
+    52→  // value is margin percentage, 0-100
+    53→  const clamped = Math.max(0, Math.min(100, value))
+    54→  const color = clamped >= 20 ? '#22c55e' : clamped >= 0 ? '#f59e0b' : '#ef4444'
+    55→  const bgColor = clamped >= 20 ? 'rgba(34,197,94,0.1)' : clamped >= 0 ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)'
+    56→
+    57→  const gaugeData = [
+    58→    {
+    59→      name: label,
+    60→      value: clamped,
+    61→      fill: color,
+    62→    },
+    63→  ]
+    64→
+    65→  return (
+    66→    <div className="flex flex-col items-center">
+    67→      <div className="relative w-full h-28">
+    68→        <ResponsiveContainer width="100%" height="100%">
+    69→          <RadialBarChart
+    70→            cx="50%"
+    71→            cy="100%"
+    72→            innerRadius="60%"
+    73→            outerRadius="90%"
+    74→            startAngle={180}
+    75→            endAngle={0}
+    76→            barSize={14}
+    77→            data={gaugeData}
+    78→          >
+    79→            <RadialBar
+    80→              dataKey="value"
+    81→              cornerRadius={7}
+    82→              background={{ fill: 'hsl(var(--muted))' }}
+    83→            />
+    84→          </RadialBarChart>
+    85→        </ResponsiveContainer>
+    86→        <div className="absolute inset-0 flex items-end justify-center pb-1">
+    87→          <span className="text-lg font-bold" style={{ color }}>
+    88→            {value.toFixed(1)}%
+    89→          </span>
+    90→        </div>
+    91→      </div>
+    92→      <p className="text-xs text-muted-foreground mt-1">{label}</p>
+    93→    </div>
+    94→  )
+    95→}
+    96→
+    97→// ─── Simulator Slider Row ─────────────────────
+    98→
+    99→function SimulatorSlider({
+   100→  label,
+   101→  description,
+   102→  value,
+   103→  onChange,
+   104→  min,
+   105→  max,
+   106→  step,
+   107→  unit,
+   108→  color = '#00838F',
+   109→  prefix = '',
+   110→}: {
+   111→  label: string
+   112→  description: string
+   113→  value: number
+   114→  onChange: (v: number) => void
+   115→  min: number
+   116→  max: number
+   117→  step: number
+   118→  unit: string
+   119→  color?: string
+   120→  prefix?: string
+   121→}) {
+   122→  const percentage = ((value - min) / (max - min)) * 100
+   123→  const displayValue = prefix + new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(value) + unit
+   124→
+   125→  return (
+   126→    <div className="space-y-2">
+   127→      <div className="flex items-center justify-between">
+   128→        <div>
+   129→          <p className="text-sm font-semibold text-foreground">{label}</p>
+   130→          <p className="text-xs text-muted-foreground">{description}</p>
+   131→        </div>
+   132→        <div className="flex items-center gap-2">
+   133→          <Badge
+   134→            variant="secondary"
+   135→            className="font-mono text-sm px-3 py-1 min-w-[120px] justify-center"
+   136→            style={{ backgroundColor: `${color}15`, color }}
+   137→          >
+   138→            {displayValue}
+   139→          </Badge>
+   140→        </div>
+   141→      </div>
+   142→      <div className="relative">
+   143→        <Slider
+   144→          value={[value]}
+   145→          onValueChange={([v]) => onChange(v)}
+   146→          min={min}
+   147→          max={max}
+   148→          step={step}
+   149→          className="w-full"
+   150→        />
+   151→        <div className="flex justify-between mt-1">
+   152→          <span className="text-[10px] text-muted-foreground">{prefix}{min.toLocaleString('fr-FR')}{unit}</span>
+   153→          <span className="text-[10px] text-muted-foreground">{prefix}{max.toLocaleString('fr-FR')}{unit}</span>
+   154→        </div>
+   155→      </div>
+   156→    </div>
+   157→  )
+   158→}
+   159→
+   160→// ─── Main Component ──────────────────────────
+   161→
+   162→export function FinancierModule() {
+   163→  const [isLoading, setIsLoading] = useState(true)
+   164→  const [isSaving, setIsSaving] = useState(false)
+   165→  const [isSyncing, setIsSyncing] = useState(false)
+   166→  const [aiLoading, setAiLoading] = useState(false)
+   167→
+   168→  // ─── Intro card state ──────────────────
+   169→  const [hasStarted, setHasStarted] = useState(() => scanModule('financier').status !== 'not_started')
+   170→
+   171→  // ─── Simulator State ─────────────────────
+   172→  const [year1Revenue, setYear1Revenue] = useState(100000)
+   173→  const [growthRate, setGrowthRate] = useState(15)
+   174→  const [year1Expenses, setYear1Expenses] = useState(70000)
+   175→  const [initialInvestment, setInitialInvestment] = useState(30000)
+   176→
+   177→  // ─── Computed Values ─────────────────────
+   178→  const year2Revenue = useMemo(() => year1Revenue * (1 + growthRate / 100), [year1Revenue, growthRate])
+   179→  const year3Revenue = useMemo(() => year2Revenue * (1 + growthRate / 100), [year2Revenue, growthRate])
+   180→  // Expenses grow at half the revenue growth rate
+   181→  const expenseGrowth = growthRate / 200
+   182→  const year2Expenses = useMemo(() => year1Expenses * (1 + expenseGrowth), [year1Expenses, expenseGrowth])
+   183→  const year3Expenses = useMemo(() => year2Expenses * (1 + expenseGrowth), [year2Expenses, expenseGrowth])
+   184→
+   185→  const margin1 = useMemo(() => year1Revenue > 0 ? ((year1Revenue - year1Expenses) / year1Revenue) * 100 : 0, [year1Revenue, year1Expenses])
+   186→  const margin2 = useMemo(() => year2Revenue > 0 ? ((year2Revenue - year2Expenses) / year2Revenue) * 100 : 0, [year2Revenue, year2Expenses])
+   187→  const margin3 = useMemo(() => year3Revenue > 0 ? ((year3Revenue - year3Expenses) / year3Revenue) * 100 : 0, [year3Revenue, year3Expenses])
+   188→
+   189→  const result1 = useMemo(() => year1Revenue - year1Expenses, [year1Revenue, year1Expenses])
+   190→  const result2 = useMemo(() => year2Revenue - year2Expenses, [year2Revenue, year2Expenses])
+   191→  const result3 = useMemo(() => year3Revenue - year3Expenses, [year3Revenue, year3Expenses])
+   192→
+   193→  // Breakeven month (investment / monthly net profit)
+   194→  const monthlyProfit1 = result1 / 12
+   195→  const breakevenMonth = useMemo(() => {
+   196→    if (monthlyProfit1 <= 0 || initialInvestment <= 0) return null
+   197→    return Math.ceil(initialInvestment / monthlyProfit1)
+   198→  }, [monthlyProfit1, initialInvestment])
+   199→
+   200→  // Total 3-year cumulative profit
+   201→  const cumulative3Y = result1 + result2 + result3 - initialInvestment
+   202→
+   203→  // Chart data
+   204→  const chartData = useMemo(() => [
+   205→    { name: 'Année 1', Revenus: year1Revenue, Charges: year1Expenses, Résultat: result1 },
+   206→    { name: 'Année 2', Revenus: year2Revenue, Charges: year2Expenses, Résultat: result2 },
+   207→    { name: 'Année 3', Revenus: year3Revenue, Charges: year3Expenses, Résultat: result3 },
+   208→  ], [year1Revenue, year1Expenses, result1, year2Revenue, year2Expenses, result2, year3Revenue, year3Expenses, result3])
+   209→
+   210→  // Monthly cashflow chart data (12 months year 1)
+   211→  const monthlyData = useMemo(() => {
+   212→    const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
+   213→    const monthlyRev = year1Revenue / 12
+   214→    const monthlyExp = year1Expenses / 12
+   215→    return months.map((month, i) => ({
+   216→      month,
+   217→      ca: Math.round(monthlyRev * (1 + (growthRate / 1200) * i)),
+   218→      charges: Math.round(monthlyExp * (1 + (expenseGrowth / 12) * i)),
+   219→      cumul: Math.round(
+   220→        months.slice(0, i + 1).reduce((sum, _, j) => {
+   221→          const r = monthlyRev * (1 + (growthRate / 1200) * j)
+   222→          const e = monthlyExp * (1 + (expenseGrowth / 12) * j)
+   223→          return sum + (r - e)
+   224→        }, 0) - (i === 11 ? initialInvestment : 0)
+   225→      ),
+   226→    }))
+   227→  }, [year1Revenue, year1Expenses, growthRate, expenseGrowth, initialInvestment])
+   228→
+   229→  // ─── Load data on mount ──────────────────
+   230→  useEffect(() => {
+   231→    async function load() {
+   232→      const saved = localStorage.getItem('creapulse-financier-sim')
+   233→      if (saved) {
+   234→        try {
+   235→          const parsed = JSON.parse(saved)
+   236→          if (typeof parsed.year1Revenue === 'number') setYear1Revenue(parsed.year1Revenue)
+   237→          if (typeof parsed.growthRate === 'number') setGrowthRate(parsed.growthRate)
+   238→          if (typeof parsed.year1Expenses === 'number') setYear1Expenses(parsed.year1Expenses)
+   239→          if (typeof parsed.initialInvestment === 'number') setInitialInvestment(parsed.initialInvestment)
+   240→        } catch { /* ignore */ }
+   241→      }
+   242→
+   243→      try {
+   244→        const res = await fetch('/api/financier', { credentials: 'include' })
+   245→        if (res.ok) {
+   246→          const json = await res.json()
+   247→          if (json.success && json.data) {
+   248→            const d = json.data
+   249→            if (d.year1Revenue) setYear1Revenue(d.year1Revenue)
+   250→            if (d.year1Expenses) setYear1Expenses(d.year1Expenses)
+   251→            if (d.initialInvestment) setInitialInvestment(d.initialInvestment)
+   252→            // Derive growth rate from year2 revenue if available
+   253→            if (d.year2Revenue && d.year1Revenue) {
+   254→              const derived = Math.round(((d.year2Revenue / d.year1Revenue) - 1) * 100)
+   255→              if (derived >= 0 && derived <= 50) setGrowthRate(derived)
+   256→            }
+   257→          }
+   258→        }
+   259→      } catch { /* ignore */ }
+   260→
+   261→      setIsLoading(false)
+   262→    }
+   263→    load()
+   264→  }, [])
+   265→
+   266→  // ─── Auto-save to localStorage ──────────
+   267→  useEffect(() => {
+   268→    if (!isLoading) {
+   269→      localStorage.setItem('creapulse-financier-sim', JSON.stringify({
+   270→        year1Revenue, growthRate, year1Expenses, initialInvestment,
+   271→      }))
+   272→    }
+   273→  }, [isLoading, year1Revenue, growthRate, year1Expenses, initialInvestment])
+   274→
+   275→  // ─── Save & Sync ─────────────────────────
+   276→  const handleSaveAndSync = useCallback(async () => {
+   277→    setIsSaving(true)
+   278→    setIsSyncing(true)
+   279→    try {
+   280→      // 1. Save to financier API
+   281→      const saveRes = await fetch('/api/financier', {
+   282→        method: 'PUT',
+   283→        headers: { 'Content-Type': 'application/json' },
+   284→        credentials: 'include',
+   285→        body: JSON.stringify({
+   286→          year1Revenue,
+   287→          year2Revenue: Math.round(year2Revenue),
+   288→          year3Revenue: Math.round(year3Revenue),
+   289→          year1Expenses,
+   290→          year2Expenses: Math.round(year2Expenses),
+   291→          year3Expenses: Math.round(year3Expenses),
+   292→          breakevenMonth,
+   293→          initialInvestment,
+   294→        }),
+   295→      })
+   296→      const saveJson = await saveRes.json()
+   297→
+   298→      // 2. Sync to business plan
+   299→      let syncSuccess = false
+   300→      try {
+   301→        const syncRes = await fetch('/api/business-plan', {
+   302→          method: 'POST',
+   303→          headers: { 'Content-Type': 'application/json' },
+   304→          credentials: 'include',
+   305→          body: JSON.stringify({ action: 'sync-simulators' }),
+   306→        })
+   307→        const syncJson = await syncRes.json()
+   308→        syncSuccess = syncJson.success
+   309→      } catch {
+   310→        // Sync failure is non-critical
+   311→      }
+   312→
+   313→      if (saveJson.success) {
+   314→        toast.success('Plan financier sauvegardé et synchronisé au Business Plan')
+   315→      } else {
+   316→        toast.error(saveJson.error?.message || 'Erreur de sauvegarde')
+   317→      }
+   318→    } catch {
+   319→      toast.error('Erreur de connexion')
+   320→    } finally {
+   321→      setIsSaving(false)
+   322→      setIsSyncing(false)
+   323→    }
+   324→  }, [year1Revenue, year2Revenue, year3Revenue, year1Expenses, year2Expenses, year3Expenses, breakevenMonth, initialInvestment])
+   325→
+   326→  // ─── AI Suggestions ─────────────────────
+   327→  const handleAiSuggest = useCallback(async () => {
+   328→    setAiLoading(true)
+   329→    try {
+   330→      const res = await fetch('/api/financier', {
+   331→        method: 'POST',
+   332→        headers: { 'Content-Type': 'application/json' },
+   333→        credentials: 'include',
+   334→        body: JSON.stringify({
+   335→          year1Revenue,
+   336→          year1Expenses,
+   337→          year2Revenue: Math.round(year2Revenue),
+   338→          year2Expenses: Math.round(year2Expenses),
+   339→        }),
+   340→      })
+   341→      const json = await res.json()
+   342→      if (json.success && json.data?.suggestions) {
+   343→        toast.success('Suggestions IA générées !')
+   344→      } else {
+   345→        toast.error(json.error?.message || 'Erreur')
+   346→      }
+   347→    } catch {
+   348→      toast.error('Erreur de connexion')
+   349→    } finally {
+   350→      setAiLoading(false)
+   351→    }
+   352→  }, [year1Revenue, year1Expenses, year2Revenue, year2Expenses])
+   353→
+   354→  // ─── Intro card ───────────────────────
+   355→  if (!hasStarted) {
+   356→    return (
+   357→      <ModuleIntroCard
+   358→        title="Prévisions Financières"
+   359→        description="Structurez votre plan financier prévisionnel sur 3 ans."
+   360→        duration="25-35 min"
+   361→        phase="Stratégie"
+   362→        icon={Calculator}
+   363→        iconColor="bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400"
+   364→        benefits={[
+   365→          { icon: TrendingUp, text: 'Projeter votre chiffre d\'affaires sur 3 ans' },
+   366→          { icon: PieChartIcon, text: 'Estimer vos charges fixes et variables' },
+   367→          { icon: Target, text: 'Calculer votre seuil de rentabilité' },
+   368→          { icon: BarChart3, text: 'Visualiser votre compte de résultat' },
+   369→        ]}
+   370→        ctaLabel="Démarrer mes prévisions"
+   371→        onStart={() => setHasStarted(true)}
+   372→        hasStarted={false}
+   373→      />
+   374→    )
+   375→  }
+   376→
+   377→  // ─── Loading ────────────────────────────
+   378→  if (isLoading) {
+   379→    return (
+   380→      <div className="p-4 md:p-6 lg:p-8 space-y-6">
+   381→        <div className="h-8 w-64 bg-muted animate-pulse rounded" />
+   382→        <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+   383→        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+   384→          {[...Array(4)].map((_, i) => (
+   385→            <div key={i} className="h-28 bg-muted animate-pulse rounded-xl" />
+   386→          ))}
+   387→        </div>
+   388→      </div>
+   389→    )
+   390→  }
+   391→
+   392→  // ─── Main Render ────────────────────────
+   393→  return (
+   394→    <motion.div
+   395→      initial={{ opacity: 0, y: 20 }}
+   396→      animate={{ opacity: 1, y: 0 }}
+   397→      transition={{ duration: 0.4 }}
+   398→      className="flex-1 overflow-y-auto"
+   399→    >
+   400→      {/* Header */}
+   401→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 md:px-6 border-b bg-background">
+   402→        <div className="flex items-center gap-3">
+   403→          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00838F]/10">
+   404→            <Calculator className="h-5 w-5 text-[#00838F]" />
+   405→          </div>
+   406→          <div>
+   407→            <h2 className="text-xl font-bold text-foreground">Simulateur Financier</h2>
+   408→            <p className="text-xs text-muted-foreground">Projections sur 3 ans — Ajustez les curseurs</p>
+   409→          </div>
+   410→        </div>
+   411→        <div className="flex items-center gap-2">
+   412→          <Button
+   413→            variant="outline"
+   414→            size="sm"
+   415→            className="gap-1.5 border-[#FFB74D]/40 text-[#FFB74D] hover:bg-[#FFB74D]/10 hover:text-[#FFB74D]"
+   416→            onClick={handleAiSuggest}
+   417→            disabled={aiLoading}
+   418→          >
+   419→            {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+   420→            Analyse IA
+   421→          </Button>
+   422→        </div>
+   423→      </div>
+   424→
+   425→      <div className="p-4 md:p-6 space-y-6">
+   426→        {/* ── KPI Dashboard ── */}
+   427→        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+   428→          <Card className="border-transparent bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/10 dark:to-emerald-900/10">
+   429→            <CardContent className="p-3">
+   430→              <div className="flex items-center gap-2 mb-1">
+   431→                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900/30">
+   432→                  <TrendingUp className="h-3.5 w-3.5 text-green-600" />
+   433→                </div>
+   434→                <span className="text-[10px] text-muted-foreground leading-tight">CA Année 1</span>
+   435→              </div>
+   436→              <p className="text-sm font-bold text-green-700 dark:text-green-400">{formatCurrency(year1Revenue)}</p>
+   437→              <p className="text-[10px] text-green-600/60 dark:text-green-400/60">A2 : {formatCurrency(year2Revenue)}</p>
+   438→            </CardContent>
+   439→          </Card>
+   440→
+   441→          <Card className="border-transparent bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/10 dark:to-orange-900/10">
+   442→            <CardContent className="p-3">
+   443→              <div className="flex items-center gap-2 mb-1">
+   444→                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30">
+   445→                  <TrendingDown className="h-3.5 w-3.5 text-red-600" />
+   446→                </div>
+   447→                <span className="text-[10px] text-muted-foreground leading-tight">Charges A1</span>
+   448→              </div>
+   449→              <p className="text-sm font-bold text-red-700 dark:text-red-400">{formatCurrency(year1Expenses)}</p>
+   450→              <p className="text-[10px] text-red-600/60 dark:text-red-400/60">A2 : {formatCurrency(year2Expenses)}</p>
+   451→            </CardContent>
+   452→          </Card>
+   453→
+   454→          <Card className={cn(
+   455→            'border-transparent',
+   456→            result1 >= 0
+   457→              ? 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/10 dark:to-emerald-900/10'
+   458→              : 'bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/10 dark:to-orange-900/10',
+   459→          )}>
+   460→            <CardContent className="p-3">
+   461→              <div className="flex items-center gap-2 mb-1">
+   462→                <div className={cn(
+   463→                  'flex h-7 w-7 items-center justify-center rounded-lg',
+   464→                  result1 >= 0 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30',
+   465→                )}>
+   466→                  <DollarSign className={cn('h-3.5 w-3.5', result1 >= 0 ? 'text-green-600' : 'text-red-600')} />
+   467→                </div>
+   468→                <span className="text-[10px] text-muted-foreground leading-tight">Résultat A1</span>
+   469→              </div>
+   470→              <p className={cn('text-sm font-bold', result1 >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400')}>
+   471→                {formatCurrency(result1)}
+   472→              </p>
+   473→            </CardContent>
+   474→          </Card>
+   475→
+   476→          <Card className="border-transparent bg-gradient-to-br from-[#00838F]/5 to-[#00838F]/10 dark:from-[#00838F]/5 dark:to-[#00838F]/10">
+   477→            <CardContent className="p-3">
+   478→              <div className="flex items-center gap-2 mb-1">
+   479→                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#00838F]/10">
+   480→                  <ShieldCheck className="h-3.5 w-3.5 text-[#00838F]" />
+   481→                </div>
+   482→                <span className="text-[10px] text-muted-foreground leading-tight">Investissement</span>
+   483→              </div>
+   484→              <p className="text-sm font-bold text-[#00838F]">{formatCurrency(initialInvestment)}</p>
+   485→              <p className="text-[10px] text-[#00838F]/60">
+   486→                {breakevenMonth ? `Rentable : mois ${breakevenMonth}` : 'Non rentable'}
+   487→              </p>
+   488→            </CardContent>
+   489→          </Card>
+   490→
+   491→          <Card className={cn(
+   492→            'border-transparent col-span-2 lg:col-span-1',
+   493→            cumulative3Y >= 0
+   494→              ? 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/10 dark:to-emerald-900/10'
+   495→              : 'bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/10 dark:to-orange-900/10',
+   496→          )}>
+   497→            <CardContent className="p-3">
+   498→              <div className="flex items-center gap-2 mb-1">
+   499→                <div className={cn(
+   500→                  'flex h-7 w-7 items-center justify-center rounded-lg',
+   501→                  cumulative3Y >= 0 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30',
+   502→                )}>
+   503→                  <Target className={cn('h-3.5 w-3.5', cumulative3Y >= 0 ? 'text-green-600' : 'text-red-600')} />
+   504→                </div>
+   505→                <span className="text-[10px] text-muted-foreground leading-tight">Cumulé 3 ans</span>
+   506→              </div>
+   507→              <p className={cn('text-sm font-bold', cumulative3Y >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400')}>
+   508→                {formatCurrency(cumulative3Y)}
+   509→              </p>
+   510→            </CardContent>
+   511→          </Card>
+   512→        </div>
+   513→
+   514→        {/* ── Simulator Sliders ── */}
+   515→        <Card>
+   516→          <CardHeader className="pb-4">
+   517→            <CardTitle className="text-base font-semibold flex items-center gap-2">
+   518→              <div className="h-2 w-2 rounded-full bg-[#00838F]" />
+   519→              Paramètres du simulateur
+   520→            </CardTitle>
+   521→            <CardDescription>Ajustez les curseurs pour modifier vos prévisions en temps réel</CardDescription>
+   522→          </CardHeader>
+   523→          <CardContent className="space-y-6">
+   524→            {/* CA Année 1 */}
+   525→            <SimulatorSlider
+   526→              label="Chiffre d'affaires — Année 1"
+   527→              description="Revenus totaux estimés pour la première année d'activité"
+   528→              value={year1Revenue}
+   529→              onChange={setYear1Revenue}
+   530→              min={0}
+   531→              max={500000}
+   532→              step={1000}
+   533→              unit="€"
+   534→              color="#10B981"
+   535→            />
+   536→
+   537→            <Separator />
+   538→
+   539→            {/* Croissance annuelle */}
+   540→            <SimulatorSlider
+   541→              label="Croissance annuelle"
+   542→              description="Taux de croissance appliqué aux revenus pour les années 2 et 3"
+   543→              value={growthRate}
+   544→              onChange={setGrowthRate}
+   545→              min={0}
+   546→              max={50}
+   547→              step={1}
+   548→              unit="%"
+   549→              color="#00838F"
+   550→            />
+   551→
+   552→            <Separator />
+   553→
+   554→            {/* Charges Année 1 */}
+   555→            <SimulatorSlider
+   556→              label="Total charges — Année 1"
+   557→              description="Ensemble des charges (fixes + variables) pour la première année"
+   558→              value={year1Expenses}
+   559→              onChange={setYear1Expenses}
+   560→              min={0}
+   561→              max={400000}
+   562→              step={1000}
+   563→              unit="€"
+   564→              color="#EF4444"
+   565→            />
+   566→
+   567→            <Separator />
+   568→
+   569→            {/* Investissement */}
+   570→            <SimulatorSlider
+   571→              label="Investissement initial"
+   572→              description="Capital de départ (matériel, stock, frais de lancement, trésorerie...)"
+   573→              value={initialInvestment}
+   574→              onChange={setInitialInvestment}
+   575→              min={0}
+   576→              max={200000}
+   577→              step={1000}
+   578→              unit="€"
+   579→              color="#FF6B35"
+   580→            />
+   581→
+   582→            {/* Live calculation summary */}
+   583→            <div className="rounded-xl bg-muted/40 border p-4 mt-2">
+   584→              <div className="flex items-center gap-2 mb-3">
+   585→                <RefreshCw className="h-4 w-4 text-muted-foreground" />
+   586→                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Calculs en temps réel</span>
+   587→              </div>
+   588→              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+   589→                <div className="text-center">
+   590→                  <p className="text-xs text-muted-foreground mb-1">Marge nette A1</p>
+   591→                  <p className={cn(
+   592→                    'text-xl font-bold',
+   593→                    margin1 >= 20 ? 'text-green-600 dark:text-green-400' : margin1 >= 0 ? 'text-amber-500' : 'text-red-500',
+   594→                  )}>
+   595→                    {margin1.toFixed(1)}%
+   596→                  </p>
+   597→                </div>
+   598→                <div className="text-center">
+   599→                  <p className="text-xs text-muted-foreground mb-1">Marge nette A3</p>
+   600→                  <p className={cn(
+   601→                    'text-xl font-bold',
+   602→                    margin3 >= 20 ? 'text-green-600 dark:text-green-400' : margin3 >= 0 ? 'text-amber-500' : 'text-red-500',
+   603→                  )}>
+   604→                    {margin3.toFixed(1)}%
+   605→                  </p>
+   606→                </div>
+   607→                <div className="text-center">
+   608→                  <p className="text-xs text-muted-foreground mb-1">Seuil de rentabilité</p>
+   609→                  <p className={cn(
+   610→                    'text-xl font-bold',
+   611→                    breakevenMonth && breakevenMonth <= 12 ? 'text-green-600 dark:text-green-400' : breakevenMonth && breakevenMonth <= 24 ? 'text-amber-500' : 'text-red-500',
+   612→                  )}>
+   613→                    {breakevenMonth ? `Mois ${breakevenMonth}` : '—'}
+   614→                  </p>
+   615→                </div>
+   616→              </div>
+   617→            </div>
+   618→          </CardContent>
+   619→        </Card>
+   620→
+   621→        {/* ── Gauges & Charts ── */}
+   622→        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+   623→          {/* Profitability Gauges */}
+   624→          <Card>
+   625→            <CardHeader className="pb-3">
+   626→              <CardTitle className="text-base font-semibold flex items-center gap-2">
+   627→                <div className="h-2 w-2 rounded-full bg-[#FFB74D]" />
+   628→                Jauges de rentabilité
+   629→              </CardTitle>
+   630→              <CardDescription>Marge nette par année</CardDescription>
+   631→            </CardHeader>
+   632→            <CardContent>
+   633→              <div className="grid grid-cols-3 gap-4">
+   634→                <ProfitabilityGauge value={margin1} label="Année 1" />
+   635→                <ProfitabilityGauge value={margin2} label="Année 2" />
+   636→                <ProfitabilityGauge value={margin3} label="Année 3" />
+   637→              </div>
+   638→              <div className="mt-4 text-center">
+   639→                <div className="inline-flex items-center gap-1.5 text-xs">
+   640→                  <div className="h-2 w-2 rounded-full bg-green-500" />
+   641→                  <span className="text-muted-foreground">≥ 20%</span>
+   642→                  <div className="h-2 w-2 rounded-full bg-amber-500 ml-2" />
+   643→                  <span className="text-muted-foreground">0–20%</span>
+   644→                  <div className="h-2 w-2 rounded-full bg-red-500 ml-2" />
+   645→                  <span className="text-muted-foreground">&lt; 0%</span>
+   646→                </div>
+   647→              </div>
+   648→            </CardContent>
+   649→          </Card>
+   650→
+   651→          {/* 3-Year Bar Chart */}
+   652→          <Card className="lg:col-span-2">
+   653→            <CardHeader className="pb-3">
+   654→              <CardTitle className="text-base font-semibold flex items-center gap-2">
+   655→                <BarChart3 className="h-4 w-4 text-[#00838F]" />
+   656→                Revenus vs Charges — 3 ans
+   657→              </CardTitle>
+   658→              <CardDescription>Projection annuelle avec résultat net</CardDescription>
+   659→            </CardHeader>
+   660→            <CardContent>
+   661→              <div className="h-64">
+   662→                <ResponsiveContainer width="100%" height="100%">
+   663→                  <BarChart data={chartData} margin={{ left: 10, right: 10 }}>
+   664→                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+   665→                    <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+   666→                    <YAxis tick={{ fontSize: 12 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+   667→                    <Tooltip formatter={(value: number) => [formatCurrency(value)]} />
+   668→                    <Legend />
+   669→                    <Bar dataKey="Revenus" fill="#10B981" radius={[4, 4, 0, 0]} />
+   670→                    <Bar dataKey="Charges" fill="#EF4444" radius={[4, 4, 0, 0]} />
+   671→                    <Bar dataKey="Résultat" fill="#00838F" radius={[4, 4, 0, 0]} />
+   672→                  </BarChart>
+   673→                </ResponsiveContainer>
+   674→              </div>
+   675→            </CardContent>
+   676→          </Card>
+   677→        </div>
+   678→
+   679→        {/* ── 3-Year Table ── */}
+   680→        <Card>
+   681→          <CardHeader className="pb-3">
+   682→            <CardTitle className="text-base font-semibold flex items-center gap-2">
+   683→              <FileSpreadsheet className="h-4 w-4 text-[#00838F]" />
+   684→              Tableau de synthèse 3 ans
+   685→            </CardTitle>
+   686→          </CardHeader>
+   687→          <CardContent>
+   688→            <div className="overflow-x-auto">
+   689→              <table className="w-full text-sm">
+   690→                <thead>
+   691→                  <tr className="border-b">
+   692→                    <th className="text-left py-2 pr-4 font-medium text-muted-foreground"></th>
+   693→                    <th className="text-right py-2 px-3 font-medium text-muted-foreground">Année 1</th>
+   694→                    <th className="text-right py-2 px-3 font-medium text-muted-foreground">Année 2</th>
+   695→                    <th className="text-right py-2 px-3 font-medium text-muted-foreground">Année 3</th>
+   696→                  </tr>
+   697→                </thead>
+   698→                <tbody>
+   699→                  <tr className="border-b">
+   700→                    <td className="py-2.5 pr-4 font-medium">Chiffre d&apos;affaires</td>
+   701→                    <td className="text-right py-2.5 px-3 text-green-600 dark:text-green-400">{formatCurrency(year1Revenue)}</td>
+   702→                    <td className="text-right py-2.5 px-3 text-green-600 dark:text-green-400">{formatCurrency(year2Revenue)}</td>
+   703→                    <td className="text-right py-2.5 px-3 text-green-600 dark:text-green-400">{formatCurrency(year3Revenue)}</td>
+   704→                  </tr>
+   705→                  <tr className="border-b">
+   706→                    <td className="py-2.5 pr-4 font-medium">Charges</td>
+   707→                    <td className="text-right py-2.5 px-3 text-red-600 dark:text-red-400">{formatCurrency(year1Expenses)}</td>
+   708→                    <td className="text-right py-2.5 px-3 text-red-600 dark:text-red-400">{formatCurrency(year2Expenses)}</td>
+   709→                    <td className="text-right py-2.5 px-3 text-red-600 dark:text-red-400">{formatCurrency(year3Expenses)}</td>
+   710→                  </tr>
+   711→                  <tr className="bg-muted/30 font-semibold">
+   712→                    <td className="py-2.5 pr-4">Résultat net</td>
+   713→                    <td className={cn('text-right py-2.5 px-3', result1 >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')}>
+   714→                      {formatCurrency(result1)}
+   715→                    </td>
+   716→                    <td className={cn('text-right py-2.5 px-3', result2 >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')}>
+   717→                      {formatCurrency(result2)}
+   718→                    </td>
+   719→                    <td className={cn('text-right py-2.5 px-3', result3 >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')}>
+   720→                      {formatCurrency(result3)}
+   721→                    </td>
+   722→                  </tr>
+   723→                  <tr>
+   724→                    <td className="py-2.5 pr-4 font-medium">Marge nette</td>
+   725→                    <td className={cn('text-right py-2.5 px-3', margin1 >= 20 ? 'text-green-600' : margin1 >= 0 ? 'text-amber-500' : 'text-red-500')}>
+   726→                      {margin1.toFixed(1)}%
+   727→                    </td>
+   728→                    <td className={cn('text-right py-2.5 px-3', margin2 >= 20 ? 'text-green-600' : margin2 >= 0 ? 'text-amber-500' : 'text-red-500')}>
+   729→                      {margin2.toFixed(1)}%
+   730→                    </td>
+   731→                    <td className={cn('text-right py-2.5 px-3', margin3 >= 20 ? 'text-green-600' : margin3 >= 0 ? 'text-amber-500' : 'text-red-500')}>
+   732→                      {margin3.toFixed(1)}%
+   733→                    </td>
+   734→                  </tr>
+   735→                </tbody>
+   736→              </table>
+   737→            </div>
+   738→          </CardContent>
+   739→        </Card>
+   740→
+   741→        {/* ── Save & Sync Button ── */}
+   742→        <motion.div
+   743→          initial={{ opacity: 0 }}
+   744→          animate={{ opacity: 1 }}
+   745→          transition={{ delay: 0.3 }}
+   746→        >
+   747→          <Button
+   748→            size="lg"
+   749→            className={cn(
+   750→              'w-full gap-2 text-base font-semibold py-6',
+   751→              'bg-gradient-to-r from-[#00838F] to-[#00838F]/90 hover:from-[#00838F]/90 hover:to-[#00838F]/80',
+   752→              'text-white shadow-lg shadow-[#00838F]/20 hover:shadow-[#00838F]/30',
+   753→              'transition-all duration-300',
+   754→            )}
+   755→            onClick={handleSaveAndSync}
+   756→            disabled={isSaving}
+   757→          >
+   758→            {isSaving ? (
+   759→              <Loader2 className="h-5 w-5 animate-spin" />
+   760→            ) : (
+   761→              <Save className="h-5 w-5" />
+   762→            )}
+   763→            {isSaving ? 'Enregistrement en cours...' : 'Enregistrer & synchroniser le Business Plan'}
+   764→            {!isSaving && (
+   765→              <ArrowUpRight className="h-4 w-4 opacity-70" />
+   766→            )}
+   767→          </Button>
+   768→          <p className="text-center text-xs text-muted-foreground mt-2">
+   769→            Sauvegarde vos prévisions et met à jour automatiquement les sections financières du Business Plan
+   770→          </p>
+   771→        </motion.div>
+   772→      </div>
+   773→    </motion.div>
+   774→  )
+   775→}
+   776→

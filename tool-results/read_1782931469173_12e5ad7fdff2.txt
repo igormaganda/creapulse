@@ -1,0 +1,1541 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import { toast } from 'sonner'
+     6→import { cn } from '@/lib/utils'
+     7→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     8→import { Button } from '@/components/ui/button'
+     9→import { Input } from '@/components/ui/input'
+    10→import { Textarea } from '@/components/ui/textarea'
+    11→import { Label } from '@/components/ui/label'
+    12→import { Badge } from '@/components/ui/badge'
+    13→import { Separator } from '@/components/ui/separator'
+    14→import { Progress } from '@/components/ui/progress'
+    15→import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+    16→import { Checkbox } from '@/components/ui/checkbox'
+    17→import {
+    18→  Select,
+    19→  SelectContent,
+    20→  SelectItem,
+    21→  SelectTrigger,
+    22→  SelectValue,
+    23→} from '@/components/ui/select'
+    24→import {
+    25→  Lightbulb,
+    26→  ChevronLeft,
+    27→  ChevronRight,
+    28→  Save,
+    29→  CheckCircle2,
+    30→  Circle,
+    31→  Pencil,
+    32→  Users,
+    33→  Target,
+    34→  DollarSign,
+    35→  Rocket,
+    36→  FileCheck,
+    37→  Loader2,
+    38→  Briefcase,
+    39→  TrendingUp,
+    40→  Heart,
+    41→  Award,
+    42→  Sparkles,
+    43→} from 'lucide-react'
+    44→import { useAuthStore } from '@/lib/zustand/store'
+    45→import { ModuleIntroCard } from '../module-intro-card'
+    46→
+    47→// ─── Types ────────────────────────────────────
+    48→
+    49→interface ProjectFormData {
+    50→  // Step 1: Identité du Projet
+    51→  projectTitle: string
+    52→  projectSector: string
+    53→  projectDescription: string
+    54→  projectStage: string
+    55→  // Step 2: Marché & Clientèle
+    56→  primaryTarget: string
+    57→  secondaryTarget: string
+    58→  problemSolved: string
+    59→  competitiveAdvantage: string
+    60→  marketSize: string
+    61→  // Step 3: Modèle Économique
+    62→  revenueSources: string[]
+    63→  revenueYear1: string
+    64→  revenueYear2: string
+    65→  revenueYear3: string
+    66→  initialInvestment: string
+    67→  financingNeed: string
+    68→  // Step 4: Équipe & Motivation
+    69→  teamType: string
+    70→  associateCount: string
+    71→  motivation: string
+    72→  keyCompetencies: string[]
+    73→}
+    74→
+    75→interface StepErrors {
+    76→  [field: string]: string
+    77→}
+    78→
+    79→// ─── Constants ────────────────────────────────
+    80→
+    81→const STORAGE_KEY = 'creapulse-mon-projet'
+    82→
+    83→const STEPS = [
+    84→  { id: 1, label: 'Identité', icon: Briefcase },
+    85→  { id: 2, label: 'Marché', icon: Target },
+    86→  { id: 3, label: 'Économie', icon: DollarSign },
+    87→  { id: 4, label: 'Équipe', icon: Users },
+    88→  { id: 5, label: 'Résumé', icon: FileCheck },
+    89→]
+    90→
+    91→const SECTORS = [
+    92→  'Commerce',
+    93→  'Artisanat',
+    94→  'Services',
+    95→  'Tech',
+    96→  'Restauration',
+    97→  'Santé',
+    98→  'Éducation',
+    99→  'Autre',
+   100→]
+   101→
+   102→const STAGES = ['Idée', 'Étude de marché', 'Structuration', 'Lancement imminent']
+   103→
+   104→const MARKET_SIZES = ['Local', 'Régional', 'National', 'International']
+   105→
+   106→const REVENUE_SOURCES = [
+   107→  'Vente produits',
+   108→  'Prestations services',
+   109→  'Abonnement',
+   110→  'Commission',
+   111→  'Publicité',
+   112→  'Autre',
+   113→]
+   114→
+   115→const FINANCING_OPTIONS = ['Aucun', '< 10K€', '10-50K€', '50-100K€', '> 100K€']
+   116→
+   117→const MOTIVATIONS = [
+   118→  'Indépendance',
+   119→  'Passion',
+   120→  'Opportunité',
+   121→  'Revenu',
+   122→  'Impact social',
+   123→  'Autre',
+   124→]
+   125→
+   126→const COMPETENCIES = [
+   127→  'Commercial',
+   128→  'Technique',
+   129→  'Gestion',
+   130→  'Marketing',
+   131→  'Juridique',
+   132→  'Design',
+   133→  'Autre',
+   134→]
+   135→
+   136→const EMPTY_FORM: ProjectFormData = {
+   137→  projectTitle: '',
+   138→  projectSector: '',
+   139→  projectDescription: '',
+   140→  projectStage: '',
+   141→  primaryTarget: '',
+   142→  secondaryTarget: '',
+   143→  problemSolved: '',
+   144→  competitiveAdvantage: '',
+   145→  marketSize: '',
+   146→  revenueSources: [],
+   147→  revenueYear1: '',
+   148→  revenueYear2: '',
+   149→  revenueYear3: '',
+   150→  initialInvestment: '',
+   151→  financingNeed: '',
+   152→  teamType: '',
+   153→  associateCount: '',
+   154→  motivation: '',
+   155→  keyCompetencies: [],
+   156→}
+   157→
+   158→// ─── Helpers ──────────────────────────────────
+   159→
+   160→function loadFromStorage(): ProjectFormData | null {
+   161→  if (typeof window === 'undefined') return null
+   162→  try {
+   163→    const raw = localStorage.getItem(STORAGE_KEY)
+   164→    return raw ? JSON.parse(raw) : null
+   165→  } catch {
+   166→    return null
+   167→  }
+   168→}
+   169→
+   170→function saveToStorage(data: ProjectFormData) {
+   171→  if (typeof window === 'undefined') return
+   172→  try {
+   173→    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+   174→  } catch {
+   175→    // localStorage may be full
+   176→  }
+   177→}
+   178→
+   179→function clearStorage() {
+   180→  if (typeof window === 'undefined') return
+   181→  try {
+   182→    localStorage.removeItem(STORAGE_KEY)
+   183→  } catch {
+   184→    // ignore
+   185→  }
+   186→}
+   187→
+   188→function calculateMaturityScore(data: ProjectFormData): number {
+   189→  const fields: (string | string[])[] = [
+   190→    data.projectTitle,
+   191→    data.projectSector,
+   192→    data.projectDescription,
+   193→    data.projectStage,
+   194→    data.primaryTarget,
+   195→    data.secondaryTarget,
+   196→    data.problemSolved,
+   197→    data.competitiveAdvantage,
+   198→    data.marketSize,
+   199→    ...data.revenueSources,
+   200→    data.revenueYear1,
+   201→    data.revenueYear2,
+   202→    data.revenueYear3,
+   203→    data.initialInvestment,
+   204→    data.financingNeed,
+   205→    data.teamType,
+   206→    data.associateCount,
+   207→    data.motivation,
+   208→    ...data.keyCompetencies,
+   209→  ]
+   210→
+   211→  const filled = fields.filter(
+   212→    (f) => (typeof f === 'string' ? f.trim().length > 0 : f.length > 0),
+   213→  ).length
+   214→  return Math.round((filled / fields.length) * 100)
+   215→}
+   216→
+   217→function getScoreColor(score: number): string {
+   218→  if (score < 30) return 'text-red-500'
+   219→  if (score < 70) return 'text-amber-500'
+   220→  return 'text-green-600 dark:text-green-400'
+   221→}
+   222→
+   223→function getScoreBgColor(score: number): string {
+   224→  if (score < 30) return 'bg-red-500'
+   225→  if (score < 70) return 'bg-amber-500'
+   226→  return 'bg-green-600 dark:bg-green-500'
+   227→}
+   228→
+   229→function getScoreLabel(score: number): string {
+   230→  if (score < 30) return 'Débutant'
+   231→  if (score < 50) return 'En construction'
+   232→  if (score < 70) return 'Avancé'
+   233→  if (score < 90) return 'Mature'
+   234→  return 'Complet'
+   235→}
+   236→
+   237→function getScoreProgressColor(score: number): string {
+   238→  if (score < 30) return '[&>div]:bg-red-500'
+   239→  if (score < 70) return '[&>div]:bg-amber-500'
+   240→  return '[&>div]:bg-green-600 dark:[&>div]:bg-green-500'
+   241→}
+   242→
+   243→function formatCurrency(value: string): string {
+   244→  const num = parseFloat(value)
+   245→  if (isNaN(num) || num === 0) return '—'
+   246→  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(num)
+   247→}
+   248→
+   249→function getSectorLabel(value: string): string {
+   250→  return value || 'Non défini'
+   251→}
+   252→
+   253→function getStageLabel(value: string): string {
+   254→  return value || 'Non défini'
+   255→}
+   256→
+   257→// ─── Validation ───────────────────────────────
+   258→
+   259→function validateStep(step: number, data: ProjectFormData): StepErrors {
+   260→  const errors: StepErrors = {}
+   261→
+   262→  switch (step) {
+   263→    case 1:
+   264→      if (!data.projectTitle.trim()) errors.projectTitle = 'Le nom du projet est requis'
+   265→      if (!data.projectSector) errors.projectSector = 'Le secteur d\'activité est requis'
+   266→      if (data.projectDescription.trim().length < 50)
+   267→        errors.projectDescription = `Minimum 50 caractères (${data.projectDescription.trim().length}/50)`
+   268→      if (!data.projectStage) errors.projectStage = 'Le stade actuel est requis'
+   269→      break
+   270→    case 2:
+   271→      if (!data.primaryTarget.trim()) errors.primaryTarget = 'Le client cible principal est requis'
+   272→      if (!data.problemSolved.trim()) errors.problemSolved = 'Décrivez le problème résolu par votre projet'
+   273→      break
+   274→    case 3:
+   275→      // All optional
+   276→      break
+   277→    case 4:
+   278→      if (!data.teamType) errors.teamType = 'Indiquez si la création est individuelle ou en équipe'
+   279→      if (!data.motivation) errors.motivation = 'La motivation principale est requise'
+   280→      break
+   281→  }
+   282→
+   283→  return errors
+   284→}
+   285→
+   286→// ─── Step Indicator ───────────────────────────
+   287→
+   288→function StepIndicator({ currentStep, completedSteps, onStepClick }: {
+   289→  currentStep: number
+   290→  completedSteps: Set<number>
+   291→  onStepClick: (step: number) => void
+   292→}) {
+   293→  return (
+   294→    <div className="mb-6 md:mb-8">
+   295→      {/* Desktop step labels */}
+   296→      <div className="hidden md:flex items-center justify-between relative">
+   297→        {/* Connecting line */}
+   298→        <div className="absolute top-5 left-0 right-0 h-0.5 bg-border z-0" />
+   299→        <div
+   300→          className="absolute top-5 left-0 h-0.5 bg-primary z-0 transition-all duration-500"
+   301→          style={{ width: `${((currentStep - 1) / (STEPS.length - 1)) * 100}%` }}
+   302→        />
+   303→
+   304→        {STEPS.map((step) => {
+   305→          const Icon = step.icon
+   306→          const isCompleted = completedSteps.has(step.id)
+   307→          const isCurrent = step.id === currentStep
+   308→          const isPast = step.id < currentStep
+   309→
+   310→          return (
+   311→            <button
+   312→              key={step.id}
+   313→              onClick={() => {
+   314→                if (isPast || isCompleted) onStepClick(step.id)
+   315→              }}
+   316→              className={cn(
+   317→                'relative z-10 flex flex-col items-center gap-1.5 group cursor-pointer',
+   318→                (!isPast && !isCompleted) && 'cursor-not-allowed'
+   319→              )}
+   320→              disabled={!isPast && !isCompleted}
+   321→            >
+   322→              <div
+   323→                className={cn(
+   324→                  'flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all duration-300',
+   325→                  isCompleted && 'border-primary bg-primary text-primary-foreground',
+   326→                  isCurrent && !isCompleted && 'border-primary bg-background text-primary shadow-md shadow-primary/20',
+   327→                  !isCurrent && !isCompleted && 'border-muted-foreground/30 bg-background text-muted-foreground/50',
+   328→                )}
+   329→              >
+   330→                {isCompleted ? (
+   331→                  <CheckCircle2 className="h-5 w-5" />
+   332→                ) : (
+   333→                  <Icon className="h-4 w-4" />
+   334→                )}
+   335→              </div>
+   336→              <span
+   337→                className={cn(
+   338→                  'text-xs font-medium transition-colors',
+   339→                  isCurrent && 'text-primary',
+   340→                  isCompleted && 'text-primary/80',
+   341→                  !isCurrent && !isCompleted && 'text-muted-foreground/50',
+   342→                )}
+   343→              >
+   344→                {step.label}
+   345→              </span>
+   346→            </button>
+   347→          )
+   348→        })}
+   349→      </div>
+   350→
+   351→      {/* Mobile step dots */}
+   352→      <div className="flex md:hidden items-center justify-center gap-2">
+   353→        {STEPS.map((step) => {
+   354→          const isCompleted = completedSteps.has(step.id)
+   355→          const isCurrent = step.id === currentStep
+   356→          return (
+   357→            <button
+   358→              key={step.id}
+   359→              onClick={() => onStepClick(step.id)}
+   360→              className={cn(
+   361→                'flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all',
+   362→                isCompleted && 'bg-primary text-primary-foreground',
+   363→                isCurrent && !isCompleted && 'border-2 border-primary text-primary',
+   364→                !isCurrent && !isCompleted && 'border border-muted-foreground/30 text-muted-foreground/40',
+   365→              )}
+   366→            >
+   367→              {step.id}
+   368→            </button>
+   369→          )
+   370→        })}
+   371→      </div>
+   372→    </div>
+   373→  )
+   374→}
+   375→
+   376→// ─── Step 1: Identité du Projet ───────────────
+   377→
+   378→function StepIdentite({ data, errors, onChange }: {
+   379→  data: ProjectFormData
+   380→  errors: StepErrors
+   381→  onChange: <K extends keyof ProjectFormData>(field: K, value: ProjectFormData[K]) => void
+   382→}) {
+   383→  return (
+   384→    <div className="space-y-6">
+   385→      <div>
+   386→        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+   387→          <Briefcase className="h-5 w-5 text-primary" />
+   388→          Identité du Projet
+   389→        </h3>
+   390→        <p className="text-sm text-muted-foreground mt-1">
+   391→          Décrivez les informations de base de votre projet de création d&apos;entreprise.
+   392→        </p>
+   393→      </div>
+   394→
+   395→      <Separator />
+   396→
+   397→      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+   398→        {/* Nom du projet */}
+   399→        <div className="space-y-2">
+   400→          <Label htmlFor="projectTitle" className="text-sm font-medium">
+   401→            Nom du projet <span className="text-red-500">*</span>
+   402→          </Label>
+   403→          <Input
+   404→            id="projectTitle"
+   405→            placeholder="Ex: Ma Belle Boutique"
+   406→            value={data.projectTitle}
+   407→            onChange={(e) => onChange('projectTitle', e.target.value)}
+   408→            className={cn(errors.projectTitle && 'border-red-500 focus-visible:ring-red-500')}
+   409→          />
+   410→          {errors.projectTitle && (
+   411→            <p className="text-xs text-red-500">{errors.projectTitle}</p>
+   412→          )}
+   413→        </div>
+   414→
+   415→        {/* Secteur d'activité */}
+   416→        <div className="space-y-2">
+   417→          <Label className="text-sm font-medium">
+   418→            Secteur d&apos;activité <span className="text-red-500">*</span>
+   419→          </Label>
+   420→          <Select value={data.projectSector} onValueChange={(v) => onChange('projectSector', v)}>
+   421→            <SelectTrigger className={cn(errors.projectSector && 'border-red-500 focus:ring-red-500')}>
+   422→              <SelectValue placeholder="Sélectionnez un secteur" />
+   423→            </SelectTrigger>
+   424→            <SelectContent position="popper" className="z-[250]">
+   425→              {SECTORS.map((s) => (
+   426→                <SelectItem key={s} value={s}>{s}</SelectItem>
+   427→              ))}
+   428→            </SelectContent>
+   429→          </Select>
+   430→          {errors.projectSector && (
+   431→            <p className="text-xs text-red-500">{errors.projectSector}</p>
+   432→          )}
+   433→        </div>
+   434→      </div>
+   435→
+   436→      {/* Description */}
+   437→      <div className="space-y-2">
+   438→        <Label htmlFor="projectDescription" className="text-sm font-medium">
+   439→          Description du projet <span className="text-red-500">*</span>
+   440→        </Label>
+   441→        <Textarea
+   442→          id="projectDescription"
+   443→          placeholder="Décrivez votre projet en détail : concept, activités, valeur ajoutée..."
+   444→          rows={4}
+   445→          value={data.projectDescription}
+   446→          onChange={(e) => onChange('projectDescription', e.target.value)}
+   447→          className={cn(
+   448→            errors.projectDescription && 'border-red-500 focus-visible:ring-red-500',
+   449→            'resize-none'
+   450→          )}
+   451→        />
+   452→        <div className="flex justify-between items-center">
+   453→          {errors.projectDescription ? (
+   454→            <p className="text-xs text-red-500">{errors.projectDescription}</p>
+   455→          ) : (
+   456→            <p className="text-xs text-muted-foreground">Minimum 50 caractères</p>
+   457→          )}
+   458→          <p className={cn(
+   459→            'text-xs tabular-nums',
+   460→            data.projectDescription.trim().length < 50 ? 'text-muted-foreground' : 'text-green-600'
+   461→          )}>
+   462→            {data.projectDescription.trim().length}/50
+   463→          </p>
+   464→        </div>
+   465→      </div>
+   466→
+   467→      {/* Stade actuel */}
+   468→      <div className="space-y-3">
+   469→        <Label className="text-sm font-medium">
+   470→          Stade actuel du projet <span className="text-red-500">*</span>
+   471→        </Label>
+   472→        <RadioGroup
+   473→          value={data.projectStage}
+   474→          onValueChange={(v) => onChange('projectStage', v)}
+   475→          className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+   476→        >
+   477→          {STAGES.map((stage) => (
+   478→            <label
+   479→              key={stage}
+   480→              htmlFor={`stage-${stage}`}
+   481→              className={cn(
+   482→                'flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-all',
+   483→                data.projectStage === stage
+   484→                  ? 'border-primary bg-primary/5 shadow-sm'
+   485→                  : 'border-border hover:border-primary/40 hover:bg-muted/50',
+   486→                errors.projectStage && !data.projectStage && 'border-red-300'
+   487→              )}
+   488→            >
+   489→              <RadioGroupItem value={stage} id={`stage-${stage}`} />
+   490→              <div>
+   491→                <span className="text-sm font-medium">{stage}</span>
+   492→              </div>
+   493→            </label>
+   494→          ))}
+   495→        </RadioGroup>
+   496→        {errors.projectStage && (
+   497→          <p className="text-xs text-red-500">{errors.projectStage}</p>
+   498→        )}
+   499→      </div>
+   500→    </div>
+   501→  )
+   502→}
+   503→
+   504→// ─── Step 2: Marché & Clientèle ───────────────
+   505→
+   506→function StepMarche({ data, errors, onChange }: {
+   507→  data: ProjectFormData
+   508→  errors: StepErrors
+   509→  onChange: <K extends keyof ProjectFormData>(field: K, value: ProjectFormData[K]) => void
+   510→}) {
+   511→  const token = useAuthStore((s) => s.token)
+   512→
+   513→  const [suggestions, setSuggestions] = useState<{
+   514→    clients: string[]
+   515→    problems: string[]
+   516→    advantages: string[]
+   517→  }>({ clients: [], problems: [], advantages: [] })
+   518→
+   519→  // Fetch AI suggestions when sector changes
+   520→  useEffect(() => {
+   521→    let cancelled = false
+   522→    if (data.projectSector) {
+   523→      fetch('/api/ai/suggestions', {
+   524→        method: 'POST',
+   525→        headers: {
+   526→          'Content-Type': 'application/json',
+   527→          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+   528→        },
+   529→        credentials: 'include',
+   530→        body: JSON.stringify({ sector: data.projectSector, activity: data.projectTitle, useAI: true }),
+   531→      })
+   532→        .then((r) => r.json())
+   533→        .then((json) => {
+   534→          if (!cancelled && json.success && json.data) setSuggestions(json.data)
+   535→        })
+   536→        .catch(() => {})
+   537→    }
+   538→    return () => { cancelled = true }
+   539→  }, [data.projectSector, data.projectTitle, token])
+   540→
+   541→  // Handler: replace value for single-line, append for multi-line
+   542→  const applySuggestion = (
+   543→    field: 'primaryTarget' | 'problemSolved' | 'competitiveAdvantage',
+   544→    value: string,
+   545→  ) => {
+   546→    if (field === 'primaryTarget') {
+   547→      onChange(field, value)
+   548→    } else {
+   549→      const current = data[field]
+   550→      onChange(field, current.trim() ? `${current.trim()}\n${value}` : value)
+   551→    }
+   552→  }
+   553→
+   554→  return (
+   555→    <div className="space-y-6">
+   556→      <div>
+   557→        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+   558→          <Target className="h-5 w-5 text-primary" />
+   559→          Marché &amp; Clientèle
+   560→        </h3>
+   561→        <p className="text-sm text-muted-foreground mt-1">
+   562→          Définissez votre marché cible et votre positionnement concurrentiel.
+   563→        </p>
+   564→      </div>
+   565→
+   566→      <Separator />
+   567→
+   568→      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+   569→        {/* Client cible principal */}
+   570→        <div className="space-y-2">
+   571→          <Label htmlFor="primaryTarget" className="text-sm font-medium">
+   572→            Client cible principal <span className="text-red-500">*</span>
+   573→          </Label>
+   574→          <Input
+   575→            id="primaryTarget"
+   576→            placeholder="Ex: Entreprises PME du secteur tech"
+   577→            value={data.primaryTarget}
+   578→            onChange={(e) => onChange('primaryTarget', e.target.value)}
+   579→            className={cn(errors.primaryTarget && 'border-red-500 focus-visible:ring-red-500')}
+   580→          />
+   581→          {errors.primaryTarget && (
+   582→            <p className="text-xs text-red-500">{errors.primaryTarget}</p>
+   583→          )}
+   584→          {/* AI Suggestion chips — clients */}
+   585→          {suggestions.clients.length > 0 && (
+   586→            <div className="mt-1">
+   587→              <p className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1">
+   588→                <Sparkles className="h-3 w-3 text-primary" />
+   589→                Suggestions IA
+   590→              </p>
+   591→              <div className="flex flex-wrap gap-1.5">
+   592→                {suggestions.clients.map((s, i) => (
+   593→                  <button
+   594→                    key={i}
+   595→                    type="button"
+   596→                    className="inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-2.5 py-0.5 text-[11px] text-primary hover:bg-primary/10 transition-colors"
+   597→                    onClick={() => applySuggestion('primaryTarget', s)}
+   598→                  >
+   599→                    {s}
+   600→                  </button>
+   601→                ))}
+   602→              </div>
+   603→            </div>
+   604→          )}
+   605→          <p className="text-xs text-muted-foreground">Qui sont vos principaux clients ?</p>
+   606→        </div>
+   607→
+   608→        {/* Client cible secondaire */}
+   609→        <div className="space-y-2">
+   610→          <Label htmlFor="secondaryTarget" className="text-sm font-medium">
+   611→            Client cible secondaire
+   612→            <span className="text-xs text-muted-foreground ml-1">(optionnel)</span>
+   613→          </Label>
+   614→          <Input
+   615→            id="secondaryTarget"
+   616→            placeholder="Ex: Particuliers passionnés de tech"
+   617→            value={data.secondaryTarget}
+   618→            onChange={(e) => onChange('secondaryTarget', e.target.value)}
+   619→          />
+   620→          <p className="text-xs text-muted-foreground">Un second segment de clientèle éventuel</p>
+   621→        </div>
+   622→      </div>
+   623→
+   624→      {/* Problème résolu */}
+   625→      <div className="space-y-2">
+   626→        <Label htmlFor="problemSolved" className="text-sm font-medium">
+   627→          Problème résolu <span className="text-red-500">*</span>
+   628→        </Label>
+   629→        <Textarea
+   630→          id="problemSolved"
+   631→          placeholder="Quelle problématique ou quel besoin votre projet adresse-t-il ?"
+   632→          rows={3}
+   633→          value={data.problemSolved}
+   634→          onChange={(e) => onChange('problemSolved', e.target.value)}
+   635→          className={cn(errors.problemSolved && 'border-red-500 focus-visible:ring-red-500', 'resize-none')}
+   636→        />
+   637→        {errors.problemSolved && (
+   638→          <p className="text-xs text-red-500">{errors.problemSolved}</p>
+   639→        )}
+   640→        {/* AI Suggestion chips — problems */}
+   641→        {suggestions.problems.length > 0 && (
+   642→          <div className="mt-1">
+   643→            <p className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1">
+   644→              <Sparkles className="h-3 w-3 text-primary" />
+   645→              Suggestions IA
+   646→            </p>
+   647→            <div className="flex flex-wrap gap-1.5">
+   648→              {suggestions.problems.map((s, i) => (
+   649→                <button
+   650→                  key={i}
+   651→                  type="button"
+   652→                  className="inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-2.5 py-0.5 text-[11px] text-primary hover:bg-primary/10 transition-colors"
+   653→                  onClick={() => applySuggestion('problemSolved', s)}
+   654→                >
+   655→                  {s}
+   656→                </button>
+   657→              ))}
+   658→            </div>
+   659→          </div>
+   660→        )}
+   661→      </div>
+   662→
+   663→      {/* Avantage concurrentiel */}
+   664→      <div className="space-y-2">
+   665→        <Label htmlFor="competitiveAdvantage" className="text-sm font-medium">
+   666→          Avantage concurrentiel
+   667→          <span className="text-xs text-muted-foreground ml-1">(optionnel)</span>
+   668→        </Label>
+   669→        <Textarea
+   670→          id="competitiveAdvantage"
+   671→          placeholder="Qu'est-ce qui différencie votre projet de la concurrence ?"
+   672→          rows={3}
+   673→          value={data.competitiveAdvantage}
+   674→          onChange={(e) => onChange('competitiveAdvantage', e.target.value)}
+   675→          className="resize-none"
+   676→        />
+   677→        {/* AI Suggestion chips — advantages */}
+   678→        {suggestions.advantages.length > 0 && (
+   679→          <div className="mt-1">
+   680→            <p className="text-[11px] text-muted-foreground flex items-center gap-1 mb-1">
+   681→              <Sparkles className="h-3 w-3 text-primary" />
+   682→              Suggestions IA
+   683→            </p>
+   684→            <div className="flex flex-wrap gap-1.5">
+   685→              {suggestions.advantages.map((s, i) => (
+   686→                <button
+   687→                  key={i}
+   688→                  type="button"
+   689→                  className="inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-2.5 py-0.5 text-[11px] text-primary hover:bg-primary/10 transition-colors"
+   690→                  onClick={() => applySuggestion('competitiveAdvantage', s)}
+   691→                >
+   692→                  {s}
+   693→                </button>
+   694→              ))}
+   695→            </div>
+   696→          </div>
+   697→        )}
+   698→      </div>
+   699→
+   700→      {/* Taille du marché */}
+   701→      <div className="space-y-2">
+   702→        <Label className="text-sm font-medium">Taille du marché estimée</Label>
+   703→        <Select value={data.marketSize} onValueChange={(v) => onChange('marketSize', v)}>
+   704→          <SelectTrigger>
+   705→            <SelectValue placeholder="Sélectionnez la portée" />
+   706→          </SelectTrigger>
+   707→          <SelectContent position="popper" className="z-[250]">
+   708→            {MARKET_SIZES.map((m) => (
+   709→              <SelectItem key={m} value={m}>{m}</SelectItem>
+   710→            ))}
+   711→          </SelectContent>
+   712→        </Select>
+   713→      </div>
+   714→    </div>
+   715→  )
+   716→}
+   717→
+   718→// ─── Step 3: Modèle Économique ────────────────
+   719→
+   720→function StepEconomie({ data, onChange }: {
+   721→  data: ProjectFormData
+   722→  errors: StepErrors
+   723→  onChange: <K extends keyof ProjectFormData>(field: K, value: ProjectFormData[K]) => void
+   724→}) {
+   725→  const toggleRevenueSource = (source: string) => {
+   726→    const updated = data.revenueSources.includes(source)
+   727→      ? data.revenueSources.filter((s) => s !== source)
+   728→      : [...data.revenueSources, source]
+   729→    onChange('revenueSources', updated)
+   730→  }
+   731→
+   732→  return (
+   733→    <div className="space-y-6">
+   734→      <div>
+   735→        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+   736→          <DollarSign className="h-5 w-5 text-primary" />
+   737→          Modèle Économique
+   738→        </h3>
+   739→        <p className="text-sm text-muted-foreground mt-1">
+   740→          Structurez vos sources de revenus et vos prévisions financières.
+   741→        </p>
+   742→      </div>
+   743→
+   744→      <Separator />
+   745→
+   746→      {/* Sources de revenus */}
+   747→      <div className="space-y-3">
+   748→        <Label className="text-sm font-medium">Sources de revenus</Label>
+   749→        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+   750→          {REVENUE_SOURCES.map((source) => (
+   751→            <label
+   752→              key={source}
+   753→              className={cn(
+   754→                'flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-all',
+   755→                data.revenueSources.includes(source)
+   756→                  ? 'border-primary bg-primary/5 shadow-sm'
+   757→                  : 'border-border hover:border-primary/40 hover:bg-muted/50',
+   758→              )}
+   759→            >
+   760→              <Checkbox
+   761→                checked={data.revenueSources.includes(source)}
+   762→                onCheckedChange={() => toggleRevenueSource(source)}
+   763→              />
+   764→              <span className="text-sm">{source}</span>
+   765→            </label>
+   766→          ))}
+   767→        </div>
+   768→      </div>
+   769→
+   770→      {/* Revenus estimés */}
+   771→      <div className="space-y-3">
+   772→        <Label className="text-sm font-medium">Revenus estimés</Label>
+   773→        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+   774→          {[
+   775→            { label: 'Année 1', field: 'revenueYear1' as const },
+   776→            { label: 'Année 2', field: 'revenueYear2' as const },
+   777→            { label: 'Année 3', field: 'revenueYear3' as const },
+   778→          ].map(({ label, field }) => (
+   779→            <div key={field} className="space-y-2">
+   780→              <Label htmlFor={field} className="text-xs text-muted-foreground">
+   781→                {label} (€)
+   782→              </Label>
+   783→              <div className="relative">
+   784→                <Input
+   785→                  id={field}
+   786→                  type="number"
+   787→                  placeholder="0"
+   788→                  value={data[field]}
+   789→                  onChange={(e) => onChange(field, e.target.value)}
+   790→                  className="pl-7"
+   791→                />
+   792→                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+   793→                  €
+   794→                </span>
+   795→              </div>
+   796→            </div>
+   797→          ))}
+   798→        </div>
+   799→      </div>
+   800→
+   801→      {/* Investissement initial */}
+   802→      <div className="space-y-2">
+   803→        <Label htmlFor="initialInvestment" className="text-sm font-medium">
+   804→          Investissement initial estimé (€)
+   805→        </Label>
+   806→        <div className="relative max-w-sm">
+   807→          <Input
+   808→            id="initialInvestment"
+   809→            type="number"
+   810→            placeholder="0"
+   811→            value={data.initialInvestment}
+   812→            onChange={(e) => onChange('initialInvestment', e.target.value)}
+   813→            className="pl-7"
+   814→          />
+   815→          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+   816→            €
+   817→          </span>
+   818→        </div>
+   819→      </div>
+   820→
+   821→      {/* Besoin en financement */}
+   822→      <div className="space-y-2">
+   823→        <Label className="text-sm font-medium">Besoin en financement</Label>
+   824→        <Select value={data.financingNeed} onValueChange={(v) => onChange('financingNeed', v)}>
+   825→          <SelectTrigger className="max-w-sm">
+   826→            <SelectValue placeholder="Sélectionnez une tranche" />
+   827→          </SelectTrigger>
+   828→          <SelectContent position="popper" className="z-[250]">
+   829→            {FINANCING_OPTIONS.map((opt) => (
+   830→              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+   831→            ))}
+   832→          </SelectContent>
+   833→        </Select>
+   834→      </div>
+   835→    </div>
+   836→  )
+   837→}
+   838→
+   839→// ─── Step 4: Équipe & Motivation ──────────────
+   840→
+   841→function StepEquipe({ data, errors, onChange }: {
+   842→  data: ProjectFormData
+   843→  errors: StepErrors
+   844→  onChange: <K extends keyof ProjectFormData>(field: K, value: ProjectFormData[K]) => void
+   845→}) {
+   846→  const toggleCompetency = (comp: string) => {
+   847→    const updated = data.keyCompetencies.includes(comp)
+   848→      ? data.keyCompetencies.filter((c) => c !== comp)
+   849→      : [...data.keyCompetencies, comp]
+   850→    onChange('keyCompetencies', updated)
+   851→  }
+   852→
+   853→  return (
+   854→    <div className="space-y-6">
+   855→      <div>
+   856→        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+   857→          <Users className="h-5 w-5 text-primary" />
+   858→          Équipe &amp; Motivation
+   859→        </h3>
+   860→        <p className="text-sm text-muted-foreground mt-1">
+   861→          Décrivez votre équipe et ce qui vous motive dans cette aventure.
+   862→        </p>
+   863→      </div>
+   864→
+   865→      <Separator />
+   866→
+   867→      {/* Type de création */}
+   868→      <div className="space-y-3">
+   869→        <Label className="text-sm font-medium">
+   870→          Type de création <span className="text-red-500">*</span>
+   871→        </Label>
+   872→        <RadioGroup
+   873→          value={data.teamType}
+   874→          onValueChange={(v) => {
+   875→            onChange('teamType', v)
+   876→            if (v !== 'Équipe') onChange('associateCount', '')
+   877→          }}
+   878→          className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+   879→        >
+   880→          {['Individuelle', 'En équipe'].map((type) => (
+   881→            <label
+   882→              key={type}
+   883→              htmlFor={`team-${type}`}
+   884→              className={cn(
+   885→                'flex items-center gap-3 rounded-lg border p-4 cursor-pointer transition-all',
+   886→                data.teamType === type
+   887→                  ? 'border-primary bg-primary/5 shadow-sm'
+   888→                  : 'border-border hover:border-primary/40 hover:bg-muted/50',
+   889→                errors.teamType && !data.teamType && 'border-red-300',
+   890→              )}
+   891→            >
+   892→              <RadioGroupItem value={type} id={`team-${type}`} />
+   893→              <div className="flex items-center gap-2">
+   894→                {type === 'Individuelle' ? (
+   895→                  <Rocket className="h-4 w-4 text-muted-foreground" />
+   896→                ) : (
+   897→                  <Users className="h-4 w-4 text-muted-foreground" />
+   898→                )}
+   899→                <span className="text-sm font-medium">{type === 'Individuelle' ? 'Création individuelle' : 'Création en équipe'}</span>
+   900→              </div>
+   901→            </label>
+   902→          ))}
+   903→        </RadioGroup>
+   904→        {errors.teamType && (
+   905→          <p className="text-xs text-red-500">{errors.teamType}</p>
+   906→        )}
+   907→      </div>
+   908→
+   909→      {/* Nombre d'associés */}
+   910→      <AnimatePresence>
+   911→        {data.teamType === 'En équipe' && (
+   912→          <motion.div
+   913→            initial={{ opacity: 0, height: 0 }}
+   914→            animate={{ opacity: 1, height: 'auto' }}
+   915→            exit={{ opacity: 0, height: 0 }}
+   916→            transition={{ duration: 0.25 }}
+   917→            className="space-y-2 overflow-hidden"
+   918→          >
+   919→            <Label htmlFor="associateCount" className="text-sm font-medium">
+   920→              Nombre d&apos;associés
+   921→            </Label>
+   922→            <Input
+   923→              id="associateCount"
+   924→              type="number"
+   925→              min={1}
+   926→              max={20}
+   927→              placeholder="Ex: 2"
+   928→              value={data.associateCount}
+   929→              onChange={(e) => onChange('associateCount', e.target.value)}
+   930→              className="max-w-[200px]"
+   931→            />
+   932→          </motion.div>
+   933→        )}
+   934→      </AnimatePresence>
+   935→
+   936→      {/* Motivation principale */}
+   937→      <div className="space-y-2">
+   938→        <Label className="text-sm font-medium">
+   939→          Motivation principale <span className="text-red-500">*</span>
+   940→        </Label>
+   941→        <Select value={data.motivation} onValueChange={(v) => onChange('motivation', v)}>
+   942→          <SelectTrigger className={cn(errors.motivation && 'border-red-500 focus:ring-red-500')}>
+   943→            <SelectValue placeholder="Sélectionnez votre motivation" />
+   944→          </SelectTrigger>
+   945→          <SelectContent position="popper" className="z-[250]">
+   946→            {MOTIVATIONS.map((m) => (
+   947→              <SelectItem key={m} value={m}>{m}</SelectItem>
+   948→            ))}
+   949→          </SelectContent>
+   950→        </Select>
+   951→        {errors.motivation && (
+   952→          <p className="text-xs text-red-500">{errors.motivation}</p>
+   953→        )}
+   954→      </div>
+   955→
+   956→      {/* Compétences clés */}
+   957→      <div className="space-y-3">
+   958→        <Label className="text-sm font-medium">Compétences clés</Label>
+   959→        <p className="text-xs text-muted-foreground">Sélectionnez les compétences que vous ou votre équipe possédez</p>
+   960→        <div className="flex flex-wrap gap-2">
+   961→          {COMPETENCIES.map((comp) => (
+   962→            <button
+   963→              key={comp}
+   964→              type="button"
+   965→              onClick={() => toggleCompetency(comp)}
+   966→              className={cn(
+   967→                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-all',
+   968→                data.keyCompetencies.includes(comp)
+   969→                  ? 'border-primary bg-primary/10 text-primary font-medium'
+   970→                  : 'border-border text-muted-foreground hover:border-primary/40 hover:bg-muted/50',
+   971→              )}
+   972→            >
+   973→              {data.keyCompetencies.includes(comp) && <CheckCircle2 className="h-3.5 w-3.5" />}
+   974→              {comp}
+   975→            </button>
+   976→          ))}
+   977→        </div>
+   978→      </div>
+   979→    </div>
+   980→  )
+   981→}
+   982→
+   983→// ─── Step 5: Résumé & Validation ──────────────
+   984→
+   985→function StepResume({ data, score, onGoToStep }: {
+   986→  data: ProjectFormData
+   987→  score: number
+   988→  onGoToStep: (step: number) => void
+   989→}) {
+   990→  const summarySections = [
+   991→    {
+   992→      step: 1,
+   993→      title: 'Identité du Projet',
+   994→      icon: Briefcase,
+   995→      fields: [
+   996→        { label: 'Nom du projet', value: data.projectTitle || 'Non renseigné' },
+   997→        { label: 'Secteur d\'activité', value: getSectorLabel(data.projectSector) },
+   998→        { label: 'Stade actuel', value: getStageLabel(data.projectStage) },
+   999→        { label: 'Description', value: data.projectDescription || 'Non renseignée', className: 'col-span-full' },
+  1000→      ],
+  1001→    },
+  1002→    {
+  1003→      step: 2,
+  1004→      title: 'Marché & Clientèle',
+  1005→      icon: Target,
+  1006→      fields: [
+  1007→        { label: 'Client cible principal', value: data.primaryTarget || 'Non renseigné' },
+  1008→        { label: 'Client cible secondaire', value: data.secondaryTarget || 'Aucun' },
+  1009→        { label: 'Problème résolu', value: data.problemSolved || 'Non renseigné', className: 'col-span-full' },
+  1010→        { label: 'Avantage concurrentiel', value: data.competitiveAdvantage || 'Non renseigné', className: 'col-span-full' },
+  1011→        { label: 'Taille du marché', value: data.marketSize || 'Non définie' },
+  1012→      ],
+  1013→    },
+  1014→    {
+  1015→      step: 3,
+  1016→      title: 'Modèle Économique',
+  1017→      icon: DollarSign,
+  1018→      fields: [
+  1019→        { label: 'Sources de revenus', value: data.revenueSources.length > 0 ? data.revenueSources.join(', ') : 'Aucune', className: 'col-span-full' },
+  1020→        { label: 'Revenus Année 1', value: formatCurrency(data.revenueYear1) },
+  1021→        { label: 'Revenus Année 2', value: formatCurrency(data.revenueYear2) },
+  1022→        { label: 'Revenus Année 3', value: formatCurrency(data.revenueYear3) },
+  1023→        { label: 'Investissement initial', value: formatCurrency(data.initialInvestment) },
+  1024→        { label: 'Besoin en financement', value: data.financingNeed || 'Non défini' },
+  1025→      ],
+  1026→    },
+  1027→    {
+  1028→      step: 4,
+  1029→      title: 'Équipe & Motivation',
+  1030→      icon: Users,
+  1031→      fields: [
+  1032→        { label: 'Type de création', value: data.teamType ? (data.teamType === 'Individuelle' ? 'Création individuelle' : 'Création en équipe') : 'Non renseigné' },
+  1033→        { label: 'Nombre d\'associés', value: data.teamType === 'En équipe' ? (data.associateCount || 'Non renseigné') : '—' },
+  1034→        { label: 'Motivation principale', value: data.motivation || 'Non renseignée' },
+  1035→        { label: 'Compétences clés', value: data.keyCompetencies.length > 0 ? data.keyCompetencies.join(', ') : 'Aucune', className: 'col-span-full' },
+  1036→      ],
+  1037→    },
+  1038→  ]
+  1039→
+  1040→  return (
+  1041→    <div className="space-y-6">
+  1042→      <div>
+  1043→        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+  1044→          <FileCheck className="h-5 w-5 text-primary" />
+  1045→          Résumé du Projet
+  1046→        </h3>
+  1047→        <p className="text-sm text-muted-foreground mt-1">
+  1048→          Vérifiez les informations avant de sauvegarder votre projet.
+  1049→        </p>
+  1050→      </div>
+  1051→
+  1052→      <Separator />
+  1053→
+  1054→      {/* Maturity Score */}
+  1055→      <Card className="border-2">
+  1056→        <CardContent className="p-6">
+  1057→          <div className="flex flex-col sm:flex-row items-center gap-6">
+  1058→            {/* Score circle */}
+  1059→            <div className="relative flex items-center justify-center">
+  1060→              <svg width="120" height="120" viewBox="0 0 120 120">
+  1061→                <circle
+  1062→                  cx="60" cy="60" r="52"
+  1063→                  fill="none"
+  1064→                  stroke="currentColor"
+  1065→                  strokeWidth="8"
+  1066→                  className="text-muted/50"
+  1067→                />
+  1068→                <circle
+  1069→                  cx="60" cy="60" r="52"
+  1070→                  fill="none"
+  1071→                  stroke="currentColor"
+  1072→                  strokeWidth="8"
+  1073→                  strokeLinecap="round"
+  1074→                  strokeDasharray={`${(score / 100) * 326.7} 326.7`}
+  1075→                  transform="rotate(-90 60 60)"
+  1076→                  className={cn(
+  1077→                    score < 30 ? 'text-red-500' : score < 70 ? 'text-amber-500' : 'text-green-600 dark:text-green-500'
+  1078→                  )}
+  1079→                />
+  1080→              </svg>
+  1081→              <div className="absolute inset-0 flex flex-col items-center justify-center">
+  1082→                <span className={cn('text-3xl font-bold tabular-nums', getScoreColor(score))}>
+  1083→                  {score}%
+  1084→                </span>
+  1085→                <span className="text-xs text-muted-foreground">complétude</span>
+  1086→              </div>
+  1087→            </div>
+  1088→
+  1089→            <div className="flex-1 text-center sm:text-left space-y-2">
+  1090→              <h4 className="text-lg font-semibold text-foreground">
+  1091→                Score de maturité du projet
+  1092→              </h4>
+  1093→              <div className="flex flex-wrap items-center gap-2">
+  1094→                <Badge
+  1095→                  className={cn(
+  1096→                    'text-sm font-medium',
+  1097→                    score < 30
+  1098→                      ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+  1099→                      : score < 70
+  1100→                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+  1101→                        : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  1102→                  )}
+  1103→                >
+  1104→                  {getScoreLabel(score)}
+  1105→                </Badge>
+  1106→              </div>
+  1107→              <p className="text-sm text-muted-foreground">
+  1108→                {score < 30
+  1109→                  ? 'Votre projet est à ses débuts. Continuez à le préciser en remplissant les étapes précédentes.'
+  1110→                  : score < 70
+  1111→                    ? 'Votre projet prend forme ! Complétez les sections manquantes pour améliorer votre score.'
+  1112→                    : 'Votre projet est bien défini. Vous êtes prêt pour les prochaines étapes !'}
+  1113→              </p>
+  1114→              <Progress value={score} className={cn('h-2 mt-2', getScoreProgressColor(score))} />
+  1115→            </div>
+  1116→          </div>
+  1117→        </CardContent>
+  1118→      </Card>
+  1119→
+  1120→      {/* Summary sections */}
+  1121→      <div className="space-y-4">
+  1122→        {summarySections.map((section) => {
+  1123→          const Icon = section.icon
+  1124→          return (
+  1125→            <Card key={section.step} className="overflow-hidden">
+  1126→              <CardHeader className="pb-3">
+  1127→                <div className="flex items-center justify-between">
+  1128→                  <CardTitle className="text-base flex items-center gap-2">
+  1129→                    <Icon className="h-4 w-4 text-primary" />
+  1130→                    {section.title}
+  1131→                  </CardTitle>
+  1132→                  <Button
+  1133→                    variant="ghost"
+  1134→                    size="sm"
+  1135→                    onClick={() => onGoToStep(section.step)}
+  1136→                    className="text-primary hover:text-primary/80 hover:bg-primary/5"
+  1137→                  >
+  1138→                    <Pencil className="h-3.5 w-3.5 mr-1" />
+  1139→                    Modifier
+  1140→                  </Button>
+  1141→                </div>
+  1142→              </CardHeader>
+  1143→              <CardContent className="pt-0">
+  1144→                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+  1145→                  {section.fields.map((field) => (
+  1146→                    <div key={field.label} className={cn('space-y-0.5', field.className)}>
+  1147→                      <p className="text-xs font-medium text-muted-foreground">{field.label}</p>
+  1148→                      <p className={cn(
+  1149→                        'text-sm',
+  1150→                        field.value === 'Non renseigné' || field.value === 'Non renseignée' || field.value === 'Non défini' || field.value === 'Non définie' || field.value === 'Aucune' || field.value === 'Aucun'
+  1151→                          ? 'text-muted-foreground italic'
+  1152→                          : 'text-foreground',
+  1153→                      )}>
+  1154→                        {field.value}
+  1155→                      </p>
+  1156→                    </div>
+  1157→                  ))}
+  1158→                </div>
+  1159→              </CardContent>
+  1160→            </Card>
+  1161→          )
+  1162→        })}
+  1163→      </div>
+  1164→    </div>
+  1165→  )
+  1166→}
+  1167→
+  1168→// ─── Main Component ───────────────────────────
+  1169→
+  1170→export function MonProjet() {
+  1171→  const [currentStep, setCurrentStep] = useState(1)
+  1172→  const [formData, setFormData] = useState<ProjectFormData>(EMPTY_FORM)
+  1173→  const [errors, setErrors] = useState<StepErrors>({})
+  1174→  const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set())
+  1175→  const [isSaving, setIsSaving] = useState(false)
+  1176→  const [direction, setDirection] = useState<'forward' | 'backward'>('forward')
+  1177→  const [isLoaded, setIsLoaded] = useState(false)
+  1178→
+  1179→  const user = useAuthStore((s) => s.user)
+  1180→  const token = useAuthStore((s) => s.token)
+  1181→
+  1182→  const maturityScore = useMemo(() => calculateMaturityScore(formData), [formData])
+  1183→
+  1184→  // Load from localStorage or API on mount
+  1185→  useEffect(() => {
+  1186→    const saved = loadFromStorage()
+  1187→    if (saved) {
+  1188→      setFormData(saved)
+  1189→    } else {
+  1190→      // Try loading from API
+  1191→      fetchProjectData()
+  1192→    }
+  1193→    setIsLoaded(true)
+  1194→  }, [])
+  1195→
+  1196→  const fetchProjectData = async () => {
+  1197→    if (!token) return
+  1198→    try {
+  1199→      const res = await fetch('/api/projet', {
+  1200→        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  1201→        credentials: 'include',
+  1202→      })
+  1203→      if (res.ok) {
+  1204→        const json = await res.json()
+  1205→        if (json.success && json.data) {
+  1206→          const d = json.data
+  1207→          const loaded: ProjectFormData = {
+  1208→            projectTitle: d.projectTitle || '',
+  1209→            projectSector: d.projectSector || '',
+  1210→            projectDescription: d.projectDescription || '',
+  1211→            projectStage: d.projectStage || '',
+  1212→            primaryTarget: d.targetAudience || '',
+  1213→            secondaryTarget: d.extraData?.secondaryTarget || '',
+  1214→            problemSolved: d.valueProposition || '',
+  1215→            competitiveAdvantage: d.extraData?.competitiveAdvantage || '',
+  1216→            marketSize: d.extraData?.marketSize || '',
+  1217→            revenueSources: d.extraData?.revenueSources || [],
+  1218→            revenueYear1: d.extraData?.revenueYear1 || '',
+  1219→            revenueYear2: d.extraData?.revenueYear2 || '',
+  1220→            revenueYear3: d.extraData?.revenueYear3 || '',
+  1221→            initialInvestment: d.estimatedInvestment || '',
+  1222→            financingNeed: d.extraData?.financingNeed || '',
+  1223→            teamType: d.extraData?.teamType || '',
+  1224→            associateCount: d.extraData?.associateCount || '',
+  1225→            motivation: d.creationMotivation || '',
+  1226→            keyCompetencies: d.extraData?.keyCompetencies || [],
+  1227→          }
+  1228→          setFormData(loaded)
+  1229→        }
+  1230→      }
+  1231→    } catch {
+  1232→      // Silently fail — user can fill the form manually
+  1233→    }
+  1234→  }
+  1235→
+  1236→  // Auto-save to localStorage on form change
+  1237→  useEffect(() => {
+  1238→    if (isLoaded) {
+  1239→      saveToStorage(formData)
+  1240→    }
+  1241→  }, [formData, isLoaded])
+  1242→
+  1243→  const handleChange = useCallback(<K extends keyof ProjectFormData>(field: K, value: ProjectFormData[K]) => {
+  1244→    setFormData((prev) => ({ ...prev, [field]: value }))
+  1245→    // Clear field error on change
+  1246→    setErrors((prev) => {
+  1247→      const next = { ...prev }
+  1248→      delete next[field]
+  1249→      return next
+  1250→    })
+  1251→  }, [])
+  1252→
+  1253→  const goToStep = useCallback((step: number) => {
+  1254→    // Allow navigating to completed steps, previous steps, or next step only if current is validated
+  1255→    if (step > currentStep) {
+  1256→      // Validate current step first
+  1257→      const stepErrors = validateStep(currentStep, formData)
+  1258→      if (Object.keys(stepErrors).length > 0) {
+  1259→        setErrors(stepErrors)
+  1260→        toast.error('Veuillez corriger les erreurs avant de continuer')
+  1261→        return
+  1262→      }
+  1263→      setCompletedSteps((prev) => new Set([...prev, currentStep]))
+  1264→    }
+  1265→
+  1266→    setDirection(step > currentStep ? 'forward' : 'backward')
+  1267→    setCurrentStep(step)
+  1268→    setErrors({})
+  1269→  }, [currentStep, formData])
+  1270→
+  1271→  const goNext = useCallback(() => {
+  1272→    const stepErrors = validateStep(currentStep, formData)
+  1273→    if (Object.keys(stepErrors).length > 0) {
+  1274→      setErrors(stepErrors)
+  1275→      toast.error('Veuillez corriger les erreurs avant de continuer')
+  1276→      return
+  1277→    }
+  1278→    setCompletedSteps((prev) => new Set([...prev, currentStep]))
+  1279→    setDirection('forward')
+  1280→    setCurrentStep((prev) => Math.min(prev + 1, 5))
+  1281→    setErrors({})
+  1282→  }, [currentStep, formData])
+  1283→
+  1284→  const goPrev = useCallback(() => {
+  1285→    setDirection('backward')
+  1286→    setCurrentStep((prev) => Math.max(prev - 1, 1))
+  1287→    setErrors({})
+  1288→  }, [])
+  1289→
+  1290→  const handleSave = useCallback(async () => {
+  1291→    if (!token) {
+  1292→      toast.error('Vous devez être connecté(e)', { description: 'Session non trouvée. Reconnectez-vous.' })
+  1293→      return
+  1294→    }
+  1295→    setIsSaving(true)
+  1296→    try {
+  1297→      const payload = {
+  1298→        projectTitle: formData.projectTitle,
+  1299→        projectSector: formData.projectSector,
+  1300→        projectDescription: formData.projectDescription,
+  1301→        projectStage: formData.projectStage,
+  1302→        targetAudience: formData.primaryTarget,
+  1303→        valueProposition: formData.problemSolved,
+  1304→        estimatedInvestment: formData.initialInvestment,
+  1305→        creationMotivation: formData.motivation,
+  1306→        progressPercent: maturityScore,
+  1307→        extraData: {
+  1308→          secondaryTarget: formData.secondaryTarget,
+  1309→          competitiveAdvantage: formData.competitiveAdvantage,
+  1310→          marketSize: formData.marketSize,
+  1311→          revenueSources: formData.revenueSources,
+  1312→          revenueYear1: formData.revenueYear1,
+  1313→          revenueYear2: formData.revenueYear2,
+  1314→          revenueYear3: formData.revenueYear3,
+  1315→          financingNeed: formData.financingNeed,
+  1316→          teamType: formData.teamType,
+  1317→          associateCount: formData.associateCount,
+  1318→          keyCompetencies: formData.keyCompetencies,
+  1319→        },
+  1320→      }
+  1321→
+  1322→      const res = await fetch('/api/projet', {
+  1323→        method: 'PUT',
+  1324→        headers: {
+  1325→          'Content-Type': 'application/json',
+  1326→          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  1327→        },
+  1328→        credentials: 'include',
+  1329→        body: JSON.stringify(payload),
+  1330→      })
+  1331→
+  1332→      if (res.ok) {
+  1333→        const json = await res.json()
+  1334→        if (json.success) {
+  1335→          clearStorage()
+  1336→          // Mark all steps as completed
+  1337→          setCompletedSteps(new Set([1, 2, 3, 4, 5]))
+  1338→          toast.success('Projet sauvegardé avec succès !', {
+  1339→            description: 'Vos informations ont été enregistrées.',
+  1340→          })
+  1341→        } else {
+  1342→          toast.error('Erreur lors de la sauvegarde', {
+  1343→            description: json.error?.message || 'Veuillez réessayer.',
+  1344→          })
+  1345→        }
+  1346→      } else if (res.status === 401) {
+  1347→        toast.error('Vous devez être connecté(e) pour sauvegarder', {
+  1348→          description: 'Votre session a expiré. Veuillez vous reconnecter.',
+  1349→        })
+  1350→      } else {
+  1351→        const text = await res.text().catch(() => '')
+  1352→        console.error('[MonProjet Save] Error:', res.status, text)
+  1353→        let json = null
+  1354→        try { json = JSON.parse(text) } catch {}
+  1355→        toast.error('Erreur serveur', {
+  1356→          description: json?.error?.message || `Erreur ${res.status}. Veuillez réessayer.`,
+  1357→        })
+  1358→      }
+  1359→    } catch {
+  1360→      toast.error('Erreur réseau', {
+  1361→        description: 'Vérifiez votre connexion et réessayez.',
+  1362→      })
+  1363→    } finally {
+  1364→      setIsSaving(false)
+  1365→    }
+  1366→  }, [formData, token, maturityScore])
+  1367→
+  1368→  // Slide variants for framer-motion
+  1369→  const slideVariants = {
+  1370→    enter: (dir: 'forward' | 'backward') => ({
+  1371→      x: dir === 'forward' ? 60 : -60,
+  1372→      opacity: 0,
+  1373→    }),
+  1374→    center: { x: 0, opacity: 1 },
+  1375→    exit: (dir: 'forward' | 'backward') => ({
+  1376→      x: dir === 'forward' ? -60 : 60,
+  1377→      opacity: 0,
+  1378→    }),
+  1379→  }
+  1380→
+  1381→  const renderStep = () => {
+  1382→    switch (currentStep) {
+  1383→      case 1:
+  1384→        return <StepIdentite data={formData} errors={errors} onChange={handleChange} />
+  1385→      case 2:
+  1386→        return <StepMarche data={formData} errors={errors} onChange={handleChange} />
+  1387→      case 3:
+  1388→        return <StepEconomie data={formData} errors={errors} onChange={handleChange} />
+  1389→      case 4:
+  1390→        return <StepEquipe data={formData} errors={errors} onChange={handleChange} />
+  1391→      case 5:
+  1392→        return <StepResume data={formData} score={maturityScore} onGoToStep={goToStep} />
+  1393→      default:
+  1394→        return null
+  1395→    }
+  1396→  }
+  1397→
+  1398→  // Check if form has been started (any field filled)
+  1399→  const hasStarted = useMemo(() => {
+  1400→    return !!(
+  1401→      formData.projectTitle ||
+  1402→      formData.projectSector ||
+  1403→      formData.projectDescription ||
+  1404→      formData.projectStage
+  1405→    )
+  1406→  }, [formData])
+  1407→  const [showIntro, setShowIntro] = useState(!hasStarted)
+  1408→
+  1409→  // Hide intro when data arrives from localStorage/API
+  1410→  useEffect(() => {
+  1411→    if (hasStarted) setShowIntro(false)
+  1412→  }, [hasStarted])
+  1413→
+  1414→  if (!isLoaded) {
+  1415→    return (
+  1416→      <div className="flex items-center justify-center min-h-[60vh]">
+  1417→        <Loader2 className="h-8 w-8 text-primary animate-spin" />
+  1418→      </div>
+  1419→    )
+  1420→  }
+  1421→
+  1422→  // Show intro card if user hasn't started yet
+  1423→  if (showIntro) {
+  1424→    return (
+  1425→      <ModuleIntroCard
+  1426→        title="Mon Projet"
+  1427→        description="Décrivez votre projet de création d'entreprise en 4 étapes. Ces informations alimentent votre Business Plan et votre évaluation Tremplin."
+  1428→        duration="10–15 min"
+  1429→        phase="Parcours"
+  1430→        icon={Lightbulb}
+  1431→        iconColor="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
+  1432→        benefits={[
+  1433→          { icon: FileCheck, text: 'Structurer votre idée en un projet concret' },
+  1434→          { icon: Target, text: 'Définir votre cible et votre avantage concurrentiel' },
+  1435→          { icon: DollarSign, text: 'Estimer vos besoins financiers' },
+  1436→          { icon: Sparkles, text: 'Alimenter le Business Plan IA et le Tremplin' },
+  1437→        ]}
+  1438→        ctaLabel="Décrire mon projet"
+  1439→        onStart={() => setShowIntro(false)}
+  1440→        hasStarted={false}
+  1441→      />
+  1442→    )
+  1443→  }
+  1444→
+  1445→  return (
+  1446→    <motion.div
+  1447→      initial={{ opacity: 0, y: 20 }}
+  1448→      animate={{ opacity: 1, y: 0 }}
+  1449→      transition={{ duration: 0.4 }}
+  1450→      className="p-4 md:p-6 lg:p-8 space-y-6"
+  1451→    >
+  1452→      {/* Header */}
+  1453→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+  1454→        <div>
+  1455→          <h2 className="text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
+  1456→            <Lightbulb className="h-6 w-6 text-amber-500" />
+  1457→            Mon Projet
+  1458→          </h2>
+  1459→          <p className="text-sm text-muted-foreground mt-0.5">
+  1460→            Décrivez votre projet de création d&apos;entreprise étape par étape.
+  1461→          </p>
+  1462→        </div>
+  1463→        {user && (
+  1464→          <Badge variant="secondary" className="w-fit">
+  1465→            <Heart className="h-3 w-3 mr-1 text-coral-500" />
+  1466→            {user.firstName || user.email}
+  1467→          </Badge>
+  1468→        )}
+  1469→      </div>
+  1470→
+  1471→      {/* Step Indicator */}
+  1472→      <StepIndicator
+  1473→        currentStep={currentStep}
+  1474→        completedSteps={completedSteps}
+  1475→        onStepClick={goToStep}
+  1476→      />
+  1477→
+  1478→      {/* Step Content */}
+  1479→      <Card>
+  1480→        <CardContent className="p-4 md:p-6 lg:p-8">
+  1481→          <AnimatePresence mode="wait" custom={direction}>
+  1482→            <motion.div
+  1483→              key={currentStep}
+  1484→              custom={direction}
+  1485→              variants={slideVariants}
+  1486→              initial="enter"
+  1487→              animate="center"
+  1488→              exit="exit"
+  1489→              transition={{ duration: 0.3, ease: 'easeInOut' }}
+  1490→            >
+  1491→              {renderStep()}
+  1492→            </motion.div>
+  1493→          </AnimatePresence>
+  1494→        </CardContent>
+  1495→      </Card>
+  1496→
+  1497→      {/* Navigation */}
+  1498→      <div className="flex items-center justify-between">
+  1499→        <Button
+  1500→          variant="outline"
+  1501→          onClick={goPrev}
+  1502→          disabled={currentStep === 1}
+  1503→          className="gap-1.5"
+  1504→        >
+  1505→          <ChevronLeft className="h-4 w-4" />
+  1506→          Précédent
+  1507→        </Button>
+  1508→
+  1509→        <div className="text-sm text-muted-foreground">
+  1510→          Étape {currentStep} sur {STEPS.length}
+  1511→        </div>
+  1512→
+  1513→        {currentStep < 5 ? (
+  1514→          <Button onClick={goNext} className="gap-1.5">
+  1515→            Suivant
+  1516→            <ChevronRight className="h-4 w-4" />
+  1517→          </Button>
+  1518→        ) : (
+  1519→          <Button
+  1520→            onClick={handleSave}
+  1521→            disabled={isSaving}
+  1522→            className="gap-1.5 gradient-teal hover:opacity-90"
+  1523→          >
+  1524→            {isSaving ? (
+  1525→              <>
+  1526→                <Loader2 className="h-4 w-4 animate-spin" />
+  1527→                Sauvegarde...
+  1528→              </>
+  1529→            ) : (
+  1530→              <>
+  1531→                <Save className="h-4 w-4" />
+  1532→                Sauvegarder le projet
+  1533→              </>
+  1534→            )}
+  1535→          </Button>
+  1536→        )}
+  1537→      </div>
+  1538→    </motion.div>
+  1539→  )
+  1540→}
+  1541→

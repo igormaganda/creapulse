@@ -1,0 +1,799 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Progress } from '@/components/ui/progress'
+     9→import { Separator } from '@/components/ui/separator'
+    10→import { cn } from '@/lib/utils'
+    11→import { toast } from 'sonner'
+    12→import {
+    13→  Rocket,
+    14→  ArrowLeft,
+    15→  ArrowRight,
+    16→  Save,
+    17→  CheckCircle2,
+    18→  AlertTriangle,
+    19→  XCircle,
+    20→  TrendingUp,
+    21→  Shield,
+    22→  Star,
+    23→  Users,
+    24→  Heart,
+    25→  Target,
+    26→  Lightbulb,
+    27→  Loader2,
+    28→  RotateCcw,
+    29→  Award,
+    30→  Zap,
+    31→} from 'lucide-react'
+    32→
+    33→// ────────────────────────────────────────────
+    34→// Types
+    35→// ────────────────────────────────────────────
+    36→
+    37→type Decision = 'GO' | 'GO_CONDITIONAL' | 'NO_GO'
+    38→
+    39→interface StepConfig {
+    40→  id: number
+    41→  title: string
+    42→  icon: typeof Rocket
+    43→  description: string
+    44→}
+    45→
+    46→interface Question {
+    47→  id: string
+    48→  text: string
+    49→  type: 'yes_no' | 'select' | 'likert'
+    50→  options?: { label: string; value: string | number }[]
+    51→  weight: number
+    52→  category: string
+    53→}
+    54→
+    55→// ────────────────────────────────────────────
+    56→// Constants
+    57→// ────────────────────────────────────────────
+    58→
+    59→const STORAGE_KEY = 'creapulse-tremplin'
+    60→
+    61→const STEPS: StepConfig[] = [
+    62→  { id: 1, title: 'Viabilité du projet', icon: Target, description: 'Validation du marché et de la demande' },
+    63→  { id: 2, title: 'Modèle économique', icon: TrendingUp, description: 'Sources de revenus et rentabilité' },
+    64→  { id: 3, title: 'Plan financier', icon: Shield, description: 'Budget, seuil de rentabilité et financement' },
+    65→  { id: 4, title: 'Compétences clés', icon: Star, description: 'Auto-évaluation de vos compétences' },
+    66→  { id: 5, title: 'Réseau & Soutien', icon: Users, description: 'Mentorat et accompagnement' },
+    67→  { id: 6, title: 'Motivation & Engagement', icon: Heart, description: 'Niveau d\'engagement et tolérance au risque' },
+    68→  { id: 7, title: 'Synthèse & Recommandations', icon: Award, description: 'Score final et décision' },
+    69→]
+    70→
+    71→const QUESTIONS_BY_STEP: Record<number, Question[]> = {
+    72→  1: [
+    73→    { id: 'v1', text: 'Avez-vous identifié un besoin clair et non satisfait sur votre marché cible ?', type: 'yes_no', weight: 8, category: 'Marché' },
+    74→    { id: 'v2', text: 'Avez-vous réalisé des entretiens ou sondages avec des clients potentiels ?', type: 'yes_no', weight: 7, category: 'Validation' },
+    75→    { id: 'v3', text: 'Existe-t-il déjà une demande ou des signaux de marché positifs pour votre produit/service ?', type: 'yes_no', weight: 6, category: 'Demande' },
+    76→    { id: 'v4', text: 'Avez-vous identifié vos premiers clients ou early adopters ?', type: 'yes_no', weight: 5, category: 'Ciblage' },
+    77→  ],
+    78→  2: [
+    79→    { id: 'm1', text: 'Avez-vous clairement défini vos sources de revenus principales ?', type: 'yes_no', weight: 7, category: 'Revenus' },
+    80→    { id: 'm2', text: 'Votre proposition de valeur est-elle différenciée de la concurrence ?', type: 'yes_no', weight: 8, category: 'Différenciation' },
+    81→    { id: 'm3', text: 'Votre modèle économique est-il viable à moyen terme (3 ans) ?', type: 'select', weight: 6, category: 'Viabilité', options: [
+    82→      { label: 'Oui, très viable', value: 'yes_strong' },
+    83→      { label: 'Probablement viable', value: 'yes_moderate' },
+    84→      { label: 'Incertain', value: 'maybe' },
+    85→      { label: 'Non encore validé', value: 'no' },
+    86→    ]},
+    87→    { id: 'm4', text: 'Connaissez-vous votre coût d\'acquisition client estimé ?', type: 'yes_no', weight: 5, category: 'CAC' },
+    88→  ],
+    89→  3: [
+    90→    { id: 'f1', text: 'Avez-vous établi un budget prévisionnel détaillé ?', type: 'yes_no', weight: 7, category: 'Budget' },
+    91→    { id: 'f2', text: 'Connaissez-vous votre seuil de rentabilité (en mois et en chiffre d\'affaires) ?', type: 'yes_no', weight: 8, category: 'Seuil' },
+    92→    { id: 'f3', text: 'Avez-vous sécurisé ou identifié vos sources de financement ?', type: 'select', weight: 7, category: 'Financement', options: [
+    93→      { label: 'Financement déjà obtenu', value: 'secured' },
+    94→      { label: 'Financement en cours de négociation', value: 'pending' },
+    95→      { label: 'Sources identifiées mais non contactées', value: 'identified' },
+    96→      { label: 'Pas encore de source de financement', value: 'none' },
+    97→    ]},
+    98→  ],
+    99→  4: [
+   100→    { id: 'c1', text: 'Gestion et organisation', type: 'likert', weight: 6, category: 'Gestion' },
+   101→    { id: 'c2', text: 'Vente et négociation', type: 'likert', weight: 6, category: 'Commercial' },
+   102→    { id: 'c3', text: 'Marketing et communication', type: 'likert', weight: 5, category: 'Marketing' },
+   103→    { id: 'c4', text: 'Gestion financière et comptabilité', type: 'likert', weight: 6, category: 'Finance' },
+   104→    { id: 'c5', text: 'Technique et production', type: 'likert', weight: 5, category: 'Technique' },
+   105→    { id: 'c6', text: 'Leadership et management', type: 'likert', weight: 5, category: 'Leadership' },
+   106→  ],
+   107→  5: [
+   108→    { id: 'r1', text: 'Disposez-vous d\'un mentor ou d\'un accompagnateur expérimenté ?', type: 'yes_no', weight: 7, category: 'Mentorat' },
+   109→    { id: 'r2', text: 'Avez-vous un réseau professionnel pertinent dans votre secteur ?', type: 'select', weight: 6, category: 'Réseau', options: [
+   110→      { label: 'Réseau étendu et actif', value: 'strong' },
+   111→      { label: 'Réseau modéré', value: 'moderate' },
+   112→      { label: 'Début de réseau', value: 'limited' },
+   113→      { label: 'Pas de réseau dans ce secteur', value: 'none' },
+   114→    ]},
+   115→    { id: 'r3', text: 'Bénéficiez-vous d\'un soutien familial ou personnel pour votre projet ?', type: 'yes_no', weight: 4, category: 'Soutien' },
+   116→  ],
+   117→  6: [
+   118→    { id: 'mo1', text: 'Quel est votre niveau de motivation pour ce projet ?', type: 'select', weight: 8, category: 'Motivation', options: [
+   119→      { label: 'Très élevé — prêt(e) à tout quitter', value: 'very_high' },
+   120→      { label: 'Élevé — fortement engagé(e)', value: 'high' },
+   121→      { label: 'Modéré — intéressé(e) mais prudent(e)', value: 'moderate' },
+   122→      { label: 'Faible — encore en exploration', value: 'low' },
+   123→    ]},
+   124→    { id: 'mo2', text: 'Quel est votre niveau de tolérance au risque ?', type: 'select', weight: 6, category: 'Risque', options: [
+   125→      { label: 'J\'accepte de prendre des risques calculés', value: 'high' },
+   126→      { label: 'Je préfère limiter les risques au maximum', value: 'moderate' },
+   127→      { label: 'Je suis très averse au risque', value: 'low' },
+   128→    ]},
+   129→    { id: 'mo3', text: 'Êtes-vous prêt(e) à consacrer plus de 40h/semaine à votre projet au lancement ?', type: 'yes_no', weight: 5, category: 'Temps' },
+   130→  ],
+   131→}
+   132→
+   133→// ────────────────────────────────────────────
+   134→// Score calculation helpers
+   135→// ────────────────────────────────────────────
+   136→
+   137→function calculateStepScore(step: number, responses: Record<string, string | number>): { score: number; max: number; weakAreas: string[] } {
+   138→  const questions = QUESTIONS_BY_STEP[step]
+   139→  if (!questions) return { score: 0, max: 0, weakAreas: [] }
+   140→
+   141→  let total = 0
+   142→  let earned = 0
+   143→  const weakAreas: string[] = []
+   144→
+   145→  for (const q of questions) {
+   146→    const maxPossible = q.weight
+   147→    total += maxPossible
+   148→    const answer = responses[q.id]
+   149→
+   150→    if (answer === undefined || answer === '') {
+   151→      weakAreas.push(q.category)
+   152→      continue
+   153→    }
+   154→
+   155→    if (q.type === 'yes_no') {
+   156→      if (answer === 'yes') earned += maxPossible
+   157→      else weakAreas.push(q.category)
+   158→    } else if (q.type === 'select') {
+   159→      const optIndex = q.options?.findIndex((o) => o.value === answer) ?? -1
+   160→      const totalOpts = q.options?.length ?? 1
+   161→      const ratio = (totalOpts - optIndex) / totalOpts
+   162→      earned += Math.round(maxPossible * ratio)
+   163→      if (optIndex < totalOpts / 2) weakAreas.push(q.category)
+   164→    } else if (q.type === 'likert') {
+   165→      const likertVal = Number(answer) || 1
+   166→      earned += Math.round(maxPossible * (likertVal / 5))
+   167→      if (likertVal < 3) weakAreas.push(q.category)
+   168→    }
+   169→  }
+   170→
+   171→  return {
+   172→    score: earned,
+   173→    max: total,
+   174→    weakAreas: [...new Set(weakAreas)],
+   175→  }
+   176→}
+   177→
+   178→function calculateTotalScore(responses: Record<string, string | number>): { score: number; decision: Decision; recommendations: string[]; stepScores: Record<number, { score: number; max: number }> } {
+   179→  const stepScores: Record<number, { score: number; max: number }> = {}
+   180→  let totalEarned = 0
+   181→  let totalMax = 0
+   182→  const allWeakAreas: string[] = []
+   183→
+   184→  for (let step = 1; step <= 6; step++) {
+   185→    const result = calculateStepScore(step, responses)
+   186→    stepScores[step] = { score: result.score, max: result.max }
+   187→    totalEarned += result.score
+   188→    totalMax += result.max
+   189→    allWeakAreas.push(...result.weakAreas)
+   190→  }
+   191→
+   192→  const percent = totalMax > 0 ? Math.round((totalEarned / totalMax) * 100) : 0
+   193→  const decision: Decision = percent >= 70 ? 'GO' : percent >= 50 ? 'GO_CONDITIONAL' : 'NO_GO'
+   194→
+   195→  const recommendations = generateRecommendations(decision, [...new Set(allWeakAreas)])
+   196→
+   197→  return { score: percent, decision, recommendations, stepScores }
+   198→}
+   199→
+   200→function generateRecommendations(decision: Decision, weakAreas: string[]): string[] {
+   201→  const recs: string[] = []
+   202→
+   203→  if (decision === 'NO_GO') {
+   204→    recs.push('Votre projet nécessite une maturation supplémentaire avant le lancement. Prenez le temps de valider chaque dimension.')
+   205→  } else if (decision === 'GO_CONDITIONAL') {
+   206→    recs.push('Vous êtes sur la bonne voie, mais certains aspects nécessitent votre attention avant de passer à l\'action.')
+   207→  } else {
+   208→    recs.push('Félicitations ! Votre projet semble prêt pour le lancement. Passez à l\'étape suivante avec confiance.')
+   209→  }
+   210→
+   211→  const areaRecs: Record<string, string> = {
+   212→    'Marché': 'Approfondissez votre étude de marché et identifiez plus précisément votre client cible.',
+   213→    'Validation': 'Réalisez des entretiens avec au moins 10 clients potentiels pour valider votre idée.',
+   214→    'Demande': 'Recherchez des signaux de marché positifs (pré-commandes, lettres d\'intention, sondages).',
+   215→    'Ciblage': 'Définissez vos personas clients et identifiez vos early adopters.',
+   216→    'Revenus': 'Clarifiez vos sources de revenus et testez la disposition à payer de vos clients.',
+   217→    'Différenciation': 'Affinez votre proposition de valeur pour vous démarquer de la concurrence.',
+   218→    'Viabilité': 'Validez la viabilité de votre modèle à 3 ans avec des données réelles.',
+   219→    'CAC': 'Estimez votre coût d\'acquisition client et comparez-le à la valeur client attendue.',
+   220→    'Budget': 'Élaborez un budget prévisionnel sur 12 mois minimum.',
+   221→    'Seuil': 'Calculez précisément votre seuil de rentabilité en mois et en CA.',
+   222→    'Financement': 'Rencontrez des banques et investisseurs pour sécuriser votre financement.',
+   223→    'Gestion': 'Renforcez vos compétences en gestion et organisation (formation, lecture, mentorat).',
+   224→    'Commercial': 'Développez vos compétences en vente et négociation commerciale.',
+   225→    'Marketing': 'Formez-vous au marketing digital et à la communication de votre marque.',
+   226→    'Finance': 'Suivez une formation en gestion financière ou rapprochez-vous d\'un expert-comptable.',
+   227→    'Technique': 'Identifiez les compétences techniques manquantes et trouvez des partenaires.',
+   228→    'Leadership': 'Développez votre leadership par le coaching ou le mentorat.',
+   229→    'Mentorat': 'Trouvez un mentor ou un conseiller pour vous accompagner dans votre parcours.',
+   230→    'Réseau': 'Élargissez votre réseau professionnel (événements, salons, plateformes en ligne).',
+   231→    'Soutien': 'Discutez de votre projet avec votre entourage pour obtenir leur soutien.',
+   232→    'Motivation': 'Confirmez votre motivation en réalisant un test de projet pilote ou MVP.',
+   233→    'Risque': 'Préparez un plan B et évaluez le pire scénario pour réduire l\'incertitude.',
+   234→    'Temps': 'Assurez-vous d\'avoir suffisamment de temps disponible pour votre projet.',
+   235→  }
+   236→
+   237→  for (const area of weakAreas) {
+   238→    if (areaRecs[area]) recs.push(areaRecs[area])
+   239→  }
+   240→
+   241→  return recs.slice(0, 8)
+   242→}
+   243→
+   244→// ────────────────────────────────────────────
+   245→// Animation variants
+   246→// ────────────────────────────────────────────
+   247→
+   248→const slideVariants = {
+   249→  enter: (direction: number) => ({ x: direction > 0 ? 300 : -300, opacity: 0 }),
+   250→  center: { x: 0, opacity: 1 },
+   251→  exit: (direction: number) => ({ x: direction > 0 ? -300 : 300, opacity: 0 }),
+   252→}
+   253→
+   254→const fadeVariants = {
+   255→  initial: { opacity: 0, y: 20 },
+   256→  animate: { opacity: 1, y: 0 },
+   257→  exit: { opacity: 0, y: -20 },
+   258→}
+   259→
+   260→// ────────────────────────────────────────────
+   261→// Component
+   262→// ────────────────────────────────────────────
+   263→
+   264→export function Tremplin() {
+   265→  const [currentStep, setCurrentStep] = useState(1)
+   266→  const [direction, setDirection] = useState(0)
+   267→  const [responses, setResponses] = useState<Record<string, string | number>>({})
+   268→  const [isCompleted, setIsCompleted] = useState(false)
+   269→  const [finalScore, setFinalScore] = useState<{ score: number; decision: Decision; recommendations: string[]; stepScores: Record<number, { score: number; max: number }> } | null>(null)
+   270→  const [saving, setSaving] = useState(false)
+   271→  const [loading, setLoading] = useState(true)
+   272→
+   273→  // Load saved progress
+   274→  useEffect(() => {
+   275→    const loadProgress = () => {
+   276→      try {
+   277→        const saved = localStorage.getItem(STORAGE_KEY)
+   278→        if (saved) {
+   279→          const data = JSON.parse(saved)
+   280→          if (data.responses) setResponses(data.responses)
+   281→          if (data.currentStep) setCurrentStep(data.currentStep)
+   282→          if (data.isCompleted) {
+   283→            setIsCompleted(true)
+   284→            setFinalScore(data.finalScore)
+   285→          }
+   286→        }
+   287→      } catch {
+   288→        // ignore
+   289→      }
+   290→      setLoading(false)
+   291→    }
+   292→    loadProgress()
+   293→  }, [])
+   294→
+   295→  // Auto-save
+   296→  useEffect(() => {
+   297→    if (loading) return
+   298→    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+   299→      currentStep,
+   300→      responses,
+   301→      isCompleted,
+   302→      finalScore,
+   303→    }))
+   304→  }, [currentStep, responses, isCompleted, finalScore, loading])
+   305→
+   306→  const setAnswer = useCallback((questionId: string, value: string | number) => {
+   307→    setResponses((prev) => ({ ...prev, [questionId]: value }))
+   308→  }, [])
+   309→
+   310→  const goNext = () => {
+   311→    if (currentStep < 7) {
+   312→      setDirection(1)
+   313→      setCurrentStep((s) => s + 1)
+   314→    }
+   315→  }
+   316→
+   317→  const goPrev = () => {
+   318→    if (currentStep > 1) {
+   319→      setDirection(-1)
+   320→      setCurrentStep((s) => s - 1)
+   321→    }
+   322→  }
+   323→
+   324→  const handleFinish = () => {
+   325→    const result = calculateTotalScore(responses)
+   326→    setFinalScore(result)
+   327→    setIsCompleted(true)
+   328→    setDirection(1)
+   329→    setCurrentStep(7)
+   330→    saveToApi(result)
+   331→  }
+   332→
+   333→  const saveToApi = async (result: typeof finalScore) => {
+   334→    if (!result) return
+   335→    setSaving(true)
+   336→    try {
+   337→      await fetch('/api/tremplin', {
+   338→        method: 'POST',
+   339→        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('creapulse-token')}` },
+   340→        body: JSON.stringify({
+   341→          currentStep: 7,
+   342→          responses,
+   343→          isCompleted: true,
+   344→          score: result.score,
+   345→          decision: result.decision,
+   346→          summary: `Score: ${result.score}/100 — Décision: ${result.decision}`,
+   347→          recommendations: result.recommendations,
+   348→        }),
+   349→      })
+   350→      toast.success('Évaluation Tremplin sauvegardée !')
+   351→    } catch {
+   352→      toast.error('Erreur lors de la sauvegarde')
+   353→    } finally {
+   354→      setSaving(false)
+   355→    }
+   356→  }
+   357→
+   358→  const handleRestart = () => {
+   359→    setResponses({})
+   360→    setCurrentStep(1)
+   361→    setIsCompleted(false)
+   362→    setFinalScore(null)
+   363→    setDirection(0)
+   364→  }
+   365→
+   366→  if (loading) {
+   367→    return (
+   368→      <div className="flex items-center justify-center min-h-[60vh]">
+   369→        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+   370→      </div>
+   371→    )
+   372→  }
+   373→
+   374→  const questions = QUESTIONS_BY_STEP[currentStep]
+   375→  const stepConfig = STEPS[currentStep - 1]
+   376→  const allAnswered = questions?.every((q) => responses[q.id] !== undefined && responses[q.id] !== '') ?? true
+   377→
+   378→  return (
+   379→    <motion.div
+   380→      initial={{ opacity: 0, y: 20 }}
+   381→      animate={{ opacity: 1, y: 0 }}
+   382→      transition={{ duration: 0.4 }}
+   383→      className="p-4 md:p-6 lg:p-8 max-w-4xl mx-auto"
+   384→    >
+   385→      {/* Header */}
+   386→      <div className="flex items-center gap-3 mb-6">
+   387→        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/60 shadow-lg">
+   388→          <Rocket className="h-6 w-6 text-white" />
+   389→        </div>
+   390→        <div>
+   391→          <h2 className="text-2xl font-bold text-foreground">Tremplin — Évaluation de Préparation</h2>
+   392→          <p className="text-sm text-muted-foreground">Mesurez votre préparation au lancement de votre entreprise</p>
+   393→        </div>
+   394→      </div>
+   395→
+   396→      {/* Progress bar + Steps */}
+   397→      <div className="mb-8">
+   398→        <Progress value={(currentStep / 7) * 100} className="h-2 mb-3" />
+   399→        <div className="flex items-center justify-between">
+   400→          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+   401→            {STEPS.map((step) => {
+   402→              const Icon = step.icon
+   403→              const isActive = step.id === currentStep
+   404→              const isDone = step.id < currentStep || isCompleted
+   405→              return (
+   406→                <button
+   407→                  key={step.id}
+   408→                  onClick={() => {
+   409→                    if (isDone || step.id <= currentStep) {
+   410→                      setDirection(step.id > currentStep ? 1 : -1)
+   411→                      setCurrentStep(step.id)
+   412→                    }
+   413→                  }}
+   414→                  className={cn(
+   415→                    'flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all shrink-0',
+   416→                    isActive && 'bg-primary text-primary-foreground shadow-sm',
+   417→                    isDone && !isActive && 'bg-primary/10 text-primary',
+   418→                    !isDone && !isActive && 'bg-muted text-muted-foreground'
+   419→                  )}
+   420→                >
+   421→                  <Icon className="h-3.5 w-3.5" />
+   422→                  <span className="hidden sm:inline">{step.title}</span>
+   423→                  <span className="sm:hidden">Étape {step.id}</span>
+   424→                </button>
+   425→              )
+   426→            })}
+   427→          </div>
+   428→          <Badge variant="outline" className="shrink-0 text-xs">
+   429→            {currentStep}/7
+   430→          </Badge>
+   431→        </div>
+   432→      </div>
+   433→
+   434→      {/* Step Content */}
+   435→      <AnimatePresence mode="wait" custom={direction}>
+   436→        <motion.div
+   437→          key={currentStep}
+   438→          custom={direction}
+   439→          variants={slideVariants}
+   440→          initial="enter"
+   441→          animate="center"
+   442→          exit="exit"
+   443→          transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+   444→        >
+   445→          {currentStep < 7 ? (
+   446→            <QuestionStep
+   447→              step={currentStep}
+   448→              config={stepConfig}
+   449→              questions={questions}
+   450→              responses={responses}
+   451→              setAnswer={setAnswer}
+   452→            />
+   453→          ) : (
+   454→            <SynthesisStep
+   455→              score={finalScore}
+   456→              responses={responses}
+   457→              saving={saving}
+   458→            />
+   459→          )}
+   460→        </motion.div>
+   461→      </AnimatePresence>
+   462→
+   463→      {/* Navigation */}
+   464→      <div className="flex items-center justify-between mt-6">
+   465→        <Button variant="ghost" size="sm" onClick={goPrev} disabled={currentStep === 1} className="gap-1.5">
+   466→          <ArrowLeft className="h-4 w-4" />
+   467→          Précédent
+   468→        </Button>
+   469→
+   470→        <div className="flex gap-2">
+   471→          {isCompleted && (
+   472→            <Button variant="outline" size="sm" onClick={handleRestart} className="gap-1.5">
+   473→              <RotateCcw className="h-4 w-4" />
+   474→              Recommencer
+   475→            </Button>
+   476→          )}
+   477→          {currentStep < 6 ? (
+   478→            <Button size="sm" onClick={goNext} disabled={!allAnswered} className="gap-1.5 rounded-full">
+   479→              Suivant
+   480→              <ArrowRight className="h-4 w-4" />
+   481→            </Button>
+   482→          ) : currentStep === 6 ? (
+   483→            <Button size="sm" onClick={handleFinish} disabled={!allAnswered} className="gap-1.5 rounded-full">
+   484→              Voir la synthèse
+   485→              <Zap className="h-4 w-4" />
+   486→            </Button>
+   487→          ) : null}
+   488→          {saving && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+   489→        </div>
+   490→      </div>
+   491→    </motion.div>
+   492→  )
+   493→}
+   494→
+   495→// ────────────────────────────────────────────
+   496→// Question Step
+   497→// ────────────────────────────────────────────
+   498→
+   499→function QuestionStep({
+   500→  step,
+   501→  config,
+   502→  questions,
+   503→  responses,
+   504→  setAnswer,
+   505→}: {
+   506→  step: number
+   507→  config: StepConfig
+   508→  questions: Question[]
+   509→  responses: Record<string, string | number>
+   510→  setAnswer: (id: string, value: string | number) => void
+   511→}) {
+   512→  const Icon = config.icon
+   513→
+   514→  return (
+   515→    <Card className="border-none shadow-sm bg-muted/30">
+   516→      <CardHeader className="pb-4">
+   517→        <div className="flex items-center gap-3">
+   518→          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+   519→            <Icon className="h-5 w-5 text-primary" />
+   520→          </div>
+   521→          <div>
+   522→            <CardTitle className="text-lg">{config.title}</CardTitle>
+   523→            <p className="text-sm text-muted-foreground">{config.description}</p>
+   524→          </div>
+   525→        </div>
+   526→      </CardHeader>
+   527→      <CardContent className="space-y-6">
+   528→        {questions.map((q, idx) => (
+   529→          <motion.div
+   530→            key={q.id}
+   531→            initial={{ opacity: 0, y: 10 }}
+   532→            animate={{ opacity: 1, y: 0 }}
+   533→            transition={{ delay: idx * 0.08 }}
+   534→            className="space-y-3"
+   535→          >
+   536→            <p className="text-sm font-medium text-foreground leading-relaxed">
+   537→              {q.text}
+   538→            </p>
+   539→
+   540→            {q.type === 'yes_no' && (
+   541→              <div className="flex gap-3">
+   542→                {['yes', 'no'].map((opt) => {
+   543→                  const isSelected = responses[q.id] === opt
+   544→                  return (
+   545→                    <motion.button
+   546→                      key={opt}
+   547→                      whileHover={{ scale: 1.02 }}
+   548→                      whileTap={{ scale: 0.98 }}
+   549→                      onClick={() => setAnswer(q.id, opt)}
+   550→                      className={cn(
+   551→                        'flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium border-2 transition-all',
+   552→                        isSelected
+   553→                          ? opt === 'yes'
+   554→                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
+   555→                            : 'border-red-500 bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'
+   556→                          : 'border-muted hover:border-muted-foreground/30 text-muted-foreground'
+   557→                      )}
+   558→                    >
+   559→                      {opt === 'yes' ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+   560→                      {opt === 'yes' ? 'Oui' : 'Non'}
+   561→                    </motion.button>
+   562→                  )
+   563→                })}
+   564→              </div>
+   565→            )}
+   566→
+   567→            {q.type === 'select' && q.options && (
+   568→              <div className="flex flex-col gap-2">
+   569→                {q.options.map((opt) => {
+   570→                  const isSelected = responses[q.id] === opt.value
+   571→                  return (
+   572→                    <motion.button
+   573→                      key={opt.value}
+   574→                      whileHover={{ scale: 1.01 }}
+   575→                      whileTap={{ scale: 0.99 }}
+   576→                      onClick={() => setAnswer(q.id, opt.value)}
+   577→                      className={cn(
+   578→                        'w-full text-left rounded-xl px-4 py-2.5 text-sm font-medium border-2 transition-all',
+   579→                        isSelected
+   580→                          ? 'border-primary bg-primary/5 text-primary'
+   581→                          : 'border-muted hover:border-muted-foreground/30 text-muted-foreground'
+   582→                      )}
+   583→                    >
+   584→                      {opt.label}
+   585→                    </motion.button>
+   586→                  )
+   587→                })}
+   588→              </div>
+   589→            )}
+   590→
+   591→            {q.type === 'likert' && (
+   592→              <div className="flex gap-2">
+   593→                {[1, 2, 3, 4, 5].map((val) => {
+   594→                  const isSelected = responses[q.id] === val
+   595→                  return (
+   596→                    <motion.button
+   597→                      key={val}
+   598→                      whileHover={{ scale: 1.1 }}
+   599→                      whileTap={{ scale: 0.9 }}
+   600→                      onClick={() => setAnswer(q.id, val)}
+   601→                      className={cn(
+   602→                        'flex-1 flex flex-col items-center gap-1 rounded-xl px-2 py-2 text-xs font-medium border-2 transition-all',
+   603→                        isSelected
+   604→                          ? 'border-primary bg-primary/5 text-primary'
+   605→                          : 'border-muted hover:border-muted-foreground/30 text-muted-foreground'
+   606→                      )}
+   607→                    >
+   608→                      <span className="text-base font-bold">{val}</span>
+   609→                      <span className="text-[10px]">{val === 1 ? 'Faible' : val === 5 ? 'Excellent' : ''}</span>
+   610→                    </motion.button>
+   611→                  )
+   612→                })}
+   613→              </div>
+   614→            )}
+   615→
+   616→            {idx < questions.length - 1 && <Separator className="mt-4" />}
+   617→          </motion.div>
+   618→        ))}
+   619→      </CardContent>
+   620→    </Card>
+   621→  )
+   622→}
+   623→
+   624→// ────────────────────────────────────────────
+   625→// Synthesis Step (Results)
+   626→// ────────────────────────────────────────────
+   627→
+   628→function SynthesisStep({
+   629→  score,
+   630→  responses,
+   631→  saving,
+   632→}: {
+   633→  score: typeof finalScore
+   634→  responses: Record<string, string | number>
+   635→  saving: boolean
+   636→}) {
+   637→  const liveScore = score ?? calculateTotalScore(responses)
+   638→  const decision = liveScore.decision
+   639→
+   640→  const decisionConfig = {
+   641→    GO: { color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', icon: CheckCircle2, label: 'GO — Prêt à lancer !', description: 'Votre projet présente un niveau de préparation suffisant pour entamer la création de votre entreprise.' },
+   642→    GO_CONDITIONAL: { color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20', icon: AlertTriangle, label: 'GO CONDITIONNEL — Presque prêt', description: 'Votre projet est prometteur mais nécessite des améliorations sur certains points avant le lancement.' },
+   643→    NO_GO: { color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20', icon: XCircle, label: 'NO GO — Maturation nécessaire', description: 'Votre projet nécessite davantage de travail de préparation. Consultez les recommandations ci-dessous.' },
+   644→  }
+   645→
+   646→  const dc = decisionConfig[decision]
+   647→  const DecIcon = dc.icon
+   648→
+   649→  // Gauge component
+   650→  const gaugeAngle = (liveScore.score / 100) * 180
+   651→  const gaugeRadius = 80
+   652→  const gaugeCx = 100
+   653→  const gaugeCy = 100
+   654→
+   655→  function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
+   656→    const angleRad = ((angleDeg - 180) * Math.PI) / 180
+   657→    return { x: cx + r * Math.cos(angleRad), y: cy + r * Math.sin(angleRad) }
+   658→  }
+   659→
+   660→  function describeArc(cx: number, cy: number, r: number, startAngle: number, endAngle: number) {
+   661→    const start = polarToCartesian(cx, cy, r, endAngle)
+   662→    const end = polarToCartesian(cx, cy, r, startAngle)
+   663→    const largeArcFlag = endAngle - startAngle <= 180 ? '0' : '1'
+   664→    return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`
+   665→  }
+   666→
+   667→  return (
+   668→    <motion.div
+   669→      variants={fadeVariants}
+   670→      initial="initial"
+   671→      animate="animate"
+   672→      exit="exit"
+   673→      transition={{ duration: 0.5 }}
+   674→      className="space-y-6"
+   675→    >
+   676→      {/* Score Gauge */}
+   677→      <Card className="border-none shadow-md overflow-hidden">
+   678→        <div className={cn('h-1.5', decision === 'GO' ? 'bg-emerald-500' : decision === 'GO_CONDITIONAL' ? 'bg-amber-500' : 'bg-red-500')} />
+   679→        <CardContent className="p-6 md:p-8">
+   680→          <div className="flex flex-col md:flex-row items-center gap-8">
+   681→            {/* SVG Gauge */}
+   682→            <div className="relative">
+   683→              <svg width="200" height="120" viewBox="0 0 200 120" className="overflow-visible">
+   684→                {/* Background arc */}
+   685→                <path
+   686→                  d={describeArc(gaugeCx, gaugeCy, gaugeRadius, 0, 180)}
+   687→                  fill="none"
+   688→                  stroke="hsl(var(--muted))"
+   689→                  strokeWidth="12"
+   690→                  strokeLinecap="round"
+   691→                />
+   692→                {/* Score arc */}
+   693→                <motion.path
+   694→                  d={describeArc(gaugeCx, gaugeCy, gaugeRadius, 0, Math.max(1, gaugeAngle))}
+   695→                  fill="none"
+   696→                  stroke={decision === 'GO' ? '#22C55E' : decision === 'GO_CONDITIONAL' ? '#F59E0B' : '#EF4444'}
+   697→                  strokeWidth="12"
+   698→                  strokeLinecap="round"
+   699→                  initial={{ pathLength: 0 }}
+   700→                  animate={{ pathLength: 1 }}
+   701→                  transition={{ duration: 1.5, ease: 'easeOut' }}
+   702→                />
+   703→                {/* Score text */}
+   704→                <text x={gaugeCx} y={gaugeCy - 10} textAnchor="middle" className="text-3xl font-bold" fill="hsl(var(--foreground))">
+   705→                  {liveScore.score}
+   706→                </text>
+   707→                <text x={gaugeCx} y={gaugeCy + 15} textAnchor="middle" className="text-sm" fill="hsl(var(--muted-foreground))">
+   708→                  / 100
+   709→                </text>
+   710→              </svg>
+   711→            </div>
+   712→
+   713→            {/* Decision */}
+   714→            <div className="flex-1 text-center md:text-left">
+   715→              <motion.div
+   716→                initial={{ scale: 0 }}
+   717→                animate={{ scale: 1 }}
+   718→                transition={{ type: 'spring', stiffness: 200, delay: 0.3 }}
+   719→                className={cn('inline-flex items-center gap-2 rounded-xl px-4 py-2 mb-3', dc.bg)}
+   720→              >
+   721→                <DecIcon className={cn('h-5 w-5', dc.color)} />
+   722→                <span className={cn('font-semibold text-sm', dc.color)}>{dc.label}</span>
+   723→              </motion.div>
+   724→              <p className="text-sm text-muted-foreground leading-relaxed">{dc.description}</p>
+   725→            </div>
+   726→          </div>
+   727→        </CardContent>
+   728→      </Card>
+   729→
+   730→      {/* Step scores */}
+   731→      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+   732→        {STEPS.slice(0, 6).map((step, idx) => {
+   733→          const ss = liveScore.stepScores[step.id]
+   734→          const pct = ss ? Math.round((ss.score / ss.max) * 100) : 0
+   735→          const Icon = step.icon
+   736→          return (
+   737→            <motion.div
+   738→              key={step.id}
+   739→              initial={{ opacity: 0, y: 10 }}
+   740→              animate={{ opacity: 1, y: 0 }}
+   741→              transition={{ delay: 0.4 + idx * 0.08 }}
+   742→            >
+   743→              <Card className="border-none shadow-sm">
+   744→                <CardContent className="p-3 text-center">
+   745→                  <Icon className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
+   746→                  <p className="text-[10px] text-muted-foreground mb-1.5 line-clamp-1">{step.title}</p>
+   747→                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+   748→                    <motion.div
+   749→                      initial={{ width: 0 }}
+   750→                      animate={{ width: `${pct}%` }}
+   751→                      transition={{ duration: 0.8, delay: 0.6 + idx * 0.1 }}
+   752→                      className={cn(
+   753→                        'h-full rounded-full',
+   754→                        pct >= 70 ? 'bg-emerald-500' : pct >= 50 ? 'bg-amber-500' : 'bg-red-500'
+   755→                      )}
+   756→                    />
+   757→                  </div>
+   758→                  <p className="text-xs font-semibold mt-1.5">{pct}%</p>
+   759→                </CardContent>
+   760→              </Card>
+   761→            </motion.div>
+   762→          )
+   763→        })}
+   764→      </div>
+   765→
+   766→      {/* Recommendations */}
+   767→      <Card className="border-none shadow-sm">
+   768→        <CardHeader className="pb-2">
+   769→          <CardTitle className="text-base flex items-center gap-2">
+   770→            <Lightbulb className="h-5 w-5 text-amber-500" />
+   771→            Recommandations
+   772→          </CardTitle>
+   773→        </CardHeader>
+   774→        <CardContent>
+   775→          <ul className="space-y-3">
+   776→            {liveScore.recommendations.map((rec, idx) => (
+   777→              <motion.li
+   778→                key={idx}
+   779→                initial={{ opacity: 0, x: -10 }}
+   780→                animate={{ opacity: 1, x: 0 }}
+   781→                transition={{ delay: 0.8 + idx * 0.1 }}
+   782→                className="flex items-start gap-3 text-sm text-muted-foreground"
+   783→              >
+   784→                <div className={cn(
+   785→                  'mt-0.5 h-5 w-5 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold',
+   786→                  idx === 0 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+   787→                )}>
+   788→                  {idx + 1}
+   789→                </div>
+   790→                <span className="leading-relaxed">{rec}</span>
+   791→              </motion.li>
+   792→            ))}
+   793→          </ul>
+   794→        </CardContent>
+   795→      </Card>
+   796→    </motion.div>
+   797→  )
+   798→}
+   799→

@@ -1,0 +1,623 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Input } from '@/components/ui/input'
+     9→import { Textarea } from '@/components/ui/textarea'
+    10→import { Separator } from '@/components/ui/separator'
+    11→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    12→import {
+    13→  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose
+    14→} from '@/components/ui/dialog'
+    15→import {
+    16→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    17→} from '@/components/ui/select'
+    18→import { cn } from '@/lib/utils'
+    19→import { toast } from 'sonner'
+    20→import { authFetch } from '@/lib/auth-fetch'
+    21→import {
+    22→  Users, Search, Plus, X, Save, Loader2, Phone, Mail, Building2,
+    23→  Sparkles, ArrowRight, MessageSquare, Calendar, TrendingUp,
+    24→  ChevronDown, GripVertical, Clock, Euro, UserPlus, Star, Filter,
+    25→} from 'lucide-react'
+    26→
+    27→// ─── Types ──────────────────────────────────
+    28→
+    29→type ContactRole = 'prospect' | 'fournisseur' | 'partenaire' | 'conseiller'
+    30→type PipelineStage = 'prospect' | 'qualifie' | 'proposition' | 'client'
+    31→
+    32→interface Contact {
+    33→  id: string
+    34→  nom: string
+    35→  email: string
+    36→  telephone: string
+    37→  entreprise: string
+    38→  role: ContactRole
+    39→  notes: string
+    40→  createdAt: string
+    41→}
+    42→
+    43→interface Deal {
+    44→  id: string
+    45→  contactId: string
+    46→  contactName: string
+    47→  entreprise: string
+    48→  valeur: number
+    49→  stage: PipelineStage
+    50→  date: string
+    51→  notes: string
+    52→}
+    53→
+    54→interface Interaction {
+    55→  id: string
+    56→  contactId: string
+    57→  contactName: string
+    58→  type: 'appel' | 'email' | 'rdv' | 'note'
+    59→  description: string
+    60→  date: string
+    61→}
+    62→
+    63→interface CrmData {
+    64→  contacts: Contact[]
+    65→  deals: Deal[]
+    66→  interactions: Interaction[]
+    67→}
+    68→
+    69→const ROLE_LABELS: Record<ContactRole, string> = {
+    70→  prospect: 'Prospect',
+    71→  fournisseur: 'Fournisseur',
+    72→  partenaire: 'Partenaire',
+    73→  conseiller: 'Conseiller',
+    74→}
+    75→
+    76→const ROLE_COLORS: Record<ContactRole, string> = {
+    77→  prospect: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+    78→  fournisseur: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    79→  partenaire: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+    80→  conseiller: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+    81→}
+    82→
+    83→const STAGE_CONFIG: Record<PipelineStage, { label: string; color: string; bg: string; border: string }> = {
+    84→  prospect: { label: 'Prospect', color: 'text-sky-600', bg: 'bg-sky-50 dark:bg-sky-950/20', border: 'border-sky-200 dark:border-sky-800' },
+    85→  qualifie: { label: 'Qualifié', color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/20', border: 'border-amber-200 dark:border-amber-800' },
+    86→  proposition: { label: 'Proposition', color: 'text-violet-600', bg: 'bg-violet-50 dark:bg-violet-950/20', border: 'border-violet-200 dark:border-violet-800' },
+    87→  client: { label: 'Client', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/20', border: 'border-emerald-200 dark:border-emerald-800' },
+    88→}
+    89→
+    90→const STAGE_ORDER: PipelineStage[] = ['prospect', 'qualifie', 'proposition', 'client']
+    91→
+    92→const DEFAULT_DATA: CrmData = { contacts: [], deals: [], interactions: [] }
+    93→
+    94→const STORAGE_KEY = 'creapulse-crm'
+    95→
+    96→// ─── Helpers ────────────────────────────────
+    97→
+    98→function loadCrmData(): CrmData {
+    99→  if (typeof window === 'undefined') return DEFAULT_DATA
+   100→  try {
+   101→    const saved = localStorage.getItem(STORAGE_KEY)
+   102→    if (saved) return { ...DEFAULT_DATA, ...JSON.parse(saved) }
+   103→  } catch { /* ignore */ }
+   104→  return DEFAULT_DATA
+   105→}
+   106→
+   107→function saveCrmData(data: CrmData) {
+   108→  localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+   109→}
+   110→
+   111→function getInitials(name: string): string {
+   112→  return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+   113→}
+   114→
+   115→const AVATAR_COLORS = [
+   116→  'bg-emerald-500', 'bg-amber-500', 'bg-teal-500', 'bg-rose-500',
+   117→  'bg-violet-500', 'bg-sky-500', 'bg-orange-500', 'bg-lime-600',
+   118→]
+   119→
+   120→function getAvatarColor(id: string): string {
+   121→  let hash = 0
+   122→  for (let i = 0; i < id.length; i++) hash = ((hash << 5) - hash) + id.charCodeAt(i)
+   123→  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
+   124→}
+   125→
+   126→// ─── Contact Form Dialog ────────────────────
+   127→
+   128→function ContactFormDialog({
+   129→  open, onOpenChange, onSave, initial, title,
+   130→}: {
+   131→  open: boolean
+   132→  onOpenChange: (open: boolean) => void
+   133→  onSave: (data: Omit<Contact, 'id' | 'createdAt'> & { id?: string }) => void
+   134→  initial?: Contact
+   135→  title: string
+   136→}) {
+   137→  const getInitialForm = () => ({
+   138→    nom: initial?.nom || '', email: initial?.email || '', telephone: initial?.telephone || '',
+   139→    entreprise: initial?.entreprise || '', role: (initial?.role || 'prospect') as ContactRole, notes: initial?.notes || '',
+   140→  })
+   141→  const [form, setForm] = useState(getInitialForm)
+   142→  const [prevOpen, setPrevOpen] = useState(open)
+   143→  if (open !== prevOpen) {
+   144→    setPrevOpen(open)
+   145→    if (open) setForm(getInitialForm())
+   146→  }
+   147→
+   148→  const handleSubmit = () => {
+   149→    if (!form.nom.trim()) { toast.error('Le nom est requis'); return }
+   150→    if (initial?.id) onSave({ ...form, id: initial.id })
+   151→    else onSave(form)
+   152→    onOpenChange(false)
+   153→  }
+   154→
+   155→  return (
+   156→    <Dialog open={open} onOpenChange={onOpenChange}>
+   157→      <DialogContent className="max-w-md">
+   158→        <DialogHeader>
+   159→          <DialogTitle>{title}</DialogTitle>
+   160→          <DialogDescription>{initial?.id ? 'Modifiez les informations du contact.' : 'Ajoutez un nouveau contact à votre CRM.'}</DialogDescription>
+   161→        </DialogHeader>
+   162→        <div className="space-y-3">
+   163→          <div className="space-y-1.5">
+   164→            <p className="text-xs font-medium text-muted-foreground">Nom complet *</p>
+   165→            <Input value={form.nom} onChange={e => setForm(p => ({ ...p, nom: e.target.value }))} placeholder="Jean Dupont" />
+   166→          </div>
+   167→          <div className="grid grid-cols-2 gap-3">
+   168→            <div className="space-y-1.5">
+   169→              <p className="text-xs font-medium text-muted-foreground">Email</p>
+   170→              <Input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} placeholder="jean@email.com" />
+   171→            </div>
+   172→            <div className="space-y-1.5">
+   173→              <p className="text-xs font-medium text-muted-foreground">Téléphone</p>
+   174→              <Input value={form.telephone} onChange={e => setForm(p => ({ ...p, telephone: e.target.value }))} placeholder="06 12 34 56 78" />
+   175→            </div>
+   176→          </div>
+   177→          <div className="grid grid-cols-2 gap-3">
+   178→            <div className="space-y-1.5">
+   179→              <p className="text-xs font-medium text-muted-foreground">Entreprise</p>
+   180→              <Input value={form.entreprise} onChange={e => setForm(p => ({ ...p, entreprise: e.target.value }))} placeholder="Ma Startup" />
+   181→            </div>
+   182→            <div className="space-y-1.5">
+   183→              <p className="text-xs font-medium text-muted-foreground">Rôle</p>
+   184→              <Select value={form.role} onValueChange={v => setForm(p => ({ ...p, role: v as ContactRole }))}>
+   185→                <SelectTrigger><SelectValue /></SelectTrigger>
+   186→                <SelectContent>
+   187→                  {Object.entries(ROLE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+   188→                </SelectContent>
+   189→              </Select>
+   190→            </div>
+   191→          </div>
+   192→          <div className="space-y-1.5">
+   193→            <p className="text-xs font-medium text-muted-foreground">Notes</p>
+   194→            <Textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Notes sur ce contact..." className="min-h-[80px] resize-none" />
+   195→          </div>
+   196→        </div>
+   197→        <DialogFooter>
+   198→          <DialogClose asChild><Button variant="outline">Annuler</Button></DialogClose>
+   199→          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleSubmit}>
+   200→            {initial?.id ? 'Modifier' : 'Ajouter'}
+   201→          </Button>
+   202→        </DialogFooter>
+   203→      </DialogContent>
+   204→    </Dialog>
+   205→  )
+   206→}
+   207→
+   208→// ─── Deal Form Dialog ───────────────────────
+   209→
+   210→function DealFormDialog({
+   211→  open, onOpenChange, onSave, contacts,
+   212→}: {
+   213→  open: boolean; onOpenChange: (open: boolean) => void
+   214→  onSave: (data: Omit<Deal, 'id'>) => void; contacts: Contact[]
+   215→}) {
+   216→  const getInitialForm = () => ({ contactId: '', valeur: '', notes: '', stage: 'prospect' as PipelineStage })
+   217→  const [form, setForm] = useState(getInitialForm)
+   218→  const [prevOpen, setPrevOpen] = useState(open)
+   219→  if (open !== prevOpen) {
+   220→    setPrevOpen(open)
+   221→    if (open) setForm(getInitialForm())
+   222→  }
+   223→
+   224→  const handleSubmit = () => {
+   225→    if (!form.contactId) { toast.error('Sélectionnez un contact'); return }
+   226→    if (!form.valeur || isNaN(Number(form.valeur)) || Number(form.valeur) <= 0) { toast.error('Entrez un montant valide'); return }
+   227→    onSave({
+   228→      contactId: form.contactId,
+   229→      contactName: contacts.find(c => c.id === form.contactId)?.nom || '',
+   230→      entreprise: contacts.find(c => c.id === form.contactId)?.entreprise || '',
+   231→      valeur: Number(form.valeur),
+   232→      stage: form.stage,
+   233→      date: new Date().toISOString(),
+   234→      notes: form.notes,
+   235→    })
+   236→    onOpenChange(false)
+   237→  }
+   238→
+   239→  return (
+   240→    <Dialog open={open} onOpenChange={onOpenChange}>
+   241→      <DialogContent className="max-w-md">
+   242→        <DialogHeader>
+   243→          <DialogTitle>Nouvelle opportunité</DialogTitle>
+   244→          <DialogDescription>Créez une nouvelle opportunité commerciale.</DialogDescription>
+   245→        </DialogHeader>
+   246→        <div className="space-y-3">
+   247→          <div className="space-y-1.5">
+   248→            <p className="text-xs font-medium text-muted-foreground">Contact *</p>
+   249→            <Select value={form.contactId} onValueChange={v => setForm(p => ({ ...p, contactId: v }))}>
+   250→              <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
+   251→              <SelectContent>
+   252→                {contacts.map(c => <SelectItem key={c.id} value={c.id}>{c.nom}{c.entreprise ? ` (${c.entreprise})` : ''}</SelectItem>)}
+   253→              </SelectContent>
+   254→            </Select>
+   255→          </div>
+   256→          <div className="grid grid-cols-2 gap-3">
+   257→            <div className="space-y-1.5">
+   258→              <p className="text-xs font-medium text-muted-foreground">Montant (€) *</p>
+   259→              <Input type="number" value={form.valeur} onChange={e => setForm(p => ({ ...p, valeur: e.target.value }))} placeholder="5000" />
+   260→            </div>
+   261→            <div className="space-y-1.5">
+   262→              <p className="text-xs font-medium text-muted-foreground">Étape</p>
+   263→              <Select value={form.stage} onValueChange={v => setForm(p => ({ ...p, stage: v as PipelineStage }))}>
+   264→                <SelectTrigger><SelectValue /></SelectTrigger>
+   265→                <SelectContent>
+   266→                  {STAGE_ORDER.map(s => <SelectItem key={s} value={s}>{STAGE_CONFIG[s].label}</SelectItem>)}
+   267→                </SelectContent>
+   268→              </Select>
+   269→            </div>
+   270→          </div>
+   271→          <div className="space-y-1.5">
+   272→            <p className="text-xs font-medium text-muted-foreground">Notes</p>
+   273→            <Textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Détails de l'opportunité..." className="min-h-[60px] resize-none" />
+   274→          </div>
+   275→        </div>
+   276→        <DialogFooter>
+   277→          <DialogClose asChild><Button variant="outline">Annuler</Button></DialogClose>
+   278→          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleSubmit}>Créer</Button>
+   279→        </DialogFooter>
+   280→      </DialogContent>
+   281→    </Dialog>
+   282→  )
+   283→}
+   284→
+   285→// ─── Main Component ─────────────────────────
+   286→
+   287→export function CrmModule() {
+   288→  const [isLoading, setIsLoading] = useState(true)
+   289→  const [isSaving, setIsSaving] = useState(false)
+   290→  const [aiLoading, setAiLoading] = useState(false)
+   291→  const [data, setData] = useState<CrmData>(DEFAULT_DATA)
+   292→  const [searchQuery, setSearchQuery] = useState('')
+   293→  const [roleFilter, setRoleFilter] = useState<string>('all')
+   294→  const [contactDialogOpen, setContactDialogOpen] = useState(false)
+   295→  const [dealDialogOpen, setDealDialogOpen] = useState(false)
+   296→  const [editingContact, setEditingContact] = useState<Contact | undefined>()
+   297→  const [draggedDeal, setDraggedDeal] = useState<string | null>(null)
+   298→
+   299→  useEffect(() => {
+   300→    setData(loadCrmData())
+   301→    setIsLoading(false)
+   302→  }, [])
+   303→
+   304→  useEffect(() => { if (!isLoading) saveCrmData(data) }, [isLoading, data])
+   305→
+   306→  // ─── Contact CRUD ────────────────────────
+   307→  const addContact = useCallback((contact: Omit<Contact, 'id' | 'createdAt'>) => {
+   308→    const newContact: Contact = { ...contact, id: crypto.randomUUID(), createdAt: new Date().toISOString() }
+   309→    setData(p => ({ ...p, contacts: [newContact, ...p.contacts] }))
+   310→    toast.success('Contact ajouté')
+   311→  }, [])
+   312→
+   313→  const updateContact = useCallback((contact: Omit<Contact, 'id' | 'createdAt'> & { id: string }) => {
+   314→    setData(p => ({ ...p, contacts: p.contacts.map(c => c.id === contact.id ? { ...c, ...contact } : c) }))
+   315→    toast.success('Contact modifié')
+   316→  }, [])
+   317→
+   318→  const deleteContact = useCallback((id: string) => {
+   319→    setData(p => ({
+   320→      ...p,
+   321→      contacts: p.contacts.filter(c => c.id !== id),
+   322→      deals: p.deals.filter(d => d.contactId !== id),
+   323→      interactions: p.interactions.filter(i => i.contactId !== id),
+   324→    }))
+   325→    toast.success('Contact supprimé')
+   326→  }, [])
+   327→
+   328→  // ─── Deal CRUD ───────────────────────────
+   329→  const addDeal = useCallback((deal: Omit<Deal, 'id'>) => {
+   330→    setData(p => ({ ...p, deals: [...p.deals, { ...deal, id: crypto.randomUUID() }] }))
+   331→    toast.success('Opportunité créée')
+   332→  }, [])
+   333→
+   334→  const moveDeal = useCallback((dealId: string, newStage: PipelineStage) => {
+   335→    setData(p => ({
+   336→      ...p,
+   337→      deals: p.deals.map(d => d.id === dealId ? { ...d, stage: newStage } : d),
+   338→      interactions: [...p.interactions, {
+   339→        id: crypto.randomUUID(),
+   340→        contactId: p.deals.find(d => d.id === dealId)?.contactId || '',
+   341→        contactName: p.deals.find(d => d.id === dealId)?.contactName || '',
+   342→        type: 'note' as const,
+   343→        description: `Déplacé vers "${STAGE_CONFIG[newStage].label}"`,
+   344→        date: new Date().toISOString(),
+   345→      }],
+   346→    }))
+   347→  }, [])
+   348→
+   349→  const deleteDeal = useCallback((id: string) => {
+   350→    setData(p => ({ ...p, deals: p.deals.filter(d => d.id !== id) }))
+   351→    toast.success('Opportunité supprimée')
+   352→  }, [])
+   353→
+   354→  // ─── Drag & Drop ─────────────────────────
+   355→  const handleDragStart = useCallback((dealId: string) => { setDraggedDeal(dealId) }, [])
+   356→  const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault() }, [])
+   357→  const handleDrop = useCallback((stage: PipelineStage) => {
+   358→    if (draggedDeal) { moveDeal(draggedDeal, stage); setDraggedDeal(null) }
+   359→  }, [draggedDeal, moveDeal])
+   360→
+   361→  // ─── Filtered contacts ───────────────────
+   362→  const filteredContacts = useMemo(() => {
+   363→    let result = data.contacts
+   364→    if (roleFilter !== 'all') result = result.filter(c => c.role === roleFilter)
+   365→    if (searchQuery) {
+   366→      const q = searchQuery.toLowerCase()
+   367→      result = result.filter(c => c.nom.toLowerCase().includes(q) || c.entreprise.toLowerCase().includes(q) || c.email.toLowerCase().includes(q))
+   368→    }
+   369→    return result
+   370→  }, [data.contacts, roleFilter, searchQuery])
+   371→
+   372→  // ─── Stats ───────────────────────────────
+   373→  const stats = useMemo(() => {
+   374→    const totalContacts = data.contacts.length
+   375→    const pipelineValue = data.deals.reduce((s, d) => s + d.valeur, 0)
+   376→    const clients = data.deals.filter(d => d.stage === 'client').length
+   377→    const totalDeals = data.deals.length
+   378→    const tauxConversion = totalDeals > 0 ? Math.round((clients / totalDeals) * 100) : 0
+   379→    const dealsThisMonth = data.deals.filter(d => {
+   380→      const dDate = new Date(d.date)
+   381→      const now = new Date()
+   382→      return dDate.getMonth() === now.getMonth() && dDate.getFullYear() === now.getFullYear()
+   383→    }).length
+   384→    return { totalContacts, pipelineValue, tauxConversion, dealsThisMonth, clients }
+   385→  }, [data])
+   386→
+   387→  // ─── AI Analysis ─────────────────────────
+   388→  const handleAiAnalysis = useCallback(async () => {
+   389→    setAiLoading(true)
+   390→    try {
+   391→      const res = await authFetch('/api/crm', { method: 'POST', body: JSON.stringify({ action: 'ai-analyze', contacts: data.contacts, deals: data.deals }) })
+   392→      if (res.ok) {
+   393→        const json = await res.json()
+   394→        if (json.success && json.data?.suggestion) {
+   395→          const interaction: Interaction = {
+   396→            id: crypto.randomUUID(), contactId: 'ai', contactName: 'Assistant IA',
+   397→            type: 'note', description: json.data.suggestion, date: new Date().toISOString(),
+   398→          }
+   399→          setData(p => ({ ...p, interactions: [interaction, ...p.interactions] }))
+   400→          toast.success('Recommandations IA générées !')
+   401→        }
+   402→      }
+   403→    } catch { toast.error('Erreur serveur') }
+   404→    finally { setAiLoading(false) }
+   405→  }, [data.contacts, data.deals])
+   406→
+   407→  // ─── Save to API ─────────────────────────
+   408→  const handleSave = useCallback(async () => {
+   409→    setIsSaving(true)
+   410→    try {
+   411→      await authFetch('/api/crm', { method: 'PUT', body: JSON.stringify(data) })
+   412→      toast.success('CRM sauvegardé')
+   413→    } catch { toast.error('Erreur de sauvegarde') }
+   414→    finally { setIsSaving(false) }
+   415→  }, [data])
+   416→
+   417→  // ─── Loading ─────────────────────────────
+   418→  if (isLoading) {
+   419→    return (
+   420→      <div className="p-4 md:p-6 lg:p-8 space-y-6">
+   421→        <div className="h-8 w-64 bg-muted animate-pulse rounded" />
+   422→        <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+   423→        <div className="grid grid-cols-4 gap-4">{[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-muted animate-pulse rounded-xl" />)}</div>
+   424→      </div>
+   425→    )
+   426→  }
+   427→
+   428→  return (
+   429→    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="flex-1 overflow-y-auto">
+   430→      {/* Header */}
+   431→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 md:px-6 border-b bg-background">
+   432→        <div className="flex items-center gap-3">
+   433→          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10">
+   434→            <Users className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+   435→          </div>
+   436→          <div>
+   437→            <div className="flex items-center gap-2">
+   438→              <h2 className="text-xl font-bold text-foreground">CRM & Relations</h2>
+   439→              <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 text-[10px] px-1.5">Nouveau</Badge>
+   440→            </div>
+   441→            <p className="text-xs text-muted-foreground">{stats.totalContacts} contacts · {stats.clients} clients · {stats.pipelineValue.toLocaleString('fr-FR')} € pipeline</p>
+   442→          </div>
+   443→        </div>
+   444→        <div className="flex items-center gap-2 flex-wrap">
+   445→          <Button variant="outline" size="sm" className="gap-1.5 border-amber-400/40 text-amber-500 hover:bg-amber-400/10" onClick={handleAiAnalysis} disabled={aiLoading}>
+   446→            {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}Aide IA
+   447→          </Button>
+   448→          <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleSave} disabled={isSaving}>
+   449→            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}Enregistrer
+   450→          </Button>
+   451→        </div>
+   452→      </div>
+   453→
+   454→      <Tabs defaultValue="contacts" className="flex-1">
+   455→        <div className="border-b px-4 md:px-6">
+   456→          <TabsList className="bg-transparent h-auto p-0 gap-6">
+   457→            <TabsTrigger value="contacts" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none pb-3 px-0">Contacts</TabsTrigger>
+   458→            <TabsTrigger value="pipeline" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none pb-3 px-0">Pipeline</TabsTrigger>
+   459→            <TabsTrigger value="suivi" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none pb-3 px-0">Suivi</TabsTrigger>
+   460→          </TabsList>
+   461→        </div>
+   462→
+   463→        {/* ── Tab: Contacts ── */}
+   464→        <TabsContent value="contacts" className="p-4 md:p-6 space-y-4">
+   465→          <div className="flex flex-col sm:flex-row gap-3">
+   466→            <div className="relative flex-1">
+   467→              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   468→              <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Rechercher un contact..." className="pl-9" />
+   469→            </div>
+   470→            <Select value={roleFilter} onValueChange={setRoleFilter}>
+   471→              <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Filtrer par rôle" /></SelectTrigger>
+   472→              <SelectContent>
+   473→                <SelectItem value="all">Tous les rôles</SelectItem>
+   474→                {Object.entries(ROLE_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+   475→              </SelectContent>
+   476→            </Select>
+   477→            <Button className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => { setEditingContact(undefined); setContactDialogOpen(true) }}>
+   478→              <UserPlus className="h-4 w-4" /> Ajouter
+   479→            </Button>
+   480→          </div>
+   481→
+   482→          {filteredContacts.length === 0 ? (
+   483→            <Card className="p-8 text-center">
+   484→              <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+   485→              <p className="text-sm font-medium">Aucun contact</p>
+   486→              <p className="text-xs text-muted-foreground mt-1">Ajoutez votre premier contact pour commencer.</p>
+   487→            </Card>
+   488→          ) : (
+   489→            <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+   490→              {filteredContacts.map(contact => (
+   491→                <motion.div key={contact.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} layout>
+   492→                  <Card className="p-3 hover:shadow-sm transition-shadow">
+   493→                    <div className="flex items-center gap-3">
+   494→                      <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white text-xs font-bold', getAvatarColor(contact.id))}>
+   495→                        {getInitials(contact.nom)}
+   496→                      </div>
+   497→                      <div className="flex-1 min-w-0">
+   498→                        <div className="flex items-center gap-2">
+   499→                          <p className="text-sm font-semibold truncate">{contact.nom}</p>
+   500→                          <Badge variant="outline" className={cn('text-[10px] px-1.5 shrink-0', ROLE_COLORS[contact.role])}>{ROLE_LABELS[contact.role]}</Badge>
+   501→                        </div>
+   502→                        <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+   503→                          {contact.entreprise && <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{contact.entreprise}</span>}
+   504→                          {contact.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{contact.email}</span>}
+   505→                          {contact.telephone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{contact.telephone}</span>}
+   506→                        </div>
+   507→                      </div>
+   508→                      <div className="flex items-center gap-1 shrink-0">
+   509→                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => { setEditingContact(contact); setContactDialogOpen(true) }}>
+   510→                          <Filter className="h-3.5 w-3.5" />
+   511→                        </Button>
+   512→                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-red-500" onClick={() => deleteContact(contact.id)}>
+   513→                          <X className="h-3.5 w-3.5" />
+   514→                        </Button>
+   515→                      </div>
+   516→                    </div>
+   517→                  </Card>
+   518→                </motion.div>
+   519→              ))}
+   520→            </div>
+   521→          )}
+   522→        </TabsContent>
+   523→
+   524→        {/* ── Tab: Pipeline ── */}
+   525→        <TabsContent value="pipeline" className="p-4 md:p-6 space-y-4">
+   526→          <div className="flex items-center justify-between">
+   527→            <p className="text-sm text-muted-foreground">Glissez les cartes entre les colonnes pour faire avancer vos opportunités.</p>
+   528→            <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setDealDialogOpen(true)}>
+   529→              <Plus className="h-4 w-4" /> Nouvelle opportunité
+   530→            </Button>
+   531→          </div>
+   532→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   533→            {STAGE_ORDER.map(stage => {
+   534→              const config = STAGE_CONFIG[stage]
+   535→              const stageDeals = data.deals.filter(d => d.stage === stage)
+   536→              const stageTotal = stageDeals.reduce((s, d) => s + d.valeur, 0)
+   537→              return (
+   538→                <div key={stage} className={cn('rounded-xl border-2 p-3 min-h-[300px] transition-colors', config.bg, config.border, draggedDeal && 'ring-2 ring-emerald-400/50')}
+   539→                  onDragOver={handleDragOver} onDrop={() => handleDrop(stage)}>
+   540→                  <div className="flex items-center justify-between mb-3">
+   541→                    <div>
+   542→                      <p className={cn('text-sm font-bold', config.color)}>{config.label}</p>
+   543→                      <p className="text-xs text-muted-foreground">{stageDeals.length} deals · {stageTotal.toLocaleString('fr-FR')} €</p>
+   544→                    </div>
+   545→                    <ChevronDown className={cn('h-4 w-4', config.color)} />
+   546→                  </div>
+   547→                  <div className="space-y-2">
+   548→                    {stageDeals.map(deal => (
+   549→                      <div key={deal.id} draggable onDragStart={() => handleDragStart(deal.id)}
+   550→                        className={cn('rounded-lg border border-border bg-background p-3 cursor-grab active:cursor-grabbing hover:shadow-sm transition-shadow', draggedDeal === deal.id && 'opacity-50')}>
+   551→                        <div className="flex items-start justify-between gap-2">
+   552→                          <div className="min-w-0">
+   553→                            <p className="text-sm font-medium truncate">{deal.contactName}</p>
+   554→                            {deal.entreprise && <p className="text-xs text-muted-foreground truncate">{deal.entreprise}</p>}
+   555→                          </div>
+   556→                          <div className="flex items-center gap-1 shrink-0">
+   557→                            <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-300">
+   558→                              <Euro className="h-3 w-3 mr-0.5" />{deal.valeur.toLocaleString('fr-FR')}
+   559→                            </Badge>
+   560→                            <button className="text-muted-foreground hover:text-red-500" onClick={() => deleteDeal(deal.id)}><X className="h-3 w-3" /></button>
+   561→                          </div>
+   562→                        </div>
+   563→                      </div>
+   564→                    ))}
+   565→                    {stageDeals.length === 0 && (
+   566→                      <div className="flex items-center justify-center h-20 rounded-lg border border-dashed border-border text-xs text-muted-foreground">
+   567→                        Glissez ici
+   568→                      </div>
+   569→                    )}
+   570→                  </div>
+   571→                </div>
+   572→              )
+   573→            })}
+   574→          </div>
+   575→        </TabsContent>
+   576→
+   577→        {/* ── Tab: Suivi ── */}
+   578→        <TabsContent value="suivi" className="p-4 md:p-6 space-y-6">
+   579→          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+   580→            <Card><CardContent className="pt-4 pb-4"><div className="flex items-center gap-2 mb-1"><Users className="h-4 w-4 text-emerald-500" /><span className="text-xs text-muted-foreground">Contacts</span></div><p className="text-2xl font-bold">{stats.totalContacts}</p></CardContent></Card>
+   581→            <Card><CardContent className="pt-4 pb-4"><div className="flex items-center gap-2 mb-1"><Euro className="h-4 w-4 text-emerald-500" /><span className="text-xs text-muted-foreground">Pipeline</span></div><p className="text-2xl font-bold">{stats.pipelineValue.toLocaleString('fr-FR')} €</p></CardContent></Card>
+   582→            <Card><CardContent className="pt-4 pb-4"><div className="flex items-center gap-2 mb-1"><TrendingUp className="h-4 w-4 text-emerald-500" /><span className="text-xs text-muted-foreground">Taux conversion</span></div><p className="text-2xl font-bold">{stats.tauxConversion}%</p></CardContent></Card>
+   583→            <Card><CardContent className="pt-4 pb-4"><div className="flex items-center gap-2 mb-1"><Calendar className="h-4 w-4 text-emerald-500" /><span className="text-xs text-muted-foreground">Deals ce mois</span></div><p className="text-2xl font-bold">{stats.dealsThisMonth}</p></CardContent></Card>
+   584→          </div>
+   585→
+   586→          <Card>
+   587→            <CardHeader className="pb-3">
+   588→              <CardTitle className="text-base flex items-center gap-2"><Clock className="h-4 w-4 text-emerald-500" />Activité récente</CardTitle>
+   589→            </CardHeader>
+   590→            <CardContent>
+   591→              {data.interactions.length === 0 ? (
+   592→                <p className="text-sm text-muted-foreground text-center py-6">Aucune interaction enregistrée. Déplacez des deals dans le pipeline pour créer un historique.</p>
+   593→              ) : (
+   594→                <div className="space-y-3 max-h-[50vh] overflow-y-auto">
+   595→                  {data.interactions.slice(0, 20).map(interaction => {
+   596→                    const IconMap = { appel: Phone, email: Mail, rdv: Calendar, note: MessageSquare }
+   597→                    const Ic = IconMap[interaction.type] || MessageSquare
+   598→                    return (
+   599→                      <div key={interaction.id} className="flex items-start gap-3 text-sm">
+   600→                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/20">
+   601→                          <Ic className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+   602→                        </div>
+   603→                        <div className="flex-1 min-w-0">
+   604→                          <p className="font-medium">{interaction.contactName}</p>
+   605→                          <p className="text-xs text-muted-foreground mt-0.5">{interaction.description}</p>
+   606→                        </div>
+   607→                        <span className="text-xs text-muted-foreground shrink-0">{new Date(interaction.date).toLocaleDateString('fr-FR')}</span>
+   608→                      </div>
+   609→                    )
+   610→                  })}
+   611→                </div>
+   612→              )}
+   613→            </CardContent>
+   614→          </Card>
+   615→        </TabsContent>
+   616→      </Tabs>
+   617→
+   618→      {/* Dialogs */}
+   619→      <ContactFormDialog open={contactDialogOpen} onOpenChange={setContactDialogOpen} onSave={editingContact ? updateContact : addContact} initial={editingContact} title={editingContact ? 'Modifier le contact' : 'Nouveau contact'} />
+   620→      <DealFormDialog open={dealDialogOpen} onOpenChange={setDealDialogOpen} onSave={addDeal} contacts={data.contacts} />
+   621→    </motion.div>
+   622→  )
+   623→}

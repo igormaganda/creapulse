@@ -1,0 +1,1356 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useMemo, useCallback } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import { cn } from '@/lib/utils'
+     6→import { Card, CardContent, CardHeader } from '@/components/ui/card'
+     7→import { Button } from '@/components/ui/button'
+     8→import { Input } from '@/components/ui/input'
+     9→import { Textarea } from '@/components/ui/textarea'
+    10→import { Badge } from '@/components/ui/badge'
+    11→import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+    12→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog'
+    13→import { Separator } from '@/components/ui/separator'
+    14→import { ScrollArea } from '@/components/ui/scroll-area'
+    15→import {
+    16→  Select,
+    17→  SelectContent,
+    18→  SelectItem,
+    19→  SelectTrigger,
+    20→  SelectValue,
+    21→} from '@/components/ui/select'
+    22→import {
+    23→  Search,
+    24→  Plus,
+    25→  MessageSquare,
+    26→  Heart,
+    27→  Pin,
+    28→  ArrowLeft,
+    29→  Clock,
+    30→  Send,
+    31→  Reply,
+    32→  Tag,
+    33→  ChevronDown,
+    34→  ChevronUp,
+    35→  Filter,
+    36→  TrendingUp,
+    37→  Users,
+    38→} from 'lucide-react'
+    39→import { toast } from 'sonner'
+    40→import { DemoBadge, SkeletonPulse } from '@/lib/hooks/use-api-data'
+    41→
+    42→// ─── Types ───────────────────────────────────
+    43→
+    44→type CategorySlug =
+    45→  | 'creation'
+    46→  | 'financement'
+    47→  | 'juridique'
+    48→  | 'marketing'
+    49→  | 'reseau'
+    50→  | 'emploi'
+    51→  | 'vie-entrepreneur'
+    52→
+    53→interface Category {
+    54→  slug: string
+    55→  name: string
+    56→  color: string
+    57→  bgColor: string
+    58→  borderColor: string
+    59→}
+    60→
+    61→interface Author {
+    62→  id: string
+    63→  name: string
+    64→  initials: string
+    65→  color: string
+    66→}
+    67→
+    68→interface ReplyData {
+    69→  id: string
+    70→  author: Author
+    71→  content: string
+    72→  likesCount: number
+    73→  isLiked: boolean
+    74→  createdAt: Date
+    75→  parentId: string | null
+    76→  children: ReplyData[]
+    77→}
+    78→
+    79→interface Discussion {
+    80→  id: string
+    81→  title: string
+    82→  content: string
+    83→  author: Author
+    84→  category: Category
+    85→  preview: string
+    86→  replyCount: number
+    87→  likesCount: number
+    88→  isLiked: boolean
+    89→  isPinned: boolean
+    90→  tags: string[]
+    91→  createdAt: Date
+    92→  replies: ReplyData[]
+    93→}
+    94→
+    95→// ─── Categories ──────────────────────────────
+    96→
+    97→const CATEGORIES: Category[] = [
+    98→  { slug: 'creation', name: 'Création', color: 'text-teal-700 dark:text-teal-400', bgColor: 'bg-teal-100 dark:bg-teal-900/30', borderColor: 'border-teal-200 dark:border-teal-800' },
+    99→  { slug: 'financement', name: 'Financement', color: 'text-amber-700 dark:text-amber-400', bgColor: 'bg-amber-100 dark:bg-amber-900/30', borderColor: 'border-amber-200 dark:border-amber-800' },
+   100→  { slug: 'juridique', name: 'Juridique', color: 'text-purple-700 dark:text-purple-400', bgColor: 'bg-purple-100 dark:bg-purple-900/30', borderColor: 'border-purple-200 dark:border-purple-800' },
+   101→  { slug: 'marketing', name: 'Marketing', color: 'text-rose-700 dark:text-rose-400', bgColor: 'bg-rose-100 dark:bg-rose-900/30', borderColor: 'border-rose-200 dark:border-rose-800' },
+   102→  { slug: 'reseau', name: 'Réseau', color: 'text-sky-700 dark:text-sky-400', bgColor: 'bg-sky-100 dark:bg-sky-900/30', borderColor: 'border-sky-200 dark:border-sky-800' },
+   103→  { slug: 'emploi', name: 'Emploi', color: 'text-emerald-700 dark:text-emerald-400', bgColor: 'bg-emerald-100 dark:bg-emerald-900/30', borderColor: 'border-emerald-200 dark:border-emerald-800' },
+   104→  { slug: 'vie-entrepreneur', name: 'Vie d\'entrepreneur', color: 'text-orange-700 dark:text-orange-400', bgColor: 'bg-orange-100 dark:bg-orange-900/30', borderColor: 'border-orange-200 dark:border-orange-800' },
+   105→]
+   106→
+   107→const CATEGORY_MAP: Record<string, Category> = Object.fromEntries(CATEGORIES.map(c => [c.slug, c]))
+   108→
+   109→// ─── Mock Authors ────────────────────────────
+   110→
+   111→const MOCK_AUTHORS: Author[] = [
+   112→  { id: 'a1', name: 'Sophie Martin', initials: 'SM', color: 'bg-teal-600' },
+   113→  { id: 'a2', name: 'Jean Dupont', initials: 'JD', color: 'bg-amber-600' },
+   114→  { id: 'a3', name: 'Amina Benali', initials: 'AB', color: 'bg-rose-600' },
+   115→  { id: 'a4', name: 'Lucas Petit', initials: 'LP', color: 'bg-purple-600' },
+   116→  { id: 'a5', name: 'Marie Leroy', initials: 'ML', color: 'bg-sky-600' },
+   117→  { id: 'a6', name: 'Thomas Bernard', initials: 'TB', color: 'bg-emerald-600' },
+   118→  { id: 'a7', name: 'Fatima Diallo', initials: 'FD', color: 'bg-orange-600' },
+   119→  { id: 'a8', name: 'Pierre Moreau', initials: 'PM', color: 'bg-indigo-600' },
+   120→]
+   121→
+   122→// ─── Mock Discussions ────────────────────────
+   123→
+   124→const NOW = new Date()
+   125→const hoursAgo = (h: number) => new Date(NOW.getTime() - h * 3600000)
+   126→const daysAgo = (d: number) => new Date(NOW.getTime() - d * 86400000)
+   127→
+   128→const MOCK_DISCUSSIONS: Discussion[] = [
+   129→  {
+   130→    id: 'd1',
+   131→    title: 'Comment choisir entre SAS et SARL pour une startup tech ?',
+   132→    content: `Bonjour à tous !\n\nJe suis en train de créer une startup dans la tech et j'hésite entre le statut SAS et SARL. J'ai lu beaucoup d'articles mais je reste indécis.\n\n**SAS :**\n- Plus flexible pour la répartition des dividendes\n- Peut attirer des investisseurs plus facilement\n- Charges sociales plus élevées pour le dirigeant\n\n**SARL :**\n- Charges sociales moins importantes\n- Plus simple à gérer au début\n- Moins flexible pour les futurs associés\n\nMon projet prévoit de lever des fonds dans 2-3 ans. Quel serait le meilleur choix selon vous ?\n\nMerci d'avance pour vos retours !`,
+   133→    author: MOCK_AUTHORS[0],
+   134→    category: CATEGORY_MAP['juridique'],
+   135→    preview: 'Bonjour à tous ! Je suis en train de créer une startup dans la tech et j\'hésite entre le statut SAS et SARL...',
+   136→    replyCount: 7,
+   137→    likesCount: 24,
+   138→    isLiked: false,
+   139→    isPinned: true,
+   140→    tags: ['statut juridique', 'SAS', 'SARL', 'startup'],
+   141→    createdAt: daysAgo(1),
+   142→    replies: [
+   143→      {
+   144→        id: 'r1', author: MOCK_AUTHORS[3], content: 'Pour une startup avec ambition de levée de fonds, la SAS est clairement le choix recommandé. La souplesse statutaire et la possibilité d\'émettre des actions de préférence sont des atouts majeurs.', likesCount: 12, isLiked: false, createdAt: hoursAgo(22), parentId: null, children: [
+   145→          { id: 'r1-1', author: MOCK_AUTHORS[0], content: 'Merci pour ce conseil ! Et au niveau des coûts de création, c\'est vraiment plus cher ?', likesCount: 3, isLiked: false, createdAt: hoursAgo(20), parentId: 'r1', children: [] },
+   146→          { id: 'r1-2', author: MOCK_AUTHORS[3], content: 'Les frais de création sont similaires (~200-300€). C\'est surtout les charges sociales du dirigeant qui sont plus élevées en SAS (~80% vs ~45% en SARL).', likesCount: 8, isLiked: false, createdAt: hoursAgo(18), parentId: 'r1', children: [] },
+   147→        ],
+   148→      },
+   149→      {
+   150→        id: 'r2', author: MOCK_AUTHORS[5], content: 'Je confirme, SAS pour la tech. N\'hésitez pas à consulter un avocat spécialisé pour les statuts, ça vaut l\'investissement.', likesCount: 6, isLiked: false, createdAt: hoursAgo(15), parentId: null, children: [],
+   151→      },
+   152→      {
+   153→        id: 'r3', author: MOCK_AUTHORS[6], content: 'Attention aussi à l\'option SASU si vous êtes seul au début. Vous pourrez toujours la transformer en SAS plus tard.', likesCount: 9, isLiked: true, createdAt: hoursAgo(10), parentId: null, children: [
+   154→          { id: 'r3-1', author: MOCK_AUTHORS[1], content: 'Bonne remarque ! La transformation de SASU en SAS est en effet très simple.', likesCount: 2, isLiked: false, createdAt: hoursAgo(8), parentId: 'r3', children: [] },
+   155→        ],
+   156→      },
+   157→    ],
+   158→  },
+   159→  {
+   160→    id: 'd2',
+   161→    title: 'Obtenir un prêt d\'honneur : mon expérience avec BPI France',
+   162→    content: `Je voulais partager mon expérience positive avec le prêt d'honneur BPI France.\n\nJ'ai créé ma SARL il y a 6 mois dans le secteur de la restauration. J'ai postulé au prêt d'honneur "Création d'entreprise" et j'ai obtenu 30 000€.\n\n**Le processus :**\n1. Préparation du business plan (2 semaines)\n2. Rencontre avec un conseiller BPI (1h)\n3. Passage devant le comité d'engagement (30 min)\n4. Réponse favorable sous 15 jours\n\n**Mes conseils :**\n- Ayez un BP solide avec des prévisions réalistes\n- Montrez que vous avez déjà injecté de l'apport personnel\n- Préparez bien votre pitch oral\n\nN'hésitez pas si vous avez des questions !`,
+   163→    author: MOCK_AUTHORS[1],
+   164→    category: CATEGORY_MAP['financement'],
+   165→    preview: 'Je voulais partager mon expérience positive avec le prêt d\'honneur BPI France. J\'ai créé ma SARL il y a 6 mois...',
+   166→    replyCount: 12,
+   167→    likesCount: 45,
+   168→    isLiked: true,
+   169→    isPinned: true,
+   170→    tags: ['BPI France', 'prêt d\'honneur', 'financement'],
+   171→    createdAt: daysAgo(3),
+   172→    replies: [
+   173→      {
+   174→        id: 'r4', author: MOCK_AUTHORS[4], content: 'Super retour ! Combien d\'apport personnel aviez-vous investi pour obtenir ce prêt ?', likesCount: 5, isLiked: false, createdAt: daysAgo(2), parentId: null, children: [
+   175→          { id: 'r4-1', author: MOCK_AUTHORS[1], content: 'J\'avais apporté 15 000€ de mes économies, soit 1/3 du besoin total de 45 000€.', likesCount: 7, isLiked: true, createdAt: daysAgo(2), parentId: 'r4', children: [] },
+   176→        ],
+   177→      },
+   178→      { id: 'r5', author: MOCK_AUTHORS[2], content: 'Merci pour ce partage ! Est-ce que le prêt d\'honneur est cumulable avec d\'autres aides ?', likesCount: 3, isLiked: false, createdAt: hoursAgo(40), parentId: null, children: [] },
+   179→    ],
+   180→  },
+   181→  {
+   182→    id: 'd3',
+   183→    title: 'Stratégie de marketing digital pour un e-commerce de produits artisanaux',
+   184→    content: `Bonjour,\n\nJe lance un e-commerce de produits artisanaux (bougies, savons, céramiques) et je cherche des conseils en marketing digital avec un petit budget.\n\nJ'ai déjà :\n- Créé mon site Shopify\n- Ouvert un compte Instagram (320 abonnés)\n- Commencé le SEO de base\n\nMon budget mensuel est d'environ 300€. Par où commencer selon vous ? Ads Facebook ? TikTok ? Influencer marketing ?\n\nMerci pour vos retours !`,
+   185→    author: MOCK_AUTHORS[2],
+   186→    category: CATEGORY_MAP['marketing'],
+   187→    preview: 'Je lance un e-commerce de produits artisanaux et je cherche des conseils en marketing digital avec un petit budget...',
+   188→    replyCount: 5,
+   189→    likesCount: 18,
+   190→    isLiked: false,
+   191→    isPinned: false,
+   192→    tags: ['e-commerce', 'marketing digital', 'Instagram', 'budget'],
+   193→    createdAt: daysAgo(2),
+   194→    replies: [
+   195→      { id: 'r6', author: MOCK_AUTHORS[7], content: 'Pour des produits artisanaux visuels, concentrez-vous sur Instagram et TikTok. Avec 300€/mois, privilégiez la création de contenu organique et les partenariats avec des micro-influenceurs (échange de produits).', likesCount: 15, isLiked: false, createdAt: daysAgo(1), parentId: null, children: [] },
+   196→      { id: 'r7', author: MOCK_AUTHORS[4], content: 'Les vidéos courtes sur TikTok et Reels Instagram sont très performants pour ce type de produits. Filmez le processus de fabrication, c\'est ce qui intéresse les clients !', likesCount: 8, isLiked: false, createdAt: hoursAgo(30), parentId: null, children: [] },
+   197→    ],
+   198→  },
+   199→  {
+   200→    id: 'd4',
+   201→    title: 'Réseautage efficace : comment trouver des partenaires de confiance ?',
+   202→    content: `Je cherche à développer mon réseau professionnel dans le secteur de la transition écologique. J'assiste à des événements mais j'ai du mal à créer des relations durables.\n\nQuelles sont vos stratégies de réseautage efficace ? Comment transformez-vous une rencontre en véritable partenariat ?`,
+   203→    author: MOCK_AUTHORS[4],
+   204→    category: CATEGORY_MAP['reseau'],
+   205→    preview: 'Je cherche à développer mon réseau professionnel dans le secteur de la transition écologique...',
+   206→    replyCount: 4,
+   207→    likesCount: 11,
+   208→    isLiked: false,
+   209→    isPinned: false,
+   210→    tags: ['réseautage', 'partenariats', 'événements'],
+   211→    createdAt: hoursAgo(18),
+   212→    replies: [
+   213→      { id: 'r8', author: MOCK_AUTHORS[0], content: 'Mon astuce : toujours faire un suivi dans les 48h après un événement. Un simple email personnalisé avec référence à votre conversation fait toute la différence.', likesCount: 9, isLiked: true, createdAt: hoursAgo(12), parentId: null, children: [] },
+   214→    ],
+   215→  },
+   216→  {
+   217→    id: 'd5',
+   218→    title: 'Le marché de la livraison à domicile en 2025 : opportunités ou saturation ?',
+   219→    content: `Après avoir travaillé 5 ans dans la logistique, je réfléchis à lancer mon propre service de livraison locale.\n\nLe marché semble saturé par les grands acteurs, mais je pense qu'il y a une place pour un service premium et hyper-local.\n\nQuelqu'un a-t-il une analyse du marché actuel ? Quels sont les segments les plus prometteurs ?`,
+   220→    author: MOCK_AUTHORS[3],
+   221→    category: CATEGORY_MAP['creation'],
+   222→    preview: 'Après avoir travaillé 5 ans dans la logistique, je réfléchis à lancer mon propre service de livraison locale...',
+   223→    replyCount: 3,
+   224→    likesCount: 7,
+   225→    isLiked: false,
+   226→    isPinned: false,
+   227→    tags: ['livraison', 'marché', 'logistique', 'opportunité'],
+   228→    createdAt: daysAgo(4),
+   229→    replies: [],
+   230→  },
+   231→  {
+   232→    id: 'd6',
+   233→    title: 'Recruter son premier salarié : démarches et pièges à éviter',
+   234→    content: `Mon auto-entreprise décolle et j'envisage d'embaucher mon premier salarié. Je suis un peu perdu face aux démarches administratives.\n\nQuestions :\n- CDI ou CDD pour commencer ?\n- Quelles aides à l'embauche existent ?\n- Comment gérer la paie ? (logiciel ? expert-comptable ?)\n- Quelles sont les erreurs courantes à éviter ?\n\nMerci d'avance pour vos conseils !`,
+   235→    author: MOCK_AUTHORS[5],
+   236→    category: CATEGORY_MAP['emploi'],
+   237→    preview: 'Mon auto-entreprise décolle et j\'envisage d\'embaucher mon premier salarié. Je suis un peu perdu...',
+   238→    replyCount: 6,
+   239→    likesCount: 20,
+   240→    isLiked: false,
+   241→    isPinned: false,
+   242→    tags: ['recrutement', 'premier salarié', 'démarches'],
+   243→    createdAt: daysAgo(5),
+   244→    replies: [
+   245→      { id: 'r9', author: MOCK_AUTHORS[6], content: 'Pour le premier salarié, un CDD de 6 mois est une bonne option pour tester. Pensez à l\'aide TPE pour l\'embauche (4000€). Pour la paie, un logiciel comme PayFit ou un expert-comptable sont des options fiables.', likesCount: 14, isLiked: false, createdAt: daysAgo(4), parentId: null, children: [] },
+   246→    ],
+   247→  },
+   248→  {
+   249→    id: 'd7',
+   250→    title: 'Gérer le stress et l\'isolement quand on est entrepreneur solo',
+   251→    content: `Ça fait 8 mois que j'ai lancé mon activité de consulting et je dois avouer que l'isolement commence à peser.\n\nCertains jours, je ne parle à personne de la journée. Le doute s'installe et la motivation fluctue.\n\nComment gérez-vous le côté psychologique de l'entrepreneuriat ? Avez-vous des routines pour rester motivé(e) ?\n\nJe sais que je ne suis pas seul(e) à vivre ça, partagez vos expériences !`,
+   252→    author: MOCK_AUTHORS[6],
+   253→    category: CATEGORY_MAP['vie-entrepreneur'],
+   254→    preview: 'Ça fait 8 mois que j\'ai lancé mon activité de consulting et l\'isolement commence à peser...',
+   255→    replyCount: 15,
+   256→    likesCount: 52,
+   257→    isLiked: true,
+   258→    isPinned: false,
+   259→    tags: ['bien-être', 'isolement', 'motivation', 'santé mentale'],
+   260→    createdAt: daysAgo(6),
+   261→    replies: [
+   262→      { id: 'r10', author: MOCK_AUTHORS[0], content: 'Merci d\'en parler ! Les espaces de coworking ont sauvé ma santé mentale. Le simple fait d\'être entouré de gens qui travaillent change tout. Et n\'hésitez pas à consulter un coach si besoin.', likesCount: 22, isLiked: true, createdAt: daysAgo(5), parentId: null, children: [] },
+   263→      { id: 'r11', author: MOCK_AUTHORS[2], content: 'Les groupes d\'entrepreneurs locaux sont aussi très efficaces. On se rend compte qu\'on est pas seul à traverser ces moments difficiles.', likesCount: 10, isLiked: false, createdAt: daysAgo(4), parentId: null, children: [] },
+   264→    ],
+   265→  },
+   266→  {
+   267→    id: 'd8',
+   268→    title: 'Nouvelle-aquitaine : aides spécifiques pour les créateurs d\'entreprise',
+   269→    content: `Je me lance dans la création d'une entreprise de services en Nouvelle-Aquitaine. Je cherche à recenser toutes les aides disponibles au niveau régional.\n\nPour l'instant j'ai identifié :\n- Aide à la création (Région)\n- ARCE si je prends mes indemnités\n- ACCRE pour les cotisations\n\nEst-ce que je manque quelque chose ? Y a-t-il des dispositifs spécifiques à la région ?`,
+   270→    author: MOCK_AUTHORS[7],
+   271→    category: CATEGORY_MAP['financement'],
+   272→    preview: 'Je me lance dans la création d\'une entreprise de services en Nouvelle-Aquitaine. Je cherche à recenser...',
+   273→    replyCount: 2,
+   274→    likesCount: 5,
+   275→    isLiked: false,
+   276→    isPinned: false,
+   277→    tags: ['aides', 'Nouvelle-Aquitaine', 'région', 'subventions'],
+   278→    createdAt: daysAgo(7),
+   279→    replies: [],
+   280→  },
+   281→  {
+   282→    id: 'd9',
+   283→    title: 'Comment protéger sa marque : dépôt INPI ou via un avocat ?',
+   284→    content: `Mon logo et mon nom de marque sont prêts. Je dois maintenant les protéger. Faut-il passer par l'INPI directement ou vaut mieux prendre un avocat en PI ?\n\nL'INPI me semble moins cher mais je crains de mal faire les choses. Quelqu'un a comparé les deux options ?`,
+   285→    author: MOCK_AUTHORS[3],
+   286→    category: CATEGORY_MAP['juridique'],
+   287→    preview: 'Mon logo et mon nom de marque sont prêts. Je dois maintenant les protéger...',
+   288→    replyCount: 4,
+   289→    likesCount: 13,
+   290→    isLiked: false,
+   291→    isPinned: false,
+   292→    tags: ['marque', 'INPI', 'propriété intellectuelle', 'protection'],
+   293→    createdAt: hoursAgo(8),
+   294→    replies: [
+   295→      { id: 'r12', author: MOCK_AUTHORS[5], content: 'Le dépôt INPI en ligne est tout à fait faisable seul si votre marque est simple. Comptez ~250€. Par contre, si vous avez des doutes sur la disponibilité ou la classification, un avocat PI (~500-1500€) peut vous éviter des problèmes coûteux.', likesCount: 11, isLiked: false, createdAt: hoursAgo(5), parentId: null, children: [] },
+   296→    ],
+   297→  },
+   298→  {
+   299→    id: 'd10',
+   300→    title: 'De la idée au MVP : plan d\'action pour un SaaS B2B',
+   301→    content: `J'ai une idée de SaaS pour les TPE/PME qui automatiserait leur gestion administrative. Je suis développeur de métier mais je n'ai jamais lancé de produit.\n\nJ'aimerais établir un plan d'action clair :\n1. Validation de l'idée (comment ?)\n2. Construction du MVP\n3. Premiers tests clients\n4. Go/No Go\n\nDes retours d'expérience sur ce type de projet ?`,
+   302→    author: MOCK_AUTHORS[1],
+   303→    category: CATEGORY_MAP['creation'],
+   304→    preview: 'J\'ai une idée de SaaS pour les TPE/PME qui automatiserait leur gestion administrative...',
+   305→    replyCount: 8,
+   306→    likesCount: 31,
+   307→    isLiked: false,
+   308→    isPinned: false,
+   309→    tags: ['SaaS', 'MVP', 'B2B', 'validation'],
+   310→    createdAt: daysAgo(2),
+   311→    replies: [
+   312→      { id: 'r13', author: MOCK_AUTHORS[7], content: 'Étape cruciale : avant de coder, vendez votre produit à 5-10 clients potentiels (landing page + préventes). Si personne n\'achète une promesse, personne n\'achètera le produit fini.', likesCount: 18, isLiked: true, createdAt: daysAgo(1), parentId: null, children: [
+   313→          { id: 'r13-1', author: MOCK_AUTHORS[1], content: 'Excellent conseil ! Tu recommandes quel outil pour la landing page de validation ?', likesCount: 4, isLiked: false, createdAt: hoursAgo(20), parentId: 'r13', children: [] },
+   314→          { id: 'r13-2', author: MOCK_AUTHORS[7], content: 'Carrd (gratuit et rapide), No-code avec Framer ou Webflow si tu veux plus de contrôle.', likesCount: 6, isLiked: false, createdAt: hoursAgo(16), parentId: 'r13', children: [] },
+   315→        ],
+   316→      },
+   317→    ],
+   318→  },
+   319→]
+   320→
+   321→// ─── Reduced Fallback (5 items max) ─────────
+   322→
+   323→const FALLBACK_DISCUSSIONS: Discussion[] = MOCK_DISCUSSIONS.slice(0, 5)
+   324→
+   325→// ─── API data mapping helpers ───────────────
+   326→
+   327→const AVATAR_COLORS_LIST = ['bg-teal-600', 'bg-amber-600', 'bg-rose-600', 'bg-purple-600', 'bg-sky-600', 'bg-emerald-600', 'bg-orange-600', 'bg-indigo-600']
+   328→
+   329→function getAuthorColor(id: string): string {
+   330→  return AVATAR_COLORS_LIST[Math.abs(id.charCodeAt(0)) % AVATAR_COLORS_LIST.length]
+   331→}
+   332→
+   333→function mapApiDiscussion(apiDisc: Record<string, unknown>): Discussion {
+   334→  const author = apiDisc.author as Record<string, unknown> | undefined
+   335→  const category = apiDisc.category as Record<string, unknown> | undefined
+   336→  const categorySlug = (category?.slug as string) || 'creation'
+   337→  const frontendCategory = CATEGORY_MAP[categorySlug] || CATEGORY_MAP['creation']
+   338→  return {
+   339→    id: apiDisc.id as string,
+   340→    title: (apiDisc.title as string) || '',
+   341→    content: (apiDisc.content as string) || '',
+   342→    author: {
+   343→      id: (author?.id as string) || '',
+   344→      name: (author?.name as string) || 'Anonyme',
+   345→      initials: (author?.initials as string) || '?',
+   346→      color: getAuthorColor((author?.id as string) || ''),
+   347→    },
+   348→    category: frontendCategory,
+   349→    preview: (apiDisc.preview as string) || ((apiDisc.content as string) || '').substring(0, 150),
+   350→    replyCount: (apiDisc.replyCount as number) || 0,
+   351→    likesCount: (apiDisc.likesCount as number) || 0,
+   352→    isLiked: (apiDisc.isLiked as boolean) || false,
+   353→    isPinned: (apiDisc.isPinned as boolean) || false,
+   354→    tags: (apiDisc.tags as string[]) || [],
+   355→    createdAt: apiDisc.createdAt ? new Date(apiDisc.createdAt as string) : new Date(),
+   356→    replies: [],
+   357→  }
+   358→}
+   359→
+   360→function mapApiReply(apiReply: Record<string, unknown>): ReplyData {
+   361→  const author = apiReply.author as Record<string, unknown> | undefined
+   362→  return {
+   363→    id: apiReply.id as string,
+   364→    author: {
+   365→      id: (author?.id as string) || '',
+   366→      name: (author?.name as string) || 'Anonyme',
+   367→      initials: (author?.initials as string) || '?',
+   368→      color: getAuthorColor((author?.id as string) || ''),
+   369→    },
+   370→    content: (apiReply.content as string) || '',
+   371→    likesCount: (apiReply.likesCount as number) || 0,
+   372→    isLiked: (apiReply.isLiked as boolean) || false,
+   373→    createdAt: apiReply.createdAt ? new Date(apiReply.createdAt as string) : new Date(),
+   374→    parentId: (apiReply.parentId as string) || null,
+   375→    children: ((apiReply.children as Record<string, unknown>[]) || []).map(mapApiReply),
+   376→  }
+   377→}
+   378→
+   379→// ─── Helper functions ────────────────────────
+   380→
+   381→function timeSince(date: Date): string {
+   382→  const seconds = Math.floor((NOW.getTime() - date.getTime()) / 1000)
+   383→  if (seconds < 60) return 'il y a quelques secondes'
+   384→  const minutes = Math.floor(seconds / 60)
+   385→  if (minutes < 60) return `il y a ${minutes}min`
+   386→  const hours = Math.floor(minutes / 60)
+   387→  if (hours < 24) return `il y a ${hours}h`
+   388→  const days = Math.floor(hours / 24)
+   389→  if (days === 1) return 'hier'
+   390→  if (days < 7) return `il y a ${days}j`
+   391→  if (days < 30) return `il y a ${Math.floor(days / 7)}sem`
+   392→  if (days < 365) return `il y a ${Math.floor(days / 30)}mo`
+   393→  return `il y a ${Math.floor(days / 365)}an`
+   394→}
+   395→
+   396→function getCategoryFromSlug(slug: string): Category | undefined {
+   397→  return CATEGORY_MAP[slug]
+   398→}
+   399→
+   400→// ─── Category Badge Component ────────────────
+   401→
+   402→function CategoryBadge({ category }: { category: Category }) {
+   403→  return (
+   404→    <Badge
+   405→      variant="outline"
+   406→      className={cn(
+   407→        'text-xs font-medium px-2 py-0.5 border',
+   408→        category.color,
+   409→        category.bgColor,
+   410→        category.borderColor,
+   411→      )}
+   412→    >
+   413→      {category.name}
+   414→    </Badge>
+   415→  )
+   416→}
+   417→
+   418→// ─── Avatar Component ────────────────────────
+   419→
+   420→function AuthorAvatar({ author, size = 'sm' }: { author: Author; size?: 'sm' | 'md' | 'lg' }) {
+   421→  const sizeClasses = {
+   422→    sm: 'h-8 w-8 text-xs',
+   423→    md: 'h-10 w-10 text-sm',
+   424→    lg: 'h-12 w-12 text-base',
+   425→  }
+   426→  return (
+   427→    <Avatar className={sizeClasses[size]}>
+   428→      <AvatarFallback className={cn('text-white font-medium', author.color)}>
+   429→        {author.initials}
+   430→      </AvatarFallback>
+   431→    </Avatar>
+   432→  )
+   433→}
+   434→
+   435→// ─── Reply Component ─────────────────────────
+   436→
+   437→function ReplyItem({
+   438→  reply,
+   439→  onLike,
+   440→  onReply,
+   441→  depth = 0,
+   442→}: {
+   443→  reply: ReplyData
+   444→  onLike: (id: string) => void
+   445→  onReply: (id: string, authorName: string) => void
+   446→  depth?: number
+   447→}) {
+   448→  const [showChildren, setShowChildren] = useState(true)
+   449→
+   450→  return (
+   451→    <div className={cn(depth > 0 && 'ml-6 pl-4 border-l-2 border-border/60')}>
+   452→      <div className="flex gap-3 py-3">
+   453→        <AuthorAvatar author={reply.author} size="sm" />
+   454→        <div className="flex-1 min-w-0">
+   455→          <div className="flex items-center gap-2 flex-wrap">
+   456→            <span className="text-sm font-semibold text-foreground">{reply.author.name}</span>
+   457→            <span className="text-xs text-muted-foreground">{timeSince(reply.createdAt)}</span>
+   458→            {reply.isEdited && (
+   459→              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">modifié</Badge>
+   460→            )}
+   461→          </div>
+   462→          <p className="mt-1 text-sm text-foreground/90 whitespace-pre-line">{reply.content}</p>
+   463→          <div className="flex items-center gap-3 mt-2">
+   464→            <button
+   465→              onClick={() => onLike(reply.id)}
+   466→              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-rose-500 transition-colors"
+   467→            >
+   468→              <Heart className={cn('h-3.5 w-3.5', reply.isLiked && 'fill-rose-500 text-rose-500')} />
+   469→              <span>{reply.likesCount > 0 ? reply.likesCount : ''}</span>
+   470→            </button>
+   471→            <button
+   472→              onClick={() => onReply(reply.id, reply.author.name)}
+   473→              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+   474→            >
+   475→              <Reply className="h-3.5 w-3.5" />
+   476→              <span>Répondre</span>
+   477→            </button>
+   478→          </div>
+   479→          {/* Nested replies */}
+   480→          {reply.children.length > 0 && (
+   481→            <button
+   482→              onClick={() => setShowChildren(!showChildren)}
+   483→              className="flex items-center gap-1 mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+   484→            >
+   485→              {showChildren ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+   486→              <span>{reply.children.length} réponse{reply.children.length > 1 ? 's' : ''}</span>
+   487→            </button>
+   488→          )}
+   489→        </div>
+   490→      </div>
+   491→      <AnimatePresence>
+   492→        {showChildren && (
+   493→          <motion.div
+   494→            initial={{ opacity: 0, height: 0 }}
+   495→            animate={{ opacity: 1, height: 'auto' }}
+   496→            exit={{ opacity: 0, height: 0 }}
+   497→            transition={{ duration: 0.2 }}
+   498→          >
+   499→            {reply.children.map(child => (
+   500→              <ReplyItem
+   501→                key={child.id}
+   502→                reply={child}
+   503→                onLike={onLike}
+   504→                onReply={onReply}
+   505→                depth={depth + 1}
+   506→              />
+   507→            ))}
+   508→          </motion.div>
+   509→        )}
+   510→      </AnimatePresence>
+   511→    </div>
+   512→  )
+   513→}
+   514→
+   515→// ─── Discussion List Card ────────────────────
+   516→
+   517→function DiscussionCard({
+   518→  discussion,
+   519→  onClick,
+   520→}: {
+   521→  discussion: Discussion
+   522→  onClick: () => void
+   523→}) {
+   524→  return (
+   525→    <motion.div whileHover={{ y: -1 }} transition={{ duration: 0.15 }}>
+   526→      <Card
+   527→        className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-primary/20 group"
+   528→        onClick={onClick}
+   529→      >
+   530→        <CardContent className="p-4 md:p-5">
+   531→          <div className="flex items-start gap-3">
+   532→            <AuthorAvatar author={discussion.author} />
+   533→            <div className="flex-1 min-w-0">
+   534→              {/* Top row: badges */}
+   535→              <div className="flex items-center gap-2 flex-wrap mb-1.5">
+   536→                <CategoryBadge category={discussion.category} />
+   537→                {discussion.isPinned && (
+   538→                  <Badge variant="secondary" className="text-xs gap-1 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400">
+   539→                    <Pin className="h-3 w-3" />
+   540→                    Épinglé
+   541→                  </Badge>
+   542→                )}
+   543→              </div>
+   544→              {/* Title */}
+   545→              <h3 className="text-sm md:text-base font-semibold text-foreground leading-snug group-hover:text-primary transition-colors line-clamp-2">
+   546→                {discussion.title}
+   547→              </h3>
+   548→              {/* Preview */}
+   549→              <p className="mt-1 text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+   550→                {discussion.preview}
+   551→              </p>
+   552→              {/* Bottom row: meta */}
+   553→              <div className="flex items-center gap-4 mt-3 flex-wrap">
+   554→                <span className="text-xs text-muted-foreground">{discussion.author.name}</span>
+   555→                <span className="text-xs text-muted-foreground flex items-center gap-1">
+   556→                  <Clock className="h-3 w-3" />
+   557→                  {timeSince(discussion.createdAt)}
+   558→                </span>
+   559→                <span className="text-xs text-muted-foreground flex items-center gap-1">
+   560→                  <MessageSquare className="h-3 w-3" />
+   561→                  {discussion.replyCount}
+   562→                </span>
+   563→                <span className={cn(
+   564→                  'text-xs flex items-center gap-1',
+   565→                  discussion.isLiked ? 'text-rose-500' : 'text-muted-foreground'
+   566→                )}>
+   567→                  <Heart className={cn('h-3 w-3', discussion.isLiked && 'fill-rose-500')} />
+   568→                  {discussion.likesCount}
+   569→                </span>
+   570→              </div>
+   571→              {/* Tags */}
+   572→              {discussion.tags.length > 0 && (
+   573→                <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+   574→                  {discussion.tags.slice(0, 3).map(tag => (
+   575→                    <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground">
+   576→                      #{tag}
+   577→                    </span>
+   578→                  ))}
+   579→                  {discussion.tags.length > 3 && (
+   580→                    <span className="text-[10px] text-muted-foreground">+{discussion.tags.length - 3}</span>
+   581→                  )}
+   582→                </div>
+   583→              )}
+   584→            </div>
+   585→          </div>
+   586→        </CardContent>
+   587→      </Card>
+   588→    </motion.div>
+   589→  )
+   590→}
+   591→
+   592→// ─── Discussion Detail View ──────────────────
+   593→
+   594→function DiscussionDetail({
+   595→  discussion,
+   596→  onBack,
+   597→  onLikeDiscussion,
+   598→  onLikeReply,
+   599→  onAddReply,
+   600→}: {
+   601→  discussion: Discussion
+   602→  onBack: () => void
+   603→  onLikeDiscussion: () => void
+   604→  onLikeReply: (replyId: string) => void
+   605→  onAddReply: (content: string, parentId: string | null) => void
+   606→}) {
+   607→  const [replyText, setReplyText] = useState('')
+   608→  const [replyingTo, setReplyingTo] = useState<{ id: string; name: string } | null>(null)
+   609→  const [isSubmitting, setIsSubmitting] = useState(false)
+   610→
+   611→  const handleReply = useCallback(async () => {
+   612→    if (!replyText.trim()) return
+   613→    setIsSubmitting(true)
+   614→    let apiSuccess = false
+   615→    try {
+   616→      const token = localStorage.getItem('creapulse-token')
+   617→      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+   618→      if (token) headers['Authorization'] = `Bearer ${token}`
+   619→      const res = await fetch(`/api/forum/${discussion.id}`, {
+   620→        method: 'POST',
+   621→        headers,
+   622→        body: JSON.stringify({ content: replyText, parentId: replyingTo?.id || null }),
+   623→      })
+   624→      if (res.ok) apiSuccess = true
+   625→    } catch {
+   626→      // Fallback to local-only
+   627→    }
+   628→    onAddReply(replyText, replyingTo?.id || null)
+   629→    setReplyText('')
+   630→    setReplyingTo(null)
+   631→    setIsSubmitting(false)
+   632→    toast.success(apiSuccess ? 'Réponse publiée avec succès' : 'Réponse ajoutée localement')
+   633→  }, [replyText, replyingTo, onAddReply, discussion.id])
+   634→
+   635→  const handleReplyTo = useCallback((replyId: string, authorName: string) => {
+   636→    setReplyingTo({ id: replyId, name: authorName })
+   637→    setReplyText(`@${authorName} `)
+   638→  }, [])
+   639→
+   640→  return (
+   641→    <motion.div
+   642→      initial={{ opacity: 0, x: 20 }}
+   643→      animate={{ opacity: 1, x: 0 }}
+   644→      exit={{ opacity: 0, x: -20 }}
+   645→      transition={{ duration: 0.25 }}
+   646→      className="space-y-4"
+   647→    >
+   648→      {/* Back button */}
+   649→      <Button variant="ghost" size="sm" onClick={onBack} className="gap-1.5 -ml-2">
+   650→        <ArrowLeft className="h-4 w-4" />
+   651→        Retour aux discussions
+   652→      </Button>
+   653→
+   654→      {/* Main post */}
+   655→      <Card>
+   656→        <CardHeader className="pb-4">
+   657→          <div className="flex items-start justify-between gap-3">
+   658→            <div className="flex items-center gap-3">
+   659→              <AuthorAvatar author={discussion.author} size="lg" />
+   660→              <div>
+   661→                <p className="font-semibold text-foreground">{discussion.author.name}</p>
+   662→                <p className="text-xs text-muted-foreground">{timeSince(discussion.createdAt)}</p>
+   663→              </div>
+   664→            </div>
+   665→            <div className="flex items-center gap-2 flex-shrink-0">
+   666→              <CategoryBadge category={discussion.category} />
+   667→              {discussion.isPinned && (
+   668→                <Badge variant="secondary" className="text-xs gap-1 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400">
+   669→                  <Pin className="h-3 w-3" />
+   670→                  Épinglé
+   671→                </Badge>
+   672→              )}
+   673→            </div>
+   674→          </div>
+   675→          <h2 className="text-xl md:text-2xl font-bold text-foreground mt-3 leading-tight">
+   676→            {discussion.title}
+   677→          </h2>
+   678→        </CardHeader>
+   679→        <CardContent className="pt-0">
+   680→          <div className="text-sm text-foreground/90 whitespace-pre-line leading-relaxed">
+   681→            {discussion.content}
+   682→          </div>
+   683→          {/* Tags */}
+   684→          {discussion.tags.length > 0 && (
+   685→            <div className="flex items-center gap-1.5 mt-4 flex-wrap">
+   686→              <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+   687→              {discussion.tags.map(tag => (
+   688→                <span key={tag} className="text-xs px-2 py-0.5 rounded-md bg-muted text-muted-foreground">
+   689→                  #{tag}
+   690→                </span>
+   691→              ))}
+   692→            </div>
+   693→          )}
+   694→          <Separator className="my-4" />
+   695→          {/* Actions */}
+   696→          <div className="flex items-center gap-4">
+   697→            <button
+   698→              onClick={onLikeDiscussion}
+   699→              className="flex items-center gap-2 text-sm transition-colors hover:text-rose-500"
+   700→            >
+   701→              <Heart className={cn('h-5 w-5', discussion.isLiked && 'fill-rose-500 text-rose-500')} />
+   702→              <span className={discussion.isLiked ? 'text-rose-500' : 'text-muted-foreground'}>
+   703→                {discussion.likesCount}
+   704→              </span>
+   705→            </button>
+   706→            <span className="flex items-center gap-2 text-sm text-muted-foreground">
+   707→              <MessageSquare className="h-5 w-5" />
+   708→              {discussion.replyCount} réponse{discussion.replyCount !== 1 ? 's' : ''}
+   709→            </span>
+   710→          </div>
+   711→        </CardContent>
+   712→      </Card>
+   713→
+   714→      {/* Replies */}
+   715→      <Card>
+   716→        <CardHeader className="pb-3">
+   717→          <h3 className="text-base font-semibold text-foreground">
+   718→            Réponses ({discussion.replies.length})
+   719→          </h3>
+   720→        </CardHeader>
+   721→        <CardContent className="pt-0">
+   722→          {discussion.replies.length === 0 ? (
+   723→            <div className="text-center py-8 text-muted-foreground">
+   724→              <MessageSquare className="h-10 w-10 mx-auto mb-2 opacity-40" />
+   725→              <p className="text-sm">Aucune réponse pour le moment.</p>
+   726→              <p className="text-sm">Soyez le premier à répondre !</p>
+   727→            </div>
+   728→          ) : (
+   729→            <ScrollArea className="max-h-[500px]">
+   730→              <div>
+   731→                {discussion.replies.map(reply => (
+   732→                  <ReplyItem
+   733→                    key={reply.id}
+   734→                    reply={reply}
+   735→                    onLike={onLikeReply}
+   736→                    onReply={handleReplyTo}
+   737→                  />
+   738→                ))}
+   739→              </div>
+   740→            </ScrollArea>
+   741→          )}
+   742→        </CardContent>
+   743→      </Card>
+   744→
+   745→      {/* Reply input */}
+   746→      <Card>
+   747→        <CardContent className="p-4">
+   748→          {replyingTo && (
+   749→            <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-muted rounded-lg">
+   750→              <Reply className="h-4 w-4 text-muted-foreground" />
+   751→              <span className="text-sm text-muted-foreground">
+   752→                En réponse à <span className="font-medium text-foreground">{replyingTo.name}</span>
+   753→              </span>
+   754→              <button
+   755→                onClick={() => { setReplyingTo(null); setReplyText('') }}
+   756→                className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+   757→              >
+   758→                Annuler
+   759→              </button>
+   760→            </div>
+   761→          )}
+   762→          <div className="flex gap-3">
+   763→            <Textarea
+   764→              value={replyText}
+   765→              onChange={(e) => setReplyText(e.target.value)}
+   766→              placeholder="Écrivez votre réponse..."
+   767→              className="min-h-[80px] resize-none"
+   768→              onKeyDown={(e) => {
+   769→                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+   770→                  handleReply()
+   771→                }
+   772→              }}
+   773→            />
+   774→          </div>
+   775→          <div className="flex items-center justify-between mt-3">
+   776→            <span className="text-xs text-muted-foreground">
+   777→              ⌘+Entrée pour envoyer
+   778→            </span>
+   779→            <Button
+   780→              size="sm"
+   781→              onClick={handleReply}
+   782→              disabled={!replyText.trim() || isSubmitting}
+   783→              className="gap-1.5"
+   784→            >
+   785→              <Send className="h-4 w-4" />
+   786→              {isSubmitting ? 'Envoi...' : 'Envoyer'}
+   787→            </Button>
+   788→          </div>
+   789→        </CardContent>
+   790→      </Card>
+   791→    </motion.div>
+   792→  )
+   793→}
+   794→
+   795→// ─── New Discussion Dialog ───────────────────
+   796→
+   797→function NewDiscussionDialog({
+   798→  open,
+   799→  onOpenChange,
+   800→  onSubmit,
+   801→}: {
+   802→  open: boolean
+   803→  onOpenChange: (open: boolean) => void
+   804→  onSubmit: (data: { title: string; categoryId: string; content: string; tags: string[] }) => void
+   805→}) {
+   806→  const [title, setTitle] = useState('')
+   807→  const [categoryId, setCategoryId] = useState('')
+   808→  const [content, setContent] = useState('')
+   809→  const [tagsInput, setTagsInput] = useState('')
+   810→  const [isSubmitting, setIsSubmitting] = useState(false)
+   811→  const [errors, setErrors] = useState<Record<string, string>>({})
+   812→
+   813→  const validate = (): boolean => {
+   814→    const newErrors: Record<string, string> = {}
+   815→    if (!title.trim()) newErrors.title = 'Le titre est requis'
+   816→    else if (title.trim().length < 10) newErrors.title = 'Le titre doit contenir au moins 10 caractères'
+   817→    if (!categoryId) newErrors.category = 'Veuillez sélectionner une catégorie'
+   818→    if (!content.trim()) newErrors.content = 'Le contenu est requis'
+   819→    else if (content.trim().length < 20) newErrors.content = 'Le contenu doit contenir au moins 20 caractères'
+   820→    setErrors(newErrors)
+   821→    return Object.keys(newErrors).length === 0
+   822→  }
+   823→
+   824→  const handleSubmit = async () => {
+   825→    if (!validate()) return
+   826→    setIsSubmitting(true)
+   827→    const tags = tagsInput
+   828→      .split(',')
+   829→      .map(t => t.trim().toLowerCase())
+   830→      .filter(t => t.length > 0)
+   831→    let apiSuccess = false
+   832→    try {
+   833→      const token = localStorage.getItem('creapulse-token')
+   834→      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+   835→      if (token) headers['Authorization'] = `Bearer ${token}`
+   836→      const res = await fetch('/api/forum', {
+   837→        method: 'POST',
+   838→        headers,
+   839→        body: JSON.stringify({ title: title.trim(), categoryId, content: content.trim(), tags }),
+   840→      })
+   841→      if (res.ok) apiSuccess = true
+   842→    } catch {
+   843→      // Fallback to local-only
+   844→    }
+   845→    onSubmit({ title: title.trim(), categoryId, content: content.trim(), tags })
+   846→    setTitle('')
+   847→    setCategoryId('')
+   848→    setContent('')
+   849→    setTagsInput('')
+   850→    setErrors({})
+   851→    setIsSubmitting(false)
+   852→    onOpenChange(false)
+   853→    toast.success(apiSuccess ? 'Discussion créée avec succès !' : 'Discussion créée en mode hors ligne')
+   854→  }
+   855→
+   856→  return (
+   857→    <Dialog open={open} onOpenChange={onOpenChange}>
+   858→      <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
+   859→        <DialogHeader>
+   860→          <DialogTitle className="text-xl">Nouvelle discussion</DialogTitle>
+   861→        </DialogHeader>
+   862→        <div className="space-y-4 py-2">
+   863→          {/* Title */}
+   864→          <div className="space-y-1.5">
+   865→            <label className="text-sm font-medium text-foreground">Titre *</label>
+   866→            <Input
+   867→              value={title}
+   868→              onChange={(e) => setTitle(e.target.value)}
+   869→              placeholder="Ex: Comment choisir son statut juridique ?"
+   870→              className={errors.title ? 'border-destructive' : ''}
+   871→            />
+   872→            {errors.title && <p className="text-xs text-destructive">{errors.title}</p>}
+   873→          </div>
+   874→          {/* Category */}
+   875→          <div className="space-y-1.5">
+   876→            <label className="text-sm font-medium text-foreground">Catégorie *</label>
+   877→            <Select value={categoryId} onValueChange={setCategoryId}>
+   878→              <SelectTrigger className={errors.category ? 'border-destructive' : ''}>
+   879→                <SelectValue placeholder="Sélectionnez une catégorie" />
+   880→              </SelectTrigger>
+   881→              <SelectContent>
+   882→                {CATEGORIES.map(cat => (
+   883→                  <SelectItem key={cat.slug} value={cat.slug}>{cat.name}</SelectItem>
+   884→                ))}
+   885→              </SelectContent>
+   886→            </Select>
+   887→            {errors.category && <p className="text-xs text-destructive">{errors.category}</p>}
+   888→          </div>
+   889→          {/* Content */}
+   890→          <div className="space-y-1.5">
+   891→            <label className="text-sm font-medium text-foreground">Contenu *</label>
+   892→            <Textarea
+   893→              value={content}
+   894→              onChange={(e) => setContent(e.target.value)}
+   895→              placeholder="Décrivez votre question ou partagez votre expérience... (Markdown supporté)"
+   896→              className="min-h-[150px] resize-y"
+   897→            />
+   898→            {errors.content && <p className="text-xs text-destructive">{errors.content}</p>}
+   899→            <p className="text-xs text-muted-foreground">Markdown supporté : **gras**, *italique*, #titres, -listes</p>
+   900→          </div>
+   901→          {/* Tags */}
+   902→          <div className="space-y-1.5">
+   903→            <label className="text-sm font-medium text-foreground">Tags</label>
+   904→            <Input
+   905→              value={tagsInput}
+   906→              onChange={(e) => setTagsInput(e.target.value)}
+   907→              placeholder="Ex: financement, BPI France, startup (séparés par des virgules)"
+   908→            />
+   909→            <p className="text-xs text-muted-foreground">Séparez les tags par des virgules</p>
+   910→          </div>
+   911→        </div>
+   912→        <DialogFooter className="gap-2 sm:gap-0">
+   913→          <Button variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
+   914→          <Button onClick={handleSubmit} disabled={isSubmitting}>
+   915→            {isSubmitting ? 'Publication...' : 'Publier la discussion'}
+   916→          </Button>
+   917→        </DialogFooter>
+   918→      </DialogContent>
+   919→    </Dialog>
+   920→  )
+   921→}
+   922→
+   923→// ─── Forum Stats Banner ─────────────────────
+   924→
+   925→function ForumStats({ discussions }: { discussions: Discussion[] }) {
+   926→  const totalReplies = discussions.reduce((sum, d) => sum + d.replyCount, 0)
+   927→  const totalLikes = discussions.reduce((sum, d) => sum + d.likesCount, 0)
+   928→
+   929→  return (
+   930→    <div className="grid grid-cols-3 gap-3 mb-4">
+   931→      <div className="flex items-center gap-2 p-3 rounded-xl bg-primary/5 border border-primary/10">
+   932→        <MessageSquare className="h-4 w-4 text-primary" />
+   933→        <div>
+   934→          <p className="text-lg font-bold text-primary">{discussions.length}</p>
+   935→          <p className="text-[10px] md:text-xs text-muted-foreground">Discussions</p>
+   936→        </div>
+   937→      </div>
+   938→      <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/5 border border-amber-500/10">
+   939→        <Users className="h-4 w-4 text-amber-600" />
+   940→        <div>
+   941→          <p className="text-lg font-bold text-amber-600">{totalReplies}</p>
+   942→          <p className="text-[10px] md:text-xs text-muted-foreground">Réponses</p>
+   943→        </div>
+   944→      </div>
+   945→      <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-500/5 border border-rose-500/10">
+   946→        <Heart className="h-4 w-4 text-rose-500" />
+   947→        <div>
+   948→          <p className="text-lg font-bold text-rose-500">{totalLikes}</p>
+   949→          <p className="text-[10px] md:text-xs text-muted-foreground">J'aime</p>
+   950→        </div>
+   951→      </div>
+   952→    </div>
+   953→  )
+   954→}
+   955→
+   956→// ─── Main Forum Module ──────────────────────
+   957→
+   958→export function ForumModule() {
+   959→  const [discussions, setDiscussions] = useState<Discussion[]>(FALLBACK_DISCUSSIONS)
+   960→  const [selectedDiscussion, setSelectedDiscussion] = useState<Discussion | null>(null)
+   961→  const [searchQuery, setSearchQuery] = useState('')
+   962→  const [activeCategory, setActiveCategory] = useState<string>('all')
+   963→  const [newDiscussionOpen, setNewDiscussionOpen] = useState(false)
+   964→  const [sortBy, setSortBy] = useState<'recent' | 'popular' | 'comments'>('recent')
+   965→  const [loading, setLoading] = useState(true)
+   966→  const [isFallback, setIsFallback] = useState(false)
+   967→  const [isFetchingDetail, setIsFetchingDetail] = useState(false)
+   968→
+   969→  // Fetch discussions from API on mount
+   970→  useEffect(() => {
+   971→    const fetchDiscussions = async () => {
+   972→      try {
+   973→        const token = localStorage.getItem('creapulse-token')
+   974→        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+   975→        if (token) headers['Authorization'] = `Bearer ${token}`
+   976→        const params = new URLSearchParams({ sort: 'recent', limit: '20' })
+   977→        const res = await fetch(`/api/forum?${params.toString()}`, { headers })
+   978→        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+   979→        const json = await res.json()
+   980→        if (json.success && json.data?.discussions?.length > 0) {
+   981→          const apiDiscussions = (json.data.discussions as Record<string, unknown>[]).map(mapApiDiscussion)
+   982→          setDiscussions(apiDiscussions)
+   983→          setIsFallback(false)
+   984→        } else {
+   985→          setDiscussions(FALLBACK_DISCUSSIONS)
+   986→          setIsFallback(true)
+   987→        }
+   988→      } catch {
+   989→        setDiscussions(FALLBACK_DISCUSSIONS)
+   990→        setIsFallback(true)
+   991→      } finally {
+   992→        setLoading(false)
+   993→      }
+   994→    }
+   995→    fetchDiscussions()
+   996→  }, [])
+   997→
+   998→  // Fetch discussion detail with replies when selecting
+   999→  const fetchDiscussionDetail = useCallback(async (discussion: Discussion) => {
+  1000→    setSelectedDiscussion(discussion)
+  1001→    // For mock data, replies are already included
+  1002→    if (discussion.replies.length > 0) return
+  1003→    // For API data, fetch full detail
+  1004→    setIsFetchingDetail(true)
+  1005→    try {
+  1006→      const token = localStorage.getItem('creapulse-token')
+  1007→      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  1008→      if (token) headers['Authorization'] = `Bearer ${token}`
+  1009→      const res = await fetch(`/api/forum/${discussion.id}`, { headers })
+  1010→      if (res.ok) {
+  1011→        const json = await res.json()
+  1012→        if (json.success && json.data) {
+  1013→          const apiDisc = json.data as Record<string, unknown>
+  1014→          const detail = mapApiDiscussion(apiDisc)
+  1015→          detail.replies = ((apiDisc.replies as Record<string, unknown>[]) || []).map(mapApiReply)
+  1016→          detail.replyCount = detail.replies.length
+  1017→          setSelectedDiscussion(detail)
+  1018→          // Also update the discussion in the list
+  1019→          setDiscussions(prev => prev.map(d => d.id === detail.id ? { ...d, replies: detail.replies, replyCount: detail.replyCount } : d))
+  1020→        }
+  1021→      }
+  1022→    } catch {
+  1023→      // Keep list version without replies
+  1024→    } finally {
+  1025→      setIsFetchingDetail(false)
+  1026→    }
+  1027→  }, [])
+  1028→
+  1029→  // Filtered and sorted discussions
+  1030→  const filteredDiscussions = useMemo(() => {
+  1031→    let result = [...discussions]
+  1032→
+  1033→    // Category filter
+  1034→    if (activeCategory !== 'all') {
+  1035→      result = result.filter(d => d.category.slug === activeCategory)
+  1036→    }
+  1037→
+  1038→    // Search filter
+  1039→    if (searchQuery.trim()) {
+  1040→      const query = searchQuery.toLowerCase()
+  1041→      result = result.filter(d =>
+  1042→        d.title.toLowerCase().includes(query) ||
+  1043→        d.preview.toLowerCase().includes(query) ||
+  1044→        d.tags.some(t => t.toLowerCase().includes(query)) ||
+  1045→        d.author.name.toLowerCase().includes(query)
+  1046→      )
+  1047→    }
+  1048→
+  1049→    // Sort: pinned first, then by sort criteria
+  1050→    result.sort((a, b) => {
+  1051→      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1
+  1052→      switch (sortBy) {
+  1053→        case 'popular':
+  1054→          return b.likesCount - a.likesCount
+  1055→        case 'comments':
+  1056→          return b.replyCount - a.replyCount
+  1057→        case 'recent':
+  1058→        default:
+  1059→          return b.createdAt.getTime() - a.createdAt.getTime()
+  1060→      }
+  1061→    })
+  1062→
+  1063→    return result
+  1064→  }, [discussions, activeCategory, searchQuery, sortBy])
+  1065→
+  1066→  // Like a discussion
+  1067→  const handleLikeDiscussion = useCallback((discussionId: string) => {
+  1068→    setDiscussions(prev => prev.map(d => {
+  1069→      if (d.id !== discussionId) return d
+  1070→      const wasLiked = d.isLiked
+  1071→      return {
+  1072→        ...d,
+  1073→        isLiked: !wasLiked,
+  1074→        likesCount: wasLiked ? d.likesCount - 1 : d.likesCount + 1,
+  1075→      }
+  1076→    }))
+  1077→    if (selectedDiscussion?.id === discussionId) {
+  1078→      setSelectedDiscussion(prev => {
+  1079→        if (!prev) return null
+  1080→        const wasLiked = prev.isLiked
+  1081→        return {
+  1082→          ...prev,
+  1083→          isLiked: !wasLiked,
+  1084→          likesCount: wasLiked ? prev.likesCount - 1 : prev.likesCount + 1,
+  1085→        }
+  1086→      })
+  1087→    }
+  1088→  }, [selectedDiscussion])
+  1089→
+  1090→  // Like a reply
+  1091→  const handleLikeReply = useCallback((replyId: string) => {
+  1092→    const toggleReplyLikes = (replies: ReplyData[]): ReplyData[] =>
+  1093→      replies.map(r => {
+  1094→        if (r.id === replyId) {
+  1095→          return { ...r, isLiked: !r.isLiked, likesCount: r.isLiked ? r.likesCount - 1 : r.likesCount + 1 }
+  1096→        }
+  1097→        if (r.children.length > 0) {
+  1098→          return { ...r, children: toggleReplyLikes(r.children) }
+  1099→        }
+  1100→        return r
+  1101→      })
+  1102→
+  1103→    setDiscussions(prev => prev.map(d => ({
+  1104→      ...d,
+  1105→      replies: toggleReplyLikes(d.replies),
+  1106→    })))
+  1107→
+  1108→    if (selectedDiscussion) {
+  1109→      setSelectedDiscussion(prev => {
+  1110→        if (!prev) return null
+  1111→        return { ...prev, replies: toggleReplyLikes(prev.replies) }
+  1112→      })
+  1113→    }
+  1114→  }, [selectedDiscussion])
+  1115→
+  1116→  // Add a new reply
+  1117→  const handleAddReply = useCallback((content: string, parentId: string | null) => {
+  1118→    const newReply: ReplyData = {
+  1119→      id: `r-new-${Date.now()}`,
+  1120→      author: MOCK_AUTHORS[Math.floor(Math.random() * MOCK_AUTHORS.length)],
+  1121→      content,
+  1122→      likesCount: 0,
+  1123→      isLiked: false,
+  1124→      createdAt: new Date(),
+  1125→      parentId,
+  1126→      children: [],
+  1127→    }
+  1128→
+  1129→    const addReplyToList = (replies: ReplyData[]): ReplyData[] => {
+  1130→      if (!parentId) return [...replies, newReply]
+  1131→      return replies.map(r => {
+  1132→        if (r.id === parentId) {
+  1133→          return { ...r, children: [...r.children, newReply] }
+  1134→        }
+  1135→        if (r.children.length > 0) {
+  1136→          return { ...r, children: addReplyToList(r.children) }
+  1137→        }
+  1138→        return r
+  1139→      })
+  1140→    }
+  1141→
+  1142→    setDiscussions(prev => prev.map(d => {
+  1143→      if (d.id !== selectedDiscussion?.id) return d
+  1144→      return { ...d, replies: addReplyToList(d.replies), replyCount: d.replyCount + 1 }
+  1145→    }))
+  1146→
+  1147→    setSelectedDiscussion(prev => {
+  1148→      if (!prev) return null
+  1149→      return { ...prev, replies: addReplyToList(prev.replies), replyCount: prev.replyCount + 1 }
+  1150→    })
+  1151→  }, [selectedDiscussion])
+  1152→
+  1153→  // Create a new discussion
+  1154→  const handleCreateDiscussion = useCallback((data: {
+  1155→    title: string
+  1156→    categoryId: string
+  1157→    content: string
+  1158→    tags: string[]
+  1159→  }) => {
+  1160→    const newDiscussion: Discussion = {
+  1161→      id: `d-new-${Date.now()}`,
+  1162→      title: data.title,
+  1163→      content: data.content,
+  1164→      author: MOCK_AUTHORS[Math.floor(Math.random() * MOCK_AUTHORS.length)],
+  1165→      category: CATEGORY_MAP[data.categoryId] || CATEGORY_MAP['creation'],
+  1166→      preview: data.content.substring(0, 100) + (data.content.length > 100 ? '...' : ''),
+  1167→      replyCount: 0,
+  1168→      likesCount: 0,
+  1169→      isLiked: false,
+  1170→      isPinned: false,
+  1171→      tags: data.tags,
+  1172→      createdAt: new Date(),
+  1173→      replies: [],
+  1174→    }
+  1175→    setDiscussions(prev => [newDiscussion, ...prev])
+  1176→  }, [])
+  1177→
+  1178→  // Loading state
+  1179→  if (loading) {
+  1180→    return (
+  1181→      <div className="p-4 md:p-6 lg:p-8 space-y-4">
+  1182→        <SkeletonPulse className="h-10 w-64 rounded-lg" />
+  1183→        <SkeletonPulse className="h-24 rounded-xl" />
+  1184→        <SkeletonPulse className="h-10 w-full rounded-lg" />
+  1185→        <div className="space-y-3">
+  1186→          {Array.from({ length: 5 }).map((_, i) => (
+  1187→            <SkeletonPulse key={i} className="h-32 rounded-xl" />
+  1188→          ))}
+  1189→        </div>
+  1190→      </div>
+  1191→    )
+  1192→  }
+  1193→
+  1194→  return (
+  1195→    <div className="p-4 md:p-6 lg:p-8 space-y-4">
+  1196→      <AnimatePresence mode="wait">
+  1197→        {!selectedDiscussion ? (
+  1198→          /* ─── Discussion List View ─── */
+  1199→          <motion.div
+  1200→            key="list"
+  1201→            initial={{ opacity: 0 }}
+  1202→            animate={{ opacity: 1 }}
+  1203→            exit={{ opacity: 0 }}
+  1204→            transition={{ duration: 0.2 }}
+  1205→            className="space-y-4"
+  1206→          >
+  1207→            {/* Header */}
+  1208→            <div className="flex items-center justify-between gap-3">
+  1209→              <div className="flex items-center gap-3">
+  1210→                <div>
+  1211→                  <h2 className="text-xl md:text-2xl font-bold text-foreground">Forum</h2>
+  1212→                  <p className="text-sm text-muted-foreground mt-0.5">
+  1213→                    Échangez avec la communauté des entrepreneurs
+  1214→                  </p>
+  1215→                </div>
+  1216→                {isFallback && <DemoBadge />}
+  1217→              </div>
+  1218→              <Dialog open={newDiscussionOpen} onOpenChange={setNewDiscussionOpen}>
+  1219→                <DialogTrigger asChild>
+  1220→                  <Button size="sm" className="gap-1.5 shrink-0">
+  1221→                    <Plus className="h-4 w-4" />
+  1222→                    <span className="hidden sm:inline">Nouvelle discussion</span>
+  1223→                    <span className="sm:hidden">Nouveau</span>
+  1224→                  </Button>
+  1225→                </DialogTrigger>
+  1226→                <NewDiscussionDialog
+  1227→                  open={newDiscussionOpen}
+  1228→                  onOpenChange={setNewDiscussionOpen}
+  1229→                  onSubmit={handleCreateDiscussion}
+  1230→                />
+  1231→              </Dialog>
+  1232→            </div>
+  1233→
+  1234→            {/* Stats */}
+  1235→            <ForumStats discussions={discussions} />
+  1236→
+  1237→            {/* Search & Sort */}
+  1238→            <div className="flex items-center gap-3">
+  1239→              <div className="relative flex-1">
+  1240→                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+  1241→                <Input
+  1242→                  value={searchQuery}
+  1243→                  onChange={(e) => setSearchQuery(e.target.value)}
+  1244→                  placeholder="Rechercher une discussion, un tag, un auteur..."
+  1245→                  className="pl-9"
+  1246→                />
+  1247→              </div>
+  1248→              <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+  1249→                <SelectTrigger className="w-[140px]">
+  1250→                  <SelectValue />
+  1251→                </SelectTrigger>
+  1252→                <SelectContent>
+  1253→                  <SelectItem value="recent">
+  1254→                    <span className="flex items-center gap-1.5">
+  1255→                      <Clock className="h-3 w-3" /> Récent
+  1256→                    </span>
+  1257→                  </SelectItem>
+  1258→                  <SelectItem value="popular">
+  1259→                    <span className="flex items-center gap-1.5">
+  1260→                      <TrendingUp className="h-3 w-3" /> Populaire
+  1261→                    </span>
+  1262→                  </SelectItem>
+  1263→                  <SelectItem value="comments">
+  1264→                    <span className="flex items-center gap-1.5">
+  1265→                      <MessageSquare className="h-3 w-3" /> Commentés
+  1266→                    </span>
+  1267→                  </SelectItem>
+  1268→                </SelectContent>
+  1269→              </Select>
+  1270→            </div>
+  1271→
+  1272→            {/* Category filters */}
+  1273→            <ScrollArea className="w-full">
+  1274→              <div className="flex items-center gap-2 pb-2">
+  1275→                <button
+  1276→                  onClick={() => setActiveCategory('all')}
+  1277→                  className={cn(
+  1278→                    'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors shrink-0',
+  1279→                    activeCategory === 'all'
+  1280→                      ? 'bg-primary text-primary-foreground'
+  1281→                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+  1282→                  )}
+  1283→                >
+  1284→                  <Filter className="h-3 w-3" />
+  1285→                  Tous
+  1286→                </button>
+  1287→                {CATEGORIES.map(cat => (
+  1288→                  <button
+  1289→                    key={cat.slug}
+  1290→                    onClick={() => setActiveCategory(cat.slug)}
+  1291→                    className={cn(
+  1292→                      'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors shrink-0 border',
+  1293→                      activeCategory === cat.slug
+  1294→                        ? cn(cat.color, cat.bgColor, cat.borderColor, 'border')
+  1295→                        : 'bg-muted text-muted-foreground hover:bg-muted/80 border-transparent'
+  1296→                    )}
+  1297→                  >
+  1298→                    {cat.name}
+  1299→                  </button>
+  1300→                ))}
+  1301→              </div>
+  1302→            </ScrollArea>
+  1303→
+  1304→            {/* Discussion list */}
+  1305→            {filteredDiscussions.length === 0 ? (
+  1306→              <div className="text-center py-12">
+  1307→                <Search className="h-12 w-12 mx-auto mb-3 text-muted-foreground/40" />
+  1308→                <p className="text-lg font-medium text-muted-foreground">Aucune discussion trouvée</p>
+  1309→                <p className="text-sm text-muted-foreground mt-1">
+  1310→                  Essayez un autre terme de recherche ou catégorie
+  1311→                </p>
+  1312→              </div>
+  1313→            ) : (
+  1314→              <div className="space-y-3">
+  1315→                {filteredDiscussions.map((discussion, i) => (
+  1316→                  <motion.div
+  1317→                    key={discussion.id}
+  1318→                    initial={{ opacity: 0, y: 10 }}
+  1319→                    animate={{ opacity: 1, y: 0 }}
+  1320→                    transition={{ duration: 0.2, delay: Math.min(i * 0.03, 0.15) }}
+  1321→                  >
+  1322→                    <DiscussionCard
+  1323→                      discussion={discussion}
+  1324→                      onClick={() => {
+  1325→                        handleLikeDiscussion(discussion.id)
+  1326→                        fetchDiscussionDetail(discussion)
+  1327→                      }}
+  1328→                    />
+  1329→                  </motion.div>
+  1330→                ))}
+  1331→              </div>
+  1332→            )}
+  1333→          </motion.div>
+  1334→        ) : (
+  1335→          /* ─── Discussion Detail View ─── */
+  1336→          <motion.div
+  1337→            key="detail"
+  1338→            initial={{ opacity: 0 }}
+  1339→            animate={{ opacity: 1 }}
+  1340→            exit={{ opacity: 0 }}
+  1341→            transition={{ duration: 0.2 }}
+  1342→          >
+  1343→            <DiscussionDetail
+  1344→              discussion={selectedDiscussion}
+  1345→              onBack={() => setSelectedDiscussion(null)}
+  1346→              onLikeDiscussion={() => handleLikeDiscussion(selectedDiscussion.id)}
+  1347→              onLikeReply={handleLikeReply}
+  1348→              onAddReply={handleAddReply}
+  1349→            />
+  1350→          </motion.div>
+  1351→        )}
+  1352→      </AnimatePresence>
+  1353→    </div>
+  1354→  )
+  1355→}
+  1356→

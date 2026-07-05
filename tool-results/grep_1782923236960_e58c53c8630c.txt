@@ -1,0 +1,252 @@
+/home/z/my-project/src/data/swipe-questions.ts:873:    question: "Je reste patient même quand les résultats tardent à venir.",
+/home/z/my-project/src/data/swipe-questions.ts:1387:    question: "Classez ces comportements par ordre de pertinence quand les résultats tardent à venir :",
+/home/z/my-project/src/data/swipe-questions.ts:3448:      "Je crée une expérience immersive inattendue qui pousse les visiteurs à venir me voir et à en parler",
+/home/z/my-project/src/lib/pdf-utils.ts:163:  // GIDEF logo placeholder (orange badge)
+/home/z/my-project/src/lib/ft-enrichment.ts:291:  let summary = 'Événements à venir :\n'
+/home/z/my-project/src/lib/hooks/use-api-data.tsx:129:export function DemoBadge() {
+/home/z/my-project/src/components/conseiller/conseiller-layout.tsx:274:            placeholder="Rechercher..."
+/home/z/my-project/src/components/conseiller/livrables.tsx:241:            <SelectValue placeholder="Filtrer par type" />
+/home/z/my-project/src/components/conseiller/livrables.tsx:304:          placeholder="Rechercher par beneficiaire ou titre..."
+/home/z/my-project/src/components/conseiller/livrables.tsx:480:                    placeholder="Ajouter vos observations, remarques ou recommandations..."
+/home/z/my-project/src/components/metiers/quiz-engine.tsx:345:                          placeholder="Votre prénom"
+/home/z/my-project/src/components/metiers/quiz-engine.tsx:358:                          placeholder="Votre âge"
+/home/z/my-project/src/components/metiers/quiz-engine.tsx:372:                        placeholder="votre@email.com"
+/home/z/my-project/src/components/metiers/quiz-engine.tsx:386:                          placeholder="06 XX XX XX XX"
+/home/z/my-project/src/components/metiers/quiz-engine.tsx:397:                          placeholder="Votre ville"
+/home/z/my-project/src/components/conseiller/planning.tsx:567:                <SelectTrigger><SelectValue placeholder="Selectionner" /></SelectTrigger>
+/home/z/my-project/src/components/conseiller/planning.tsx:593:                  <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
+/home/z/my-project/src/components/conseiller/planning.tsx:604:                  <SelectTrigger><SelectValue placeholder="Mode" /></SelectTrigger>
+/home/z/my-project/src/components/conseiller/planning.tsx:616:                placeholder="Ajouter des notes..."
+/home/z/my-project/src/components/conseiller/beneficiaires-list.tsx:249:                placeholder="Rechercher par nom, email ou projet..."
+/home/z/my-project/src/components/conseiller/beneficiaires-list.tsx:276:                <SelectValue placeholder="Statut" />
+/home/z/my-project/src/components/conseiller/beneficiaires-list.tsx:295:                <SelectValue placeholder="Phase" />
+/home/z/my-project/src/components/conseiller/beneficiaire-360.tsx:589:              placeholder="Rechercher un bénéficiaire..."
+/home/z/my-project/src/components/conseiller/beneficiaire-360.tsx:1040:                        // Placeholder: In production, this would call an AI endpoint
+/home/z/my-project/src/components/ui/select.tsx:40:        "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex w-fit items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+/home/z/my-project/src/components/conseiller/visio.tsx:599:                <SelectValue placeholder="Selectionner un beneficiaire" />
+/home/z/my-project/src/components/conseiller/visio.tsx:617:              placeholder="ex: Suivi Business Plan"
+/home/z/my-project/src/components/conseiller/visio.tsx:871:                  placeholder="Rechercher une session..."
+/home/z/my-project/src/components/conseiller/entretiens.tsx:256:                    <SelectValue placeholder="Selectionner un beneficiaire" />
+/home/z/my-project/src/components/conseiller/entretiens.tsx:275:                    <SelectValue placeholder="Selectionner le type" />
+/home/z/my-project/src/components/conseiller/entretiens.tsx:314:                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+/home/z/my-project/src/components/conseiller/entretiens.tsx:315:                  placeholder="Ajouter des notes ou l'objet de l'entretien..."
+/home/z/my-project/src/components/conseiller/entretiens.tsx:368:                placeholder="Rechercher par beneficiaire ou conseiller..."
+/home/z/my-project/src/components/conseiller/entretiens.tsx:395:                <SelectValue placeholder="Type" />
+/home/z/my-project/src/components/conseiller/entretiens.tsx:415:                <SelectValue placeholder="Statut" />
+/home/z/my-project/src/components/conseiller/dashboard.tsx:569:                  <p className="mt-2 text-sm text-muted-foreground">Aucun rendez-vous à venir</p>
+/home/z/my-project/src/components/landing/hero-section.tsx:71:          {/* Right — illustration placeholder */}
+/home/z/my-project/src/components/landing/footer-section.tsx:76:                  placeholder="votre@email.com"
+/home/z/my-project/src/components/ui/textarea.tsx:10:        "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 flex field-sizing-content min-h-16 w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+/home/z/my-project/src/components/landing/reseau-section.tsx:83:              placeholder="Code postal..."
+/home/z/my-project/src/components/ui/input.tsx:11:        "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input flex h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+/home/z/my-project/src/components/auth/register-dialog.tsx:154:                  placeholder="Jean"
+/home/z/my-project/src/components/auth/register-dialog.tsx:173:                  placeholder="Dupont"
+/home/z/my-project/src/components/auth/register-dialog.tsx:194:                placeholder="vous@exemple.com"
+/home/z/my-project/src/components/auth/register-dialog.tsx:214:                placeholder="Minimum 8 caracteres"
+/home/z/my-project/src/components/auth/register-dialog.tsx:260:                placeholder="Repetez votre mot de passe"
+/home/z/my-project/src/components/auth/login-dialog.tsx:139:                placeholder="vous@exemple.com"
+/home/z/my-project/src/components/auth/login-dialog.tsx:170:                placeholder="••••••••"
+/home/z/my-project/src/components/ui/command.tsx:76:          "placeholder:text-muted-foreground flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
+/home/z/my-project/src/components/admin-plateforme/contenus.tsx:116:                  <div className="grid gap-2"><Label>Titre</Label><Input placeholder="Titre de l'article" /></div>
+/home/z/my-project/src/components/admin-plateforme/contenus.tsx:117:                  <div className="grid gap-2"><Label>Extrait</Label><Textarea placeholder="Resume de l'article..." /></div>
+/home/z/my-project/src/components/admin-plateforme/contenus.tsx:122:                  <div className="grid gap-2"><Label>Nom</Label><Input placeholder="Nom du partenaire" /></div>
+/home/z/my-project/src/components/admin-plateforme/contenus.tsx:124:                    <div className="grid gap-2"><Label>Site web</Label><Input placeholder="example.fr" /></div>
+/home/z/my-project/src/components/admin-plateforme/contenus.tsx:125:                    <div className="grid gap-2"><Label>Categorie</Label><Input placeholder="Ex: Financement" /></div>
+/home/z/my-project/src/components/admin-plateforme/contenus.tsx:131:                  <div className="grid gap-2"><Label>Titre du dispositif</Label><Input placeholder="Nom de l'aide" /></div>
+/home/z/my-project/src/components/admin-plateforme/contenus.tsx:132:                  <div className="grid gap-2"><Label>Description</Label><Textarea placeholder="Description du dispositif..." /></div>
+/home/z/my-project/src/components/admin-plateforme/contenus.tsx:134:                    <div className="grid gap-2"><Label>Eligibilite</Label><Input placeholder="Qui est eligible ?" /></div>
+/home/z/my-project/src/components/admin-plateforme/contenus.tsx:135:                    <div className="grid gap-2"><Label>Montant</Label><Input placeholder="Ex: 5 000€" /></div>
+/home/z/my-project/src/components/admin-plateforme/contenus.tsx:158:            <Input placeholder="Rechercher..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+/home/z/my-project/src/components/admin-plateforme/admin-plateforme-layout.tsx:231:            placeholder="Rechercher organisations, utilisateurs..."
+/home/z/my-project/src/components/admin-plateforme/modules.tsx:189:          <Input placeholder="Rechercher un module..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+/home/z/my-project/src/components/admin-plateforme/modules.tsx:192:          <SelectTrigger className="w-[180px]"><SelectValue placeholder="Catégorie" /></SelectTrigger>
+/home/z/my-project/src/components/admin-plateforme/organisations.tsx:110:                <Input placeholder="Ex: GIDEF Lyon" />
+/home/z/my-project/src/components/admin-plateforme/organisations.tsx:116:                    <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
+/home/z/my-project/src/components/admin-plateforme/organisations.tsx:128:                  <Input placeholder="Ex: Lyon" />
+/home/z/my-project/src/components/admin-plateforme/organisations.tsx:135:                    <SelectTrigger><SelectValue placeholder="Plan" /></SelectTrigger>
+/home/z/my-project/src/components/admin-plateforme/organisations.tsx:145:                  <Input placeholder="email@org.fr" type="email" />
+/home/z/my-project/src/components/admin-plateforme/organisations.tsx:161:          <Input placeholder="Rechercher par nom ou ville..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+/home/z/my-project/src/components/admin-plateforme/organisations.tsx:164:          <SelectTrigger className="w-[140px]"><SelectValue placeholder="Type" /></SelectTrigger>
+/home/z/my-project/src/components/admin-plateforme/organisations.tsx:175:          <SelectTrigger className="w-[130px]"><SelectValue placeholder="Plan" /></SelectTrigger>
+/home/z/my-project/src/components/admin-plateforme/organisations.tsx:184:          <SelectTrigger className="w-[130px]"><SelectValue placeholder="Statut" /></SelectTrigger>
+/home/z/my-project/src/components/admin-plateforme/utilisateurs.tsx:110:                <div className="grid gap-2"><Label>Prenom</Label><Input placeholder="Prenom" /></div>
+/home/z/my-project/src/components/admin-plateforme/utilisateurs.tsx:111:                <div className="grid gap-2"><Label>Nom</Label><Input placeholder="Nom" /></div>
+/home/z/my-project/src/components/admin-plateforme/utilisateurs.tsx:113:              <div className="grid gap-2"><Label>Email</Label><Input placeholder="email@exemple.fr" type="email" /></div>
+/home/z/my-project/src/components/admin-plateforme/utilisateurs.tsx:118:                    <SelectTrigger><SelectValue placeholder="Role" /></SelectTrigger>
+/home/z/my-project/src/components/admin-plateforme/utilisateurs.tsx:129:                    <SelectTrigger><SelectValue placeholder="Organisation" /></SelectTrigger>
+/home/z/my-project/src/components/admin-plateforme/utilisateurs.tsx:149:          <Input placeholder="Rechercher par nom ou email..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+/home/z/my-project/src/components/admin-plateforme/utilisateurs.tsx:152:          <SelectTrigger className="w-[140px]"><SelectValue placeholder="Role" /></SelectTrigger>
+/home/z/my-project/src/components/admin-plateforme/utilisateurs.tsx:161:          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Organisation" /></SelectTrigger>
+/home/z/my-project/src/components/admin-plateforme/utilisateurs.tsx:168:          <SelectTrigger className="w-[130px]"><SelectValue placeholder="Statut" /></SelectTrigger>
+/home/z/my-project/src/components/admin-plateforme/paa-pack.tsx:134:      // Stats unavailable — show placeholder
+/home/z/my-project/src/components/admin-centre/parametres.tsx:208:                  <SelectValue placeholder="Selectionner une region" />
+/home/z/my-project/src/components/admin-centre/parametres.tsx:454:                placeholder="Ex: Marie Dupont"
+/home/z/my-project/src/components/admin-centre/parametres.tsx:464:                placeholder="marie.dupont@lidef.fr"
+/home/z/my-project/src/components/admin-centre/beneficiaires.tsx:110:            placeholder="Rechercher par nom, email, projet..."
+/home/z/my-project/src/components/admin-centre/beneficiaires.tsx:120:              <SelectValue placeholder="Conseiller" />
+/home/z/my-project/src/components/admin-centre/beneficiaires.tsx:130:              <SelectValue placeholder="Phase" />
+/home/z/my-project/src/components/admin-centre/beneficiaires.tsx:140:              <SelectValue placeholder="Statut" />
+/home/z/my-project/src/components/admin-centre/planning.tsx:97:              <SelectValue placeholder="Filtrer par conseiller" />
+/home/z/my-project/src/components/bureau/ia-assistant.tsx:1034:                  placeholder="Posez votre question..."
+/home/z/my-project/src/components/admin-centre/conseillers.tsx:90:          placeholder="Rechercher un conseiller..."
+/home/z/my-project/src/components/admin-centre/admin-centre-layout.tsx:203:              placeholder="Rechercher..."
+/home/z/my-project/src/components/bureau/export/passeport-pdf.tsx:447:          {/* QR Code placeholder */}
+/home/z/my-project/src/components/bureau/topbar.tsx:146:          placeholder="Rechercher..."
+/home/z/my-project/src/components/bureau/bureau-layout.tsx:70:/* ─── UI imports (used by SectionOverview and ModulePlaceholder) ─── */
+/home/z/my-project/src/components/bureau/bureau-layout.tsx:75:/* ─── Module placeholder content map (derived from MODULE_REGISTRY) ─── */
+/home/z/my-project/src/components/bureau/bureau-layout.tsx:83:/* ─── Section placeholder content (derived from SECTION_META) ─── */
+/home/z/my-project/src/components/bureau/bureau-layout.tsx:91:/* ─── Placeholder module view ─── */
+/home/z/my-project/src/components/bureau/bureau-layout.tsx:92:function ModulePlaceholder({ moduleId }: { moduleId: string }) {
+/home/z/my-project/src/components/bureau/bureau-layout.tsx:265:        {/* Module is disabled — show placeholder */}
+/home/z/my-project/src/components/bureau/bureau-layout.tsx:266:        {modulesLoaded && currentModule && !isModuleActive(currentModule) && <ModulePlaceholder moduleId={currentModule} />}
+/home/z/my-project/src/components/bureau/modules/privacy-dashboard.tsx:570:                  placeholder="Raison de la demande (optionnel)..."
+/home/z/my-project/src/components/bureau/modules/mentorat.tsx:490:                placeholder="Rechercher un mentor..."
+/home/z/my-project/src/components/bureau/modules/mentorat.tsx:517:                <SelectValue placeholder="Expertise" />
+/home/z/my-project/src/components/bureau/modules/mentorat.tsx:530:                <SelectValue placeholder="Secteur" />
+/home/z/my-project/src/components/bureau/modules/mentorat.tsx:543:                <SelectValue placeholder="Disponibilité" />
+/home/z/my-project/src/components/bureau/modules/mentorat.tsx:654:                placeholder="Présentez votre projet et expliquez pourquoi vous souhaitez être mentoré(e)..."
+/home/z/my-project/src/app/actualites/page.tsx:257:                  placeholder="Rechercher un article..."
+/home/z/my-project/src/components/bureau/modules/profil-createur.tsx:470:                    placeholder="06 12 34 56 78"
+/home/z/my-project/src/components/bureau/modules/profil-createur.tsx:480:                    placeholder="Votre adresse complète"
+/home/z/my-project/src/components/bureau/modules/profil-createur.tsx:515:                        <SelectValue placeholder="Sélectionnez..." />
+/home/z/my-project/src/components/bureau/modules/profil-createur.tsx:533:                        <SelectValue placeholder="Sélectionnez..." />
+/home/z/my-project/src/components/bureau/modules/profil-createur.tsx:550:                    placeholder="Ex: BTS Communication, Master en informatique..."
+/home/z/my-project/src/components/bureau/modules/profil-createur.tsx:574:                      placeholder="Ajouter une compétence..."
+/home/z/my-project/src/components/bureau/modules/profil-createur.tsx:620:                    placeholder="Décrivez ce qui vous motive à entreprendre..."
+/home/z/my-project/src/components/bureau/modules/profil-createur.tsx:661:                            placeholder="Type d'activité, durée, résultats..."
+/home/z/my-project/src/components/bureau/modules/marketing-commerciale.tsx:118:        placeholder={`Décrivez votre stratégie ${label.toLowerCase()}...`}
+/home/z/my-project/src/components/bureau/modules/marketing-commerciale.tsx:146:            placeholder="Nom du persona"
+/home/z/my-project/src/components/bureau/modules/marketing-commerciale.tsx:158:          placeholder="Âge"
+/home/z/my-project/src/components/bureau/modules/marketing-commerciale.tsx:164:          placeholder="Genre"
+/home/z/my-project/src/components/bureau/modules/marketing-commerciale.tsx:170:          placeholder="Localisation"
+/home/z/my-project/src/components/bureau/modules/marketing-commerciale.tsx:176:          placeholder="Revenus"
+/home/z/my-project/src/components/bureau/modules/marketing-commerciale.tsx:183:        placeholder="Points de douleur / frustrations..."
+/home/z/my-project/src/components/bureau/modules/marketing-commerciale.tsx:189:        placeholder="Objectifs / attentes..."
+/home/z/my-project/src/components/bureau/modules/marketing-commerciale.tsx:217:            placeholder="Nom du canal"
+/home/z/my-project/src/components/bureau/modules/marketing-commerciale.tsx:273:        placeholder="Notes ou actions prévues..."
+/home/z/my-project/src/components/bureau/modules/marketing-commerciale.tsx:637:                        placeholder="Nom du KPI"
+/home/z/my-project/src/components/bureau/modules/marketing-commerciale.tsx:645:                          placeholder="100"
+/home/z/my-project/src/components/bureau/modules/marketing-commerciale.tsx:655:                          placeholder="0"
+/home/z/my-project/src/components/bureau/modules/creasim.tsx:777:                      placeholder="Nouvelle charge..."
+/home/z/my-project/src/components/bureau/modules/creasim.tsx:786:                        placeholder="0"
+/home/z/my-project/src/components/bureau/modules/messages.tsx:485:              placeholder="Rechercher une conversation..."
+/home/z/my-project/src/components/bureau/modules/messages.tsx:488:              className="w-full rounded-xl border border-border bg-muted/40 py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground transition-colors focus:border-teal-400 focus:bg-background focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:bg-muted/20 dark:focus:border-teal-500/50"
+/home/z/my-project/src/components/bureau/modules/messages.tsx:931:                    placeholder="Ecrire un message..."
+/home/z/my-project/src/components/bureau/modules/messages.tsx:933:                    className="w-full resize-none rounded-2xl border border-border bg-muted/40 px-4 py-2.5 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground transition-all focus:border-teal-400 focus:bg-background focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:bg-muted/20 dark:focus:border-teal-500/50"
+/home/z/my-project/src/components/bureau/modules/satisfaction-feedback.tsx:344:              placeholder="Partagez vos impressions, suggestions ou points d'amélioration..."
+/home/z/my-project/src/components/bureau/modules/bmc.tsx:47:  placeholder: string
+/home/z/my-project/src/components/bureau/modules/bmc.tsx:55:  { id: 'partenaires-cles', title: 'Partenaires Clés', icon: Handshake, placeholder: 'Qui sont vos partenaires et fournisseurs clés ? Quelles ressources obtenez-vous d\'eux ?', content: '', color: 'text-teal-400 bg-teal-500/20 border-teal-500/30' },
+/home/z/my-project/src/components/bureau/modules/bmc.tsx:56:  { id: 'activites-cles', title: 'Activités Clés', icon: Cog, placeholder: 'Quelles sont les activités principales pour créer votre proposition de valeur ? Production, résolution de problèmes, gestion de plateforme...', content: '', color: 'text-teal-400 bg-teal-500/20 border-teal-500/30' },
+/home/z/my-project/src/components/bureau/modules/bmc.tsx:57:  { id: 'ressources-cles', title: 'Ressources Clés', icon: Package, placeholder: 'Quelles ressources sont nécessaires ? Physiques, intellectuelles, humaines, financières...', content: '', color: 'text-teal-400 bg-teal-500/20 border-teal-500/30' },
+/home/z/my-project/src/components/bureau/modules/bmc.tsx:58:  { id: 'proposition-valeur', title: 'Proposition de Valeur', icon: Lightbulb, placeholder: 'Quelle valeur unique apportez-vous à vos clients ? Quel problème résolvez-vous ? Pourquoi vous choisir ?', content: '', color: 'text-amber-400 bg-amber-500/20 border-amber-500/30' },
+/home/z/my-project/src/components/bureau/modules/bmc.tsx:59:  { id: 'relations-clients', title: 'Relations Clients', icon: HeartHandshake, placeholder: 'Quel type de relation entretenez-vous avec vos clients ? Assistance personnelle, communautaire, automatisée...', content: '', color: 'text-teal-400 bg-teal-500/20 border-teal-500/30' },
+/home/z/my-project/src/components/bureau/modules/bmc.tsx:60:  { id: 'canaux', title: 'Canaux', icon: Megaphone, placeholder: 'Comment atteignez-vous vos clients ? Canaux de distribution, communication, vente...', content: '', color: 'text-teal-400 bg-teal-500/20 border-teal-500/30' },
+/home/z/my-project/src/components/bureau/modules/bmc.tsx:61:  { id: 'segments-clients', title: 'Segments Clients', icon: Users, placeholder: 'Pour qui créez-vous de la valeur ? Quels sont vos segments de clientèle ?', content: '', color: 'text-teal-400 bg-teal-500/20 border-teal-500/30' },
+/home/z/my-project/src/components/bureau/modules/bmc.tsx:62:  { id: 'structure-couts', title: 'Structure des Coûts', icon: Wallet, placeholder: 'Quels sont les coûts les plus importants ? Coûts fixes, variables, économies d\'échelle...', content: '', color: 'text-coral-400 bg-coral-500/20 border-coral-500/30' },
+/home/z/my-project/src/components/bureau/modules/bmc.tsx:63:  { id: 'sources-revenus', title: 'Sources de Revenus', icon: Banknote, placeholder: 'Comment générez-vous des revenus ? Ventes directes, abonnements, commissions, licensing...', content: '', color: 'text-coral-400 bg-coral-500/20 border-coral-500/30' },
+/home/z/my-project/src/components/bureau/modules/bmc.tsx:353:            placeholder={block.placeholder}
+/home/z/my-project/src/components/bureau/modules/bmc.tsx:354:            className="min-h-[80px] lg:min-h-[100px] text-xs leading-relaxed resize-none bg-muted/50 border-border text-muted-foreground placeholder:text-neutral-500 focus-visible:ring-teal-500/30 focus-visible:border-teal-500/30"
+/home/z/my-project/src/components/bureau/modules/annuaire.tsx:47:import { DemoBadge } from '@/lib/hooks/use-api-data'
+/home/z/my-project/src/components/bureau/modules/annuaire.tsx:653:          {isFallback && <DemoBadge />}
+/home/z/my-project/src/components/bureau/modules/annuaire.tsx:665:            placeholder="Rechercher par nom, ville, service..."
+/home/z/my-project/src/components/bureau/modules/annuaire.tsx:772:                      <SelectValue placeholder="Toutes les villes" />
+/home/z/my-project/src/components/bureau/modules/forum.tsx:40:import { DemoBadge, SkeletonPulse } from '@/lib/hooks/use-api-data'
+/home/z/my-project/src/components/bureau/modules/forum.tsx:766:              placeholder="Écrivez votre réponse..."
+/home/z/my-project/src/components/bureau/modules/forum.tsx:869:              placeholder="Ex: Comment choisir son statut juridique ?"
+/home/z/my-project/src/components/bureau/modules/forum.tsx:879:                <SelectValue placeholder="Sélectionnez une catégorie" />
+/home/z/my-project/src/components/bureau/modules/forum.tsx:895:              placeholder="Décrivez votre question ou partagez votre expérience... (Markdown supporté)"
+/home/z/my-project/src/components/bureau/modules/forum.tsx:907:              placeholder="Ex: financement, BPI France, startup (séparés par des virgules)"
+/home/z/my-project/src/components/bureau/modules/forum.tsx:1216:                {isFallback && <DemoBadge />}
+/home/z/my-project/src/components/bureau/modules/forum.tsx:1244:                  placeholder="Rechercher une discussion, un tag, un auteur..."
+/home/z/my-project/src/components/bureau/modules/tresorerie.tsx:153:              <Input type="number" value={form.montant} onChange={e => setForm(p => ({ ...p, montant: e.target.value }))} placeholder="1500" />
+/home/z/my-project/src/components/bureau/modules/tresorerie.tsx:158:            <Input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Prestation de conseil" />
+/home/z/my-project/src/components/bureau/modules/tresorerie.tsx:162:            <Input value={form.tiers} onChange={e => setForm(p => ({ ...p, tiers: e.target.value }))} placeholder="Entreprise ABC" />
+/home/z/my-project/src/components/bureau/modules/tresorerie.tsx:463:                <SelectTrigger className="w-40"><SelectValue placeholder="Mois" /></SelectTrigger>
+/home/z/my-project/src/components/bureau/modules/tresorerie.tsx:470:                <SelectTrigger className="w-40"><SelectValue placeholder="Type" /></SelectTrigger>
+/home/z/my-project/src/components/bureau/modules/tresorerie.tsx:528:                        <Input type="number" value={est.revenus || ''} onChange={e => setData(p => ({ ...p, monthlyEstimates: { ...p.monthlyEstimates, [key]: { ...est, revenus: Number(e.target.value) || 0 } } }))} placeholder="Revenus" className="h-9" />
+/home/z/my-project/src/components/bureau/modules/tresorerie.tsx:532:                        <Input type="number" value={est.charges || ''} onChange={e => setData(p => ({ ...p, monthlyEstimates: { ...p.monthlyEstimates, [key]: { ...est, charges: Number(e.target.value) || 0 } } }))} placeholder="Charges" className="h-9" />
+/home/z/my-project/src/components/bureau/modules/objectifs-smart.tsx:409:                    placeholder="Ex: Atteindre 5 000 € de CA mensuel d'ici décembre"
+/home/z/my-project/src/components/bureau/modules/objectifs-smart.tsx:425:                      placeholder="Décrivez précisément ce que vous voulez atteindre..."
+/home/z/my-project/src/components/bureau/modules/objectifs-smart.tsx:439:                      placeholder="Indicateurs de mesure : nombre de clients, CA, etc."
+/home/z/my-project/src/components/bureau/modules/objectifs-smart.tsx:453:                      placeholder="Ressources disponibles, compétences, contraintes..."
+/home/z/my-project/src/components/bureau/modules/objectifs-smart.tsx:467:                      placeholder="Alignement avec la vision, impact sur le projet..."
+/home/z/my-project/src/components/bureau/modules/gestion-temps.tsx:265:  placeholder,
+/home/z/my-project/src/components/bureau/modules/gestion-temps.tsx:276:  placeholder: string
+/home/z/my-project/src/components/bureau/modules/gestion-temps.tsx:319:          placeholder={placeholder}
+/home/z/my-project/src/components/bureau/modules/gestion-temps.tsx:803:                placeholder="Que travaillez-vous en ce moment ?"
+/home/z/my-project/src/components/bureau/modules/gestion-temps.tsx:1317:            placeholder={"- Prospection clients : 3h\n- Réalisation prestation : 4h\n- Comptabilité : 1h\n- Réseaux sociaux : 1.5h\n- Emails & admin : 1h\n- Formation : 30min"}
+/home/z/my-project/src/components/bureau/modules/gestion-temps.tsx:1341:            placeholder="Ex: Livraison client urgente"
+/home/z/my-project/src/components/bureau/modules/gestion-temps.tsx:1353:            placeholder="Ex: Répondre aux emails non-critiques"
+/home/z/my-project/src/components/bureau/modules/gestion-temps.tsx:1365:            placeholder="Ex: Stratégie, formation"
+/home/z/my-project/src/components/bureau/modules/gestion-temps.tsx:1377:            placeholder="Ex: Scrolling réseaux sociaux"
+/home/z/my-project/src/components/bureau/modules/gestion-temps.tsx:1436:                  placeholder="8h-10h : Prospection | 10h-12h : Production | ..."
+/home/z/my-project/src/components/bureau/modules/e-learning.tsx:351:              <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Rechercher une formation..." className="pl-9" />
+/home/z/my-project/src/components/bureau/modules/e-learning.tsx:354:              <SelectTrigger className="w-full sm:w-36"><SelectValue placeholder="Catégorie" /></SelectTrigger>
+/home/z/my-project/src/components/bureau/modules/e-learning.tsx:361:              <SelectTrigger className="w-full sm:w-36"><SelectValue placeholder="Niveau" /></SelectTrigger>
+/home/z/my-project/src/components/bureau/modules/pitch-deck.tsx:56:  { id: 'problem', title: 'Problème', icon: AlertTriangle, color: 'bg-red-500', placeholder: 'Décrivez le problème que vous résolvez. Quel est le point de douleur de votre client cible ? Pourquoi ce problème existe-t-il ?' },
+/home/z/my-project/src/components/bureau/modules/pitch-deck.tsx:57:  { id: 'solution', title: 'Solution', icon: Lightbulb, color: 'bg-amber-500', placeholder: 'Présentez votre solution. Comment résout-elle le problème identifié ? En quoi est-elle unique ou supérieure aux alternatives existantes ?' },
+/home/z/my-project/src/components/bureau/modules/pitch-deck.tsx:58:  { id: 'market', title: 'Marché', icon: TrendingUp, color: 'bg-[#00838F]', placeholder: 'Décrivez votre marché : taille, croissance, segments. Quelle est votre opportunité de marché ?' },
+/home/z/my-project/src/components/bureau/modules/pitch-deck.tsx:59:  { id: 'business-model', title: 'Business Model', icon: DollarSign, color: 'bg-green-500', placeholder: 'Expliquez comment vous gagnez de l\'argent. Quelles sont vos sources de revenus ? Votre modèle de tarification ?' },
+/home/z/my-project/src/components/bureau/modules/pitch-deck.tsx:60:  { id: 'traction', title: 'Traction', icon: Target, color: 'bg-purple-500', placeholder: 'Partagez vos accomplissements actuels : clients, CA, partenariats, utilisateurs, indicateurs clés...' },
+/home/z/my-project/src/components/bureau/modules/pitch-deck.tsx:61:  { id: 'team', title: 'Équipe', icon: Users, color: 'bg-sky-500', placeholder: '' },
+/home/z/my-project/src/components/bureau/modules/pitch-deck.tsx:62:  { id: 'financial', title: 'Financier', icon: DollarSign, color: 'bg-[#FF6B35]', placeholder: 'Résumez vos projections financières : CA, résultat net, marges sur 3 ans.' },
+/home/z/my-project/src/components/bureau/modules/pitch-deck.tsx:63:  { id: 'ask', title: 'Ask', icon: Sparkles, color: 'bg-pink-500', placeholder: 'Combien cherchez-vous à lever ? À quoi serviront les fonds ? Quel est votre plan d\'utilisation ?' },
+/home/z/my-project/src/components/bureau/modules/pitch-deck.tsx:545:                                      placeholder="Nom"
+/home/z/my-project/src/components/bureau/modules/pitch-deck.tsx:551:                                      placeholder="Rôle (ex: CEO, CTO)"
+/home/z/my-project/src/components/bureau/modules/pitch-deck.tsx:563:                                placeholder="Parcours, compétences, expérience..."
+/home/z/my-project/src/components/bureau/modules/pitch-deck.tsx:592:                          placeholder="Ex : 50 000 €, 100 000 €..."
+/home/z/my-project/src/components/bureau/modules/pitch-deck.tsx:603:                          placeholder="Ex : 18 mois de trésorerie"
+/home/z/my-project/src/components/bureau/modules/pitch-deck.tsx:613:                        placeholder="Décrivez comment vous utiliserez les fonds levés : développement produit, marketing, recrutement..."
+/home/z/my-project/src/components/bureau/modules/pitch-deck.tsx:624:                      placeholder={activeDef?.placeholder || 'Contenu de la slide...'}
+/home/z/my-project/src/components/bureau/modules/crm.tsx:165:            <Input value={form.nom} onChange={e => setForm(p => ({ ...p, nom: e.target.value }))} placeholder="Jean Dupont" />
+/home/z/my-project/src/components/bureau/modules/crm.tsx:170:              <Input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} placeholder="jean@email.com" />
+/home/z/my-project/src/components/bureau/modules/crm.tsx:174:              <Input value={form.telephone} onChange={e => setForm(p => ({ ...p, telephone: e.target.value }))} placeholder="06 12 34 56 78" />
+/home/z/my-project/src/components/bureau/modules/crm.tsx:180:              <Input value={form.entreprise} onChange={e => setForm(p => ({ ...p, entreprise: e.target.value }))} placeholder="Ma Startup" />
+/home/z/my-project/src/components/bureau/modules/crm.tsx:194:            <Textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Notes sur ce contact..." className="min-h-[80px] resize-none" />
+/home/z/my-project/src/components/bureau/modules/crm.tsx:250:              <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
+/home/z/my-project/src/components/bureau/modules/crm.tsx:259:              <Input type="number" value={form.valeur} onChange={e => setForm(p => ({ ...p, valeur: e.target.value }))} placeholder="5000" />
+/home/z/my-project/src/components/bureau/modules/crm.tsx:273:            <Textarea value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Détails de l'opportunité..." className="min-h-[60px] resize-none" />
+/home/z/my-project/src/components/bureau/modules/crm.tsx:468:              <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Rechercher un contact..." className="pl-9" />
+/home/z/my-project/src/components/bureau/modules/crm.tsx:471:              <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Filtrer par rôle" /></SelectTrigger>
+/home/z/my-project/src/components/bureau/modules/marche.tsx:752:                placeholder="Vos avantages compétitifs, expertise, innovation..."
+/home/z/my-project/src/components/bureau/modules/marche.tsx:774:                placeholder="Points à améliorer, manque de moyens, expérience limitée..."
+/home/z/my-project/src/components/bureau/modules/marche.tsx:796:                placeholder="Marché en croissance, besoins non satisfaits, aides..."
+/home/z/my-project/src/components/bureau/modules/marche.tsx:818:                placeholder="Concurrence, réglementation, risques économiques..."
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:556:              placeholder={`Rédigez le contenu de la section "${sectionDef.title}"...`}
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:616:                    placeholder={`Listez vos ${q.label.toLowerCase()}...`}
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:648:                <SelectValue placeholder="Sélectionnez votre statut juridique..." />
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1198:                    placeholder="Nom du produit..."
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1204:                    placeholder="Description courte..."
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1230:                      placeholder="0"
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1243:                      placeholder="0"
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1255:                    placeholder="0"
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1283:                placeholder="Ex: Formation en ligne..."
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1293:                placeholder="Description courte..."
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1303:                placeholder="0"
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1313:                placeholder="0"
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1323:                placeholder="0"
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1426:                        placeholder="Prénom..."
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1432:                        placeholder="Nom..."
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1439:                      placeholder="Rôle (ex: Gérant, Président...)"
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1465:                    placeholder="0"
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1475:                    placeholder="0"
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1486:                      placeholder="0"
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1512:                placeholder="Prénom..."
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1522:                placeholder="Nom..."
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1531:                placeholder="Ex: Gérant, Président..."
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1541:                placeholder="0"
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1551:                placeholder="0"
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1561:                placeholder="0"
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1638:                        placeholder="Prénom..."
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1644:                        placeholder="Nom..."
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1651:                      placeholder="Fonction (ex: Co-gérant, Directeur technique...)"
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1672:                    placeholder="email@exemple.com"
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1682:                    placeholder="06 00 00 00 00"
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1706:                placeholder="Prénom..."
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1716:                placeholder="Nom..."
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1725:                placeholder="Ex: Co-gérant, Directeur..."
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1735:                placeholder="email@exemple.com"
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1745:                placeholder="06 00 00 00 00"
+/home/z/my-project/src/components/bureau/modules/business-plan.tsx:1806:                    placeholder="Ex: Apport personnel..."
+
+[Showing results with pagination = limit: 250]

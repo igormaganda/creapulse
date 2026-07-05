@@ -1,0 +1,709 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Textarea } from '@/components/ui/textarea'
+     9→import { Separator } from '@/components/ui/separator'
+    10→import {
+    11→  Popover,
+    12→  PopoverContent,
+    13→  PopoverTrigger,
+    14→} from '@/components/ui/popover'
+    15→import {
+    16→  Target,
+    17→  Save,
+    18→  Sparkles,
+    19→  Loader2,
+    20→  Info,
+    21→  Plus,
+    22→  Check,
+    23→  Trash2,
+    24→  CalendarDays,
+    25→  Award,
+    26→  TrendingUp,
+    27→  X,
+    28→} from 'lucide-react'
+    29→import { toast } from 'sonner'
+    30→import { cn } from '@/lib/utils'
+    31→import { authFetch } from '@/lib/auth-fetch'
+    32→
+    33→// ─── Types ──────────────────────────────────
+    34→
+    35→type ObjectiveStatus = 'en_cours' | 'atteint' | 'abandonne'
+    36→
+    37→interface SmartObjective {
+    38→  id: string
+    39→  titre: string
+    40→  specifique: string
+    41→  mesurable: string
+    42→  atteignable: string
+    43→  pertinent: string
+    44→  temporel: string
+    45→  progress: number
+    46→  status: ObjectiveStatus
+    47→  createdAt: string
+    48→  updatedAt: string
+    49→}
+    50→
+    51→// ─── Default empty objective ────────────────
+    52→
+    53→function createObjective(): SmartObjective {
+    54→  return {
+    55→    id: crypto.randomUUID(),
+    56→    titre: '',
+    57→    specifique: '',
+    58→    mesurable: '',
+    59→    atteignable: '',
+    60→    pertinent: '',
+    61→    temporel: '',
+    62→    progress: 0,
+    63→    status: 'en_cours',
+    64→    createdAt: new Date().toISOString(),
+    65→    updatedAt: new Date().toISOString(),
+    66→  }
+    67→}
+    68→
+    69→// ─── Helpers ────────────────────────────────
+    70→
+    71→function InfoPopover({ text }: { text: string }) {
+    72→  return (
+    73→    <Popover>
+    74→      <PopoverTrigger asChild>
+    75→        <button type="button" className="inline-flex items-center justify-center h-5 w-5 rounded-full text-muted-foreground hover:text-amber-600 hover:bg-amber-600/10 transition-colors shrink-0">
+    76→          <Info className="h-3.5 w-3.5" />
+    77→          <span className="sr-only">Aide</span>
+    78→        </button>
+    79→      </PopoverTrigger>
+    80→      <PopoverContent side="top" className="max-w-sm text-sm bg-popover border-border shadow-lg">
+    81→        <p className="text-muted-foreground leading-relaxed">{text}</p>
+    82→      </PopoverContent>
+    83→    </Popover>
+    84→  )
+    85→}
+    86→
+    87→function formatDate(dateStr: string): string {
+    88→  if (!dateStr) return ''
+    89→  try {
+    90→    return new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+    91→  } catch {
+    92→    return dateStr
+    93→  }
+    94→}
+    95→
+    96→// ─── Main Component ─────────────────────────
+    97→
+    98→export function ObjectifsSmartModule() {
+    99→  const [isLoading, setIsLoading] = useState(true)
+   100→  const [isSaving, setIsSaving] = useState(false)
+   101→  const [objectives, setObjectives] = useState<SmartObjective[]>([])
+   102→  const [showForm, setShowForm] = useState(false)
+   103→  const [editingId, setEditingId] = useState<string | null>(null)
+   104→  const [formData, setFormData] = useState<SmartObjective>(createObjective())
+   105→
+   106→  // ─── Load data on mount ──────────────────
+   107→  useEffect(() => {
+   108→    async function load() {
+   109→      const saved = localStorage.getItem('creapulse-objectifs-smart')
+   110→      if (saved) {
+   111→        try {
+   112→          const parsed = JSON.parse(saved)
+   113→          if (Array.isArray(parsed)) setObjectives(parsed)
+   114→        } catch { /* ignore */ }
+   115→      }
+   116→
+   117→      try {
+   118→        const res = await authFetch('/api/paa/objectifs', {
+   119→          method: 'POST',
+   120→          body: JSON.stringify({ action: 'get-all' }),
+   121→        })
+   122→        if (res.ok) {
+   123→          const json = await res.json()
+   124→          if (json.success && Array.isArray(json.data)) {
+   125→            setObjectives(json.data)
+   126→          }
+   127→        }
+   128→      } catch { /* ignore */ }
+   129→
+   130→      setIsLoading(false)
+   131→    }
+   132→    load()
+   133→  }, [])
+   134→
+   135→  // ─── Auto-save to localStorage ──────────
+   136→  useEffect(() => {
+   137→    if (!isLoading) {
+   138→      localStorage.setItem('creapulse-objectifs-smart', JSON.stringify(objectives))
+   139→    }
+   140→  }, [isLoading, objectives])
+   141→
+   142→  // ─── Form helpers ───────────────────────
+   143→  const resetForm = useCallback(() => {
+   144→    setFormData(createObjective())
+   145→    setEditingId(null)
+   146→    setShowForm(false)
+   147→  }, [])
+   148→
+   149→  const startEdit = useCallback((obj: SmartObjective) => {
+   150→    setFormData({ ...obj })
+   151→    setEditingId(obj.id)
+   152→    setShowForm(true)
+   153→  }, [])
+   154→
+   155→  // ─── CRUD operations ────────────────────
+   156→  const handleSaveObjective = useCallback(async () => {
+   157→    if (!formData.titre.trim()) {
+   158→      toast.error('Veuillez saisir un titre pour l\'objectif')
+   159→      return
+   160→    }
+   161→
+   162→    const isEditing = !!editingId
+   163→    const now = new Date().toISOString()
+   164→    const updatedObj = { ...formData, updatedAt: now }
+   165→
+   166→    if (isEditing) {
+   167→      setObjectives(prev => prev.map(o => o.id === editingId ? updatedObj : o))
+   168→    } else {
+   169→      setObjectives(prev => [...prev, updatedObj])
+   170→    }
+   171→
+   172→    // Save to API
+   173→    try {
+   174→      const res = await authFetch('/api/paa/objectifs', {
+   175→        method: isEditing ? 'PUT' : 'POST',
+   176→        body: JSON.stringify({
+   177→          action: isEditing ? 'update' : 'create',
+   178→          objective: updatedObj,
+   179→        }),
+   180→      })
+   181→      const json = await res.json()
+   182→      if (!json.success) {
+   183→        // Rollback on error
+   184→        if (!isEditing) {
+   185→          setObjectives(prev => prev.filter(o => o.id !== updatedObj.id))
+   186→        }
+   187→        toast.error(json.error?.message || 'Erreur lors de la sauvegarde')
+   188→        return
+   189→      }
+   190→      toast.success(isEditing ? 'Objectif mis à jour' : 'Objectif créé')
+   191→    } catch {
+   192→      toast.error('Erreur de connexion au serveur')
+   193→    }
+   194→
+   195→    resetForm()
+   196→  }, [formData, editingId, resetForm])
+   197→
+   198→  const handleDeleteObjective = useCallback(async (id: string) => {
+   199→    setObjectives(prev => prev.filter(o => o.id !== id))
+   200→    try {
+   201→      await authFetch('/api/paa/objectifs', {
+   202→        method: 'DELETE',
+   203→        body: JSON.stringify({ action: 'delete', id }),
+   204→      })
+   205→    } catch { /* non-critical */ }
+   206→    toast.success('Objectif supprimé')
+   207→  }, [])
+   208→
+   209→  const handleUpdateProgress = useCallback(async (id: string, progress: number) => {
+   210→    const clampedProgress = Math.min(100, Math.max(0, progress))
+   211→    const newStatus: ObjectiveStatus = clampedProgress >= 100 ? 'atteint' : clampedProgress <= 0 ? 'en_cours' : 'en_cours'
+   212→
+   213→    setObjectives(prev => prev.map(o => {
+   214→      if (o.id === id) {
+   215→        const autoMarked = o.progress < 100 && clampedProgress >= 100
+   216→        if (autoMarked) {
+   217→          toast.success('🎉 Objectif atteint ! Félicitations !')
+   218→        }
+   219→        return { ...o, progress: clampedProgress, status: newStatus, updatedAt: new Date().toISOString() }
+   220→      }
+   221→      return o
+   222→    }))
+   223→
+   224→    try {
+   225→      await authFetch('/api/paa/objectifs', {
+   226→        method: 'PUT',
+   227→        body: JSON.stringify({ action: 'update-progress', id, progress: clampedProgress }),
+   228→      })
+   229→    } catch { /* non-critical */ }
+   230→  }, [])
+   231→
+   232→  // ─── Computed stats ─────────────────────
+   233→  const stats = useMemo(() => {
+   234→    const total = objectives.length
+   235→    const atteints = objectives.filter(o => o.status === 'atteint').length
+   236→    const enCours = objectives.filter(o => o.status === 'en_cours').length
+   237→    const abandonnes = objectives.filter(o => o.status === 'abandonne').length
+   238→    const avgProgress = total > 0
+   239→      ? Math.round(objectives.reduce((s, o) => s + o.progress, 0) / total)
+   240→      : 0
+   241→    return { total, atteints, enCours, abandonnes, avgProgress }
+   242→  }, [objectives])
+   243→
+   244→  // ─── Loading skeleton ───────────────────
+   245→  if (isLoading) {
+   246→    return (
+   247→      <div className="p-4 md:p-6 lg:p-8 space-y-6">
+   248→        <div className="h-8 w-64 bg-muted animate-pulse rounded" />
+   249→        <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+   250→        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+   251→          {[...Array(4)].map((_, i) => (
+   252→            <div key={i} className="h-24 bg-muted animate-pulse rounded-xl" />
+   253→          ))}
+   254→        </div>
+   255→        <div className="h-48 bg-muted animate-pulse rounded-xl" />
+   256→      </div>
+   257→    )
+   258→  }
+   259→
+   260→  // ─── Main Render ─────────────────────────
+   261→  return (
+   262→    <motion.div
+   263→      initial={{ opacity: 0, y: 20 }}
+   264→      animate={{ opacity: 1, y: 0 }}
+   265→      transition={{ duration: 0.4 }}
+   266→      className="flex-1 overflow-y-auto"
+   267→    >
+   268→      {/* Header */}
+   269→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 md:px-6 border-b bg-background">
+   270→        <div className="flex items-center gap-3">
+   271→          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10">
+   272→            <Target className="h-5 w-5 text-amber-500" />
+   273→          </div>
+   274→          <div>
+   275→            <h2 className="text-xl font-bold text-foreground">Objectifs SMART</h2>
+   276→            <p className="text-xs text-muted-foreground">
+   277→              {stats.total} objectifs — Progression globale : {stats.avgProgress}%
+   278→            </p>
+   279→          </div>
+   280→        </div>
+   281→        <div className="flex items-center gap-2">
+   282→          <Button
+   283→            size="sm"
+   284→            className="gap-1.5 bg-amber-500 hover:bg-amber-600 text-white"
+   285→            onClick={() => { resetForm(); setShowForm(true) }}
+   286→          >
+   287→            <Plus className="h-3.5 w-3.5" />
+   288→            Nouvel objectif
+   289→          </Button>
+   290→        </div>
+   291→      </div>
+   292→
+   293→      {/* Content */}
+   294→      <div className="p-4 md:p-6 space-y-6">
+   295→        {/* ── Stats Dashboard ── */}
+   296→        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+   297→          <Card className="border-amber-200 dark:border-amber-800">
+   298→            <CardContent className="pt-4 pb-4">
+   299→              <div className="flex items-center gap-2 mb-2">
+   300→                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10">
+   301→                  <Target className="h-4 w-4 text-amber-500" />
+   302→                </div>
+   303→                <span className="text-xs text-muted-foreground font-medium">Total</span>
+   304→              </div>
+   305→              <p className="text-2xl font-bold text-amber-500">{stats.total}</p>
+   306→              <p className="text-[11px] text-muted-foreground">objectifs définis</p>
+   307→            </CardContent>
+   308→          </Card>
+   309→          <Card className="border-green-200 dark:border-green-800">
+   310→            <CardContent className="pt-4 pb-4">
+   311→              <div className="flex items-center gap-2 mb-2">
+   312→                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500/10">
+   313→                  <Award className="h-4 w-4 text-green-500" />
+   314→                </div>
+   315→                <span className="text-xs text-muted-foreground font-medium">Atteints</span>
+   316→              </div>
+   317→              <p className="text-2xl font-bold text-green-600">{stats.atteints}</p>
+   318→              <p className="text-[11px] text-muted-foreground">{stats.total > 0 ? Math.round(stats.atteints / stats.total * 100) : 0}% du total</p>
+   319→            </CardContent>
+   320→          </Card>
+   321→          <Card className="border-sky-200 dark:border-sky-800">
+   322→            <CardContent className="pt-4 pb-4">
+   323→              <div className="flex items-center gap-2 mb-2">
+   324→                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10">
+   325→                  <TrendingUp className="h-4 w-4 text-sky-500" />
+   326→                </div>
+   327→                <span className="text-xs text-muted-foreground font-medium">En cours</span>
+   328→              </div>
+   329→              <p className="text-2xl font-bold text-sky-600">{stats.enCours}</p>
+   330→              <p className="text-[11px] text-muted-foreground">objectifs actifs</p>
+   331→            </CardContent>
+   332→          </Card>
+   333→          <Card className="border-amber-200 dark:border-amber-800">
+   334→            <CardContent className="pt-4 pb-4">
+   335→              <div className="flex items-center gap-2 mb-2">
+   336→                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10">
+   337→                  <TrendingUp className="h-4 w-4 text-amber-500" />
+   338→                </div>
+   339→                <span className="text-xs text-muted-foreground font-medium">Progression</span>
+   340→              </div>
+   341→              <p className="text-2xl font-bold text-amber-500">{stats.avgProgress}%</p>
+   342→              <div className="w-full h-1.5 bg-muted rounded-full mt-2 overflow-hidden">
+   343→                <motion.div
+   344→                  className="h-full rounded-full bg-amber-500"
+   345→                  animate={{ width: `${stats.avgProgress}%` }}
+   346→                  transition={{ duration: 0.5 }}
+   347→                />
+   348→              </div>
+   349→            </CardContent>
+   350→          </Card>
+   351→        </div>
+   352→
+   353→        {/* ── Overall progress bar ── */}
+   354→        <Card>
+   355→          <CardContent className="py-4">
+   356→            <div className="flex items-center justify-between mb-2">
+   357→              <span className="text-sm font-medium">Progression globale</span>
+   358→              <span className="text-sm font-bold text-amber-500">{stats.avgProgress}%</span>
+   359→            </div>
+   360→            <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
+   361→              <motion.div
+   362→                className={cn(
+   363→                  'h-full rounded-full',
+   364→                  stats.avgProgress >= 75 ? 'bg-green-500' :
+   365→                  stats.avgProgress >= 40 ? 'bg-amber-500' : 'bg-red-500'
+   366→                )}
+   367→                animate={{ width: `${stats.avgProgress}%` }}
+   368→                transition={{ duration: 0.6 }}
+   369→              />
+   370→            </div>
+   371→            <div className="flex justify-between text-[11px] text-muted-foreground mt-1">
+   372→              <span>0%</span>
+   373→              <span>25%</span>
+   374→              <span>50%</span>
+   375→              <span>75%</span>
+   376→              <span>100%</span>
+   377→            </div>
+   378→          </CardContent>
+   379→        </Card>
+   380→
+   381→        {/* ── Creation / Edit Form ── */}
+   382→        {showForm && (
+   383→          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+   384→            <Card className="border-amber-200 dark:border-amber-800">
+   385→              <CardHeader className="pb-3">
+   386→                <div className="flex items-center justify-between">
+   387→                  <CardTitle className="text-base flex items-center gap-2">
+   388→                    {editingId ? '✏️ Modifier l\'objectif' : '➕ Nouvel objectif SMART'}
+   389→                  </CardTitle>
+   390→                  <Button variant="ghost" size="sm" onClick={resetForm} className="h-7 w-7 p-0">
+   391→                    <X className="h-4 w-4" />
+   392→                  </Button>
+   393→                </div>
+   394→                <CardDescription>
+   395→                  Définissez un objectif Spécifique, Mesurable, Atteignable, Pertinent et Temporel
+   396→                </CardDescription>
+   397→              </CardHeader>
+   398→              <CardContent className="space-y-4">
+   399→                {/* Title */}
+   400→                <div className="space-y-1.5">
+   401→                  <label className="text-sm font-medium flex items-center gap-2">
+   402→                    Titre de l&apos;objectif
+   403→                    <InfoPopover text="Donnez un nom court et clair à votre objectif. Ex: Atteindre 5000€ de CA mensuel" />
+   404→                  </label>
+   405→                  <input
+   406→                    type="text"
+   407→                    value={formData.titre}
+   408→                    onChange={(e) => setFormData(prev => ({ ...prev, titre: e.target.value }))}
+   409→                    placeholder="Ex: Atteindre 5 000 € de CA mensuel d'ici décembre"
+   410→                    className="w-full text-sm rounded-lg border border-border bg-background/60 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+   411→                  />
+   412→                </div>
+   413→
+   414→                {/* SMART criteria */}
+   415→                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   416→                  {/* Spécifique */}
+   417→                  <div className="space-y-1.5">
+   418→                    <label className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+   419→                      S — Spécifique
+   420→                      <InfoPopover text="Quel est l'objectif précis ? Que voulez-vous accomplir exactement ?" />
+   421→                    </label>
+   422→                    <Textarea
+   423→                      value={formData.specifique}
+   424→                      onChange={(e) => setFormData(prev => ({ ...prev, specifique: e.target.value }))}
+   425→                      placeholder="Décrivez précisément ce que vous voulez atteindre..."
+   426→                      className="min-h-[80px] text-sm resize-none"
+   427→                    />
+   428→                  </div>
+   429→
+   430→                  {/* Mesurable */}
+   431→                  <div className="space-y-1.5">
+   432→                    <label className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+   433→                      M — Mesurable
+   434→                      <InfoPopover text="Comment allez-vous mesurer le succès ? Quels sont les indicateurs quantifiables ?" />
+   435→                    </label>
+   436→                    <Textarea
+   437→                      value={formData.mesurable}
+   438→                      onChange={(e) => setFormData(prev => ({ ...prev, mesurable: e.target.value }))}
+   439→                      placeholder="Indicateurs de mesure : nombre de clients, CA, etc."
+   440→                      className="min-h-[80px] text-sm resize-none"
+   441→                    />
+   442→                  </div>
+   443→
+   444→                  {/* Atteignable */}
+   445→                  <div className="space-y-1.5">
+   446→                    <label className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+   447→                      A — Atteignable
+   448→                      <InfoPopover text="L'objectif est-il réaliste avec vos ressources actuelles ? Quels moyens allez-vous mobiliser ?" />
+   449→                    </label>
+   450→                    <Textarea
+   451→                      value={formData.atteignable}
+   452→                      onChange={(e) => setFormData(prev => ({ ...prev, atteignable: e.target.value }))}
+   453→                      placeholder="Ressources disponibles, compétences, contraintes..."
+   454→                      className="min-h-[80px] text-sm resize-none"
+   455→                    />
+   456→                  </div>
+   457→
+   458→                  {/* Pertinent */}
+   459→                  <div className="space-y-1.5">
+   460→                    <label className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+   461→                      R — Pertinent (Relevant)
+   462→                      <InfoPopover text="Pourquoi cet objectif est-il important pour votre projet ? Comment contribue-t-il à votre vision ?" />
+   463→                    </label>
+   464→                    <Textarea
+   465→                      value={formData.pertinent}
+   466→                      onChange={(e) => setFormData(prev => ({ ...prev, pertinent: e.target.value }))}
+   467→                      placeholder="Alignement avec la vision, impact sur le projet..."
+   468→                      className="min-h-[80px] text-sm resize-none"
+   469→                    />
+   470→                  </div>
+   471→                </div>
+   472→
+   473→                {/* Temporel */}
+   474→                <div className="space-y-1.5">
+   475→                  <label className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+   476→                    T — Temporel
+   477→                    <InfoPopover text="Quelle est l'échéance ? Définissez une date limite claire pour rester motivé." />
+   478→                  </label>
+   479→                  <div className="flex items-center gap-3">
+   480→                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/20">
+   481→                      <CalendarDays className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+   482→                    </div>
+   483→                    <input
+   484→                      type="date"
+   485→                      value={formData.temporel}
+   486→                      onChange={(e) => setFormData(prev => ({ ...prev, temporel: e.target.value }))}
+   487→                      className="flex-1 text-sm rounded-lg border border-border bg-background/60 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+   488→                    />
+   489→                  </div>
+   490→                </div>
+   491→
+   492→                {/* Form Actions */}
+   493→                <div className="flex items-center gap-3 pt-2">
+   494→                  <Button
+   495→                    size="sm"
+   496→                    className="gap-1.5 bg-amber-500 hover:bg-amber-600 text-white"
+   497→                    onClick={handleSaveObjective}
+   498→                  >
+   499→                    <Save className="h-3.5 w-3.5" />
+   500→                    {editingId ? 'Mettre à jour' : 'Créer l\'objectif'}
+   501→                  </Button>
+   502→                  <Button
+   503→                    variant="outline"
+   504→                    size="sm"
+   505→                    onClick={resetForm}
+   506→                  >
+   507→                    Annuler
+   508→                  </Button>
+   509→                </div>
+   510→              </CardContent>
+   511→            </Card>
+   512→          </motion.div>
+   513→        )}
+   514→
+   515→        <Separator />
+   516→
+   517→        {/* ── Objectives List ── */}
+   518→        <div className="space-y-4">
+   519→          <h3 className="text-base font-semibold flex items-center gap-2">
+   520→            <Target className="h-4 w-4 text-amber-500" />
+   521→            Mes objectifs
+   522→            {stats.total > 0 && (
+   523→              <Badge variant="outline" className="text-xs">{stats.total}</Badge>
+   524→            )}
+   525→          </h3>
+   526→
+   527→          {objectives.length === 0 && !showForm && (
+   528→            <Card className="border-dashed">
+   529→              <CardContent className="py-12 text-center">
+   530→                <Target className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+   531→                <p className="text-sm text-muted-foreground">Aucun objectif défini pour le moment.</p>
+   532→                <p className="text-xs text-muted-foreground mt-1">Commencez par créer votre premier objectif SMART.</p>
+   533→                <Button
+   534→                  variant="outline"
+   535→                  size="sm"
+   536→                  className="mt-4 gap-1.5"
+   537→                  onClick={() => { resetForm(); setShowForm(true) }}
+   538→                >
+   539→                  <Plus className="h-3.5 w-3.5" />
+   540→                  Créer un objectif
+   541→                </Button>
+   542→              </CardContent>
+   543→            </Card>
+   544→          )}
+   545→
+   546→          <div className="space-y-3">
+   547→            {objectives.map((obj) => (
+   548→              <motion.div
+   549→                key={obj.id}
+   550→                initial={{ opacity: 0, y: 5 }}
+   551→                animate={{ opacity: 1, y: 0 }}
+   552→              >
+   553→                <Card className={cn(
+   554→                  'transition-all',
+   555→                  obj.status === 'atteint' && 'border-green-300 dark:border-green-700 bg-green-50/30 dark:bg-green-950/10',
+   556→                  obj.status === 'abandonne' && 'border-muted opacity-60',
+   557→                  obj.status === 'en_cours' && 'border-border'
+   558→                )}>
+   559→                  <CardContent className="py-4">
+   560→                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+   561→                      {/* Status badge + Title */}
+   562→                      <div className="flex-1 min-w-0">
+   563→                        <div className="flex items-center gap-2 mb-2">
+   564→                          {obj.status === 'atteint' && (
+   565→                            <Badge className="bg-green-500 text-white text-[10px] gap-1">
+   566→                              <Award className="h-3 w-3" />
+   567→                              Atteint
+   568→                            </Badge>
+   569→                          )}
+   570→                          {obj.status === 'en_cours' && (
+   571→                            <Badge variant="outline" className="text-sky-600 border-sky-300 dark:border-sky-700 text-[10px]">
+   572→                              En cours
+   573→                            </Badge>
+   574→                          )}
+   575→                          {obj.status === 'abandonne' && (
+   576→                            <Badge variant="outline" className="text-muted-foreground text-[10px]">
+   577→                              Abandonné
+   578→                            </Badge>
+   579→                          )}
+   580→                          <h4 className={cn(
+   581→                            'text-sm font-semibold',
+   582→                            obj.status === 'atteint' && 'text-green-700 dark:text-green-400',
+   583→                            obj.status === 'abandonne' && 'line-through text-muted-foreground'
+   584→                          )}>
+   585→                            {obj.titre || 'Objectif sans titre'}
+   586→                          </h4>
+   587→                        </div>
+   588→
+   589→                        {/* Progress bar */}
+   590→                        <div className="flex items-center gap-3">
+   591→                          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+   592→                            <motion.div
+   593→                              className={cn(
+   594→                                'h-full rounded-full',
+   595→                                obj.progress >= 100 ? 'bg-green-500' :
+   596→                                obj.progress >= 50 ? 'bg-amber-500' : 'bg-sky-500'
+   597→                              )}
+   598→                              animate={{ width: `${obj.progress}%` }}
+   599→                              transition={{ duration: 0.4 }}
+   600→                            />
+   601→                          </div>
+   602→                          <span className="text-xs font-bold text-muted-foreground w-10 text-right">
+   603→                            {obj.progress}%
+   604→                          </span>
+   605→                        </div>
+   606→
+   607→                        {/* Meta info */}
+   608→                        <div className="flex items-center gap-3 mt-2">
+   609→                          {obj.temporel && (
+   610→                            <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+   611→                              <CalendarDays className="h-3 w-3" />
+   612→                              {formatDate(obj.temporel)}
+   613→                            </span>
+   614→                          )}
+   615→                        </div>
+   616→                      </div>
+   617→
+   618→                      {/* Actions */}
+   619→                      <div className="flex items-center gap-2 shrink-0">
+   620→                        {/* Progress slider */}
+   621→                        <div className="flex items-center gap-2">
+   622→                          <input
+   623→                            type="range"
+   624→                            min={0}
+   625→                            max={100}
+   626→                            step={5}
+   627→                            value={obj.progress}
+   628→                            onChange={(e) => handleUpdateProgress(obj.id, parseInt(e.target.value))}
+   629→                            className="w-20 h-1.5 appearance-none bg-muted rounded-full cursor-pointer accent-amber-500"
+   630→                          />
+   631→                          <span className="text-xs font-mono w-8 text-right">{obj.progress}%</span>
+   632→                        </div>
+   633→
+   634→                        <Separator orientation="vertical" className="h-6" />
+   635→
+   636→                        <Button
+   637→                          variant="ghost"
+   638→                          size="sm"
+   639→                          onClick={() => startEdit(obj)}
+   640→                          className="h-8 w-8 p-0 text-muted-foreground hover:text-amber-500"
+   641→                        >
+   642→                          ✏️
+   643→                        </Button>
+   644→                        {obj.status === 'atteint' && (
+   645→                          <Button
+   646→                            variant="ghost"
+   647→                            size="sm"
+   648→                            onClick={() => handleUpdateProgress(obj.id, 0)}
+   649→                            className="h-8 w-8 p-0 text-muted-foreground hover:text-sky-500"
+   650→                            title="Réinitialiser"
+   651→                          >
+   652→                            🔄
+   653→                          </Button>
+   654→                        )}
+   655→                        <Button
+   656→                          variant="ghost"
+   657→                          size="sm"
+   658→                          onClick={() => handleDeleteObjective(obj.id)}
+   659→                          className="h-8 w-8 p-0 text-muted-foreground hover:text-red-500"
+   660→                        >
+   661→                          <Trash2 className="h-3.5 w-3.5" />
+   662→                        </Button>
+   663→                      </div>
+   664→                    </div>
+   665→                  </CardContent>
+   666→                </Card>
+   667→              </motion.div>
+   668→            ))}
+   669→          </div>
+   670→        </div>
+   671→
+   672→        {/* ── Bottom Summary ── */}
+   673→        {objectives.length > 0 && (
+   674→          <Card className="bg-gradient-to-r from-amber-500/5 to-amber-300/5 border-amber-200 dark:border-amber-800">
+   675→            <CardContent className="py-4">
+   676→              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+   677→                <div className="flex items-center gap-4">
+   678→                  <div className="text-center">
+   679→                    <p className="text-2xl font-bold text-amber-500">{stats.total}</p>
+   680→                    <p className="text-[11px] text-muted-foreground">Total</p>
+   681→                  </div>
+   682→                  <Separator orientation="vertical" className="h-8" />
+   683→                  <div className="text-center">
+   684→                    <p className="text-2xl font-bold text-green-600">{stats.atteints}</p>
+   685→                    <p className="text-[11px] text-muted-foreground">Atteints</p>
+   686→                  </div>
+   687→                  <Separator orientation="vertical" className="h-8" />
+   688→                  <div className="text-center">
+   689→                    <p className="text-2xl font-bold text-sky-600">{stats.enCours}</p>
+   690→                    <p className="text-[11px] text-muted-foreground">En cours</p>
+   691→                  </div>
+   692→                </div>
+   693→                <Button
+   694→                  size="sm"
+   695→                  className="gap-1.5 bg-amber-500 hover:bg-amber-600 text-white"
+   696→                  onClick={() => { resetForm(); setShowForm(true) }}
+   697→                >
+   698→                  <Plus className="h-3.5 w-3.5" />
+   699→                  Nouvel objectif
+   700→                </Button>
+   701→              </div>
+   702→            </CardContent>
+   703→          </Card>
+   704→        )}
+   705→      </div>
+   706→    </motion.div>
+   707→  )
+   708→}
+   709→

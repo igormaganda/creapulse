@@ -1,0 +1,1336 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+     4→     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→     5→import { toast } from 'sonner'
+     6→     6→import {
+     7→     7→  Search,
+     8→     8→  MapPin,
+     9→     9→  Phone,
+    10→    10→  Mail,
+    11→    11→  ExternalLink,
+    12→    12→  Bookmark,
+    13→    13→  BookmarkCheck,
+    14→    14→  Star,
+    15→    15→  LayoutGrid,
+    16→    16→  List,
+    17→    17→  ChevronRight,
+    18→    18→  SlidersHorizontal,
+    19→    19→  X,
+    20→    20→  Building2,
+    21→    21→  Sparkles,
+    22→    22→  GraduationCap,
+    23→    23→  Landmark,
+    24→    24→  Banknote,
+    25→    25→  TrendingUp,
+    26→    26→  Users,
+    27→    27→  BookOpen,
+    28→    28→  CircleHelp,
+    29→    29→  Loader2,
+    30→    30→  ArrowUpDown,
+    31→    31→  ChevronDown,
+    32→    32→} from 'lucide-react'
+    33→    33→import { Card, CardContent } from '@/components/ui/card'
+    34→    34→import { Button } from '@/components/ui/button'
+    35→    35→import { Input } from '@/components/ui/input'
+    36→    36→import { Badge } from '@/components/ui/badge'
+    37→    37→import { Progress } from '@/components/ui/progress'
+    38→    38→import { Separator } from '@/components/ui/separator'
+    39→    39→import {
+    40→    40→  Select,
+    41→    41→  SelectContent,
+    42→    42→  SelectItem,
+    43→    43→  SelectTrigger,
+    44→    44→  SelectValue,
+    45→    45→} from '@/components/ui/select'
+    46→    46→import { cn } from '@/lib/utils'
+    47→    47→import { DemoBadge } from '@/lib/hooks/use-api-data'
+    48→    48→
+    49→    49→// ─── Types ──────────────────────────────────
+    50→    50→
+    51→    51→type ActorType =
+    52→    52→  | 'GIDEF'
+    53→    53→  | 'INCUBATOR'
+    54→    54→  | 'PEPITE'
+    55→    55→  | 'CCI'
+    56→    56→  | 'BANK'
+    57→    57→  | 'INVESTOR'
+    58→    58→  | 'MENTOR'
+    59→    59→  | 'FORMATION'
+    60→    60→  | 'OTHER'
+    61→    61→
+    62→    62→interface Actor {
+    63→    63→  id: string
+    64→    64→  name: string
+    65→    65→  type: ActorType
+    66→    66→  category?: string | null
+    67→    67→  city: string
+    68→    68→  region?: string | null
+    69→    69→  address?: string | null
+    70→    70→  phone?: string | null
+    71→    71→  email?: string | null
+    72→    72→  website?: string | null
+    73→    73→  description?: string | null
+    74→    74→  services?: string[] | null
+    75→    75→  featured: boolean
+    76→    76→  successRate?: number | null
+    77→    77→}
+    78→    78→
+    79→    79→// ─── Constants ──────────────────────────────
+    80→    80→
+    81→    81→const ACTOR_TYPE_CONFIG: Record<
+    82→    82→  ActorType,
+    83→    83→  { label: string; color: string; bgColor: string; icon: typeof Building2 }
+    84→    84→> = {
+    85→    85→  GIDEF: {
+    86→    86→    label: 'Agence GIDEF',
+    87→    87→    color: 'text-primary',
+    88→    88→    bgColor: 'bg-primary/10',
+    89→    89→    icon: Building2,
+    90→    90→  },
+    91→    91→  INCUBATOR: {
+    92→    92→    label: 'Incubateur',
+    93→    93→    color: 'text-amber-600 dark:text-amber-400',
+    94→    94→    bgColor: 'bg-amber-50 dark:bg-amber-900/20',
+    95→    95→    icon: Sparkles,
+    96→    96→  },
+    97→    97→  PEPITE: {
+    98→    98→    label: 'Pépite',
+    99→    99→    color: 'text-violet-600 dark:text-violet-400',
+   100→   100→    bgColor: 'bg-violet-50 dark:bg-violet-900/20',
+   101→   101→    icon: GraduationCap,
+   102→   102→  },
+   103→   103→  CCI: {
+   104→   104→    label: 'CCI',
+   105→   105→    color: 'text-sky-600 dark:text-sky-400',
+   106→   106→    bgColor: 'bg-sky-50 dark:bg-sky-900/20',
+   107→   107→    icon: Landmark,
+   108→   108→  },
+   109→   109→  BANK: {
+   110→   110→    label: 'Banque',
+   111→   111→    color: 'text-emerald-600 dark:text-emerald-400',
+   112→   112→    bgColor: 'bg-emerald-50 dark:bg-emerald-900/20',
+   113→   113→    icon: Banknote,
+   114→   114→  },
+   115→   115→  INVESTOR: {
+   116→   116→    label: 'Investisseur',
+   117→   117→    color: 'text-orange-600 dark:text-orange-400',
+   118→   118→    bgColor: 'bg-orange-50 dark:bg-orange-900/20',
+   119→   119→    icon: TrendingUp,
+   120→   120→  },
+   121→   121→  MENTOR: {
+   122→   122→    label: 'Mentor',
+   123→   123→    color: 'text-rose-600 dark:text-rose-400',
+   124→   124→    bgColor: 'bg-rose-50 dark:bg-rose-900/20',
+   125→   125→    icon: Users,
+   126→   126→  },
+   127→   127→  FORMATION: {
+   128→   128→    label: 'Formation',
+   129→   129→    color: 'text-indigo-600 dark:text-indigo-400',
+   130→   130→    bgColor: 'bg-indigo-50 dark:bg-indigo-900/20',
+   131→   131→    icon: BookOpen,
+   132→   132→  },
+   133→   133→  OTHER: {
+   134→   134→    label: 'Autre',
+   135→   135→    color: 'text-gray-600 dark:text-gray-400',
+   136→   136→    bgColor: 'bg-gray-50 dark:bg-gray-900/20',
+   137→   137→    icon: CircleHelp,
+   138→   138→  },
+   139→   139→}
+   140→   140→
+   141→   141→const CITIES_IDF = [
+   142→   142→  'Paris',
+   143→   143→  'Créteil',
+   144→   144→  'Nanterre',
+   145→   145→  'Bobigny',
+   146→   146→  'Versailles',
+   147→   147→  'Saint-Denis',
+   148→   148→  'Montreuil',
+   149→   149→  'Boulogne-Billancourt',
+   150→   150→  'Argenteuil',
+   151→   151→  'Rouen',
+   152→   152→  'Evry-Courcouronnes',
+   153→   153→  'Aubervilliers',
+   154→   154→  'Levallois-Perret',
+   155→   155→  'Vitry-sur-Seine',
+   156→   156→  'Colombes',
+   157→   157→]
+   158→   158→
+   159→   159→// ─── Mock Data ──────────────────────────────
+   160→   160→
+   161→   161→const MOCK_ACTORS: Actor[] = [
+   162→   162→  {
+   163→   163→    id: 'mock-1',
+   164→   164→    name: 'GIDEF Paris Centre',
+   165→   165→    type: 'GIDEF',
+   166→   166→    category: 'Agence principale',
+   167→   167→    city: 'Paris',
+   168→   168→    region: 'Île-de-France',
+   169→   169→    address: '45 Rue de Rivoli, 75004 Paris',
+   170→   170→    phone: '01 42 72 60 00',
+   171→   171→    email: 'paris-centre@gidef.fr',
+   172→   172→    website: 'https://www.gidef.fr',
+   173→   173→    description:
+   174→   174→      'Agence GIDEF de Paris Centre, accompagnement complet des créateurs et repreneurs d\'entreprise dans le cœur de Paris.',
+   175→   175→    services: ['Création d\'entreprise', 'Formation', 'Financement', 'Mentorat', 'Réseau'],
+   176→   176→    featured: true,
+   177→   177→    successRate: 78,
+   178→   178→  },
+   179→   179→  {
+   180→   180→    id: 'mock-2',
+   181→   181→    name: 'GIDEF Créteil Val-de-Marne',
+   182→   182→    type: 'GIDEF',
+   183→   183→    category: 'Agence départementale',
+   184→   184→    city: 'Créteil',
+   185→   185→    region: 'Île-de-France',
+   186→   186→    address: '12 Avenue du Général de Gaulle, 94000 Créteil',
+   187→   187→    phone: '01 45 13 50 00',
+   188→   188→    email: 'creteil@gidef.fr',
+   189→   189→    website: 'https://www.gidef.fr',
+   190→   190→    description:
+   191→   191→      'L\'agence GIDEF du Val-de-Marne accompagne les porteurs de projets du département.',
+   192→   192→    services: ['Création d\'entreprise', 'Diagnostic', 'Ateliers', 'Réseau'],
+   193→   193→    featured: true,
+   194→   194→    successRate: 72,
+   195→   195→  },
+   196→   196→  {
+   197→   197→    id: 'mock-3',
+   198→   198→    name: 'Incubateur Paris Innovation',
+   199→   199→    type: 'INCUBATOR',
+   200→   200→    category: 'Incubateur numérique',
+   201→   201→    city: 'Paris',
+   202→   202→    region: 'Île-de-France',
+   203→   203→    address: '88 Rue de la Fédération, 75015 Paris',
+   204→   204→    phone: '01 56 78 90 12',
+   205→   205→    email: 'contact@parisinnovation.fr',
+   206→   206→    website: 'https://www.parisinnovation.fr',
+   207→   207→    description:
+   208→   208→      'Incubateur dédié aux startups innovantes, avec un programme d\'accompagnement de 18 mois et des locaux partagés.',
+   209→   209→    services: ['Hébergement', 'Mentorat', 'Réseau investisseurs', 'Workshops'],
+   210→   210→    featured: true,
+   211→   211→    successRate: 85,
+   212→   212→  },
+   213→   213→  {
+   214→   214→    id: 'mock-4',
+   215→   215→    name: 'Pépite Paris-Descartes',
+   216→   216→    type: 'PEPITE',
+   217→   217→    category: 'Pépite étudiante',
+   218→   218→    city: 'Paris',
+   219→   219→    region: 'Île-de-France',
+   220→   220→    address: '15 Rue de l\'École de Médecine, 75006 Paris',
+   221→   221→    phone: '01 44 27 55 00',
+   222→   222→    email: 'pepite@paris-descartes.fr',
+   223→   223→    website: 'https://www.pepite-paris.fr',
+   224→   224→    description:
+   225→   225→      'Pépite étudiante favorisant l\'entrepreneuriat parmi les étudiants et jeunes diplômés.',
+   226→   226→    services: ['Statut étudiant-entrepreneur', 'Formation', 'Coaching', 'Financement'],
+   227→   227→    featured: false,
+   228→   228→    successRate: 68,
+   229→   229→  },
+   230→   230→  {
+   231→   231→    id: 'mock-5',
+   232→   232→    name: 'CCI Paris Île-de-France',
+   233→   233→    type: 'CCI',
+   234→   234→    category: 'Chambre de Commerce',
+   235→   235→    city: 'Paris',
+   236→   236→    region: 'Île-de-France',
+   237→   237→    address: '2 Place de la Bourse, 75002 Paris',
+   238→   238→    phone: '01 55 65 70 00',
+   239→   239→    email: 'info@cci-paris-idf.fr',
+   240→   240→    website: 'https://www.cci-paris-idf.fr',
+   241→   241→    description:
+   242→   242→      'La CCI Paris Île-de-France propose des services aux entreprises de toute taille.',
+   243→   243→    services: ['Formalités création', 'Marchés publics', 'Formation', 'International'],
+   244→   244→    featured: true,
+   245→   245→    successRate: 90,
+   246→   246→  },
+   247→   247→  {
+   248→   248→    id: 'mock-6',
+   249→   249→    name: 'Banque Populaire Rives de Paris',
+   250→   250→    type: 'BANK',
+   251→   251→    category: 'Banque de proximité',
+   252→   252→    city: 'Nanterre',
+   253→   253→    region: 'Île-de-France',
+   254→   254→    address: '30 Avenue Pablo Picasso, 92000 Nanterre',
+   255→   255→    phone: '01 47 24 50 00',
+   256→   256→    email: 'entreprises@bp.paris',
+   257→   257→    website: 'https://www.banquepopulaire.fr',
+   258→   258→    description:
+   259→   259→      'Banque spécialisée dans le financement des créateurs d\'entreprise en Île-de-France.',
+   260→   260→    services: ['Prêt création', 'Compte professionnel', 'Assurance', 'Crédit immobilier'],
+   261→   261→    featured: false,
+   262→   262→    successRate: 75,
+   263→   263→  },
+   264→   264→  {
+   265→   265→    id: 'mock-7',
+   266→   266→    name: 'XAnge Investissement',
+   267→   267→    type: 'INVESTOR',
+   268→   268→    category: 'Fonds d\'investissement',
+   269→   269→    city: 'Paris',
+   270→   270→    region: 'Île-de-France',
+   271→   271→    address: '70 Rue Saint-Honoré, 75001 Paris',
+   272→   272→    phone: '01 40 15 80 00',
+   273→   273→    email: 'invest@xange.com',
+   274→   274→    website: 'https://www.xange.com',
+   275→   275→    description:
+   276→   276→      'Fonds d\'investissement early-stage spécialisé dans les startups tech en France.',
+   277→   277→    services: ['Investissement seed', 'Accompagnement stratégique', 'Réseau'],
+   278→   278→    featured: true,
+   279→   279→    successRate: 82,
+   280→   280→  },
+   281→   281→  {
+   282→   282→    id: 'mock-8',
+   283→   283→    name: 'Marie Dupont — Mentor Senior',
+   284→   284→    type: 'MENTOR',
+   285→   285→    category: 'Mentorat',
+   286→   286→    city: 'Versailles',
+   287→   287→    region: 'Île-de-France',
+   288→   288→    phone: '06 12 34 56 78',
+   289→   289→    email: 'marie.dupont@mentor.fr',
+   290→   290→    description:
+   291→   291→      'Ancienne directrice de PME, Marie accompagne les créateurs sur les aspects stratégiques et financiers.',
+   292→   292→    services: ['Coaching stratégique', 'Préparation financements', 'Réseau'],
+   293→   293→    featured: false,
+   294→   294→    successRate: 92,
+   295→   295→  },
+   296→   296→  {
+   297→   297→    id: 'mock-9',
+   298→   298→    name: 'École de l\'Entrepreneuriat IDF',
+   299→   299→    type: 'FORMATION',
+   300→   300→    category: 'Formation continue',
+   301→   301→    city: 'Bobigny',
+   302→   302→    region: 'Île-de-France',
+   303→   303→    address: '8 Boulevard de la République, 93000 Bobigny',
+   304→   304→    phone: '01 48 30 20 00',
+   305→   305→    email: 'contact@eco-entrepreneuriat.fr',
+   306→   306→    website: 'https://www.eco-entrepreneuriat.fr',
+   307→   307→    description:
+   308→   308→      'Centre de formation spécialisé en entrepreneuriat, proposant des certifications reconnues.',
+   309→   309→    services: ['Formation création', 'Ateliers pratiques', 'Certification', 'Coaching'],
+   310→   310→    featured: false,
+   311→   311→    successRate: 70,
+   312→   312→  },
+   313→   313→  {
+   314→   314→    id: 'mock-10',
+   315→   315→    name: 'GIDEF Nanterre-La Défense',
+   316→   316→    type: 'GIDEF',
+   317→   317→    category: 'Agence territoriale',
+   318→   318→    city: 'Nanterre',
+   319→   319→    region: 'Île-de-France',
+   320→   320→    address: '5 Place Nelson Mandela, 92000 Nanterre',
+   321→   321→    phone: '01 47 25 60 00',
+   322→   322→    email: 'nanterre@gidef.fr',
+   323→   323→    website: 'https://www.gidef.fr',
+   324→   324→    description:
+   325→   325→      'Agence GIDEF de la plateforme de La Défense, accompagnement des projets innovants.',
+   326→   326→    services: ['Création d\'entreprise', 'Innovation', 'Mentorat'],
+   327→   327→    featured: false,
+   328→   328→    successRate: 74,
+   329→   329→  },
+   330→   330→  {
+   331→   331→    id: 'mock-11',
+   332→   332→    name: 'Incubateur 93 Entreprendre',
+   333→   333→    type: 'INCUBATOR',
+   334→   334→    category: 'Incubateur territorial',
+   335→   335→    city: 'Bobigny',
+   336→   336→    region: 'Île-de-France',
+   337→   337→    address: '22 Boulevard Gambetta, 93000 Bobigny',
+   338→   338→    phone: '01 41 60 50 00',
+   339→   339→    email: 'contact@incubateur93.fr',
+   340→   340→    website: 'https://www.incubateur93.fr',
+   341→   341→    description:
+   342→   342→      'Incubateur du département de la Seine-Saint-Denis, soutenant la création d\'activité locale.',
+   343→   343→    services: ['Hébergement', 'Formation', 'Financement solidaire', 'Réseau'],
+   344→   344→    featured: false,
+   345→   345→    successRate: 66,
+   346→   346→  },
+   347→   347→  {
+   348→   348→    id: 'mock-12',
+   349→   349→    name: 'Bpifrance Île-de-France',
+   350→   350→    type: 'INVESTOR',
+   351→   351→    category: 'Banque publique d\'investissement',
+   352→   352→    city: 'Paris',
+   353→   353→    region: 'Île-de-France',
+   354→   354→    address: '27-31 Avenue du Général Leclerc, 75014 Paris',
+   355→   355→    phone: '01 49 78 42 00',
+   356→   356→    email: 'idf@bpifrance.fr',
+   357→   357→    website: 'https://www.bpifrance.fr',
+   358→   358→    description:
+   359→   359→      'Bpifrance accompagne les entreprises à chaque étape de leur développement.',
+   360→   360→    services: ['Prêt d\'amorçage', 'Aide à l\'innovation', 'Garantie', 'Investissement'],
+   361→   361→    featured: true,
+   362→   362→    successRate: 88,
+   363→   363→  },
+   364→   364→  {
+   365→   365→    id: 'mock-13',
+   366→   366→    name: 'Réseau Entreprendre Île-de-France',
+   367→   367→    type: 'OTHER',
+   368→   368→    category: 'Réseau associatif',
+   369→   369→    city: 'Boulogne-Billancourt',
+   370→   370→    region: 'Île-de-France',
+   371→   371→    address: '100 Boulevard Jean Jaurès, 92100 Boulogne-Billancourt',
+   372→   372→    phone: '01 46 05 20 00',
+   373→   373→    email: 'idf@reseau-entreprendre.org',
+   374→   374→    website: 'https://www.reseau-entreprendre.org',
+   375→   375→    description:
+   376→   376→      'Réseau de chefs d\'entreprise bénévoles qui accompagnent les créateurs dans leur parcours.',
+   377→   377→    services: ['Mentorat bénévole', 'Parrainage', 'Ateliers', 'Réseau'],
+   378→   378→    featured: false,
+   379→   379→    successRate: 80,
+   380→   380→  },
+   381→   381→  {
+   382→   382→    id: 'mock-14',
+   383→   383→    name: 'CCI Versailles Yvelines',
+   384→   384→    type: 'CCI',
+   385→   385→    category: 'Chambre de Commerce',
+   386→   386→    city: 'Versailles',
+   387→   387→    region: 'Île-de-France',
+   388→   388→    address: '10 Rue de la Paroisse, 78000 Versailles',
+   389→   389→    phone: '01 39 07 40 00',
+   390→   390→    email: 'contact@cci-versailles.fr',
+   391→   391→    website: 'https://www.cci-versailles.fr',
+   392→   392→    description:
+   393→   393→      'La CCI de Versailles accompagne les entreprises des Yvelines.',
+   394→   394→    services: ['Formalités', 'Formation', 'International', 'Diagnostic'],
+   395→   395→    featured: false,
+   396→   396→    successRate: 87,
+   397→   397→  },
+   398→   398→  {
+   399→   399→    id: 'mock-15',
+   400→   400→    name: 'Pierre Martin — Expert Comptable',
+   401→   401→    type: 'OTHER',
+   402→   402→    category: 'Conseil',
+   403→   403→    city: 'Saint-Denis',
+   404→   404→    region: 'Île-de-France',
+   405→   405→    address: '15 Rue Gabriel Péri, 93200 Saint-Denis',
+   406→   406→    phone: '01 42 43 20 00',
+   407→   407→    email: 'p.martin@expert-comptable.fr',
+   408→   408→    description:
+   409→   409→      'Expert-comptable spécialisé dans l\'accompagnement des créateurs d\'entreprise.',
+   410→   410→    services: ['Comptabilité', 'Fiscalité', 'Statuts juridiques', 'Business plan'],
+   411→   411→    featured: false,
+   412→   412→    successRate: 76,
+   413→   413→  },
+   414→   414→]
+   415→   415→
+   416→   416→// ─── Reduced Fallback (3-4 items) ──────────
+   417→   417→
+   418→   418→const FALLBACK_ACTORS: Actor[] = [
+   419→   419→  MOCK_ACTORS[0],
+   420→   420→  MOCK_ACTORS[1],
+   421→   421→  MOCK_ACTORS[2],
+   422→   422→  MOCK_ACTORS[4],
+   423→   423→]
+   424→   424→
+   425→   425→// ─── Component ──────────────────────────────
+   426→   426→
+   427→   427→export function AnnuaireModule() {
+   428→   428→  // State
+   429→   429→  const [actors, setActors] = useState<Actor[]>([])
+   430→   430→  const [featuredActors, setFeaturedActors] = useState<Actor[]>([])
+   431→   431→  const [searchQuery, setSearchQuery] = useState('')
+   432→   432→  const [selectedTypes, setSelectedTypes] = useState<ActorType[]>([])
+   433→   433→  const [selectedCity, setSelectedCity] = useState<string>('')
+   434→   434→  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+   435→   435→  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(() => {
+   436→   436→    if (typeof window !== 'undefined') {
+   437→   437→      const stored = localStorage.getItem('annuaire-favorites')
+   438→   438→      if (stored) {
+   439→   439→        try {
+   440→   440→          const ids: string[] = JSON.parse(stored)
+   441→   441→          return new Set(ids)
+   442→   442→        } catch {
+   443→   443→          // ignore parse errors
+   444→   444→        }
+   445→   445→      }
+   446→   446→    }
+   447→   447→    return new Set()
+   448→   448→  })
+   449→   449→  const [loading, setLoading] = useState(true)
+   450→   450→  const [isFallback, setIsFallback] = useState(false)
+   451→   451→  const [showFilters, setShowFilters] = useState(false)
+   452→   452→  const [visibleCount, setVisibleCount] = useState(12)
+   453→   453→  const [isFetching, setIsFetching] = useState(false)
+   454→   454→
+   455→   455→  // Fetch actors from API on mount or when filters change
+   456→   456→  const fetchActors = useCallback(async (query: string, types: ActorType[], city: string, append: boolean = false) => {
+   457→   457→    setIsFetching(true)
+   458→   458→    try {
+   459→   459→      const params = new URLSearchParams()
+   460→   460→      if (query.trim()) params.set('search', query.trim())
+   461→   461→      if (types.length === 1) params.set('type', types[0])
+   462→   462→      if (city) params.set('city', city)
+   463→   463→      params.set('limit', '50')
+   464→   464→
+   465→   465→      const res = await fetch(`/api/annuaire?${params.toString()}`)
+   466→   466→      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+   467→   467→      const json = await res.json()
+   468→   468→      if (json.success && json.data?.actors?.length > 0) {
+   469→   469→        const apiActors: Actor[] = json.data.actors.map((a: Record<string, unknown>) => ({
+   470→   470→          id: a.id as string,
+   471→   471→          name: a.name as string,
+   472→   472→          type: a.type as ActorType,
+   473→   473→          category: (a.category as string) ?? null,
+   474→   474→          city: (a.city as string) ?? '',
+   475→   475→          region: (a.region as string) ?? null,
+   476→   476→          address: (a.address as string) ?? null,
+   477→   477→          phone: (a.phone as string) ?? null,
+   478→   478→          email: (a.email as string) ?? null,
+   479→   479→          website: (a.website as string) ?? null,
+   480→   480→          description: (a.description as string) ?? null,
+   481→   481→          services: Array.isArray(a.services) ? a.services : null,
+   482→   482→          featured: (a.featured as boolean) ?? false,
+   483→   483→          successRate: (a.successRate as number) ?? null,
+   484→   484→        }))
+   485→   485→        if (append) {
+   486→   486→          setActors((prev) => {
+   487→   487→            const existingIds = new Set(prev.map(a => a.id))
+   488→   488→            const newActors = apiActors.filter(a => !existingIds.has(a.id))
+   489→   489→            return [...prev, ...newActors]
+   490→   490→          })
+   491→   491→        } else {
+   492→   492→          setActors(apiActors)
+   493→   493→          setFeaturedActors(apiActors.filter((a: Actor) => a.featured))
+   494→   494→        }
+   495→   495→        setIsFallback(false)
+   496→   496→      } else {
+   497→   497→        if (!append) {
+   498→   498→          setActors(FALLBACK_ACTORS)
+   499→   499→          setFeaturedActors(FALLBACK_ACTORS.filter((a: Actor) => a.featured))
+   500→   500→          setIsFallback(true)
+   501→   501→        }
+   502→   502→      }
+   503→   503→    } catch {
+   504→   504→      if (!append) {
+   505→   505→        setActors(FALLBACK_ACTORS)
+   506→   506→        setFeaturedActors(FALLBACK_ACTORS.filter((a: Actor) => a.featured))
+   507→   507→        setIsFallback(true)
+   508→   508→      }
+   509→   509→    } finally {
+   510→   510→      setLoading(false)
+   511→   511→      setIsFetching(false)
+   512→   512→    }
+   513→   513→  }, [])
+   514→   514→
+   515→   515→  // Initial load
+   516→   516→  useEffect(() => {
+   517→   517→    fetchActors('', [], '')
+   518→   518→  }, [fetchActors])
+   519→   519→
+   520→   520→  // Re-fetch when filters change
+   521→   521→  const filterTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+   522→   522→  useEffect(() => {
+   523→   523→    if (filterTimeoutRef.current) clearTimeout(filterTimeoutRef.current)
+   524→   524→    filterTimeoutRef.current = setTimeout(() => {
+   525→   525→      fetchActors(searchQuery, selectedTypes, selectedCity)
+   526→   526→      setVisibleCount(12)
+   527→   527→    }, 300)
+   528→   528→    return () => {
+   529→   529→      if (filterTimeoutRef.current) clearTimeout(filterTimeoutRef.current)
+   530→   530→    }
+   531→   531→  }, [searchQuery, selectedTypes, selectedCity, fetchActors])
+   532→   532→
+   533→   533→  // Filter actors
+   534→   534→  const filteredActors = useMemo(() => {
+   535→   535→    let result = actors
+   536→   536→
+   537→   537→    if (searchQuery.trim()) {
+   538→   538→      const q = searchQuery.toLowerCase()
+   539→   539→      result = result.filter(
+   540→   540→        (a) =>
+   541→   541→          a.name.toLowerCase().includes(q) ||
+   542→   542→          a.city.toLowerCase().includes(q) ||
+   543→   543→          a.services?.some((s) => s.toLowerCase().includes(q)) ||
+   544→   544→          a.description?.toLowerCase().includes(q)
+   545→   545→      )
+   546→   546→    }
+   547→   547→
+   548→   548→    if (selectedTypes.length > 0) {
+   549→   549→      result = result.filter((a) => selectedTypes.includes(a.type))
+   550→   550→    }
+   551→   551→
+   552→   552→    if (selectedCity) {
+   553→   553→      result = result.filter((a) => a.city === selectedCity)
+   554→   554→    }
+   555→   555→
+   556→   556→    return result
+   557→   557→  }, [actors, searchQuery, selectedTypes, selectedCity])
+   558→   558→
+   559→   559→  const visibleActors = filteredActors.slice(0, visibleCount)
+   560→   560→  const hasMore = visibleCount < filteredActors.length
+   561→   561→
+   562→   562→  // Featured filtered
+   563→   563→  const filteredFeatured = useMemo(() => {
+   564→   564→    let result = featuredActors
+   565→   565→    if (selectedTypes.length > 0) {
+   566→   566→      result = result.filter((a) => selectedTypes.includes(a.type))
+   567→   567→    }
+   568→   568→    if (selectedCity) {
+   569→   569→      result = result.filter((a) => a.city === selectedCity)
+   570→   570→    }
+   571→   571→    return result
+   572→   572→  }, [featuredActors, selectedTypes, selectedCity])
+   573→   573→
+   574→   574→  // Toggle favorite (local + API)
+   575→   575→  const toggleFavorite = useCallback(
+   576→   576→    async (actorId: string) => {
+   577→   577→      const isCurrentlyFavorite = favoriteIds.has(actorId)
+   578→   578→      // Optimistic update
+   579→   579→      setFavoriteIds((prev) => {
+   580→   580→        const next = new Set(prev)
+   581→   581→        if (next.has(actorId)) {
+   582→   582→          next.delete(actorId)
+   583→   583→          toast.info('Favori retiré')
+   584→   584→        } else {
+   585→   585→          next.add(actorId)
+   586→   586→          toast.success('Favori ajouté')
+   587→   587→        }
+   588→   588→        localStorage.setItem('annuaire-favorites', JSON.stringify([...next]))
+   589→   589→        return next
+   590→   590→      })
+   591→   591→      // Try API call
+   592→   592→      try {
+   593→   593→        const token = localStorage.getItem('creapulse-token')
+   594→   594→        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+   595→   595→        if (token) headers['Authorization'] = `Bearer ${token}`
+   596→   596→        const res = await fetch('/api/annuaire/favorites', {
+   597→   597→          method: 'POST',
+   598→   598→          headers,
+   599→   599→          body: JSON.stringify({ actorId }),
+   600→   600→        })
+   601→   601→        if (res.ok) {
+   602→   602→          const json = await res.json()
+   603→   603→          // Server confirmed, our optimistic update is correct
+   604→   604→        } else {
+   605→   605→          // Revert on error
+   606→   606→          setFavoriteIds((prev) => {
+   607→   607→            const next = new Set(prev)
+   608→   608→            if (isCurrentlyFavorite) next.add(actorId)
+   609→   609→            else next.delete(actorId)
+   610→   610→            localStorage.setItem('annuaire-favorites', JSON.stringify([...next]))
+   611→   611→            return next
+   612→   612→          })
+   613→   613→        }
+   614→   614→      } catch {
+   615→   615→        // Keep optimistic update even if API fails (localStorage is the source of truth)
+   616→   616→      }
+   617→   617→    },
+   618→   618→    [favoriteIds]
+   619→   619→  )
+   620→   620→
+   621→   621→  // Toggle type filter
+   622→   622→  const toggleType = useCallback((type: ActorType) => {
+   623→   623→    setSelectedTypes((prev) =>
+   624→   624→      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+   625→   625→    )
+   626→   626→  }, [])
+   627→   627→
+   628→   628→  // Clear all filters
+   629→   629→  const clearFilters = useCallback(() => {
+   630→   630→    setSearchQuery('')
+   631→   631→    setSelectedTypes([])
+   632→   632→    setSelectedCity('')
+   633→   633→    setVisibleCount(12)
+   634→   634→  }, [])
+   635→   635→
+   636→   636→  // Active filters count
+   637→   637→  const activeFiltersCount = selectedTypes.length + (selectedCity ? 1 : 0)
+   638→   638→
+   639→   639→  return (
+   640→   640→    <motion.div
+   641→   641→      initial={{ opacity: 0, y: 20 }}
+   642→   642→      animate={{ opacity: 1, y: 0 }}
+   643→   643→      transition={{ duration: 0.4 }}
+   644→   644→      className="p-4 md:p-6 lg:p-8 space-y-6"
+   645→   645→    >
+   646→   646→      {/* Header */}
+   647→   647→      <div>
+   648→   648→        <div className="flex items-center gap-3">
+   649→   649→          <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+   650→   650→            <Building2 className="h-6 w-6 text-primary" />
+   651→   651→            Annuaire de l&apos;Écosystème
+   652→   652→          </h2>
+   653→   653→          {isFallback && <DemoBadge />}
+   654→   654→        </div>
+   655→   655→        <p className="mt-1 text-muted-foreground">
+   656→   656→          Explorez les acteurs de l&apos;écosystème entrepreneurial en Île-de-France
+   657→   657→        </p>
+   658→   658→      </div>
+   659→   659→
+   660→   660→      {/* Search Bar */}
+   661→   661→      <div className="flex flex-col sm:flex-row gap-3">
+   662→   662→        <div className="relative flex-1">
+   663→   663→          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   664→   664→          <Input
+   665→   665→            placeholder="Rechercher par nom, ville, service..."
+   666→   666→            value={searchQuery}
+   667→   667→            onChange={(e) => {
+   668→   668→              setSearchQuery(e.target.value)
+   669→   669→              setVisibleCount(12)
+   670→   670→            }}
+   671→   671→            className="pl-9 h-10"
+   672→   672→            disabled={isFetching}
+   673→   673→          />
+   674→   674→          {searchQuery && (
+   675→   675→            <button
+   676→   676→              onClick={() => {
+   677→   677→                setSearchQuery('')
+   678→   678→                setVisibleCount(12)
+   679→   679→              }}
+   680→   680→              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+   681→   681→            >
+   682→   682→              <X className="h-4 w-4" />
+   683→   683→            </button>
+   684→   684→          )}
+   685→   685→        </div>
+   686→   686→        <Button
+   687→   687→          variant="outline"
+   688→   688→          size="sm"
+   689→   689→          className="h-10 gap-2 shrink-0"
+   690→   690→          onClick={() => setShowFilters(!showFilters)}
+   691→   691→        >
+   692→   692→          <SlidersHorizontal className="h-4 w-4" />
+   693→   693→          Filtres
+   694→   694→          {activeFiltersCount > 0 && (
+   695→   695→            <Badge variant="default" className="h-5 min-w-5 px-1.5 text-xs rounded-full">
+   696→   696→              {activeFiltersCount}
+   697→   697→            </Badge>
+   698→   698→          )}
+   699→   699→        </Button>
+   700→   700→        <div className="flex border rounded-md">
+   701→   701→          <Button
+   702→   702→            variant={viewMode === 'grid' ? 'default' : 'ghost'}
+   703→   703→            size="icon"
+   704→   704→            className="h-10 w-10 rounded-r-none"
+   705→   705→            onClick={() => setViewMode('grid')}
+   706→   706→          >
+   707→   707→            <LayoutGrid className="h-4 w-4" />
+   708→   708→          </Button>
+   709→   709→          <Button
+   710→   710→            variant={viewMode === 'list' ? 'default' : 'ghost'}
+   711→   711→            size="icon"
+   712→   712→            className="h-10 w-10 rounded-l-none"
+   713→   713→            onClick={() => setViewMode('list')}
+   714→   714→          >
+   715→   715→            <List className="h-4 w-4" />
+   716→   716→          </Button>
+   717→   717→        </div>
+   718→   718→      </div>
+   719→   719→
+   720→   720→      {/* Filter Panel */}
+   721→   721→      <AnimatePresence>
+   722→   722→        {showFilters && (
+   723→   723→          <motion.div
+   724→   724→            initial={{ opacity: 0, height: 0 }}
+   725→   725→            animate={{ opacity: 1, height: 'auto' }}
+   726→   726→            exit={{ opacity: 0, height: 0 }}
+   727→   727→            transition={{ duration: 0.2 }}
+   728→   728→            className="overflow-hidden"
+   729→   729→          >
+   730→   730→            <Card className="border-border/60">
+   731→   731→              <CardContent className="p-4 space-y-4">
+   732→   732→                {/* Actor Type Filters */}
+   733→   733→                <div>
+   734→   734→                  <label className="text-sm font-medium text-foreground mb-2 block">
+   735→   735→                    Type d&apos;acteur
+   736→   736→                  </label>
+   737→   737→                  <div className="flex flex-wrap gap-2">
+   738→   738→                    {(
+   739→   739→                      Object.entries(ACTOR_TYPE_CONFIG) as [ActorType, (typeof ACTOR_TYPE_CONFIG)[ActorType]][]
+   740→   740→                    ).map(([type, config]) => {
+   741→   741→                      const isSelected = selectedTypes.includes(type)
+   742→   742→                      return (
+   743→   743→                        <button
+   744→   744→                          key={type}
+   745→   745→                          onClick={() => toggleType(type)}
+   746→   746→                          className={cn(
+   747→   747→                            'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all border',
+   748→   748→                            isSelected
+   749→   749→                              ? `${config.bgColor} ${config.color} border-current/20 shadow-sm`
+   750→   750→                              : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted'
+   751→   751→                          )}
+   752→   752→                        >
+   753→   753→                          <config.icon className="h-3 w-3" />
+   754→   754→                          {config.label}
+   755→   755→                          {isSelected && <X className="h-3 w-3 ml-0.5" />}
+   756→   756→                        </button>
+   757→   757→                      )
+   758→   758→                    })}
+   759→   759→                  </div>
+   760→   760→                </div>
+   761→   761→
+   762→   762→                <Separator />
+   763→   763→
+   764→   764→                {/* City Filter */}
+   765→   765→                <div>
+   766→   766→                  <label className="text-sm font-medium text-foreground mb-2 block">
+   767→   767→                    Ville
+   768→   768→                  </label>
+   769→   769→                  <Select value={selectedCity} onValueChange={(v) => setSelectedCity(v === '__all__' ? '' : v)}>
+   770→   770→                    <SelectTrigger className="w-full sm:w-64">
+   771→   771→                      <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
+   772→   772→                      <SelectValue placeholder="Toutes les villes" />
+   773→   773→                    </SelectTrigger>
+   774→   774→                    <SelectContent>
+   775→   775→                      <SelectItem value="__all__">Toutes les villes</SelectItem>
+   776→   776→                      {CITIES_IDF.map((city) => (
+   777→   777→                        <SelectItem key={city} value={city}>
+   778→   778→                          {city}
+   779→   779→                        </SelectItem>
+   780→   780→                      ))}
+   781→   781→                    </SelectContent>
+   782→   782→                  </Select>
+   783→   783→                </div>
+   784→   784→
+   785→   785→                {activeFiltersCount > 0 && (
+   786→   786→                  <>
+   787→   787→                    <Separator />
+   788→   788→                    <div className="flex items-center justify-between">
+   789→   789→                      <span className="text-sm text-muted-foreground">
+   790→   790→                        {activeFiltersCount} filtre{activeFiltersCount > 1 ? 's' : ''} actif
+   791→   791→                        {activeFiltersCount > 1 ? 's' : ''}
+   792→   792→                      </span>
+   793→   793→                      <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs h-7">
+   794→   794→                        Réinitialiser
+   795→   795→                      </Button>
+   796→   796→                    </div>
+   797→   797→                  </>
+   798→   798→                )}
+   799→   799→              </CardContent>
+   800→   800→            </Card>
+   801→   801→          </motion.div>
+   802→   802→        )}
+   803→   803→      </AnimatePresence>
+   804→   804→
+   805→   805→      {/* Active Filter Chips */}
+   806→   806→      {activeFiltersCount > 0 && !showFilters && (
+   807→   807→        <div className="flex flex-wrap gap-2 items-center">
+   808→   808→          <span className="text-xs text-muted-foreground mr-1">Filtres :</span>
+   809→   809→          {selectedTypes.map((type) => {
+   810→   810→            const config = ACTOR_TYPE_CONFIG[type]
+   811→   811→            return (
+   812→   812→              <Badge
+   813→   813→                key={type}
+   814→   814→                variant="secondary"
+   815→   815→                className="gap-1 cursor-pointer hover:bg-destructive/10 hover:text-destructive transition-colors"
+   816→   816→                onClick={() => toggleType(type)}
+   817→   817→              >
+   818→   818→                <config.icon className="h-3 w-3" />
+   819→   819→                {config.label}
+   820→   820→                <X className="h-3 w-3" />
+   821→   821→              </Badge>
+   822→   822→            )
+   823→   823→          })}
+   824→   824→          {selectedCity && (
+   825→   825→            <Badge
+   826→   826→              variant="secondary"
+   827→   827→              className="gap-1 cursor-pointer hover:bg-destructive/10 hover:text-destructive transition-colors"
+   828→   828→              onClick={() => setSelectedCity('')}
+   829→   829→            >
+   830→   830→              <MapPin className="h-3 w-3" />
+   831→   831→              {selectedCity}
+   832→   832→              <X className="h-3 w-3" />
+   833→   833→            </Badge>
+   834→   834→          )}
+   835→   835→        </div>
+   836→   836→      )}
+   837→   837→
+   838→   838→      {/* Featured Section */}
+   839→   839→      {filteredFeatured.length > 0 && !searchQuery && !selectedCity && selectedTypes.length === 0 && (
+   840→   840→        <section className="space-y-3">
+   841→   841→          <div className="flex items-center gap-2">
+   842→   842→            <Star className="h-5 w-5 text-amber-500 fill-amber-500" />
+   843→   843→            <h3 className="text-lg font-semibold text-foreground">Acteurs en vedette</h3>
+   844→   844→          </div>
+   845→   845→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+   846→   846→            {filteredFeatured.slice(0, 4).map((actor) => (
+   847→   847→              <FeaturedCard
+   848→   848→                key={actor.id}
+   849→   849→                actor={actor}
+   850→   850→                isFavorite={favoriteIds.has(actor.id)}
+   851→   851→                onToggleFavorite={() => toggleFavorite(actor.id)}
+   852→   852→              />
+   853→   853→            ))}
+   854→   854→          </div>
+   855→   855→        </section>
+   856→   856→      )}
+   857→   857→
+   858→   858→      {/* Results count */}
+   859→   859→      <div className="flex items-center justify-between">
+   860→   860→        <p className="text-sm text-muted-foreground">
+   861→   861→          {filteredActors.length} acteur{filteredActors.length !== 1 ? 's' : ''} trouvé
+   862→   862→          {filteredActors.length !== 1 ? 's' : ''}
+   863→   863→          {isFetching && <span className="ml-2 inline-block h-3 w-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />}
+   864→   864→        </p>
+   865→   865→        {filteredActors.length > 0 && (
+   866→   866→          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+   867→   867→            <ArrowUpDown className="h-3 w-3" />
+   868→   868→            Tri alphabétique
+   869→   869→          </div>
+   870→   870→        )}
+   871→   871→      </div>
+   872→   872→
+   873→   873→      {/* Results Grid/List */}
+   874→   874→      {visibleActors.length > 0 ? (
+   875→   875→        <>
+   876→   876→          <div
+   877→   877→            className={cn(
+   878→   878→              viewMode === 'grid'
+   879→   879→                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4'
+   880→   880→                : 'flex flex-col gap-3'
+   881→   881→            )}
+   882→   882→          >
+   883→   883→            {visibleActors.map((actor) =>
+   884→   884→              viewMode === 'grid' ? (
+   885→   885→                <ActorCardGrid
+   886→   886→                  key={actor.id}
+   887→   887→                  actor={actor}
+   888→   888→                  isFavorite={favoriteIds.has(actor.id)}
+   889→   889→                  onToggleFavorite={() => toggleFavorite(actor.id)}
+   890→   890→                />
+   891→   891→              ) : (
+   892→   892→                <ActorCardList
+   893→   893→                  key={actor.id}
+   894→   894→                  actor={actor}
+   895→   895→                  isFavorite={favoriteIds.has(actor.id)}
+   896→   896→                  onToggleFavorite={() => toggleFavorite(actor.id)}
+   897→   897→                />
+   898→   898→              )
+   899→   899→            )}
+   900→   900→          </div>
+   901→   901→
+   902→   902→          {/* Load More */}
+   903→   903→          {hasMore && (
+   904→   904→            <div className="flex justify-center pt-4">
+   905→   905→              <Button
+   906→   906→                variant="outline"
+   907→   907→                onClick={() => setVisibleCount((prev) => prev + 12)}
+   908→   908→                className="gap-2"
+   909→   909→              >
+   910→   910→                <ChevronDown className="h-4 w-4" />
+   911→   911→                Charger plus ({filteredActors.length - visibleCount} restant
+   912→   912→                {filteredActors.length - visibleCount > 1 ? 's' : ''})
+   913→   913→              </Button>
+   914→   914→            </div>
+   915→   915→          )}
+   916→   916→        </>
+   917→   917→      ) : (
+   918→   918→        <EmptyState onClear={clearFilters} />
+   919→   919→      )}
+   920→   920→    </motion.div>
+   921→   921→  )
+   922→   922→}
+   923→   923→
+   924→   924→// ─── Featured Card ──────────────────────────
+   925→   925→
+   926→   926→function FeaturedCard({
+   927→   927→  actor,
+   928→   928→  isFavorite,
+   929→   929→  onToggleFavorite,
+   930→   930→}: {
+   931→   931→  actor: Actor
+   932→   932→  isFavorite: boolean
+   933→   933→  onToggleFavorite: () => void
+   934→   934→}) {
+   935→   935→  const config = ACTOR_TYPE_CONFIG[actor.type]
+   936→   936→  const Icon = config.icon
+   937→   937→
+   938→   938→  return (
+   939→   939→    <motion.div whileHover={{ y: -2, scale: 1.01 }} transition={{ duration: 0.2 }}>
+   940→   940→      <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-primary/5 via-transparent to-amber-500/5 hover:shadow-lg hover:border-primary/40 transition-all duration-300">
+   941→   941→        <div className="absolute top-3 right-3 z-10">
+   942→   942→          <button
+   943→   943→            onClick={onToggleFavorite}
+   944→   944→            className="p-1.5 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background transition-colors shadow-sm"
+   945→   945→            aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+   946→   946→          >
+   947→   947→            {isFavorite ? (
+   948→   948→              <BookmarkCheck className="h-4 w-4 text-primary" />
+   949→   949→            ) : (
+   950→   950→              <Bookmark className="h-4 w-4 text-muted-foreground" />
+   951→   951→            )}
+   952→   952→          </button>
+   953→   953→        </div>
+   954→   954→        <CardContent className="p-4">
+   955→   955→          <div className="flex items-start gap-3">
+   956→   956→            <div
+   957→   957→              className={cn(
+   958→   958→                'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
+   959→   959→                config.bgColor
+   960→   960→              )}
+   961→   961→            >
+   962→   962→              <Icon className={cn('h-5 w-5', config.color)} />
+   963→   963→            </div>
+   964→   964→            <div className="flex-1 min-w-0">
+   965→   965→              <h4 className="text-sm font-semibold text-foreground leading-tight line-clamp-1">
+   966→   966→                {actor.name}
+   967→   967→              </h4>
+   968→   968→              <div className="flex items-center gap-1.5 mt-1">
+   969→   969→                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+   970→   970→                  {config.label}
+   971→   971→                </Badge>
+   972→   972→                {actor.successRate && (
+   973→   973→                  <span className="text-[10px] text-muted-foreground">
+   974→   974→                    {Math.round(actor.successRate)}% de réussite
+   975→   975→                  </span>
+   976→   976→                )}
+   977→   977→              </div>
+   978→   978→            </div>
+   979→   979→          </div>
+   980→   980→          <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+   981→   981→            <MapPin className="h-3 w-3 shrink-0" />
+   982→   982→            <span className="line-clamp-1">{actor.city}</span>
+   983→   983→          </div>
+   984→   984→          {actor.services && actor.services.length > 0 && (
+   985→   985→            <div className="mt-2 flex flex-wrap gap-1">
+   986→   986→              {actor.services.slice(0, 3).map((s) => (
+   987→   987→                <span
+   988→   988→                  key={s}
+   989→   989→                  className="inline-flex items-center rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+   990→   990→                >
+   991→   991→                  {s}
+   992→   992→                </span>
+   993→   993→              ))}
+   994→   994→              {actor.services.length > 3 && (
+   995→   995→                <span className="text-[10px] text-muted-foreground">
+   996→   996→                  +{actor.services.length - 3}
+   997→   997→                </span>
+   998→   998→              )}
+   999→   999→            </div>
+  1000→  1000→          )}
+  1001→  1001→        </CardContent>
+  1002→  1002→      </Card>
+  1003→  1003→    </motion.div>
+  1004→  1004→  )
+  1005→  1005→}
+  1006→  1006→
+  1007→  1007→// ─── Actor Grid Card ────────────────────────
+  1008→  1008→
+  1009→  1009→function ActorCardGrid({
+  1010→  1010→  actor,
+  1011→  1011→  isFavorite,
+  1012→  1012→  onToggleFavorite,
+  1013→  1013→}: {
+  1014→  1014→  actor: Actor
+  1015→  1015→  isFavorite: boolean
+  1016→  1016→  onToggleFavorite: () => void
+  1017→  1017→}) {
+  1018→  1018→  const config = ACTOR_TYPE_CONFIG[actor.type]
+  1019→  1019→  const Icon = config.icon
+  1020→  1020→
+  1021→  1021→  return (
+  1022→  1022→    <motion.div
+  1023→  1023→      initial={{ opacity: 0, y: 12 }}
+  1024→  1024→      animate={{ opacity: 1, y: 0 }}
+  1025→  1025→      whileHover={{ y: -2 }}
+  1026→  1026→      transition={{ duration: 0.2 }}
+  1027→  1027→    >
+  1028→  1028→      <Card className="group h-full hover:shadow-md hover:border-primary/30 transition-all duration-300">
+  1029→  1029→        <CardContent className="p-4 space-y-3">
+  1030→  1030→          {/* Header: icon, name, favorite */}
+  1031→  1031→          <div className="flex items-start justify-between gap-2">
+  1032→  1032→            <div className="flex items-start gap-2.5 flex-1 min-w-0">
+  1033→  1033→              <div
+  1034→  1034→                className={cn(
+  1035→  1035→                  'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
+  1036→  1036→                  config.bgColor
+  1037→  1037→                )}
+  1038→  1038→              >
+  1039→  1039→                <Icon className={cn('h-5 w-5', config.color)} />
+  1040→  1040→              </div>
+  1041→  1041→              <div className="min-w-0">
+  1042→  1042→                <h4 className="text-sm font-semibold text-foreground leading-tight line-clamp-2">
+  1043→  1043→                  {actor.name}
+  1044→  1044→                </h4>
+  1045→  1045→                <Badge
+  1046→  1046→                  variant="secondary"
+  1047→  1047→                  className={cn('mt-1 text-[10px] px-1.5 py-0 h-4 border-0', config.bgColor, config.color)}
+  1048→  1048→                >
+  1049→  1049→                  {config.label}
+  1050→  1050→                </Badge>
+  1051→  1051→              </div>
+  1052→  1052→            </div>
+  1053→  1053→            <button
+  1054→  1054→              onClick={(e) => {
+  1055→  1055→                e.stopPropagation()
+  1056→  1056→                onToggleFavorite()
+  1057→  1057→              }}
+  1058→  1058→              className={cn(
+  1059→  1059→                'p-1.5 rounded-full transition-colors shrink-0',
+  1060→  1060→                isFavorite
+  1061→  1061→                  ? 'bg-primary/10 text-primary'
+  1062→  1062→                  : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+  1063→  1063→              )}
+  1064→  1064→              aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+  1065→  1065→            >
+  1066→  1066→              {isFavorite ? (
+  1067→  1067→                <BookmarkCheck className="h-4 w-4" />
+  1068→  1068→              ) : (
+  1069→  1069→                <Bookmark className="h-4 w-4" />
+  1070→  1070→              )}
+  1071→  1071→            </button>
+  1072→  1072→          </div>
+  1073→  1073→
+  1074→  1074→          {/* Description */}
+  1075→  1075→          {actor.description && (
+  1076→  1076→            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+  1077→  1077→              {actor.description}
+  1078→  1078→            </p>
+  1079→  1079→          )}
+  1080→  1080→
+  1081→  1081→          {/* Location */}
+  1082→  1082→          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+  1083→  1083→            <MapPin className="h-3 w-3 shrink-0" />
+  1084→  1084→            <span className="line-clamp-1">
+  1085→  1085→              {actor.city}
+  1086→  1086→              {actor.region ? `, ${actor.region}` : ''}
+  1087→  1087→            </span>
+  1088→  1088→          </div>
+  1089→  1089→
+  1090→  1090→          {/* Contact info */}
+  1091→  1091→          <div className="flex flex-col gap-1.5 text-xs">
+  1092→  1092→            {actor.phone && (
+  1093→  1093→              <div className="flex items-center gap-1.5 text-muted-foreground">
+  1094→  1094→                <Phone className="h-3 w-3 shrink-0" />
+  1095→  1095→                <span className="truncate">{actor.phone}</span>
+  1096→  1096→              </div>
+  1097→  1097→            )}
+  1098→  1098→            {actor.email && (
+  1099→  1099→              <div className="flex items-center gap-1.5 text-muted-foreground">
+  1100→  1100→                <Mail className="h-3 w-3 shrink-0" />
+  1101→  1101→                <span className="truncate">{actor.email}</span>
+  1102→  1102→              </div>
+  1103→  1103→            )}
+  1104→  1104→          </div>
+  1105→  1105→
+  1106→  1106→          {/* Services */}
+  1107→  1107→          {actor.services && actor.services.length > 0 && (
+  1108→  1108→            <div className="flex flex-wrap gap-1">
+  1109→  1109→              {actor.services.slice(0, 3).map((s) => (
+  1110→  1110→                <span
+  1111→  1111→                  key={s}
+  1112→  1112→                  className="inline-flex items-center rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+  1113→  1113→                >
+  1114→  1114→                  {s}
+  1115→  1115→                </span>
+  1116→  1116→              ))}
+  1117→  1117→              {actor.services.length > 3 && (
+  1118→  1118→                <span className="inline-flex items-center text-[10px] text-muted-foreground px-1">
+  1119→  1119→                  +{actor.services.length - 3}
+  1120→  1120→                </span>
+  1121→  1121→              )}
+  1122→  1122→            </div>
+  1123→  1123→          )}
+  1124→  1124→
+  1125→  1125→          {/* Success rate */}
+  1126→  1126→          {actor.successRate != null && (
+  1127→  1127→            <div className="space-y-1">
+  1128→  1128→              <div className="flex items-center justify-between text-xs">
+  1129→  1129→                <span className="text-muted-foreground">Taux de réussite</span>
+  1130→  1130→                <span
+  1131→  1131→                  className={cn(
+  1132→  1132→                    'font-medium',
+  1133→  1133→                    actor.successRate >= 80
+  1134→  1134→                      ? 'text-emerald-600 dark:text-emerald-400'
+  1135→  1135→                      : actor.successRate >= 60
+  1136→  1136→                        ? 'text-amber-600 dark:text-amber-400'
+  1137→  1137→                        : 'text-red-500 dark:text-red-400'
+  1138→  1138→                  )}
+  1139→  1139→                >
+  1140→  1140→                  {Math.round(actor.successRate)}%
+  1141→  1141→                </span>
+  1142→  1142→              </div>
+  1143→  1143→              <Progress
+  1144→  1144→                value={actor.successRate}
+  1145→  1145→                className="h-1.5"
+  1146→  1146→              />
+  1147→  1147→            </div>
+  1148→  1148→          )}
+  1149→  1149→
+  1150→  1150→          {/* Website link */}
+  1151→  1151→          {actor.website && (
+  1152→  1152→            <a
+  1153→  1153→              href={actor.website}
+  1154→  1154→              target="_blank"
+  1155→  1155→              rel="noopener noreferrer"
+  1156→  1156→              className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors font-medium"
+  1157→  1157→            >
+  1158→  1158→              Site web
+  1159→  1159→              <ExternalLink className="h-3 w-3" />
+  1160→  1160→            </a>
+  1161→  1161→          )}
+  1162→  1162→        </CardContent>
+  1163→  1163→      </Card>
+  1164→  1164→    </motion.div>
+  1165→  1165→  )
+  1166→  1166→}
+  1167→  1167→
+  1168→  1168→// ─── Actor List Card ────────────────────────
+  1169→  1169→
+  1170→  1170→function ActorCardList({
+  1171→  1171→  actor,
+  1172→  1172→  isFavorite,
+  1173→  1173→  onToggleFavorite,
+  1174→  1174→}: {
+  1175→  1175→  actor: Actor
+  1176→  1176→  isFavorite: boolean
+  1177→  1177→  onToggleFavorite: () => void
+  1178→  1178→}) {
+  1179→  1179→  const config = ACTOR_TYPE_CONFIG[actor.type]
+  1180→  1180→  const Icon = config.icon
+  1181→  1181→
+  1182→  1182→  return (
+  1183→  1183→    <motion.div
+  1184→  1184→      initial={{ opacity: 0, x: -8 }}
+  1185→  1185→      animate={{ opacity: 1, x: 0 }}
+  1186→  1186→      transition={{ duration: 0.2 }}
+  1187→  1187→    >
+  1188→  1188→      <Card className="group hover:shadow-md hover:border-primary/30 transition-all duration-300">
+  1189→  1189→        <CardContent className="p-4">
+  1190→  1190→          <div className="flex items-start gap-3">
+  1191→  1191→            {/* Icon */}
+  1192→  1192→            <div
+  1193→  1193→              className={cn(
+  1194→  1194→                'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
+  1195→  1195→                config.bgColor
+  1196→  1196→              )}
+  1197→  1197→            >
+  1198→  1198→              <Icon className={cn('h-5 w-5', config.color)} />
+  1199→  1199→            </div>
+  1200→  1200→
+  1201→  1201→            {/* Content */}
+  1202→  1202→            <div className="flex-1 min-w-0">
+  1203→  1203→              <div className="flex items-start justify-between gap-2">
+  1204→  1204→                <div className="min-w-0">
+  1205→  1205→                  <h4 className="text-sm font-semibold text-foreground">{actor.name}</h4>
+  1206→  1206→                  <div className="flex items-center gap-2 mt-0.5">
+  1207→  1207→                    <Badge
+  1208→  1208→                      variant="secondary"
+  1209→  1209→                      className={cn('text-[10px] px-1.5 py-0 h-4 border-0', config.bgColor, config.color)}
+  1210→  1210→                    >
+  1211→  1211→                      {config.label}
+  1212→  1212→                    </Badge>
+  1213→  1213→                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+  1214→  1214→                      <MapPin className="h-3 w-3" />
+  1215→  1215→                      {actor.city}
+  1216→  1216→                    </span>
+  1217→  1217→                  </div>
+  1218→  1218→                </div>
+  1219→  1219→                <button
+  1220→  1220→                  onClick={onToggleFavorite}
+  1221→  1221→                  className={cn(
+  1222→  1222→                    'p-1.5 rounded-full transition-colors shrink-0',
+  1223→  1223→                    isFavorite
+  1224→  1224→                      ? 'bg-primary/10 text-primary'
+  1225→  1225→                      : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+  1226→  1226→                  )}
+  1227→  1227→                  aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+  1228→  1228→                >
+  1229→  1229→                  {isFavorite ? (
+  1230→  1230→                    <BookmarkCheck className="h-4 w-4" />
+  1231→  1231→                  ) : (
+  1232→  1232→                    <Bookmark className="h-4 w-4" />
+  1233→  1233→                  )}
+  1234→  1234→                </button>
+  1235→  1235→              </div>
+  1236→  1236→
+  1237→  1237→              {actor.description && (
+  1238→  1238→                <p className="mt-1.5 text-xs text-muted-foreground line-clamp-1">
+  1239→  1239→                  {actor.description}
+  1240→  1240→                </p>
+  1241→  1241→              )}
+  1242→  1242→
+  1243→  1243→              {/* Contact row */}
+  1244→  1244→              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+  1245→  1245→                {actor.phone && (
+  1246→  1246→                  <span className="flex items-center gap-1">
+  1247→  1247→                    <Phone className="h-3 w-3" />
+  1248→  1248→                    {actor.phone}
+  1249→  1249→                  </span>
+  1250→  1250→                )}
+  1251→  1251→                {actor.email && (
+  1252→  1252→                  <span className="flex items-center gap-1">
+  1253→  1253→                    <Mail className="h-3 w-3" />
+  1254→  1254→                    {actor.email}
+  1255→  1255→                  </span>
+  1256→  1256→                )}
+  1257→  1257→                {actor.website && (
+  1258→  1258→                  <a
+  1259→  1259→                    href={actor.website}
+  1260→  1260→                    target="_blank"
+  1261→  1261→                    rel="noopener noreferrer"
+  1262→  1262→                    className="flex items-center gap-1 text-primary hover:text-primary/80 transition-colors"
+  1263→  1263→                  >
+  1264→  1264→                    <ExternalLink className="h-3 w-3" />
+  1265→  1265→                    Site web
+  1266→  1266→                  </a>
+  1267→  1267→                )}
+  1268→  1268→              </div>
+  1269→  1269→
+  1270→  1270→              {/* Services inline */}
+  1271→  1271→              {actor.services && actor.services.length > 0 && (
+  1272→  1272→                <div className="mt-2 flex flex-wrap gap-1">
+  1273→  1273→                  {actor.services.map((s) => (
+  1274→  1274→                    <span
+  1275→  1275→                      key={s}
+  1276→  1276→                      className="inline-flex items-center rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+  1277→  1277→                    >
+  1278→  1278→                      {s}
+  1279→  1279→                    </span>
+  1280→  1280→                  ))}
+  1281→  1281→                </div>
+  1282→  1282→              )}
+  1283→  1283→
+  1284→  1284→              {/* Success rate inline */}
+  1285→  1285→              {actor.successRate != null && (
+  1286→  1286→                <div className="mt-2 flex items-center gap-2">
+  1287→  1287→                  <span className="text-[10px] text-muted-foreground">Réussite</span>
+  1288→  1288→                  <div className="w-16">
+  1289→  1289→                    <Progress value={actor.successRate} className="h-1.5" />
+  1290→  1290→                  </div>
+  1291→  1291→                  <span
+  1292→  1292→                    className={cn(
+  1293→  1293→                      'text-[10px] font-medium',
+  1294→  1294→                      actor.successRate >= 80
+  1295→  1295→                        ? 'text-emerald-600 dark:text-emerald-400'
+  1296→  1296→                        : actor.successRate >= 60
+  1297→  1297→                          ? 'text-amber-600 dark:text-amber-400'
+  1298→  1298→                          : 'text-red-500 dark:text-red-400'
+  1299→  1299→                    )}
+  1300→  1300→                  >
+  1301→  1301→                    {Math.round(actor.successRate)}%
+  1302→  1302→                  </span>
+  1303→  1303→                </div>
+  1304→  1304→              )}
+  1305→  1305→            </div>
+  1306→  1306→          </div>
+  1307→  1307→        </CardContent>
+  1308→  1308→      </Card>
+  1309→  1309→    </motion.div>
+  1310→  1310→  )
+  1311→  1311→}
+  1312→  1312→
+  1313→  1313→// ─── Empty State ────────────────────────────
+  1314→  1314→
+  1315→  1315→function EmptyState({ onClear }: { onClear: () => void }) {
+  1316→  1316→  return (
+  1317→  1317→    <motion.div
+  1318→  1318→      initial={{ opacity: 0, scale: 0.95 }}
+  1319→  1319→      animate={{ opacity: 1, scale: 1 }}
+  1320→  1320→      className="flex flex-col items-center justify-center py-16 px-8 text-center"
+  1321→  1321→    >
+  1322→  1322→      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted mb-4">
+  1323→  1323→        <Search className="h-8 w-8 text-muted-foreground" />
+  1324→  1324→      </div>
+  1325→  1325→      <h3 className="text-lg font-semibold text-foreground">Aucun acteur trouvé</h3>
+  1326→  1326→      <p className="mt-1 text-sm text-muted-foreground max-w-sm">
+  1327→  1327→        Essayez de modifier vos critères de recherche ou de réinitialiser les filtres.
+  1328→  1328→      </p>
+  1329→  1329→      <Button variant="outline" size="sm" onClick={onClear} className="mt-4 gap-2">
+  1330→  1330→        <X className="h-4 w-4" />
+  1331→  1331→        Réinitialiser les filtres
+  1332→  1332→      </Button>
+  1333→  1333→    </motion.div>
+  1334→  1334→  )
+  1335→  1335→}
+  1336→  1336→

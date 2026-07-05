@@ -1,0 +1,933 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Slider } from '@/components/ui/slider'
+     9→import { Separator } from '@/components/ui/separator'
+    10→import {
+    11→  Popover,
+    12→  PopoverContent,
+    13→  PopoverTrigger,
+    14→} from '@/components/ui/popover'
+    15→import {
+    16→  Scale,
+    17→  Check,
+    18→  Sparkles,
+    19→  Loader2,
+    20→  Building2,
+    21→  Shield,
+    22→  FileCheck,
+    23→  Info,
+    24→  Save,
+    25→  Users,
+    26→  DollarSign,
+    27→  Percent,
+    28→  Calculator,
+    29→  Briefcase,
+    30→  BarChart3,
+    31→  ArrowRight,
+    32→  CircleDot,
+    33→  Landmark,
+    34→  Receipt,
+    35→  UserCheck,
+    36→  FileText,
+    37→} from 'lucide-react'
+    38→import {
+    39→  BarChart,
+    40→  Bar,
+    41→  XAxis,
+    42→  YAxis,
+    43→  CartesianGrid,
+    44→  Tooltip,
+    45→  ResponsiveContainer,
+    46→  Cell,
+    47→} from 'recharts'
+    48→import { toast } from 'sonner'
+    49→import { cn } from '@/lib/utils'
+    50→import { ModuleIntroCard } from '../module-intro-card'
+    51→import { scanModule } from '@/lib/module-scanner'
+    52→
+    53→// ─── Types ──────────────────────────────────
+    54→
+    55→type StatutJuridique = 'SAS' | 'SARL' | 'EURL' | 'Auto-entrepreneur' | 'SASU'
+    56→
+    57→interface StatutInfo {
+    58→  id: StatutJuridique
+    59→  name: string
+    60→  description: string
+    61→  capital: string
+    62→  associates: string
+    63→  regime: string
+    64→  social: string
+    65→  liability: string
+    66→  color: string
+    67→  icon: typeof Building2
+    68→  advantages: string[]
+    69→  disadvantages: string[]
+    70→}
+    71→
+    72→interface SimulateurJuridique {
+    73→  statut: StatutJuridique
+    74→  caPrev: number
+    75→  associes: number
+    76→  capitalSocial: number
+    77→  reductionCharges: number
+    78→}
+    79→
+    80→// ─── Constants ──────────────────────────────
+    81→
+    82→const STATUTS: StatutInfo[] = [
+    83→  {
+    84→    id: 'SAS',
+    85→    name: 'SAS',
+    86→    description: 'Société par Actions Simplifiée — idéale pour les startups et projets innovants',
+    87→    capital: '1 € minimum',
+    88→    associates: '2+',
+    89→    regime: 'IS',
+    90→    social: 'Assimilé salarié',
+    91→    liability: 'Limitée au capital',
+    92→    color: '#EF4444',
+    93→    icon: Building2,
+    94→    advantages: ['Flexibilité statutaire', 'Facilite levées de fonds', 'Assimilé salarié'],
+    95→    disadvantages: ['Charges sociales élevées', 'Formalités complexes', 'IS obligatoire'],
+    96→  },
+    97→  {
+    98→    id: 'SARL',
+    99→    name: 'SARL',
+   100→    description: 'Société à Responsabilité Limitée — classique et fiable pour les PME',
+   101→    capital: '1 € minimum',
+   102→    associates: '2-100',
+   103→    regime: 'IR (option IS)',
+   104→    social: 'TNS (gérant majoritaire)',
+   105→    liability: 'Limitée au capital',
+   106→    color: '#FF6B35',
+   107→    icon: Briefcase,
+   108→    advantages: ['Protection patrimoine', 'Crédibilité bancaire', 'Fiscalité souple'],
+   109→    disadvantages: ['Charges sociales', 'Formalités comptables', 'Décisions conjointes'],
+   110→  },
+   111→  {
+   112→    id: 'EURL',
+   113→    name: 'EURL',
+   114→    description: 'Entreprise Unipersonnelle à Responsabilité Limitée — SARL à associé unique',
+   115→    capital: '1 € minimum',
+   116→    associates: '1',
+   117→    regime: 'IR (option IS)',
+   118→    social: 'TNS',
+   119→    liability: 'Limitée au capital',
+   120→    color: '#00838F',
+   121→    icon: Shield,
+   122→    advantages: ['Solo avec protection', 'Flexibilité fiscale', 'Faible capital'],
+   123→    disadvantages: ['Pas d\'assurance chômage', 'Charges sociales', 'Comptabilité'],
+   124→  },
+   125→  {
+   126→    id: 'Auto-entrepreneur',
+   127→    name: 'Auto-entrepreneur',
+   128→    description: 'Micro-entreprise — le statut le plus simple pour démarrer',
+   129→    capital: 'Aucun',
+   130→    associates: '1',
+   131→    regime: 'Micro-BIC/BNC',
+   132→    social: 'TNS',
+   133→    liability: 'Illimitée',
+   134→    color: '#10B981',
+   135→    icon: UserCheck,
+   136→    advantages: ['Simplicité maximale', 'Faibles charges', 'Pas de comptabilité'],
+   137→    disadvantages: ['Pas de protection', 'Plafonds de CA', 'Pas de déduction'],
+   138→  },
+   139→  {
+   140→    id: 'SASU',
+   141→    name: 'SASU',
+   142→    description: 'SAS Unipersonnelle — SAS à associé unique avec protection sociale',
+   143→    capital: '1 € minimum',
+   144→    associates: '1',
+   145→    regime: 'IS',
+   146→    social: 'Assimilé salarié',
+   147→    liability: 'Limitée au capital',
+   148→    color: '#8B5CF6',
+   149→    icon: Landmark,
+   150→    advantages: ['Statut salarié', 'Protection sociale', 'Flexibilité'],
+   151→    disadvantages: ['Charges très élevées', 'IS obligatoire', 'Comptabilité complexe'],
+   152→  },
+   153→]
+   154→
+   155→const DEFAULT_SIM: SimulateurJuridique = {
+   156→  statut: 'SARL',
+   157→  caPrev: 50_000,
+   158→  associes: 2,
+   159→  capitalSocial: 1_000,
+   160→  reductionCharges: 50,
+   161→}
+   162→
+   163→const formatEur = (v: number) =>
+   164→  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(v)
+   165→
+   166→// ─── InfoPopover helper ─────────────────────
+   167→
+   168→function InfoPopover({ text }: { text: string }) {
+   169→  return (
+   170→    <Popover>
+   171→      <PopoverTrigger asChild>
+   172→        <button type="button" className="inline-flex items-center justify-center h-5 w-5 rounded-full text-muted-foreground hover:text-[#00838F] hover:bg-[#00838F]/10 transition-colors shrink-0">
+   173→          <Info className="h-3.5 w-3.5" />
+   174→          <span className="sr-only">Aide</span>
+   175→        </button>
+   176→      </PopoverTrigger>
+   177→      <PopoverContent side="top" className="max-w-sm text-sm bg-popover border-border shadow-lg">
+   178→        <p className="text-muted-foreground leading-relaxed">{text}</p>
+   179→      </PopoverContent>
+   180→    </Popover>
+   181→  )
+   182→}
+   183→
+   184→// ─── Animated Number ────────────────────────
+   185→
+   186→function AnimatedValue({ value, format }: { value: number; format: (v: number) => string }) {
+   187→  const formatted = useMemo(() => format(value), [value, format])
+   188→  return (
+   189→    <motion.span
+   190→      key={value}
+   191→      initial={{ opacity: 0, y: -5 }}
+   192→      animate={{ opacity: 1, y: 0 }}
+   193→      className="font-bold text-xl"
+   194→    >
+   195→      {formatted}
+   196→    </motion.span>
+   197→  )
+   198→}
+   199→
+   200→// ─── Main Component ─────────────────────────
+   201→
+   202→export function JuridiqueModule() {
+   203→  const [isLoading, setIsLoading] = useState(true)
+   204→  const [isSaving, setIsSaving] = useState(false)
+   205→
+   206→  // Simulator state
+   207→  const [sim, setSim] = useState<SimulateurJuridique>(DEFAULT_SIM)
+   208→  const [hasStarted, setHasStarted] = useState(() => scanModule('juridique').status !== 'not_started')
+   209→
+   210→  // ─── Slider setter helper ────────────────
+   211→  const updateSim = useCallback((key: keyof SimulateurJuridique, val: number) => {
+   212→    setSim(prev => ({ ...prev, [key]: val }))
+   213→  }, [])
+   214→
+   215→  // ─── Load data on mount ──────────────────
+   216→  useEffect(() => {
+   217→    async function load() {
+   218→      const saved = localStorage.getItem('creapulse-juridique')
+   219→      if (saved) {
+   220→        try {
+   221→          const parsed = JSON.parse(saved)
+   222→          if (parsed.sim) setSim(prev => ({ ...prev, ...parsed.sim }))
+   223→        } catch { /* ignore */ }
+   224→      }
+   225→
+   226→      try {
+   227→        const res = await fetch('/api/juridique', { credentials: 'include' })
+   228→        if (res.ok) {
+   229→          const json = await res.json()
+   230→          if (json.success && json.data) {
+   231→            const d = json.data
+   232→            if (d.legalStructure) {
+   233→              try {
+   234→                const structure = typeof d.legalStructure === 'string'
+   235→                  ? JSON.parse(d.legalStructure)
+   236→                  : d.legalStructure
+   237→                if (structure.recommended) {
+   238→                  const matchingStatut = STATUTS.find(s => s.name.toLowerCase().includes(structure.recommended.toLowerCase()))
+   239→                  if (matchingStatut) {
+   240→                    setSim(prev => ({ ...prev, statut: matchingStatut.id }))
+   241→                  }
+   242→                }
+   243→                if (structure.answers) {
+   244→                  if (structure.answers.associatesCount === 'solo') updateSim('associes', 1)
+   245→                  else if (structure.answers.associatesCount === '2-5') updateSim('associes', 3)
+   246→                  else if (structure.answers.associatesCount === '6+') updateSim('associes', 7)
+   247→                }
+   248→              } catch { /* ignore */ }
+   249→            }
+   250→            if (d.fiscalRegime) {
+   251→              // Could use this to pre-select
+   252→            }
+   253→          }
+   254→        }
+   255→      } catch { /* ignore */ }
+   256→
+   257→      setIsLoading(false)
+   258→    }
+   259→    load()
+   260→  }, [])
+   261→
+   262→  // ─── Auto-save to localStorage ──────────
+   263→  useEffect(() => {
+   264→    if (!isLoading) {
+   265→      localStorage.setItem('creapulse-juridique', JSON.stringify({ sim }))
+   266→    }
+   267→  }, [isLoading, sim])
+   268→
+   269→  // ─── Computed legal outputs ─────────────
+   270→  const legalOutputs = useMemo(() => {
+   271→    const statutInfo = STATUTS.find(s => s.id === sim.statut)!
+   272→    const ca = sim.caPrev
+   273→
+   274→    // Régime fiscal
+   275→    const regimeFiscal: string = (sim.statut === 'SAS' || sim.statut === 'SASU') ? 'IS' : 'IR'
+   276→
+   277→    // Charges sociales estimées (annual %)
+   278→    let chargesRate = 0
+   279→    switch (sim.statut) {
+   280→      case 'Auto-entrepreneur': chargesRate = 22; break
+   281→      case 'EURL': chargesRate = 45; break
+   282→      case 'SARL': chargesRate = 45; break
+   283→      case 'SASU': chargesRate = 65; break
+   284→      case 'SAS': chargesRate = 65; break
+   285→    }
+   286→    const chargesAnuelles = Math.round(ca * (chargesRate / 100) * (1 - sim.reductionCharges / 100))
+   287→
+   288→    // TVA
+   289→    let tvaPlafond: 'Franchise' | 'Simplifié' | 'Réel' = 'Franchise'
+   290→    if (ca > 188_700) tvaPlafond = 'Réel'
+   291→    else if (ca > 85_800) tvaPlafond = 'Simplifié'
+   292→
+   293→    // ACRE eligibility (auto-entrepreneur or first-time creator)
+   294→    const acreEligible = sim.statut === 'Auto-entrepreneur' || sim.reductionCharges > 40
+   295→
+   296→    // Compatibility check
+   297→    const compatAssocies = sim.associes === 1
+   298→      ? (['EURL', 'Auto-entrepreneur', 'SASU'].includes(sim.statut))
+   299→      : sim.associes <= 100
+   300→        ? ['SAS', 'SARL'].includes(sim.statut)
+   301→        : sim.statut === 'SAS'
+   302→
+   303→    return { statutInfo, regimeFiscal, chargesAnuelles, chargesRate, tvaPlafond, acreEligible, compatAssocies }
+   304→  }, [sim])
+   305→
+   306→  // ─── Bar chart data ─────────────────────
+   307→  const chargesChartData = useMemo(() => {
+   308→    return STATUTS.map(s => {
+   309→      let rate = 0
+   310→      switch (s.id) {
+   311→        case 'Auto-entrepreneur': rate = 22; break
+   312→        case 'EURL': rate = 45; break
+   313→        case 'SARL': rate = 45; break
+   314→        case 'SASU': rate = 65; break
+   315→        case 'SAS': rate = 65; break
+   316→      }
+   317→      return {
+   318→        name: s.id,
+   319→        charges: Math.round(sim.caPrev * (rate / 100) * (1 - sim.reductionCharges / 100)),
+   320→        color: s.id === sim.statut ? s.color : `${s.color}40`,
+   321→        isActive: s.id === sim.statut,
+   322→      }
+   323→    })
+   324→  }, [sim.caPrev, sim.reductionCharges, sim.statut])
+   325→
+   326→  // ─── Save to API + sync BP ──────────────
+   327→  const handleSaveAndSync = useCallback(async () => {
+   328→    setIsSaving(true)
+   329→    try {
+   330→      const res = await fetch('/api/juridique', {
+   331→        method: 'PUT',
+   332→        headers: { 'Content-Type': 'application/json' },
+   333→        credentials: 'include',
+   334→        body: JSON.stringify({
+   335→          legalStructure: JSON.stringify({
+   336→            recommended: legalOutputs.statutInfo.name,
+   337→            statut: sim.statut,
+   338→            caPrev: sim.caPrev,
+   339→            associes: sim.associes,
+   340→            capitalSocial: sim.capitalSocial,
+   341→            reductionCharges: sim.reductionCharges,
+   342→            regimeFiscal: legalOutputs.regimeFiscal,
+   343→            chargesEstimees: legalOutputs.chargesAnuelles,
+   344→            tvaPlafond: legalOutputs.tvaPlafond,
+   345→            acreEligible: legalOutputs.acreEligible,
+   346→          }),
+   347→          fiscalRegime: legalOutputs.regimeFiscal,
+   348→          socialCharges: {
+   349→            micro: Math.round(sim.caPrev * 0.22 * (1 - sim.reductionCharges / 100)),
+   350→            eurl: Math.round(sim.caPrev * 0.45 * (1 - sim.reductionCharges / 100)),
+   351→            sarl: Math.round(sim.caPrev * 0.45 * (1 - sim.reductionCharges / 100)),
+   352→            sasu: Math.round(sim.caPrev * 0.65 * (1 - sim.reductionCharges / 100)),
+   353→          },
+   354→        }),
+   355→      })
+   356→      const json = await res.json()
+   357→      if (!json.success) {
+   358→        toast.error(json.error?.message || 'Erreur lors de la sauvegarde')
+   359→        return
+   360→      }
+   361→
+   362→      // Sync Business Plan
+   363→      try {
+   364→        await fetch('/api/business-plan', {
+   365→          method: 'PUT',
+   366→          headers: { 'Content-Type': 'application/json' },
+   367→          credentials: 'include',
+   368→          body: JSON.stringify({ action: 'sync-simulators' }),
+   369→        })
+   370→      } catch { /* non-critical */ }
+   371→
+   372→      toast.success('Configuration juridique sauvegardée et BP synchronisé')
+   373→    } catch {
+   374→      toast.error('Erreur de connexion au serveur')
+   375→    } finally {
+   376→      setIsSaving(false)
+   377→    }
+   378→  }, [sim, legalOutputs])
+   379→
+   380→  // ─── Intro card ───────────────────────
+   381→  if (!hasStarted) {
+   382→    return (
+   383→      <ModuleIntroCard
+   384→        title="Analyse Juridique"
+   385→        description="Choisissez le statut juridique adapté à votre projet."
+   386→        duration="15-20 min"
+   387→        phase="Stratégie"
+   388→        icon={Scale}
+   389→        iconColor="bg-amber-50 dark:bg-amber-900/20 text-amber-500"
+   390→        benefits={[
+   391→          { icon: Scale, text: 'Comparer les statuts (SAS, SARL, EURL, Auto-entrepreneur)' },
+   392→          { icon: Calculator, text: 'Simuler les charges sociales' },
+   393→          { icon: Users, text: 'Évaluer le capital social nécessaire' },
+   394→          { icon: FileText, text: 'Obtenir une recommandation personnalisée' },
+   395→        ]}
+   396→        ctaLabel="Comparer les statuts"
+   397→        onStart={() => setHasStarted(true)}
+   398→        hasStarted={false}
+   399→      />
+   400→    )
+   401→  }
+   402→
+   403→  // ─── Loading skeleton ───────────────────
+   404→  if (isLoading) {
+   405→    return (
+   406→      <div className="p-4 md:p-6 lg:p-8 space-y-6">
+   407→        <div className="h-8 w-64 bg-muted animate-pulse rounded" />
+   408→        <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+   409→        <div className="h-40 bg-muted animate-pulse rounded-xl" />
+   410→      </div>
+   411→    )
+   412→  }
+   413→
+   414→  // ─── Main Render ──────────────────────
+   415→  return (
+   416→    <motion.div
+   417→      initial={{ opacity: 0, y: 20 }}
+   418→      animate={{ opacity: 1, y: 0 }}
+   419→      transition={{ duration: 0.4 }}
+   420→      className="flex-1 overflow-y-auto"
+   421→    >
+   422→      {/* Header */}
+   423→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 md:px-6 border-b bg-background">
+   424→        <div className="flex items-center gap-3">
+   425→          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00838F]/10">
+   426→            <Scale className="h-5 w-5 text-[#00838F]" />
+   427→          </div>
+   428→          <div>
+   429→            <h2 className="text-xl font-bold text-foreground">Simulateur Juridique</h2>
+   430→            <p className="text-xs text-muted-foreground">
+   431→              Choisissez votre statut et simulez vos charges
+   432→            </p>
+   433→          </div>
+   434→        </div>
+   435→        <div className="flex items-center gap-2">
+   436→          <Button
+   437→            size="sm"
+   438→            className="gap-1.5 bg-[#00838F] hover:bg-[#00838F]/90 text-white"
+   439→            onClick={handleSaveAndSync}
+   440→            disabled={isSaving}
+   441→          >
+   442→            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+   443→            Enregistrer &amp; synchroniser le BP
+   444→          </Button>
+   445→        </div>
+   446→      </div>
+   447→
+   448→      <div className="p-4 md:p-6 space-y-6">
+   449→        {/* ── Statut Juridique Visual Selector ── */}
+   450→        <div className="space-y-4">
+   451→          <div className="flex items-center gap-2">
+   452→            <h3 className="text-base font-semibold flex items-center gap-2">
+   453→              <Building2 className="h-4 w-4 text-[#00838F]" />
+   454→              Statut juridique
+   455→            </h3>
+   456→            <InfoPopover text="Sélectionnez le statut juridique adapté à votre projet. Chaque statut a des implications sur la fiscalité, les charges sociales et la protection du patrimoine." />
+   457→          </div>
+   458→
+   459→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   460→            {STATUTS.map((statut) => {
+   461→              const isSelected = sim.statut === statut.id
+   462→              const IconComp = statut.icon
+   463→              return (
+   464→                <motion.button
+   465→                  key={statut.id}
+   466→                  whileHover={{ scale: 1.02 }}
+   467→                  whileTap={{ scale: 0.98 }}
+   468→                  onClick={() => updateSim('statut', statut.id)}
+   469→                  className={cn(
+   470→                    'text-left rounded-xl border-2 p-4 transition-all relative overflow-hidden',
+   471→                    isSelected
+   472→                      ? 'shadow-lg'
+   473→                      : 'border-border hover:border-muted-foreground/30 hover:bg-muted/30',
+   474→                  )}
+   475→                  style={isSelected ? { borderColor: statut.color, boxShadow: `0 0 0 1px ${statut.color}` } : {}}
+   476→                >
+   477→                  {isSelected && (
+   478→                    <div className="absolute top-2 right-2">
+   479→                      <Check className="h-4 w-4 text-white" style={{ color: statut.color }} />
+   480→                    </div>
+   481→                  )}
+   482→                  <div className="flex items-center gap-3 mb-3">
+   483→                    <div
+   484→                      className="flex h-10 w-10 items-center justify-center rounded-xl"
+   485→                      style={{ backgroundColor: `${statut.color}15` }}
+   486→                    >
+   487→                      <IconComp className="h-5 w-5" style={{ color: statut.color }} />
+   488→                    </div>
+   489→                    <div>
+   490→                      <p className="text-sm font-bold" style={{ color: isSelected ? statut.color : undefined }}>
+   491→                        {statut.name}
+   492→                      </p>
+   493→                      <p className="text-[11px] text-muted-foreground">{statut.capital}</p>
+   494→                    </div>
+   495→                  </div>
+   496→                  <p className="text-xs text-muted-foreground leading-relaxed mb-3">
+   497→                    {statut.description}
+   498→                  </p>
+   499→                  <div className="flex flex-wrap gap-1">
+   500→                    {statut.advantages.slice(0, 2).map((adv, i) => (
+   501→                      <Badge
+   502→                        key={i}
+   503→                        variant="outline"
+   504→                        className="text-[10px] px-1.5 py-0"
+   505→                        style={isSelected ? { borderColor: `${statut.color}60`, color: statut.color } : {}}
+   506→                      >
+   507→                        {adv}
+   508→                      </Badge>
+   509→                    ))}
+   510→                  </div>
+   511→                </motion.button>
+   512→              )
+   513→            })}
+   514→          </div>
+   515→        </div>
+   516→
+   517→        {/* ── Incompatibility warning ── */}
+   518→        {!legalOutputs.compatAssocies && (
+   519→          <motion.div
+   520→            initial={{ opacity: 0, y: -5 }}
+   521→            animate={{ opacity: 1, y: 0 }}
+   522→            className="rounded-lg border-2 border-red-500/30 bg-red-50/50 dark:bg-red-900/10 p-4 flex items-start gap-3"
+   523→          >
+   524→            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 shrink-0">
+   525→              <Info className="h-4 w-4 text-red-500" />
+   526→            </div>
+   527→            <div>
+   528→              <p className="text-sm font-semibold text-red-600">Incompatibilité détectée</p>
+   529→              <p className="text-xs text-muted-foreground mt-0.5">
+   530→                {legalOutputs.statutInfo.name} nécessite {legalOutputs.statutInfo.associes} associé(s).
+   531→                Vous avez sélectionné {sim.associes} associé(s). Changez le statut ou le nombre d&apos;associés.
+   532→              </p>
+   533→            </div>
+   534→          </motion.div>
+   535→        )}
+   536→
+   537→        {/* ── Simulator Sliders ── */}
+   538→        <div className="space-y-6">
+   539→          <h3 className="text-base font-semibold flex items-center gap-2">
+   540→            <Calculator className="h-4 w-4 text-[#FF6B35]" />
+   541→            Paramètres du simulateur
+   542→          </h3>
+   543→
+   544→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   545→            {/* CA prévisionnel */}
+   546→            <Card>
+   547→              <CardHeader className="pb-3">
+   548→                <div className="flex items-center justify-between">
+   549→                  <div className="flex items-center gap-2">
+   550→                    <CardTitle className="text-base flex items-center gap-2">
+   551→                      <DollarSign className="h-4 w-4 text-[#00838F]" />
+   552→                      CA prévisionnel (année 1)
+   553→                    </CardTitle>
+   554→                    <InfoPopover text="Votre chiffre d'affaires prévisionnel pour la première année. Il détermine le régime fiscal applicable, les plafonds TVA et le montant des charges sociales." />
+   555→                  </div>
+   556→                </div>
+   557→              </CardHeader>
+   558→              <CardContent className="space-y-4">
+   559→                <div className="flex items-center justify-between">
+   560→                  <span className="text-xs text-muted-foreground">0 €</span>
+   561→                  <span className="text-xl font-bold text-[#00838F]">{formatEur(sim.caPrev)}</span>
+   562→                  <span className="text-xs text-muted-foreground">500 000 €</span>
+   563→                </div>
+   564→                <Slider
+   565→                  value={[sim.caPrev]}
+   566→                  onValueChange={([v]) => updateSim('caPrev', v)}
+   567→                  min={0}
+   568→                  max={500_000}
+   569→                  step={5_000}
+   570→                  className="[&_[role=slider]]:bg-[#00838F] [&_[role=slider]]:border-[#00838F] [&_[data-orientation=horizontal]>.bg-primary]:bg-[#00838F]"
+   571→                />
+   572→                <div className="flex justify-between text-[11px] text-muted-foreground">
+   573→                  <span>Démarrage</span>
+   574→                  <span>Pas : 5 000 €</span>
+   575→                  <span>Croissance</span>
+   576→                </div>
+   577→              </CardContent>
+   578→            </Card>
+   579→
+   580→            {/* Nombre d'associés */}
+   581→            <Card>
+   582→              <CardHeader className="pb-3">
+   583→                <div className="flex items-center justify-between">
+   584→                  <div className="flex items-center gap-2">
+   585→                    <CardTitle className="text-base flex items-center gap-2">
+   586→                      <Users className="h-4 w-4 text-[#FF6B35]" />
+   587→                      Nombre d&apos;associés
+   588→                    </CardTitle>
+   589→                    <InfoPopover text="Le nombre d'associés détermine quels statuts sont compatibles. 1 associé = EURL, SASU ou Auto-entrepreneur. 2+ associés = SARL ou SAS." />
+   590→                  </div>
+   591→                </div>
+   592→              </CardHeader>
+   593→              <CardContent className="space-y-4">
+   594→                <div className="flex items-center justify-between">
+   595→                  <Badge variant="outline" className={sim.associes === 1 ? 'border-[#00838F] text-[#00838F]' : 'text-muted-foreground'}>Solo</Badge>
+   596→                  <span className="text-xl font-bold text-[#FF6B35]">{sim.associes}</span>
+   597→                  <Badge variant="outline" className={sim.associes > 5 ? 'border-[#FF6B35] text-[#FF6B35]' : 'text-muted-foreground'}>Équipe</Badge>
+   598→                </div>
+   599→                <Slider
+   600→                  value={[sim.associes]}
+   601→                  onValueChange={([v]) => updateSim('associes', v)}
+   602→                  min={1}
+   603→                  max={10}
+   604→                  step={1}
+   605→                  className="[&_[role=slider]]:bg-[#FF6B35] [&_[role=slider]]:border-[#FF6B35] [&_[data-orientation=horizontal]>.bg-primary]:bg-[#FF6B35]"
+   606→                />
+   607→                <div className="flex justify-between text-[11px] text-muted-foreground">
+   608→                  <span>1 — Solo</span>
+   609→                  <span>10 — Grande équipe</span>
+   610→                </div>
+   611→              </CardContent>
+   612→            </Card>
+   613→
+   614→            {/* Capital social */}
+   615→            <Card>
+   616→              <CardHeader className="pb-3">
+   617→                <div className="flex items-center justify-between">
+   618→                  <div className="flex items-center gap-2">
+   619→                    <CardTitle className="text-base flex items-center gap-2">
+   620→                      <Landmark className="h-4 w-4 text-[#00838F]" />
+   621→                      Capital social
+   622→                    </CardTitle>
+   623→                    <InfoPopover text="Le capital social est le montant apporté par les associés à la création. La plupart des sociétés acceptent 1€ minimum. Un capital plus élevé renforce la crédibilité bancaire." />
+   624→                  </div>
+   625→                </div>
+   626→              </CardHeader>
+   627→              <CardContent className="space-y-4">
+   628→                <div className="flex items-center justify-between">
+   629→                  <span className="text-xs text-muted-foreground">1 €</span>
+   630→                  <span className="text-xl font-bold text-[#00838F]">{formatEur(sim.capitalSocial)}</span>
+   631→                  <span className="text-xs text-muted-foreground">100 000 €</span>
+   632→                </div>
+   633→                <Slider
+   634→                  value={[sim.capitalSocial]}
+   635→                  onValueChange={([v]) => updateSim('capitalSocial', Math.max(1, v))}
+   636→                  min={1}
+   637→                  max={100_000}
+   638→                  step={500}
+   639→                  className="[&_[role=slider]]:bg-[#00838F] [&_[role=slider]]:border-[#00838F] [&_[data-orientation=horizontal]>.bg-primary]:bg-[#00838F]"
+   640→                />
+   641→                <div className="flex justify-between text-[11px] text-muted-foreground">
+   642→                  <span>Symbolique</span>
+   643→                  <span>Pas : 500 €</span>
+   644→                  <span>Solide</span>
+   645→                </div>
+   646→              </CardContent>
+   647→            </Card>
+   648→
+   649→            {/* Réduction de charges (ACRE) */}
+   650→            <Card>
+   651→              <CardHeader className="pb-3">
+   652→                <div className="flex items-center justify-between">
+   653→                  <div className="flex items-center gap-2">
+   654→                    <CardTitle className="text-base flex items-center gap-2">
+   655→                      <Percent className="h-4 w-4 text-[#FFB74D]" />
+   656→                      Réduction de charges (ACRE)
+   657→                    </CardTitle>
+   658→                    <InfoPopover text="L'ACRE (Aide à la Création ou Reprise d'Entreprise) offre une réduction de charges pendant la 1ère année. Cette réduction s'applique différemment selon le statut." />
+   659→                  </div>
+   660→                </div>
+   661→              </CardHeader>
+   662→              <CardContent className="space-y-4">
+   663→                <div className="flex items-center justify-between">
+   664→                  <span className="text-xs text-muted-foreground">0 %</span>
+   665→                  <span className="text-xl font-bold text-[#FFB74D]">{sim.reductionCharges}%</span>
+   666→                  <span className="text-xs text-muted-foreground">80 %</span>
+   667→                </div>
+   668→                <Slider
+   669→                  value={[sim.reductionCharges]}
+   670→                  onValueChange={([v]) => updateSim('reductionCharges', v)}
+   671→                  min={0}
+   672→                  max={80}
+   673→                  step={5}
+   674→                  className="[&_[role=slider]]:bg-[#FFB74D] [&_[role=slider]]:border-[#FFB74D] [&_[data-orientation=horizontal]>.bg-primary]:bg-[#FFB74D]"
+   675→                />
+   676→                <div className="flex justify-between text-[11px] text-muted-foreground">
+   677→                  <span>Aucune réduction</span>
+   678→                  <span>ACRE maximale</span>
+   679→                </div>
+   680→              </CardContent>
+   681→            </Card>
+   682→          </div>
+   683→        </div>
+   684→
+   685→        <Separator />
+   686→
+   687→        {/* ── Visual Output Cards ── */}
+   688→        <div className="space-y-4">
+   689→          <h3 className="text-base font-semibold flex items-center gap-2">
+   690→            <FileCheck className="h-4 w-4 text-[#00838F]" />
+   691→            Résultats de la simulation
+   692→          </h3>
+   693→
+   694→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   695→            {/* Régime fiscal */}
+   696→            <Card className={cn('border-2', legalOutputs.compatAssocies ? 'border-[#00838F]/20' : 'border-red-500/30')}>
+   697→              <CardContent className="pt-4 pb-4">
+   698→                <div className="flex items-center gap-2 mb-3">
+   699→                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#00838F]/10">
+   700→                    <Receipt className="h-4 w-4 text-[#00838F]" />
+   701→                  </div>
+   702→                  <span className="text-xs text-muted-foreground font-medium">Régime fiscal</span>
+   703→                </div>
+   704→                <p className="text-2xl font-bold text-[#00838F]">{legalOutputs.regimeFiscal}</p>
+   705→                <p className="text-[11px] text-muted-foreground mt-1">
+   706→                  {legalOutputs.regimeFiscal === 'IS' ? 'Impôt sur les Sociétés' : 'Impôt sur le Revenu'}
+   707→                </p>
+   708→                {sim.statut === 'EURL' || sim.statut === 'SARL' ? (
+   709→                  <p className="text-[11px] text-amber-500 mt-1">Option IS possible</p>
+   710→                ) : null}
+   711→              </CardContent>
+   712→            </Card>
+   713→
+   714→            {/* Charges sociales estimées */}
+   715→            <Card className="border-[#00838F]/20">
+   716→              <CardContent className="pt-4 pb-4">
+   717→                <div className="flex items-center gap-2 mb-3">
+   718→                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#FF6B35]/10">
+   719→                    <Calculator className="h-4 w-4 text-[#FF6B35]" />
+   720→                  </div>
+   721→                  <span className="text-xs text-muted-foreground font-medium">Charges sociales</span>
+   722→                </div>
+   723→                <AnimatedValue value={legalOutputs.chargesAnuelles} format={formatEur} />
+   724→                <p className="text-[11px] text-muted-foreground mt-1">
+   725→                  ~{legalOutputs.chargesRate}% du CA × {(1 - sim.reductionCharges / 100 * 100).toFixed(0)}%
+   726→                </p>
+   727→              </CardContent>
+   728→            </Card>
+   729→
+   730→            {/* Plafond TVA */}
+   731→            <Card className="border-[#00838F]/20">
+   732→              <CardContent className="pt-4 pb-4">
+   733→                <div className="flex items-center gap-2 mb-3">
+   734→                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#FFB74D]/10">
+   735→                    <Receipt className="h-4 w-4 text-[#FFB74D]" />
+   736→                  </div>
+   737→                  <span className="text-xs text-muted-foreground font-medium">Plafond TVA</span>
+   738→                </div>
+   739→                <Badge
+   740→                  className={cn(
+   741→                    'text-sm px-3 py-1',
+   742→                    legalOutputs.tvaPlafond === 'Franchise' && 'bg-green-500/10 text-green-600 border-green-500/30',
+   743→                    legalOutputs.tvaPlafond === 'Simplifié' && 'bg-amber-500/10 text-amber-600 border-amber-500/30',
+   744→                    legalOutputs.tvaPlafond === 'Réel' && 'bg-red-500/10 text-red-600 border-red-500/30',
+   745→                  )}
+   746→                  variant="outline"
+   747→                >
+   748→                  {legalOutputs.tvaPlafond === 'Franchise' && '🟢 Franchise'}
+   749→                  {legalOutputs.tvaPlafond === 'Simplifié' && '🟡 Simplifié'}
+   750→                  {legalOutputs.tvaPlafond === 'Réel' && '🔴 Réel normal'}
+   751→                </Badge>
+   752→                <p className="text-[11px] text-muted-foreground mt-2">
+   753→                  {legalOutputs.tvaPlafond === 'Franchise' && 'En-dessous des plafonds de franchise de TVA'}
+   754→                  {legalOutputs.tvaPlafond === 'Simplifié' && 'Régime réel simplifié applicable'}
+   755→                  {legalOutputs.tvaPlafond === 'Réel' && 'Au-delà des plafonds — régime réel obligatoire'}
+   756→                </p>
+   757→              </CardContent>
+   758→            </Card>
+   759→
+   760→            {/* Éligibilité ACRE */}
+   761→            <Card className="border-[#00838F]/20">
+   762→              <CardContent className="pt-4 pb-4">
+   763→                <div className="flex items-center gap-2 mb-3">
+   764→                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#00838F]/10">
+   765→                    <Shield className="h-4 w-4 text-[#00838F]" />
+   766→                  </div>
+   767→                  <span className="text-xs text-muted-foreground font-medium">Éligibilité ACRE</span>
+   768→                </div>
+   769→                {legalOutputs.acreEligible ? (
+   770→                  <Badge className="bg-green-500 text-white text-sm px-3 py-1">
+   771→                    <Check className="h-3.5 w-3.5 mr-1" />
+   772→                    Oui
+   773→                  </Badge>
+   774→                ) : (
+   775→                  <Badge variant="outline" className="border-red-500/40 text-red-500 text-sm px-3 py-1">
+   776→                    Non
+   777→                  </Badge>
+   778→                )}
+   779→                <p className="text-[11px] text-muted-foreground mt-2">
+   780→                  {legalOutputs.acreEligible
+   781→                    ? 'Réduction de charges sociale la 1ère année'
+   782→                    : 'Augmentez la réduction de charges ou choisissez auto-entrepreneur'
+   783→                  }
+   784→                </p>
+   785→              </CardContent>
+   786→            </Card>
+   787→          </div>
+   788→        </div>
+   789→
+   790→        {/* ── Comparison chart ── */}
+   791→        <Card>
+   792→          <CardHeader className="pb-2">
+   793→            <div className="flex items-center gap-2">
+   794→              <CardTitle className="text-base flex items-center gap-2">
+   795→                <BarChart3 className="h-4 w-4 text-[#FFB74D]" />
+   796→                Comparaison des charges sociales annuelles
+   797→              </CardTitle>
+   798→              <InfoPopover text="Comparaison des charges sociales estimées pour chaque statut juridique en fonction de votre CA prévisionnel et de la réduction ACRE." />
+   799→            </div>
+   800→            <CardDescription>
+   801→              Basé sur {formatEur(sim.caPrev)} de CA avec {sim.reductionCharges}% de réduction
+   802→            </CardDescription>
+   803→          </CardHeader>
+   804→          <CardContent>
+   805→            <div className="h-64">
+   806→              <ResponsiveContainer width="100%" height="100%">
+   807→                <BarChart data={chargesChartData} layout="vertical" margin={{ left: 40, right: 20 }}>
+   808→                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+   809→                  <XAxis type="number" tickFormatter={v => `${(v / 1000).toFixed(0)}k €`} />
+   810→                  <YAxis dataKey="name" type="category" width={50} />
+   811→                  <Tooltip
+   812→                    formatter={(value: number) => [formatEur(value), 'Charges annuelles estimées']}
+   813→                  />
+   814→                  <Bar dataKey="charges" radius={[0, 6, 6, 0]} barSize={32}>
+   815→                    {chargesChartData.map((entry, index) => (
+   816→                      <Cell key={`cell-${index}`} fill={entry.color} />
+   817→                    ))}
+   818→                  </Bar>
+   819→                </BarChart>
+   820→              </ResponsiveContainer>
+   821→            </div>
+   822→          </CardContent>
+   823→        </Card>
+   824→
+   825→        {/* ── Selected status detail ── */}
+   826→        <Card className="border-[#00838F]/20" style={{ borderColor: `${legalOutputs.statutInfo.color}40` }}>
+   827→          <CardContent className="pt-6">
+   828→            <div className="flex items-center gap-3 mb-4">
+   829→              <div
+   830→                className="flex h-12 w-12 items-center justify-center rounded-xl"
+   831→                style={{ backgroundColor: `${legalOutputs.statutInfo.color}15` }}
+   832→              >
+   833→                {(() => {
+   834→                  const Icon = legalOutputs.statutInfo.icon
+   835→                  return <Icon className="h-6 w-6" style={{ color: legalOutputs.statutInfo.color }} />
+   836→                })()}
+   837→              </div>
+   838→              <div>
+   839→                <p className="text-sm text-muted-foreground">Statut sélectionné</p>
+   840→                <h3 className="text-2xl font-bold" style={{ color: legalOutputs.statutInfo.color }}>
+   841→                  {legalOutputs.statutInfo.name}
+   842→                </h3>
+   843→              </div>
+   844→              <Badge className="ml-auto" style={{ backgroundColor: legalOutputs.statutInfo.color, color: 'white' }}>
+   845→                Sélectionné
+   846→              </Badge>
+   847→            </div>
+   848→
+   849→            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
+   850→              <div className="text-center p-3 rounded-lg bg-muted/30">
+   851→                <p className="text-[11px] text-muted-foreground mb-1">Capital</p>
+   852→                <p className="text-sm font-semibold">{legalOutputs.statutInfo.capital}</p>
+   853→              </div>
+   854→              <div className="text-center p-3 rounded-lg bg-muted/30">
+   855→                <p className="text-[11px] text-muted-foreground mb-1">Associés</p>
+   856→                <p className="text-sm font-semibold">{legalOutputs.statutInfo.associates}</p>
+   857→              </div>
+   858→              <div className="text-center p-3 rounded-lg bg-muted/30">
+   859→                <p className="text-[11px] text-muted-foreground mb-1">Responsabilité</p>
+   860→                <p className="text-sm font-semibold">{legalOutputs.statutInfo.liability}</p>
+   861→              </div>
+   862→              <div className="text-center p-3 rounded-lg bg-muted/30">
+   863→                <p className="text-[11px] text-muted-foreground mb-1">Régime social</p>
+   864→                <p className="text-sm font-semibold">{legalOutputs.statutInfo.social}</p>
+   865→              </div>
+   866→            </div>
+   867→
+   868→            <Separator className="my-4" />
+   869→
+   870→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   871→              <div>
+   872→                <p className="text-xs font-semibold text-green-600 mb-2 flex items-center gap-1">
+   873→                  <Check className="h-3.5 w-3.5" /> Avantages
+   874→                </p>
+   875→                <ul className="space-y-1">
+   876→                  {legalOutputs.statutInfo.advantages.map((a, i) => (
+   877→                    <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+   878→                      <CircleDot className="h-3 w-3 text-green-500 shrink-0 mt-0.5" />
+   879→                      {a}
+   880→                    </li>
+   881→                  ))}
+   882→                </ul>
+   883→              </div>
+   884→              <div>
+   885→                <p className="text-xs font-semibold text-red-500 mb-2 flex items-center gap-1">
+   886→                  <Info className="h-3.5 w-3.5" /> Points de vigilance
+   887→                </p>
+   888→                <ul className="space-y-1">
+   889→                  {legalOutputs.statutInfo.disadvantages.map((d, i) => (
+   890→                    <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+   891→                      <CircleDot className="h-3 w-3 text-red-400 shrink-0 mt-0.5" />
+   892→                      {d}
+   893→                    </li>
+   894→                  ))}
+   895→                </ul>
+   896→              </div>
+   897→            </div>
+   898→          </CardContent>
+   899→        </Card>
+   900→
+   901→        {/* ── Bottom Save Bar ── */}
+   902→        <Card className="bg-gradient-to-r from-[#00838F]/5 to-[#FF6B35]/5 border-[#00838F]/20">
+   903→          <CardContent className="py-4">
+   904→            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+   905→              <div className="flex items-center gap-3">
+   906→                <Badge
+   907→                  variant="outline"
+   908→                  className="text-sm"
+   909→                  style={{ borderColor: legalOutputs.statutInfo.color, color: legalOutputs.statutInfo.color }}
+   910→                >
+   911→                  {legalOutputs.statutInfo.name}
+   912→                </Badge>
+   913→                <span className="text-sm text-muted-foreground">
+   914→                  {formatEur(sim.caPrev)} de CA — {sim.associes} associé(s)
+   915→                </span>
+   916→              </div>
+   917→              <Button
+   918→                size="sm"
+   919→                className="gap-1.5 bg-[#00838F] hover:bg-[#00838F]/90 text-white"
+   920→                onClick={handleSaveAndSync}
+   921→                disabled={isSaving}
+   922→              >
+   923→                {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+   924→                Enregistrer &amp; synchroniser le BP
+   925→              </Button>
+   926→            </div>
+   927→          </CardContent>
+   928→        </Card>
+   929→      </div>
+   930→    </motion.div>
+   931→  )
+   932→}
+   933→

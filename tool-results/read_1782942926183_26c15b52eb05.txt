@@ -1,0 +1,1008 @@
+     1→'use client'
+     2→
+     3→import { useEffect, useMemo, useState } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import { toast } from 'sonner'
+     6→import { usePipelineV3, useStrategyStore } from '@/lib/stores/strategy-store'
+     7→import type { PipelinePhase, DataSource, ModuleId } from '@/lib/stores/strategy-store'
+     8→import { scanAllModules } from '@/lib/module-scanner'
+     9→import { MODULE_REGISTRY } from '@/lib/module-registry'
+    10→import { useBureauStore } from '@/components/bureau/bureau-store'
+    11→import { cn } from '@/lib/utils'
+    12→
+    13→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    14→import { Badge } from '@/components/ui/badge'
+    15→import { Button } from '@/components/ui/button'
+    16→import { Progress } from '@/components/ui/progress'
+    17→import { Separator } from '@/components/ui/separator'
+    18→import {
+    19→  Tooltip,
+    20→  TooltipContent,
+    21→  TooltipProvider,
+    22→  TooltipTrigger,
+    23→} from '@/components/ui/tooltip'
+    24→import { Skeleton } from '@/components/ui/skeleton'
+    25→
+    26→import {
+    27→  User,
+    28→  FlaskConical,
+    29→  Target,
+    30→  Download,
+    31→  CheckCircle2,
+    32→  Circle,
+    33→  ArrowRight,
+    34→  ArrowRightLeft,
+    35→  Lightbulb,
+    36→  Eye,
+    37→  Globe,
+    38→  Scale,
+    39→  Calculator,
+    40→  TrendingUp,
+    41→  LayoutGrid,
+    42→  FileText,
+    43→  Presentation,
+    44→  Sparkles,
+    45→  RefreshCw,
+    46→  ChevronRight,
+    47→  Zap,
+    48→  Play,
+    49→} from 'lucide-react'
+    50→
+    51→// ─── Constants ──────────────────────────────────────────────
+    52→
+    53→const PHASE_CONFIG: {
+    54→  id: PipelinePhase
+    55→  label: string
+    56→  icon: typeof User
+    57→  description: string
+    58→}[] = [
+    59→  {
+    60→    id: 'parcours',
+    61→    label: 'Parcours',
+    62→    icon: User,
+    63→    description: 'Votre identité et vision de projet',
+    64→  },
+    65→  {
+    66→    id: 'simulateurs',
+    67→    label: 'Simulateurs',
+    68→    icon: FlaskConical,
+    69→    description: 'Analyses et simulations de marché',
+    70→  },
+    71→  {
+    72→    id: 'hub',
+    73→    label: 'Hub Central',
+    74→    icon: Target,
+    75→    description: 'Business Model Canvas et Business Plan',
+    76→  },
+    77→  {
+    78→    id: 'livrables',
+    79→    label: 'Livrables',
+    80→    icon: Download,
+    81→    description: 'Pitch Deck et exports',
+    82→  },
+    83→]
+    84→
+    85→const BP_SECTION_LABELS: Record<string, string> = {
+    86→  resume: 'Résumé',
+    87→  equipe: 'Équipe',
+    88→  historique: 'Historique',
+    89→  vision: 'Vision',
+    90→  valeurs: 'Valeurs',
+    91→  'etude-marche': 'Étude de marché',
+    92→  segmentation: 'Segmentation',
+    93→  concurrence: 'Concurrence',
+    94→  'strategie-marketing': 'Stratégie marketing',
+    95→  'plan-commercial': 'Plan commercial',
+    96→  swot: 'SWOT',
+    97→  financement: 'Financement',
+    98→  'compte-resultat': 'Compte résultat',
+    99→  tresorerie: 'Trésorerie',
+   100→  'seuil-rentabilite': 'Seuil de rentabilité',
+   101→  investissements: 'Investissements',
+   102→  bilan: 'Bilan',
+   103→  'statut-juridique': 'Statut juridique',
+   104→  localisation: 'Localisation',
+   105→  organisation: 'Organisation',
+   106→  production: 'Production',
+   107→  associes: 'Associés',
+   108→  cogerants: 'Co-gérants',
+   109→  calendrier: 'Calendrier',
+   110→}
+   111→
+   112→const SOURCE_COLORS: Record<DataSource, string> = {
+   113→  parcours: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+   114→  marche: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
+   115→  juridique: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+   116→  financier: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+   117→  creasim: 'bg-sky-500/20 text-sky-400 border-sky-500/30',
+   118→  manual: 'bg-neutral-500/20 text-neutral-400 border-neutral-500/30',
+   119→  ai: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+   120→  empty: 'bg-neutral-800/40 text-neutral-600 border-neutral-700/30',
+   121→}
+   122→
+   123→const SOURCE_LABELS: Record<DataSource, string> = {
+   124→  parcours: 'Parcours',
+   125→  marche: 'Marché',
+   126→  juridique: 'Juridique',
+   127→  financier: 'Financier',
+   128→  creasim: 'CreaSim',
+   129→  manual: 'Manuel',
+   130→  ai: 'IA',
+   131→  empty: 'Vide',
+   132→}
+   133→
+   134→const MODULE_ICONS: Record<string, typeof User> = {
+   135→  marche: Globe,
+   136→  juridique: Scale,
+   137→  financier: Calculator,
+   138→  creasim: TrendingUp,
+   139→  bmc: LayoutGrid,
+   140→  'business-plan': FileText,
+   141→  'pitch-deck': Presentation,
+   142→}
+   143→
+   144→// ─── Animation Variants ─────────────────────────────────────
+   145→
+   146→const containerVariants = {
+   147→  hidden: { opacity: 0 },
+   148→  visible: {
+   149→    opacity: 1,
+   150→    transition: { staggerChildren: 0.08 },
+   151→  },
+   152→}
+   153→
+   154→const itemVariants = {
+   155→  hidden: { opacity: 0, y: 16 },
+   156→  visible: {
+   157→    opacity: 1,
+   158→    y: 0,
+   159→    transition: { duration: 0.4, ease: 'easeOut' },
+   160→  },
+   161→}
+   162→
+   163→// ─── Helper: Circular Progress ──────────────────────────────
+   164→
+   165→function CircularProgress({
+   166→  value,
+   167→  size = 100,
+   168→  strokeWidth = 8,
+   169→  className,
+   170→}: {
+   171→  value: number
+   172→  size?: number
+   173→  strokeWidth?: number
+   174→  className?: string
+   175→}) {
+   176→  const radius = (size - strokeWidth) / 2
+   177→  const circumference = 2 * Math.PI * radius
+   178→  const offset = circumference - (value / 100) * circumference
+   179→
+   180→  const getColor = (v: number) => {
+   181→    if (v >= 80) return 'text-emerald-400'
+   182→    if (v >= 40) return 'text-amber-400'
+   183→    return 'text-neutral-400'
+   184→  }
+   185→
+   186→  return (
+   187→    <div className={cn('relative inline-flex items-center justify-center', className)}>
+   188→      <svg width={size} height={size} className="transform -rotate-90">
+   189→        <circle
+   190→          cx={size / 2}
+   191→          cy={size / 2}
+   192→          r={radius}
+   193→          fill="none"
+   194→          stroke="currentColor"
+   195→          strokeWidth={strokeWidth}
+   196→          className="text-muted/40"
+   197→        />
+   198→        <circle
+   199→          cx={size / 2}
+   200→          cy={size / 2}
+   201→          r={radius}
+   202→          fill="none"
+   203→          stroke="currentColor"
+   204→          strokeWidth={strokeWidth}
+   205→          strokeDasharray={circumference}
+   206→          strokeDashoffset={offset}
+   207→          strokeLinecap="round"
+   208→          className={cn(getColor(value), 'transition-all duration-1000 ease-out')}
+   209→        />
+   210→      </svg>
+   211→      <span className="absolute text-lg font-bold text-foreground">
+   212→        {value}%
+   213→      </span>
+   214→    </div>
+   215→  )
+   216→}
+   217→
+   218→// ─── Helper: Completion Color ────────────────────────────────
+   219→
+   220→function getCompletionColor(value: number): string {
+   221→  if (value >= 80) return 'bg-emerald-500'
+   222→  if (value >= 30) return 'bg-amber-500'
+   223→  return 'bg-neutral-500'
+   224→}
+   225→
+   226→function getCompletionBadgeClass(value: number): string {
+   227→  if (value >= 80) return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+   228→  if (value >= 30) return 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+   229→  return 'bg-neutral-500/15 text-neutral-400 border-neutral-500/30'
+   230→}
+   231→
+   232→function getPhaseStatusColor(progress: number, isComplete: boolean): string {
+   233→  if (isComplete) return 'border-emerald-500/40 bg-emerald-500/5'
+   234→  if (progress >= 30) return 'border-amber-500/40 bg-amber-500/5'
+   235→  return 'border-border bg-card'
+   236→}
+   237→
+   238→// ─── Loading Skeleton ──────────────────────────────────────
+   239→
+   240→function LoadingSkeleton() {
+   241→  return (
+   242→    <div className="p-4 md:p-6 space-y-6">
+   243→      {/* Header skeleton */}
+   244→      <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+   245→        <div className="flex-1 space-y-3">
+   246→          <Skeleton className="h-8 w-64" />
+   247→          <Skeleton className="h-4 w-96" />
+   248→        </div>
+   249→        <Skeleton className="h-24 w-24 rounded-full" />
+   250→      </div>
+   251→
+   252→      {/* Phase indicators skeleton */}
+   253→      <div className="flex gap-4">
+   254→        {Array.from({ length: 4 }).map((_, i) => (
+   255→          <Skeleton key={i} className="h-16 flex-1 rounded-xl" />
+   256→        ))}
+   257→      </div>
+   258→
+   259→      {/* Phase cards skeleton */}
+   260→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   261→        {Array.from({ length: 4 }).map((_, i) => (
+   262→          <Skeleton key={i} className="h-48 rounded-xl" />
+   263→        ))}
+   264→      </div>
+   265→
+   266→      {/* Recommendations skeleton */}
+   267→      <Skeleton className="h-64 rounded-xl" />
+   268→    </div>
+   269→  )
+   270→}
+   271→
+   272→// ─── Pipeline Flow Diagram ──────────────────────────────────
+   273→
+   274→function PipelineFlowDiagram({
+   275→  phaseProgress,
+   276→  isPhaseComplete,
+   277→}: {
+   278→  phaseProgress: Record<PipelinePhase, number>
+   279→  isPhaseComplete: Record<PipelinePhase, boolean>
+   280→}) {
+   281→  const nodes = PHASE_CONFIG.map((phase) => {
+   282→    const progress = phaseProgress[phase.id]
+   283→    const complete = isPhaseComplete[phase.id]
+   284→    return { ...phase, progress, complete }
+   285→  })
+   286→
+   287→  return (
+   288→    <div className="flex items-center justify-center gap-2 md:gap-4 py-4">
+   289→      {nodes.map((node, index) => (
+   290→        <div key={node.id} className="flex items-center">
+   291→          <TooltipProvider>
+   292→            <Tooltip>
+   293→              <TooltipTrigger asChild>
+   294→                <motion.div
+   295→                  whileHover={{ scale: 1.08, y: -2 }}
+   296→                  className={cn(
+   297→                    'flex flex-col items-center gap-1.5 px-3 py-2.5 md:px-5 md:py-3 rounded-xl border cursor-pointer transition-colors',
+   298→                    node.complete
+   299→                      ? 'border-emerald-500/50 bg-emerald-500/10'
+   300→                      : node.progress > 0
+   301→                        ? 'border-amber-500/50 bg-amber-500/10'
+   302→                        : 'border-border bg-muted/40 hover:bg-muted/60'
+   303→                  )}
+   304→                >
+   305→                  <node.icon
+   306→                    className={cn(
+   307→                      'w-5 h-5',
+   308→                      node.complete
+   309→                        ? 'text-emerald-400'
+   310→                        : node.progress > 0
+   311→                          ? 'text-amber-400'
+   312→                          : 'text-muted-foreground'
+   313→                    )}
+   314→                  />
+   315→                  <span className="text-xs font-medium text-foreground whitespace-nowrap">
+   316→                    {node.label}
+   317→                  </span>
+   318→                  <span
+   319→                    className={cn(
+   320→                      'text-[10px] font-semibold',
+   321→                      node.complete
+   322→                        ? 'text-emerald-400'
+   323→                        : node.progress > 0
+   324→                          ? 'text-amber-400'
+   325→                          : 'text-muted-foreground'
+   326→                    )}
+   327→                  >
+   328→                    {node.progress}%
+   329→                  </span>
+   330→                </motion.div>
+   331→              </TooltipTrigger>
+   332→              <TooltipContent>
+   333→                <p>
+   334→                  {node.label} — {node.progress}% {node.complete ? '(terminé)' : 'en cours'}
+   335→                </p>
+   336→              </TooltipContent>
+   337→            </Tooltip>
+   338→          </TooltipProvider>
+   339→
+   340→          {index < nodes.length - 1 && (
+   341→            <div className="flex items-center px-1">
+   342→              <ArrowRight
+   343→                className={cn(
+   344→                  'w-4 h-4 transition-colors',
+   345→                  node.complete ? 'text-emerald-400' : 'text-muted-foreground/40'
+   346→                )}
+   347→              />
+   348→            </div>
+   349→          )}
+   350→        </div>
+   351→      ))}
+   352→    </div>
+   353→  )
+   354→}
+   355→
+   356→// ─── Phase Card ──────────────────────────────────────────────
+   357→
+   358→function PhaseCard({
+   359→  phase,
+   360→  progress,
+   361→  isComplete,
+   362→  modules,
+   363→  onNavigate,
+   364→  onSyncModule,
+   365→  syncingModule,
+   366→}: {
+   367→  phase: (typeof PHASE_CONFIG)[number]
+   368→  progress: number
+   369→  isComplete: boolean
+   370→  modules: { id: string; label: string; completion: number; sectionsFilled: number; sectionsTotal: number; hasData: boolean; canSync?: boolean }[]
+   371→  onNavigate: (module: string) => void
+   372→  onSyncModule?: (moduleId: string) => void
+   373→  syncingModule?: string | null
+   374→}) {
+   375→  return (
+   376→    <motion.div
+   377→      variants={itemVariants}
+   378→      whileHover={{ y: -2 }}
+   379→      className="transition-shadow duration-200"
+   380→    >
+   381→      <Card
+   382→        className={cn(
+   383→          'h-full transition-all duration-300 hover:shadow-lg',
+   384→          getPhaseStatusColor(progress, isComplete)
+   385→        )}
+   386→      >
+   387→        <CardHeader className="pb-2">
+   388→          <div className="flex items-center justify-between">
+   389→            <div className="flex items-center gap-3">
+   390→              <div
+   391→                className={cn(
+   392→                  'flex items-center justify-center w-9 h-9 rounded-lg',
+   393→                  isComplete
+   394→                    ? 'bg-emerald-500/15'
+   395→                    : progress > 0
+   396→                      ? 'bg-amber-500/15'
+   397→                      : 'bg-muted'
+   398→                )}
+   399→              >
+   400→                <phase.icon
+   401→                  className={cn(
+   402→                    'w-5 h-5',
+   403→                    isComplete
+   404→                      ? 'text-emerald-400'
+   405→                      : progress > 0
+   406→                        ? 'text-amber-400'
+   407→                        : 'text-muted-foreground'
+   408→                  )}
+   409→                />
+   410→              </div>
+   411→              <div>
+   412→                <CardTitle className="text-sm font-semibold">{phase.label}</CardTitle>
+   413→                <p className="text-xs text-muted-foreground mt-0.5">{phase.description}</p>
+   414→              </div>
+   415→            </div>
+   416→            <Badge
+   417→              className={cn(
+   418→                'text-[11px] px-2 py-0.5 font-semibold border',
+   419→                getCompletionBadgeClass(progress)
+   420→              )}
+   421→            >
+   422→              {progress}%
+   423→            </Badge>
+   424→          </div>
+   425→          <Progress
+   426→            value={progress}
+   427→            className="h-1.5 mt-3"
+   428→          />
+   429→        </CardHeader>
+   430→
+   431→        <CardContent className="pt-0 space-y-2">
+   432→          {modules.length > 0 ? (
+   433→            <div className="space-y-1.5">
+   434→              {modules.map((mod) => (
+   435→                <button
+   436→                  key={mod.id}
+   437→                  onClick={() => onNavigate(mod.id)}
+   438→                  className="w-full group"
+   439→                >
+   440→                  <div className="flex items-center gap-2 rounded-lg px-2.5 py-2 transition-colors hover:bg-muted/60">
+   441→                    <div className="flex-1 min-w-0 text-left">
+   442→                      <div className="flex items-center gap-2">
+   443→                        {(() => {
+   444→                          const IconComp = MODULE_ICONS[mod.id]
+   445→                          return IconComp ? (
+   446→                            <IconComp className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+   447→                          ) : null
+   448→                        })()}
+   449→                        <span className="text-xs font-medium text-foreground truncate">
+   450→                          {mod.label}
+   451→                        </span>
+   452→                        <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
+   453→                          {mod.sectionsFilled}/{mod.sectionsTotal}
+   454→                        </span>
+   455→                      </div>
+   456→                      <div className="mt-1.5 flex items-center gap-2">
+   457→                        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+   458→                          <motion.div
+   459→                            className={cn('h-full rounded-full', getCompletionColor(mod.completion))}
+   460→                            initial={{ width: 0 }}
+   461→                            animate={{ width: `${mod.completion}%` }}
+   462→                            transition={{ duration: 0.8, ease: 'easeOut' }}
+   463→                          />
+   464→                        </div>
+   465→                        {mod.completion >= 80 ? (
+   466→                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+   467→                        ) : mod.completion > 0 ? (
+   468→                          <Circle className="w-3.5 h-3.5 text-amber-400 shrink-0 fill-amber-400/30" />
+   469→                        ) : (
+   470→                          <Circle className="w-3.5 h-3.5 text-muted-foreground/30 shrink-0" />
+   471→                        )}
+   472→                      </div>
+   473→                    </div>
+   474→                    <div className="flex items-center gap-1 shrink-0">
+   475→                      {mod.canSync && onSyncModule && (
+   476→                        <Button
+   477→                          size="sm"
+   478→                          variant="ghost"
+   479→                          className={cn(
+   480→                            'h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity',
+   481→                            syncingModule === mod.id && 'animate-pulse'
+   482→                          )}
+   483→                          onClick={(e) => {
+   484→                            e.stopPropagation()
+   485→                            onSyncModule(mod.id)
+   486→                          }}
+   487→                          disabled={syncingModule === mod.id}
+   488→                          title={`Synchroniser ${mod.label} vers le Business Plan`}
+   489→                        >
+   490→                          <Play className="w-3 h-3 text-teal-400" />
+   491→                        </Button>
+   492→                      )}
+   493→                      <ChevronRight className="w-3 h-3 text-muted-foreground/0 group-hover:text-muted-foreground transition-colors" />
+   494→                    </div>
+   495→                  </div>
+   496→                </button>
+   497→              ))}
+   498→            </div>
+   499→          ) : (
+   500→            <div className="text-xs text-muted-foreground text-center py-3 italic">
+   501→              Aucun module dans cette phase
+   502→            </div>
+   503→          )}
+   504→        </CardContent>
+   505→      </Card>
+   506→    </motion.div>
+   507→  )
+   508→}
+   509→
+   510→// ─── Recommendations Panel ─────────────────────────────────
+   511→
+   512→function RecommendationsPanel({
+   513→  recommendations,
+   514→  onNavigate,
+   515→}: {
+   516→  recommendations: { id: string; priority: number; module: string; action: string; description: string; impact: string }[]
+   517→  onNavigate: (module: string) => void
+   518→}) {
+   519→  if (recommendations.length === 0) {
+   520→    return (
+   521→      <motion.div variants={itemVariants}>
+   522→        <Card className="border-emerald-500/20 bg-emerald-500/5">
+   523→          <CardContent className="flex flex-col items-center gap-2 py-6">
+   524→            <CheckCircle2 className="w-10 h-10 text-emerald-400" />
+   525→            <p className="text-sm font-medium text-emerald-300">Tout est à jour !</p>
+   526→            <p className="text-xs text-muted-foreground text-center max-w-sm">
+   527→              Votre pipeline est complet. Vous pouvez exporter vos livrables ou peaufiner les détails.
+   528→            </p>
+   529→          </CardContent>
+   530→        </Card>
+   531→      </motion.div>
+   532→    )
+   533→  }
+   534→
+   535→  const topRecs = recommendations.slice(0, 3)
+   536→
+   537→  return (
+   538→    <motion.div variants={itemVariants}>
+   539→      <Card>
+   540→        <CardHeader className="pb-3">
+   541→          <div className="flex items-center gap-2">
+   542→            <Lightbulb className="w-5 h-5 text-amber-400" />
+   543→            <CardTitle className="text-sm font-semibold">Recommandations</CardTitle>
+   544→            <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px]">
+   545→              {recommendations.length} action{recommendations.length > 1 ? 's' : ''}
+   546→            </Badge>
+   547→          </div>
+   548→        </CardHeader>
+   549→        <CardContent className="space-y-3">
+   550→          {topRecs.map((rec, index) => (
+   551→            <motion.div
+   552→              key={rec.id}
+   553→              initial={{ opacity: 0, x: -10 }}
+   554→              animate={{ opacity: 1, x: 0 }}
+   555→              transition={{ delay: index * 0.1, duration: 0.3 }}
+   556→              className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2"
+   557→            >
+   558→              <div className="flex items-center justify-between gap-2">
+   559→                <div className="flex items-center gap-2">
+   560→                  <Badge
+   561→                    className={cn(
+   562→                      'text-[10px] px-1.5 py-0 h-5 font-bold border',
+   563→                      rec.priority === 1
+   564→                        ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+   565→                        : rec.priority === 2
+   566→                          ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+   567→                          : 'bg-sky-500/15 text-sky-400 border-sky-500/30'
+   568→                    )}
+   569→                  >
+   570→                    P{rec.priority}
+   571→                  </Badge>
+   572→                  <span className="text-xs font-semibold text-foreground">{rec.action}</span>
+   573→                </div>
+   574→              </div>
+   575→              <p className="text-xs text-muted-foreground leading-relaxed">{rec.description}</p>
+   576→              <div className="flex items-center justify-between gap-2">
+   577→                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+   578→                  <Zap className="w-3 h-3 text-amber-400" />
+   579→                  <span>{rec.impact}</span>
+   580→                </div>
+   581→                <Button
+   582→                  size="sm"
+   583→                  variant="outline"
+   584→                  className="h-7 text-[11px] px-3 gap-1"
+   585→                  onClick={() => onNavigate(rec.module)}
+   586→                >
+   587→                  Suivre
+   588→                  <ChevronRight className="w-3 h-3" />
+   589→                </Button>
+   590→              </div>
+   591→            </motion.div>
+   592→          ))}
+   593→        </CardContent>
+   594→      </Card>
+   595→    </motion.div>
+   596→  )
+   597→}
+   598→
+   599→// ─── Section Provenance Grid ─────────────────────────────────
+   600→
+   601→function SectionProvenanceGrid({
+   602→  provenance,
+   603→}: {
+   604→  provenance: { sectionId: string; source: DataSource; filled: boolean; wordCount: number }[]
+   605→}) {
+   606→  const columns = {
+   607→    default: 2,
+   608→    sm: 3,
+   609→    md: 4,
+   610→    lg: 6,
+   611→  }
+   612→
+   613→  return (
+   614→    <motion.div variants={itemVariants}>
+   615→      <Card>
+   616→        <CardHeader className="pb-3">
+   617→          <div className="flex items-center justify-between">
+   618→            <div className="flex items-center gap-2">
+   619→              <FileText className="w-5 h-5 text-teal-400" />
+   620→              <CardTitle className="text-sm font-semibold">Provenance des Sections BP</CardTitle>
+   621→            </div>
+   622→            <div className="flex items-center gap-1.5 flex-wrap">
+   623→              {(['parcours', 'marche', 'juridique', 'financier', 'creasim', 'manual'] as DataSource[]).map(
+   624→                (source) => (
+   625→                  <Badge
+   626→                    key={source}
+   627→                    className={cn('text-[9px] px-1.5 py-0 h-4 border', SOURCE_COLORS[source])}
+   628→                  >
+   629→                    {SOURCE_LABELS[source]}
+   630→                  </Badge>
+   631→                )
+   632→              )}
+   633→            </div>
+   634→          </div>
+   635→        </CardHeader>
+   636→        <CardContent>
+   637→          <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(140px, 1fr))` }}>
+   638→            {provenance.map((prov) => (
+   639→              <TooltipProvider key={prov.sectionId}>
+   640→                <Tooltip>
+   641→                  <TooltipTrigger asChild>
+   642→                    <div
+   643→                      className={cn(
+   644→                        'flex items-center gap-2 rounded-lg border px-2.5 py-1.5 transition-colors hover:bg-muted/40 cursor-default',
+   645→                        SOURCE_COLORS[prov.source]
+   646→                      )}
+   647→                    >
+   648→                      {prov.filled ? (
+   649→                        <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+   650→                      ) : (
+   651→                        <Circle className="w-3 h-3 text-muted-foreground/40 shrink-0" />
+   652→                      )}
+   653→                      <span className="text-[11px] font-medium truncate">
+   654→                        {BP_SECTION_LABELS[prov.sectionId] || prov.sectionId}
+   655→                      </span>
+   656→                      {prov.filled && prov.wordCount > 0 && (
+   657→                        <span className="text-[9px] opacity-60 ml-auto shrink-0">
+   658→                          {prov.wordCount}m
+   659→                        </span>
+   660→                      )}
+   661→                    </div>
+   662→                  </TooltipTrigger>
+   663→                  <TooltipContent>
+   664→                    <p className="font-medium">
+   665→                      {BP_SECTION_LABELS[prov.sectionId] || prov.sectionId}
+   666→                    </p>
+   667→                    <p className="text-[10px] text-muted-foreground mt-0.5">
+   668→                      Source : {SOURCE_LABELS[prov.source]} •{' '}
+   669→                      {prov.filled ? `${prov.wordCount} mots` : 'Non rempli'}
+   670→                    </p>
+   671→                  </TooltipContent>
+   672→                </Tooltip>
+   673→              </TooltipProvider>
+   674→            ))}
+   675→          </div>
+   676→        </CardContent>
+   677→      </Card>
+   678→    </motion.div>
+   679→  )
+   680→}
+   681→
+   682→// ─── Main Component ──────────────────────────────────────────
+   683→
+   684→export function PipelineV3Overview() {
+   685→  const {
+   686→    modules,
+   687→    sectionProvenance,
+   688→    health,
+   689→    recommendations,
+   690→    isLoading,
+   691→    isSyncing,
+   692→    lastFullSync,
+   693→    fetchPipelineData,
+   694→    syncModule,
+   695→    getPhaseProgress,
+   696→    isPhaseComplete,
+   697→  } = usePipelineV3()
+   698→
+   699→  const setModule = useBureauStore((s) => s.setModule)
+   700→
+   701→  // Fetch pipeline data on mount
+   702→  useEffect(() => {
+   703→    fetchPipelineData()
+   704→  }, [fetchPipelineData])
+   705→
+   706→  // Build phase module lists — parcours from module-scanner, others from store
+   707→  const phaseModules = useMemo(() => {
+   708→    const result = {} as Record<PipelinePhase, typeof modules[ModuleId][]>
+   709→
+   710→    // Parcours: real data from module-scanner
+   711→    const scan = scanAllModules()
+   712→    const scanMap = Object.fromEntries(scan.modules.map(m => [m.code, m]))
+   713→
+   714→    const PARCOURS_MODULES = ['profil-createur', 'mon-projet', 'vision', 'riasec', 'kiviat', 'pepites', 'bilan-ia']
+   715→    result.parcours = PARCOURS_MODULES.map(code => {
+   716→      const modScan = scanMap[code]
+   717→      const modDef = MODULE_REGISTRY.find(m => m.code === code)
+   718→      return {
+   719→        id: code as ModuleId,
+   720→        label: modDef?.label ?? code,
+   721→        completion: modScan?.completionPercent ?? 0,
+   722→        sectionsFilled: modScan?.status === 'completed' ? 1 : 0,
+   723→        sectionsTotal: 1,
+   724→        hasData: modScan?.hasData ?? false,
+   725→        canSync: false,
+   726→      }
+   727→    })
+   728→
+   729→    // Simulateurs can be synced to BP
+   730→    result.simulateurs = [
+   731→      { ...modules.marche, canSync: true },
+   732→      { ...modules.juridique, canSync: true },
+   733→      { ...modules.financier, canSync: true },
+   734→      { ...modules.creasim, canSync: true },
+   735→    ]
+   736→    result.hub = [modules.bmc, modules['business-plan']]
+   737→    result.livrables = [modules['pitch-deck']]
+   738→
+   739→    return result
+   740→  }, [modules])
+   741→
+   742→  // Compute phase progress — parcours from phaseModules, others from store
+   743→  const phaseProgress = useMemo(() => {
+   744→    const phases: PipelinePhase[] = ['parcours', 'simulateurs', 'hub', 'livrables']
+   745→    const result = {} as Record<PipelinePhase, number>
+   746→    for (const phase of phases) {
+   747→      if (phase === 'parcours') {
+   748→        // Parcours: compute from module-scanner derived phaseModules
+   749→        const mods = phaseModules.parcours
+   750→        result[phase] = mods.length > 0
+   751→          ? Math.round(mods.reduce((sum, m) => sum + m.completion, 0) / mods.length)
+   752→          : 0
+   753→      } else {
+   754→        result[phase] = getPhaseProgress(phase)
+   755→      }
+   756→    }
+   757→    return result
+   758→  }, [modules, phaseModules, getPhaseProgress])
+   759→
+   760→  const phaseComplete = useMemo(() => {
+   761→    const phases: PipelinePhase[] = ['parcours', 'simulateurs', 'hub', 'livrables']
+   762→    const result = {} as Record<PipelinePhase, boolean>
+   763→    for (const phase of phases) {
+   764→      if (phase === 'parcours') {
+   765→        // Parcours: complete when all 7 parcours modules reach 80%+
+   766→        const mods = phaseModules.parcours
+   767→        result[phase] = mods.length > 0 && mods.every(m => m.completion >= 80)
+   768→      } else {
+   769→        result[phase] = isPhaseComplete(phase)
+   770→      }
+   771→    }
+   772→    return result
+   773→  }, [modules, phaseModules, isPhaseComplete])
+   774→
+   775→  // Navigation handler — handles both module IDs and special section IDs like 'parcours'
+   776→  const handleNavigate = (moduleId: string) => {
+   777→    // Special case: 'parcours' is a section, not a module — navigate to section + default module
+   778→    if (moduleId === 'parcours') {
+   779→      useBureauStore.getState().setSection('parcours')
+   780→      useBureauStore.getState().setModule('mon-projet')
+   781→      return
+   782→    }
+   783→    setModule(moduleId)
+   784→  }
+   785→
+   786→  // Sync handler
+   787→  const handleSyncModule = async (moduleId: ModuleId) => {
+   788→    const result = await syncModule(moduleId)
+   789→    if (result) {
+   790→      toast.success('Synchronisation réussie', {
+   791→        description: `Les données de ${modules[moduleId]?.label || moduleId} ont été mises à jour dans le Business Plan.`,
+   792→      })
+   793→    } else {
+   794→      toast.error('Erreur de synchronisation', {
+   795→        description: `Impossible de synchroniser ${modules[moduleId]?.label || moduleId}. Réessayez plus tard.`,
+   796→      })
+   797→    }
+   798→  }
+   799→
+   800→  // Handle refresh — returns success/failure
+   801→  const handleRefresh = async (): Promise<boolean> => {
+   802→    try {
+   803→      const res = await fetch('/api/pipeline-v3', { credentials: 'include' })
+   804→      if (res.ok) {
+   805→        const json = await res.json()
+   806→        if (json.success && json.data) {
+   807→          useStrategyStore.getState().hydrateFromAPI(json.data)
+   808→          toast.success('Pipeline rafraîchi', {
+   809→            description: 'Les données du pipeline ont été mises à jour.',
+   810→          })
+   811→          return true
+   812→        }
+   813→      }
+   814→      toast.error('Erreur de rafraîchissement', {
+   815→        description: 'Impossible de charger les données du pipeline.',
+   816→      })
+   817→      return false
+   818→    } catch {
+   819→      toast.error('Erreur réseau', {
+   820→        description: 'Vérifiez votre connexion et réessayez.',
+   821→      })
+   822→      return false
+   823→    }
+   824→  }
+   825→
+   826→  // Sync state for tracking which module is syncing
+   827→  const [syncingModule, setSyncingModule] = useState<string | null>(null)
+   828→
+   829→  // Handle per-module sync from pipeline overview
+   830→  const handleSyncFromOverview = async (moduleId: string) => {
+   831→    setSyncingModule(moduleId)
+   832→    const ok = await syncModule(moduleId as ModuleId)
+   833→    setSyncingModule(null)
+   834→    if (ok) {
+   835→      toast.success('Synchronisation réussie', {
+   836→        description: `Les données de ${modules[moduleId as ModuleId]?.label || moduleId} ont été injectées dans le Business Plan.`,
+   837→      })
+   838→    } else {
+   839→      toast.error('Erreur de synchronisation', {
+   840→        description: `Impossible de synchroniser ${modules[moduleId as ModuleId]?.label || moduleId}. Réessayez plus tard.`,
+   841→      })
+   842→    }
+   843→  }
+   844→
+   845→  // Loading state
+   846→  if (isLoading && health.overallScore === 0 && Object.values(modules).every((m) => m.completion === 0)) {
+   847→    return <LoadingSkeleton />
+   848→  }
+   849→
+   850→  return (
+   851→    <TooltipProvider>
+   852→      <motion.div
+   853→        variants={containerVariants}
+   854→        initial="hidden"
+   855→        animate="visible"
+   856→        className="p-4 md:p-6 space-y-6"
+   857→      >
+   858→        {/* ─── Header Section ─── */}
+   859→        <motion.div
+   860→          variants={itemVariants}
+   861→          className="flex flex-col md:flex-row items-start md:items-center gap-6"
+   862→        >
+   863→          <div className="flex-1 space-y-2">
+   864→            <div className="flex items-center gap-3">
+   865→              <h1 className="text-xl md:text-2xl font-bold text-foreground">
+   866→                Pipeline Stratégie V3
+   867→              </h1>
+   868→              <Badge className="bg-teal-500/15 text-teal-400 border-teal-500/30 text-[10px]">
+   869→                <Sparkles className="w-3 h-3 mr-1" />
+   870→                IA Active
+   871→              </Badge>
+   872→            </div>
+   873→            <p className="text-sm text-muted-foreground">
+   874→              {health.phasesComplete}/{health.totalPhases} phases terminées •{' '}
+   875→              Score pondéré : <span className="font-semibold text-foreground">{health.weightedProgress}%</span> •{' '}
+   876→              Progression brute : {health.rawProgress}%
+   877→            </p>
+   878→            <div className="flex items-center gap-2 pt-1">
+   879→              <Button
+   880→                variant="outline"
+   881→                size="sm"
+   882→                className="h-7 text-[11px] gap-1.5"
+   883→                onClick={handleRefresh}
+   884→                disabled={isSyncing}
+   885→              >
+   886→                <RefreshCw className={cn('w-3 h-3', isSyncing && 'animate-spin')} />
+   887→                Rafraîchir
+   888→              </Button>
+   889→              {isSyncing && (
+   890→                <span className="text-[11px] text-muted-foreground">Synchronisation en cours…</span>
+   891→              )}
+   892→            </div>
+   893→          </div>
+   894→
+   895→          <CircularProgress value={health.overallScore} size={96} strokeWidth={7} />
+   896→        </motion.div>
+   897→
+   898→        {/* ─── Phase Progress Indicators ─── */}
+   899→        <motion.div variants={itemVariants}>
+   900→          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+   901→            {PHASE_CONFIG.map((phase) => (
+   902→              <motion.div
+   903→                key={phase.id}
+   904→                whileHover={{ scale: 1.02 }}
+   905→                className={cn(
+   906→                  'rounded-xl border p-3 flex items-center gap-3 transition-colors',
+   907→                  phaseComplete[phase.id]
+   908→                    ? 'border-emerald-500/30 bg-emerald-500/5'
+   909→                    : phaseProgress[phase.id] > 0
+   910→                      ? 'border-amber-500/30 bg-amber-500/5'
+   911→                      : 'border-border bg-muted/20'
+   912→                )}
+   913→              >
+   914→                <div
+   915→                  className={cn(
+   916→                    'flex items-center justify-center w-10 h-10 rounded-lg',
+   917→                    phaseComplete[phase.id]
+   918→                      ? 'bg-emerald-500/15'
+   919→                      : phaseProgress[phase.id] > 0
+   920→                        ? 'bg-amber-500/15'
+   921→                        : 'bg-muted/50'
+   922→                  )}
+   923→                >
+   924→                  <phase.icon
+   925→                    className={cn(
+   926→                      'w-5 h-5',
+   927→                      phaseComplete[phase.id]
+   928→                        ? 'text-emerald-400'
+   929→                        : phaseProgress[phase.id] > 0
+   930→                          ? 'text-amber-400'
+   931→                          : 'text-muted-foreground'
+   932→                    )}
+   933→                  />
+   934→                </div>
+   935→                <div className="flex-1 min-w-0">
+   936→                  <p className="text-xs font-semibold text-foreground truncate">{phase.label}</p>
+   937→                  <p className="text-[10px] text-muted-foreground">
+   938→                    {phaseComplete[phase.id] ? 'Terminé ✓' : `${phaseProgress[phase.id]}%`}
+   939→                  </p>
+   940→                </div>
+   941→                {phaseComplete[phase.id] && (
+   942→                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+   943→                )}
+   944→              </motion.div>
+   945→            ))}
+   946→          </div>
+   947→        </motion.div>
+   948→
+   949→        <Separator className="opacity-40" />
+   950→
+   951→        {/* ─── Pipeline Flow Visualization ─── */}
+   952→        <motion.div variants={itemVariants}>
+   953→          <Card className="border-border/40">
+   954→            <CardContent className="py-3 px-4 md:px-6">
+   955→              <PipelineFlowDiagram
+   956→                phaseProgress={phaseProgress}
+   957→                isPhaseComplete={phaseComplete}
+   958→              />
+   959→            </CardContent>
+   960→          </Card>
+   961→        </motion.div>
+   962→
+   963→        <Separator className="opacity-40" />
+   964→
+   965→        {/* ─── 4 Pipeline Phase Cards (2×2 Grid) ─── */}
+   966→        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   967→          {PHASE_CONFIG.map((phase) => (
+   968→            <PhaseCard
+   969→              key={phase.id}
+   970→              phase={phase}
+   971→              progress={phaseProgress[phase.id]}
+   972→              isComplete={phaseComplete[phase.id]}
+   973→              modules={phaseModules[phase.id]}
+   974→              onNavigate={handleNavigate}
+   975→              onSyncModule={handleSyncFromOverview}
+   976→              syncingModule={syncingModule}
+   977→            />
+   978→          ))}
+   979→        </div>
+   980→
+   981→        <Separator className="opacity-40" />
+   982→
+   983→        {/* ─── Recommendations Panel ─── */}
+   984→        <RecommendationsPanel recommendations={recommendations} onNavigate={handleNavigate} />
+   985→
+   986→        <Separator className="opacity-40" />
+   987→
+   988→        {/* ─── Section Provenance Grid ─── */}
+   989→        <SectionProvenanceGrid provenance={sectionProvenance} />
+   990→
+   991→        {/* ─── Footer info ─── */}
+   992→        <motion.div
+   993→          variants={itemVariants}
+   994→          className="flex items-center justify-center gap-2 py-4"
+   995→        >
+   996→          <ArrowRightLeft className="w-3.5 h-3.5 text-muted-foreground/50" />
+   997→          <p className="text-[11px] text-muted-foreground/60">
+   998→            Données synchronisées automatiquement • Dernière mise à jour :{' '}
+   999→            {lastFullSync
+  1000→              ? new Date(lastFullSync).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  1001→              : 'jamais'}
+  1002→          </p>
+  1003→        </motion.div>
+  1004→      </motion.div>
+  1005→    </TooltipProvider>
+  1006→  )
+  1007→}
+  1008→

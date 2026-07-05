@@ -69,6 +69,7 @@ interface Mentor {
 
 interface MentorRequest {
   id: string
+  mentorId: string
   mentorName: string
   mentorAvatarUrl: string | null
   message: string
@@ -128,6 +129,7 @@ const AVATAR_COLORS = [
 // Types for active mentorships returned by API
 interface ActiveMentorship {
   id: string
+  mentorId: string
   mentorName: string
   mentorAvatarUrl: string | null
   status: string
@@ -400,8 +402,8 @@ export function Mentorat() {
                 index={idx}
                 onRequest={() => openRequestDialog(mentor)}
                 onViewDetail={() => setSelectedDetailMentor(mentor)}
-                hasPendingRequest={requests.some(r => r.mentorName === mentor.name && r.status === 'PENDING')}
-                hasActiveMentorship={requests.some(r => r.mentorName === mentor.name && r.status === 'ACCEPTED')}
+                hasPendingRequest={requests.some(r => r.mentorId === mentor.id && r.status === 'PENDING')}
+                hasActiveMentorship={activeMentorships.some(ms => ms.mentorId === mentor.id)}
               />
             ))}
           </div>
@@ -450,7 +452,7 @@ export function Mentorat() {
               {activeMentorships.map((ms) => (
                 <Card key={ms.id} className="border-emerald-200 dark:border-emerald-800">
                   <CardContent className="py-4 flex items-center gap-4">
-                    <div className={cn('h-10 w-10 rounded-full flex items-center justify-center text-white font-semibold text-sm shrink-0', AVATAR_COLORS[ms.mentorName.charCodeAt(0) % AVATAR_COLORS.length])}>
+                    <div className={cn('h-10 w-10 rounded-full flex items-center justify-center text-white font-semibold text-sm shrink-0', AVATAR_COLORS[(ms.mentorName || 'M').charCodeAt(0) % AVATAR_COLORS.length])}>
                       {ms.mentorName.charAt(0)}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -631,7 +633,7 @@ export function Mentorat() {
 
 function MentorAvatar({ mentor, size = 'md' }: { mentor: Mentor; size?: 'sm' | 'md' | 'lg' }) {
   const initials = mentor.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
-  const colorIndex = mentor.name.charCodeAt(0) % AVATAR_COLORS.length
+  const colorIndex = (mentor.name || 'M').charCodeAt(0) % AVATAR_COLORS.length
   const colorClass = AVATAR_COLORS[colorIndex]
 
   const sizeClass = size === 'sm' ? 'h-10 w-10 text-sm' : size === 'lg' ? 'h-16 w-16 text-xl' : 'h-12 w-12 text-base'
@@ -752,7 +754,7 @@ function RequestCard({ request }: { request: MentorRequest }) {
   const StatusIcon = config.icon
 
   const initials = request.mentorName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
-  const colorIndex = request.mentorName.charCodeAt(0) % AVATAR_COLORS.length
+  const colorIndex = (request.mentorName || 'M').charCodeAt(0) % AVATAR_COLORS.length
   const colorClass = AVATAR_COLORS[colorIndex]
 
   return (

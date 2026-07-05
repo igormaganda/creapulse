@@ -161,22 +161,33 @@ export function MindMapModule() {
   // ─── Undo / Redo ───────────────────────
   const [history, setHistory] = useState<MindMapNode[][]>([])
   const [historyIdx, setHistoryIdx] = useState(-1)
+  const historyIdxRef = useRef(-1)
   const pushHistory = useCallback((newNodes: MindMapNode[]) => {
-    setHistory(prev => {
-      const truncated = prev.slice(0, historyIdx + 1)
-      return [...truncated, newNodes.map(n => ({ ...n, children: [...n.children] }))]
-    })
-    setHistoryIdx(prev => prev + 1)
-  }, [historyIdx])
+    const hi = historyIdxRef.current
+    setHistory(prev => [...prev.slice(0, hi + 1), newNodes.map(n => ({ ...n, children: [...n.children] }))])
+    const newIdx = hi + 1
+    historyIdxRef.current = newIdx
+    setHistoryIdx(newIdx)
+  }, [])
   const undo = useCallback(() => {
     if (historyIdx <= 0) return
     const prev = history[historyIdx - 1]
-    if (prev) { setNodes(prev.map(n => ({ ...n, children: [...n.children] }))); setHistoryIdx(historyIdx - 1) }
+    if (prev) {
+      setNodes(prev.map(n => ({ ...n, children: [...n.children] })))
+      const newIdx = historyIdx - 1
+      setHistoryIdx(newIdx)
+      historyIdxRef.current = newIdx
+    }
   }, [history, historyIdx])
   const redo = useCallback(() => {
     if (historyIdx >= history.length - 1) return
     const next = history[historyIdx + 1]
-    if (next) { setNodes(next.map(n => ({ ...n, children: [...n.children] }))); setHistoryIdx(historyIdx + 1) }
+    if (next) {
+      setNodes(next.map(n => ({ ...n, children: [...n.children] })))
+      const newIdx = historyIdx + 1
+      setHistoryIdx(newIdx)
+      historyIdxRef.current = newIdx
+    }
   }, [history, historyIdx])
 
   // ─── Load from API, fallback localStorage ──
@@ -186,9 +197,9 @@ export function MindMapModule() {
         const res = await authFetch('/api/mind-map')
         if (res.ok) {
           const json = await res.json()
-          if (json.success && json.data?.mindMaps?.length > 0) {
+          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
             // Load the most recent map
-            const latest = json.data.mindMaps[0]
+            const latest = json.data[0]
             const resFull = await authFetch(`/api/mind-map?id=${latest.id}`)
             if (resFull.ok) {
               const full = await resFull.json()
@@ -263,6 +274,12 @@ export function MindMapModule() {
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
   }, [isLoading, nodes, serverMapId])
 
+  // ─── Derived: root node ID (dynamic, not hardcoded) ──
+  const rootNodeId = useMemo(() => {
+    const root = nodes.find(n => n.parentId === null)
+    return root?.id ?? null
+  }, [nodes])
+
   // ─── Focus edit input ────────────────────
   useEffect(() => {
     if (editingId && editInputRef.current) {
@@ -307,7 +324,7 @@ export function MindMapModule() {
     const newY = Math.max(40, Math.min(CANVAS_H - 40, parent.y + Math.sin(angle) * dist))
 
     const newId = uid()
-    const color = parentId === 'root' || parent.parentId === null
+    const color = parent.parentId === null
       ? getNextColor(parent.children.length)
       : parent.color
 
@@ -321,18 +338,16 @@ export function MindMapModule() {
       children: [],
     }
 
-    setNodes(prev => {
-      const updated = prev.map(n =>
-        n.id === parentId ? { ...n, children: [...n.children, newId] } : n
-      )
-      const result = [...updated, newNode]
-      pushHistory(result)
-      return result
-    })
+    const newNodes = nodes.map(n =>
+      n.id === parentId ? { ...n, children: [...n.children, newId] } : n
+    )
+    newNodes.push(newNode)
+    setNodes(newNodes)
+    pushHistory(newNodes)
     setSelectedId(newId)
     setEditingId(newId)
     setEditText('Nouvelle idée')
-  }, [nodeMap])
+  }, [nodeMap, nodes])
 
   // ─── Delete node ─────────────────────────
   const deleteNode = useCallback((nodeId: string) => {
@@ -351,28 +366,23 @@ export function MindMapModule() {
     }
     collect(nodeId)
 
-    setNodes(prev => {
-      // Remove node from parent's children
-      const updated = prev.map(n =>
-        n.id === node.parentId
-          ? { ...n, children: n.children.filter(c => c !== nodeId) }
-          : n
-      )
-      const result = updated.filter(n => !toDelete.has(n.id))
-      pushHistory(result)
-      return result
-    })
+    const newNodes = nodes
+      .map(n => n.id === node.parentId
+        ? { ...n, children: n.children.filter(c => c !== nodeId) }
+        : n)
+      .filter(n => !toDelete.has(n.id))
+    setNodes(newNodes)
+    pushHistory(newNodes)
     setSelectedId(null)
     setEditingId(null)
-  }, [nodeMap])
+  }, [nodeMap, nodes])
 
   // ─── Update node text ────────────────────
   const updateNodeText = useCallback((nodeId: string, text: string) => {
-    setNodes(prev => {
-      const result = prev.map(n => n.id === nodeId ? { ...n, text } : n)
-      return result
-    })
-  }, [])
+    const newNodes = nodes.map(n => n.id === nodeId ? { ...n, text } : n)
+    setNodes(newNodes)
+    pushHistory(newNodes)
+  }, [nodes])
 
   // ─── Update node position (no history push during drag) ────
   const updateNodePosition = useCallback((nodeId: string, x: number, y: number) => {
@@ -382,15 +392,14 @@ export function MindMapModule() {
   // Push history on drag end
   useEffect(() => {
     if (!isDragging && nodes.length > 0) {
-      // Push to history when drag ends (debounced by the render cycle)
-      const current = history[historyIdx]
+      // Push to history when drag ends
+      const hi = historyIdxRef.current
+      const current = history[hi]
       if (!current || JSON.stringify(current) !== JSON.stringify(nodes)) {
-        setHistory(prev => [...prev.slice(0, historyIdx + 1), nodes.map(n => ({ ...n, children: [...n.children] }))])
-        setHistoryIdx(prev => prev + 1)
+        pushHistory(nodes)
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDragging])
+  }, [isDragging, nodes, history]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Drag handlers ───────────────────────
   const handleMouseDown = useCallback((e: React.MouseEvent, nodeId: string) => {
@@ -464,6 +473,7 @@ export function MindMapModule() {
       const loaded = template.map(n => ({ ...n, children: [...n.children] }))
       setNodes(loaded)
       pushHistory(loaded)
+      setServerMapId(null) // Reset so template creates a NEW server map
       setSelectedId(null)
       setEditingId(null)
       toast.success(`Template "${name}" chargé`)
@@ -492,10 +502,35 @@ export function MindMapModule() {
 
   // ─── Export as SVG ───────────────────────
   const handleExportSVG = useCallback(() => {
-    const svgEl = document.querySelector('.mind-map-svg') as SVGSVGElement | null
-    if (!svgEl) { toast.error('Impossible d\'exporter le SVG'); return }
-    const svgData = new XMLSerializer().serializeToString(svgEl)
-    const blob = new Blob([svgData], { type: 'image/svg+xml' })
+    if (nodes.length === 0) { toast.error('Aucune donnée à exporter'); return }
+
+    // Build a complete SVG from the node data (nodes are HTML, not SVG children)
+    let svgContent = ''
+    // Connections
+    for (const node of nodes) {
+      if (!node.parentId) continue
+      const parent = nodes.find(n => n.id === node.parentId)
+      if (!parent) continue
+      svgContent += `<line x1="${parent.x}" y1="${parent.y}" x2="${node.x}" y2="${node.y}" stroke="${node.color}" stroke-width="2" stroke-opacity="0.4"/>`
+    }
+    // Nodes
+    for (const node of nodes) {
+      const isRoot = node.parentId === null
+      const fontSize = isRoot ? 14 : 12
+      const fontWeight = isRoot ? 'bold' : '600'
+      const padding = isRoot ? 20 : 14
+      // Estimate text width (rough: 7px per char)
+      const textW = node.text.length * 7 + padding * 2
+      const textH = fontSize + padding * 1.5
+      svgContent += `<rect x="${node.x - textW / 2}" y="${node.y - textH / 2}" width="${textW}" height="${textH}" rx="12" fill="${node.color}15" stroke="${node.color}" stroke-width="2"/>`
+      svgContent += `<text x="${node.x}" y="${node.y + fontSize * 0.35}" text-anchor="middle" font-family="system-ui, sans-serif" font-size="${fontSize}" font-weight="${fontWeight}" fill="${node.color}">${node.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>`
+    }
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CANVAS_W} ${CANVAS_H}" width="${CANVAS_W}" height="${CANVAS_H}">
+  <rect width="100%" height="100%" fill="#fafafa"/>
+  ${svgContent}
+</svg>`
+    const blob = new Blob([svg], { type: 'image/svg+xml' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -503,7 +538,7 @@ export function MindMapModule() {
     a.click()
     URL.revokeObjectURL(url)
     toast.success('Carte mentale exportée en SVG')
-  }, [])
+  }, [nodes])
 
   // ─── Export as text outline ──────────────
   const handleExportText = useCallback(async () => {
@@ -631,14 +666,14 @@ export function MindMapModule() {
               variant="outline"
               className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white border-0"
               onClick={() => {
-                const targetId = selectedId || 'root'
+                const targetId = selectedId || rootNodeId || 'root'
                 addChildNode(targetId)
               }}
             >
               <Plus className="h-3.5 w-3.5" />
               Ajouter
             </Button>
-            {selectedId && selectedId !== 'root' && (
+            {selectedId && selectedId !== rootNodeId && (
               <Button
                 size="sm"
                 variant="outline"
@@ -738,6 +773,7 @@ export function MindMapModule() {
                           transform: 'translate(-50%, -50%)',
                         }}
                         onMouseDown={(e) => handleMouseDown(e, node.id)}
+                        onClick={(e) => e.stopPropagation()}
                         onDoubleClick={(e) => handleDoubleClick(e, node.id)}
                         onContextMenu={(e) => handleContextMenu(e, node.id)}
                       >
@@ -835,7 +871,7 @@ export function MindMapModule() {
                     <Plus className="h-3 w-3" />
                     Enfant
                   </Button>
-                  {selectedId !== 'root' && (
+                  {selectedId && selectedId !== rootNodeId && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -869,7 +905,7 @@ export function MindMapModule() {
               <Plus className="h-4 w-4" />
               Ajouter un enfant
             </button>
-            {contextMenu.nodeId !== 'root' && (
+            {contextMenu.nodeId !== rootNodeId && (
               <button
                 type="button"
                 className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"

@@ -1,0 +1,542 @@
+     1→// ============================================
+     2→// CreaPulse V2 — Seed Script
+     3→// Generates realistic demo data for PDF exports
+     4→// Run: npx tsx prisma/seed.ts
+     5→// ============================================
+     6→
+     7→import { config } from 'dotenv'
+     8→config({ path: '.env.local', override: true })
+     9→config({ override: true })
+    10→
+    11→import { PrismaClient } from '@prisma/client'
+    12→import { hashSync } from 'bcryptjs'
+    13→
+    14→const db = new PrismaClient()
+    15→
+    16→// ─── Helpers ──────────────────────────────────
+    17→
+    18→function daysAgo(days: number): Date {
+    19→  return new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+    20→}
+    21→
+    22→async function seedIfMissing<T>(
+    23→  model: { findFirst: (args: any) => Promise<T | null>; create: (args: any) => Promise<T> },
+    24→  where: any,
+    25→  data: any,
+    26→): Promise<T> {
+    27→  const existing = await model.findFirst({ where })
+    28→  if (existing) return existing
+    29→  return model.create({ data })
+    30→}
+    31→
+    32→// ─── Main Seed ────────────────────────────────
+    33→
+    34→async function main() {
+    35→  console.log('🌱 CreaPulse V2 — Seeding database...')
+    36→
+    37→  // ── Tenant ──
+    38→  const tenant = await seedIfMissing(db.tenant, { slug: 'echo-entreprendre' }, {
+    39→    name: 'Echo Entreprendre',
+    40→    slug: 'echo-entreprendre',
+    41→    primaryColor: '#00838F',
+    42→    plan: 'PROFESSIONAL',
+    43→    isActive: true,
+    44→  })
+    45→  console.log(`  ✓ Tenant: ${tenant.name}`)
+    46→
+    47→  // ── Organization ──
+    48→  const org = await seedIfMissing(db.organization, { tenantId: tenant.id, siret: '00000000000000' }, {
+    49→    tenantId: tenant.id,
+    50→    name: 'GIDEF Île-de-France',
+    51→    siret: '00000000000000',
+    52→    type: 'GIDEF_AGENCY',
+    53→    city: 'Paris',
+    54→    postalCode: '75001',
+    55→    region: 'Île-de-France',
+    56→    email: 'contact@gidef-idf.fr',
+    57→    phone: '01 23 45 67 89',
+    58→    website: 'https://gidef-idf.fr',
+    59→  })
+    60→  console.log(`  ✓ Organization: ${org.name}`)
+    61→
+    62→  // ── Admin User ──
+    63→  const adminUser = await seedIfMissing(db.user, { id: 'admin-echo-001' }, {
+    64→    id: 'admin-echo-001',
+    65→    tenantId: tenant.id,
+    66→    email: 'admin@echo-entreprendre.fr',
+    67→    passwordHash: hashSync('Admin2026!', 12),
+    68→    firstName: 'Sophie',
+    69→    lastName: 'Martin',
+    70→    role: 'ADMIN',
+    71→    isActive: true,
+    72→    emailVerified: true,
+    73→  })
+    74→  console.log(`  ✓ Admin: ${adminUser.firstName} ${adminUser.lastName}`)
+    75→
+    76→  // ── Counselor User ──
+    77→  const counselorUser = await seedIfMissing(db.user, { id: 'conseiller-gidef-001' }, {
+    78→    id: 'conseiller-gidef-001',
+    79→    tenantId: tenant.id,
+    80→    email: 'dupont.jean@gidef-idf.fr',
+    81→    passwordHash: hashSync('Conseiller2026!', 12),
+    82→    firstName: 'Jean',
+    83→    lastName: 'Dupont',
+    84→    role: 'COUNSELOR',
+    85→    isActive: true,
+    86→    emailVerified: true,
+    87→  })
+    88→
+    89→  const counselor = await seedIfMissing(db.counselor, { userId: counselorUser.id }, {
+    90→    userId: counselorUser.id,
+    91→    organizationId: org.id,
+    92→    name: 'Jean Dupont',
+    93→    specialities: ['Création d\'entreprise', 'Business Plan', 'Financement'],
+    94→    certifications: ['Certifié BGE', 'Coach entrepreneurial'],
+    95→    maxBeneficiaries: 30,
+    96→    isAvailable: true,
+    97→  })
+    98→  console.log(`  ✓ Counselor: ${counselorUser.firstName} ${counselorUser.lastName}`)
+    99→
+   100→  // ── Beneficiary User (Main Demo) ──
+   101→  const beneficiaryUser = await seedIfMissing(db.user, { id: 'beneficiaire-demo-001' }, {
+   102→    id: 'beneficiaire-demo-001',
+   103→    tenantId: tenant.id,
+   104→    email: 'marie.curie@example.fr',
+   105→    passwordHash: hashSync('Beneficiaire2026!', 12),
+   106→    firstName: 'Marie',
+   107→    lastName: 'Laurent',
+   108→    role: 'BENEFICIARY',
+   109→    isActive: true,
+   110→    emailVerified: true,
+   111→    lastLoginAt: daysAgo(1),
+   112→  })
+   113→
+   114→  const beneficiary = await seedIfMissing(db.beneficiary, { userId: beneficiaryUser.id }, {
+   115→    userId: beneficiaryUser.id,
+   116→    organizationId: org.id,
+   117→    employmentStatus: 'EMPLOYED',
+   118→    educationLevel: 'Bac+3',
+   119→    lastDiploma: 'BTS Commerce',
+   120→    skills: ['Gestion', 'Vente', 'Service client', 'Marketing digital'],
+   121→    progressScore: 65,
+   122→  })
+   123→  console.log(`  ✓ Beneficiary: ${beneficiaryUser.firstName} ${beneficiaryUser.lastName}`)
+   124→
+   125→  // ── Counselor Assignment ──
+   126→  await seedIfMissing(db.counselorAssignment, { counselorId: counselor.id, beneficiaryId: beneficiary.id }, {
+   127→    counselorId: counselor.id,
+   128→    beneficiaryId: beneficiary.id,
+   129→    role: 'PRIMARY',
+   130→    status: 'ACTIVE',
+   131→  })
+   132→
+   133→  // ── Creator Journey ──
+   134→  const journey = await seedIfMissing(db.creatorJourney, { userId: beneficiaryUser.id }, {
+   135→    userId: beneficiaryUser.id,
+   136→    currentPhase: 'STRATEGY',
+   137→    progressPercent: 65,
+   138→    projectTitle: 'Saveurs d\'Ici — Épicerie fine et produits locaux',
+   139→    projectDescription: 'Concept d\'épicerie fine spécialisée dans les produits locaux et artisanaux de la région Île-de-France, avec un espace dégustation et ateliers culinaires.',
+   140→    projectSector: 'Commerce alimentaire',
+   141→    projectStage: 'Création',
+   142→    creationMotivation: 'Passion pour la gastronomie locale et envie de valoriser les producteurs régionaux',
+   143→    targetAudience: 'Cadres parisiens 25-55 ans, sensibles à l\'origine et la qualité des produits, revenus moyens à élevés',
+   144→    valueProposition: 'Un lieu unique alliant épicerie fine, dégustation et ateliers culinaires avec des produits 100% locaux et traçables',
+   145→    estimatedRevenue: '180 000 € / an',
+   146→    estimatedInvestment: '85 000 €',
+   147→    bpStatus: 'IN_PROGRESS',
+   148→    bpScore: 72,
+   149→    bpGeneratedAt: daysAgo(15),
+   150→    tremplinStatus: 'IN_PROGRESS',
+   151→    tremplinScore: 68,
+   152→    status: 'ACTIVE',
+   153→    startedAt: daysAgo(90),
+   154→    bpSections: {
+   155→      resume: 'Saveurs d\'Ici est un concept d\'épicerie fine spécialisée dans les produits locaux et artisanaux de la région Île-de-France. Fondée par Marie Laurent, bénéficiaire GIDEF, cette entreprise vise à combler un vide dans l\'offre de produits locaux traçables en zone urbaine parisienne. Le concept repose sur trois piliers : une sélection rigoureuse de produits auprès de producteurs locaux, un espace dégustation pour découvrir les saveurs, et des ateliers culinaires pour apprendre à cuisiner ces produits.',
+   156→      'equipe': 'Marie Laurent, fondatrice — 10 ans d\'expérience en commerce et gestion de points de vente. Formation BTS Commerce, spécialisation en négociation commerciale. Parcours chez Carrefour et Monoprix. Compétences clés : gestion de stocks, merchandising, service client, animation d\'ateliers. Recrutement prévu : un responsable ateliers culinaires (profil chef ou passionné de cuisine).',
+   157→      'etude-marche': 'Le marché des produits bio et locaux en France est estimé à 13,5 milliards d\'euros, avec une croissance annuelle de +8%. En Île-de-France, le marché représente 2,1 milliards d\'euros. 67% des Français déclarent vouloir consommer plus local. La cible principale est constituée de cadres urbains 25-55 ans, sensibles à la qualité et à l\'origine des produits, avec des revenus moyens à élevés.',
+   158→      segmentation: 'Segment principal : Cadres parisiens 25-55 ans, couples et familles, sensibles à l\'alimentation saine et locale. Revenus annuels > 40 000 €. Fréquentent les marchés bio, adhérents à des AMAP. Segment secondaire : Entreprises (cadeaux d\'entreprise, événements). Segment émergent : Touristes gastronomes visiting Paris.',
+   159→      concurrence: 'Principaux concurrents : Biocoop (leader bio, large gamme mais peu local), La Ruche qui dit Oui (circuit court en ligne mais pas d\'expérience physique), Picard (surgelé premium). Différenciation : Saveurs d\'Ici combine épicerie fine, dégustation et ateliers — une expérience unique que les concurrents n\'offrent pas.',
+   160→      'strategie-marketing': 'Stratégie marketing basée sur 3 leviers : 1) Réseaux sociaux (Instagram, Facebook) pour communiquer sur l\'origine des produits et les ateliers. 2) Partenariats avec offices de tourisme et guides gastronomiques. 3) Fidélisation via programme de points et newsletter recettes saisonnières. Budget marketing : 800€/mois.',
+   161→      'plan-commercial': 'Plan commercial structuré en 3 phases : Phase 1 (mois 1-6) — Lancement avec 15 producteurs et ouverture du point de vente. Phase 2 (mois 7-12) — Développement des ateliers et partenariats B2B. Phase 3 (mois 13-24) — Expansion de la gamme et événements privés. Objectif CA : 120k€ (A1), 180k€ (A2), 220k€ (A3).',
+   162→      financement: [
+   163→        { id: 'f1', source: 'Apport personnel', montant: 25000 },
+   164→        { id: 'f2', source: 'Emprunt bancaire', montant: 40000 },
+   165→        { id: 'f3', source: 'ACRE + Aides', montant: 20000 },
+   166→      ],
+   167→      'compte-resultat': {
+   168→        year1: { ca: 120000, charges: 155000, resultat: -35000 },
+   169→        year2: { ca: 180000, charges: 165000, resultat: 15000 },
+   170→        year3: { ca: 220000, charges: 180000, resultat: 40000 },
+   171→      },
+   172→      seuil_rentabilite: 'Le seuil de rentabilité mensuel est estimé à 18 500 €. Avec un CA mensuel visé de 15 000€ en année 1, le projet atteint la rentabilité mensuelle en milieu d\'année 2. Le point mort cumulé est atteint au 18e mois.',
+   173→      investissements: [
+   174→        { id: 'i1', name: 'Aménagement local', amount: 25000 },
+   175→        { id: 'i2', name: 'Matériel et équipement', amount: 20000 },
+   176→        { id: 'i3', name: 'Stock initial', amount: 15000 },
+   177→        { id: 'i4', name: 'Communication lancement', amount: 5000 },
+   178→        { id: 'i5', name: 'Fonds de roulement', amount: 20000 },
+   179→      ],
+   180→      swot: {
+   181→        strengths: 'Concept unique et différenciant, Expérience commerciale solide, Réseau producteurs en constitution, Localisation stratégique',
+   182→        weaknesses: 'Pas d\'expérience en restauration, Besoin en fonds de roulement important, Trésorerie tende les 18 premiers mois',
+   183→        opportunities: 'Marché en croissance +8%/an, Demande forte de local, Subventions et aides à la création disponibles',
+   184→        threats: 'Concurrence des grandes surfaces bio, Pression sur les marges, Risque d\'approvisionnement avec producteurs locaux',
+   185→      },
+   186→      'statut-juridique': 'sarl',
+   187→      calendrier: [
+   188→        { id: 'c1', title: 'Recherche local', date: 'Mois 1-2', completed: true },
+   189→        { id: 'c2', title: 'Bail et aménagement', date: 'Mois 3-4', completed: true },
+   190→        { id: 'c3', title: 'Sélection producteurs', date: 'Mois 3-5', completed: true },
+   191→        { id: 'c4', title: 'Lancement', date: 'Mois 5', completed: false },
+   192→        { id: 'c5', title: 'Développement ateliers', date: 'Mois 7-12', completed: false },
+   193→        { id: 'c6', title: 'Rentabilité', date: 'Mois 18', completed: false },
+   194→      ],
+   195→    },
+   196→  })
+   197→  console.log(`  ✓ CreatorJourney: ${journey.projectTitle}`)
+   198→
+   199→  // ── Module Results ──
+   200→  const moduleResultsData = [
+   201→    { moduleCode: 'profil-createur', score: 85, maxScore: 100, completedAt: daysAgo(85), feedback: 'Excellente auto-évaluation' },
+   202→    { moduleCode: 'riasec', score: 78, maxScore: 100, completedAt: daysAgo(80), feedback: 'Profil Social-Entrepreneur' },
+   203→    { moduleCode: 'kiviat', score: 72, maxScore: 100, completedAt: daysAgo(75), feedback: 'Compétences commerciales fortes' },
+   204→    { moduleCode: 'mon-projet', score: 90, maxScore: 100, completedAt: daysAgo(70), feedback: 'Projet bien structuré' },
+   205→    { moduleCode: 'vision', score: 82, maxScore: 100, completedAt: daysAgo(65), feedback: 'Vision claire et réaliste' },
+   206→    { moduleCode: 'marche', score: 75, maxScore: 100, completedAt: daysAgo(55), feedback: 'Segmentation client pertinente' },
+   207→    { moduleCode: 'juridique', score: 68, maxScore: 100, completedAt: daysAgo(45), feedback: 'SARL recommandée' },
+   208→    { moduleCode: 'creasim', score: 70, maxScore: 100, completedAt: daysAgo(35), feedback: 'Rentabilité attendue à 18 mois' },
+   209→    { moduleCode: 'bmc', score: 65, maxScore: 100, completedAt: daysAgo(30), feedback: 'BMC complet' },
+   210→    { moduleCode: 'business-plan', score: 72, maxScore: 100, completedAt: daysAgo(15), feedback: 'BP solide, sections financières à approfondir' },
+   211→    { moduleCode: 'bilan-ia', score: 78, maxScore: 100, completedAt: daysAgo(12), feedback: 'Bilan positif, 3 axes d\'amélioration identifiés' },
+   212→  ]
+   213→
+   214→  for (const mr of moduleResultsData) {
+   215→    await seedIfMissing(db.moduleResult, { userId: beneficiaryUser.id, moduleCode: mr.moduleCode }, {
+   216→      userId: beneficiaryUser.id,
+   217→      moduleCode: mr.moduleCode,
+   218→      score: mr.score,
+   219→      maxScore: mr.maxScore,
+   220→      completedAt: mr.completedAt,
+   221→      feedback: mr.feedback,
+   222→      answers: { completed: true },
+   223→    })
+   224→  }
+   225→  console.log(`  ✓ ${moduleResultsData.length} ModuleResults`)
+   226→
+   227→  // ── Kiviat Results (8 dimensions) ──
+   228→  const kiviatData = [
+   229→    { category: 'Leadership', score: 7.5 },
+   230→    { category: 'Communication', score: 8.2 },
+   231→    { category: 'Gestion du stress', score: 6.0 },
+   232→    { category: 'Résolution de problèmes', score: 7.8 },
+   233→    { category: 'Créativité', score: 8.5 },
+   234→    { category: 'Adaptabilité', score: 7.0 },
+   235→    { category: 'Gestion financière', score: 5.5 },
+   236→    { category: 'Planification', score: 6.8 },
+   237→  ]
+   238→
+   239→  for (const k of kiviatData) {
+   240→    await seedIfMissing(db.kiviatResult, { userId: beneficiaryUser.id, category: k.category }, {
+   241→      userId: beneficiaryUser.id,
+   242→      category: k.category,
+   243→      score: k.score,
+   244→      maxScore: 10,
+   245→    })
+   246→  }
+   247→  console.log(`  ✓ ${kiviatData.length} KiviatResults`)
+   248→
+   249→  // ── RIASEC Results ──
+   250→  const riasecData = [
+   251→    { profileType: 'S', score: 8.5, isDominant: true },
+   252→    { profileType: 'E', score: 7.8, isDominant: true },
+   253→    { profileType: 'A', score: 7.2, isDominant: false },
+   254→    { profileType: 'I', score: 6.5, isDominant: false },
+   255→    { profileType: 'R', score: 5.0, isDominant: false },
+   256→    { profileType: 'C', score: 4.8, isDominant: false },
+   257→  ]
+   258→
+   259→  for (const r of riasecData) {
+   260→    await seedIfMissing(db.riasecResult, { userId: beneficiaryUser.id, profileType: r.profileType }, {
+   261→      userId: beneficiaryUser.id,
+   262→      profileType: r.profileType,
+   263→      score: r.score,
+   264→      isDominant: r.isDominant,
+   265→    })
+   266→  }
+   267→  console.log(`  ✓ ${riasecData.length} RiasecResults`)
+   268→
+   269→  // ── Motivation Assessment ──
+   270→  await seedIfMissing(db.motivationAssessment, { userId: beneficiaryUser.id }, {
+   271→    userId: beneficiaryUser.id,
+   272→    scores: { independance: 9, reussite: 8, passion: 9, impact: 7, securite: 6 },
+   273→    summary: 'Profil entrepreneurial fortement motivé par l\'indépendance et la passion.',
+   274→  })
+   275→  console.log('  ✓ MotivationAssessment')
+   276→
+   277→  // ── CreaSim Simulation ──
+   278→  await seedIfMissing(db.creaSimSimulation, { userId: beneficiaryUser.id }, {
+   279→    userId: beneficiaryUser.id,
+   280→    monthlyRevenue: 15000,
+   281→    fixedCharges: [
+   282→      { name: 'Loyer local', amount: 3500 },
+   283→      { name: 'Salaires', amount: 4200 },
+   284→      { name: 'Assurances', amount: 450 },
+   285→      { name: 'Énergie', amount: 350 },
+   286→      { name: 'Comptabilité', amount: 600 },
+   287→      { name: 'Marketing', amount: 800 },
+   288→      { name: 'Frais bancaires', amount: 150 },
+   289→      { name: 'Licences', amount: 100 },
+   290→    ],
+   291→    variableChargesRate: 45,
+   292→    averageSellingPrice: 28,
+   293→    unitCost: 12.5,
+   294→    targetMarginRate: 55,
+   295→    initialInvestment: 85000,
+   296→    fixedChargesTotal: 10150,
+   297→    variableChargesAmount: 6750,
+   298→    totalCharges: 16900,
+   299→    grossMarginAmount: 8250,
+   300→    grossMarginRate: 55,
+   301→    netMarginAmount: -1900,
+   302→    netMarginRate: -12.7,
+   303→    monthlyBreakeven: 18500,
+   304→    breakevenMonths: 18,
+   305→    year1Revenue: 120000,
+   306→    year1Expenses: 155000,
+   307→    year2Revenue: 180000,
+   308→    year2Expenses: 165000,
+   309→    year3Revenue: 220000,
+   310→    year3Expenses: 180000,
+   311→    profitability1Y: -35,
+   312→    profitability2Y: 9.1,
+   313→    profitability3Y: 22.2,
+   314→    aiAnalysis: 'La simulation montre un besoin en fonds de roulement initial important. La rentabilité est attendue à partir du 18e mois. Recommandation : prévoir 6 mois de trésorerie de sécurité.',
+   315→  })
+   316→  console.log('  ✓ CreaSimSimulation')
+   317→
+   318→  // ── Financial Forecast ──
+   319→  await seedIfMissing(db.financialForecast, { userId: beneficiaryUser.id }, {
+   320→    userId: beneficiaryUser.id,
+   321→    sector: 'Commerce alimentaire',
+   322→    year1Revenue: 120000,
+   323→    year2Revenue: 180000,
+   324→    year3Revenue: 220000,
+   325→    year1Expenses: 155000,
+   326→    year2Expenses: 165000,
+   327→    year3Expenses: 180000,
+   328→    breakevenMonth: 18,
+   329→    initialInvestment: 85000,
+   330→    aiSynthesis: 'Passage à la rentabilité dès la 2ème année. Seuil de rentabilité mensuel : 18 500 €.',
+   331→  })
+   332→  console.log('  ✓ FinancialForecast')
+   333→
+   334→  // ── Juridique Analysis ──
+   335→  await seedIfMissing(db.juridiqueAnalysis, { userId: beneficiaryUser.id }, {
+   336→    userId: beneficiaryUser.id,
+   337→    recommendedStatus: 'SARL',
+   338→    fiscalRegime: 'Réel simplifié (IS)',
+   339→    legalStructure: 'SARL au capital de 8 000 €',
+   340→    socialCharges: { gérant: 'Assimilé-salarié', charges: '~45% du brut' },
+   341→  })
+   342→  console.log('  ✓ JuridiqueAnalysis')
+   343→
+   344→  // ── Market Analysis ──
+   345→  await seedIfMissing(db.marketAnalysis, { userId: beneficiaryUser.id }, {
+   346→    userId: beneficiaryUser.id,
+   347→    sector: 'Commerce alimentaire - Épicerie fine',
+   348→    marketSize: '13,5 Mds € (croissance +8%/an)',
+   349→    targetAudience: '25-55 ans, CSP+, urbains',
+   350→    trends: [{ label: 'Local', description: '+15%/an' }, { label: 'Circuit court', description: 'En hausse' }],
+   351→    competitors: [{ name: 'Biocoop', position: 'Leader bio' }, { name: 'La Ruche', position: 'Circuit court' }],
+   352→    opportunities: 'Zone parisienne non couverte',
+   353→    threats: 'Concurrence grandes surfaces bio',
+   354→    aiSynthesis: 'Marché porteur. Positionnement différenciant.',
+   355→  })
+   356→  console.log('  ✓ MarketAnalysis')
+   357→
+   358→  // ── Tremplin ──
+   359→  await seedIfMissing(db.tremplin, { userId: beneficiaryUser.id }, {
+   360→    userId: beneficiaryUser.id,
+   361→    currentStep: 6,
+   362→    responses: {
+   363→      step0: { completed: true, notes: 'Motivation forte, projet mur depuis 2 ans' },
+   364→      step1: { completed: true, notes: 'Adéquation marché confirmée' },
+   365→      step2: { completed: true, notes: 'Rentabilité attendue à 18 mois' },
+   366→      step3: { completed: true, notes: 'Compétences en vente et gestion' },
+   367→      step4: { completed: true, notes: 'Réseau producteurs en constitution' },
+   368→      step5: { completed: true, notes: 'Plan d\'action détaillé sur 12 mois' },
+   369→      step6: { completed: false, notes: 'Pitch en préparation' },
+   370→    },
+   371→    isCompleted: false,
+   372→    score: 68,
+   373→    decision: 'GO_CONDITIONAL',
+   374→    summary: 'Projet viable avec conditions : finaliser le financement et le pitch.',
+   375→    recommendations: [
+   376→      'Finaliser le plan de financement',
+   377→      'Préparer le pitch (5-7 min)',
+   378→      'Consolider le dossier ACRE/ARCE',
+   379→      'Finaliser accords producteurs',
+   380→    ],
+   381→  })
+   382→  console.log('  ✓ Tremplin')
+   383→
+   384→  // ── Business Model Canvas ──
+   385→  await seedIfMissing(db.businessModelCanvas, { userId: beneficiaryUser.id }, {
+   386→    userId: beneficiaryUser.id,
+   387→    partenairesCles: '- Producteurs locaux\n- Artisans boulangers\n- Réseau GIDEF',
+   388→    activitesCles: '- Sélection produits\n- Gestion stocks\n- Ateliers culinaires\n- Marketing',
+   389→    ressourcesCles: '- Local 80m² 11e arrondissement\n- 25+ producteurs\n- Système caisse',
+   390→    propositionValeur: 'Produits 100% locaux et traçables, dans un lieu avec ateliers culinaires.',
+   391→    relationsClients: '- Conseil personnalisé\n- Fidélité\n- Ateliers\n- Newsletter',
+   392→    canaux: '- Boutique physique\n- Réseaux sociaux\n- Site web\n- Partenariats',
+   393→    segmentsClients: '- Cadres urbains 25-55\n- Familles\n- Entreprises',
+   394→    structureCouts: '- Loyer 42k€/an\n- Personnel 50k€/an\n- Approvisionnement 40% CA',
+   395→    sourcesRevenus: '- Vente détail (70%)\n- Ateliers (15%)\n- B2B (10%)\n- Événements (5%)',
+   396→    status: 'GENERATED',
+   397→    generatedFromBp: true,
+   398→    generatedAt: daysAgo(30),
+   399→  })
+   400→  console.log('  ✓ BusinessModelCanvas')
+   401→
+   402→  // ── ZeroDraft (for Pitch Deck) ──
+   403→  await seedIfMissing(db.zeroDraft, { userId: beneficiaryUser.id }, {
+   404→    userId: beneficiaryUser.id,
+   405→    projectTitle: 'Saveurs d\'Ici — Épicerie fine et produits locaux',
+   406→    content: JSON.stringify({
+   407→      slides: [
+   408→        { id: 'probleme', content: 'Les consommateurs veulent du local et traçable. Difficulté à trouver un point de vente unique. Circuits courts fragmentés.' },
+   409→        { id: 'solution', content: 'Épicerie fine produits locaux + espace dégustation + ateliers culinaires. Traçabilité garantie.' },
+   410→        { id: 'marche', content: 'Marché bio et local : 13,5 Mds € (+8%/an). 67% des Français veulent consommer local.' },
+   411→        { id: 'businessModel', content: 'Revenus : Vente 70%, Ateliers 15%, B2B 10%, Événements 5%. CA visé 180k€ A2. Marge brute 55%.' },
+   412→        { id: 'traction', content: '25 producteurs contactés, 12 accords signés, 500+ abonnés Instagram, emplacement identifié.' },
+   413→        { id: 'equipe', content: 'Marie Laurent : Fondatrice, 10 ans commerce. Jean Dupont : Conseiller GIDEF.' },
+   414→        { id: 'financier', content: 'Investissement 85k€. Apport 25k€ + Emprunt 40k€ + Aides 20k€. Rentabilité 18 mois.' },
+   415→        { id: 'ask', content: '85k€ financement + 10 producteurs supplémentaires + 12 mois accompagnement GIDEF.' },
+   416→      ],
+   417→    }),
+   418→    wordCount: 420,
+   419→    status: 'READY',
+   420→  })
+   421→  console.log('  ✓ ZeroDraft')
+   422→
+   423→  // ── Interview Sessions ──
+   424→  const interview1 = await seedIfMissing(db.interviewSession, { id: 'interview-001' }, {
+   425→    id: 'interview-001',
+   426→    counselorId: counselor.id,
+   427→    beneficiaryId: beneficiary.id,
+   428→    type: 'bilan',
+   429→    phase: 'ACCUEIL',
+   430→    scheduledAt: daysAgo(80),
+   431→    startedAt: daysAgo(80),
+   432→    completedAt: daysAgo(80),
+   433→    status: 'completed',
+   434→    synthesis: 'Premier bilan positif. Projet mûr, expérience solide.',
+   435→    recommendations: ['Compléter RIASEC et Kiviat', 'Rédiger Mon Projet', 'Prendre RDV expert-comptable'],
+   436→  })
+   437→
+   438→  const interview2 = await seedIfMissing(db.interviewSession, { id: 'interview-002' }, {
+   439→    id: 'interview-002',
+   440→    counselorId: counselor.id,
+   441→    beneficiaryId: beneficiary.id,
+   442→    type: 'suivi',
+   443→    phase: 'APPROFONDISSEMENT',
+   444→    scheduledAt: daysAgo(40),
+   445→    startedAt: daysAgo(40),
+   446→    completedAt: daysAgo(40),
+   447→    status: 'completed',
+   448→    synthesis: 'Projet structuré. BMC complet, CreaSim rentabilité 18 mois. BP et Tremplin à finaliser.',
+   449→    recommendations: ['Finaliser BP financier', 'Lancer démarches financement', 'Préparer Tremplin'],
+   450→  })
+   451→  console.log('  ✓ 2 InterviewSessions')
+   452→
+   453→  // ── Interview Notes ──
+   454→  const interviewNotes = [
+   455→    { interviewId: interview1.id, phase: 'ACCUEIL', category: 'observation', content: 'Motivation forte et projet mur depuis 2 ans.', isKeyPoint: true },
+   456→    { interviewId: interview1.id, phase: 'ACCUEIL', category: 'observation', content: 'Bonne connaissance du secteur local.', isKeyPoint: true },
+   457→    { interviewId: interview1.id, phase: 'ACCUEIL', category: 'recommandation', content: 'Compléter les tests profil (RIASEC, Kiviat).', isKeyPoint: true },
+   458→    { interviewId: interview2.id, phase: 'SUIVI', category: 'observation', content: 'CreaSim bien paramétré, hypothèses réalistes.', isKeyPoint: true },
+   459→    { interviewId: interview2.id, phase: 'SUIVI', category: 'observation', content: 'BMC complet et cohérent, 9/9 blocs.', isKeyPoint: true },
+   460→    { interviewId: interview2.id, phase: 'SUIVI', category: 'recommandation', content: 'Finaliser le dossier de financement.', isKeyPoint: true },
+   461→    { interviewId: interview2.id, phase: 'SUIVI', category: 'recommandation', content: 'Préparer le pitch Tremplin.', isKeyPoint: true },
+   462→    { interviewId: interview2.id, phase: 'SUIVI', category: 'observation', content: 'Engagement et régularité dans le parcours.', isKeyPoint: true },
+   463→  ]
+   464→
+   465→  for (const note of interviewNotes) {
+   466→    await db.interviewNote.create({ data: note }).catch(() => {})
+   467→  }
+   468→  console.log(`  ✓ ${interviewNotes.length} InterviewNotes`)
+   469→
+   470→  // ── App Modules ──
+   471→  const appModules = [
+   472→    { code: 'profil-createur', name: 'Profil Créateur', category: 'DIAGNOSTIC', phase: 'DISCOVERY', sortOrder: 1 },
+   473→    { code: 'riasec', name: 'Test RIASEC', category: 'DIAGNOSTIC', phase: 'DISCOVERY', sortOrder: 2 },
+   474→    { code: 'kiviat', name: 'Test Kiviat', category: 'DIAGNOSTIC', phase: 'PROFILING', sortOrder: 3 },
+   475→    { code: 'mon-projet', name: 'Mon Projet', category: 'MODELING', phase: 'PROFILING', sortOrder: 4 },
+   476→    { code: 'vision', name: 'Vision', category: 'MODELING', phase: 'STRATEGY', sortOrder: 5 },
+   477→    { code: 'marche', name: 'Analyse de Marché', category: 'STRATEGY', phase: 'STRATEGY', sortOrder: 6 },
+   478→    { code: 'juridique', name: 'Analyse Juridique', category: 'STRATEGY', phase: 'STRATEGY', sortOrder: 7 },
+   479→    { code: 'creasim', name: 'CreaSim', category: 'STRATEGY', phase: 'STRATEGY', sortOrder: 8 },
+   480→    { code: 'bmc', name: 'Business Model Canvas', category: 'MODELING', phase: 'STRATEGY', sortOrder: 9 },
+   481→    { code: 'business-plan', name: 'Business Plan', category: 'STRATEGY', phase: 'ECOSYSTEM', sortOrder: 10 },
+   482→    { code: 'bilan-ia', name: 'Bilan IA', category: 'DIAGNOSTIC', phase: 'DISCOVERY', sortOrder: 11 },
+   483→    { code: 'tremplin', name: 'Tremplin', category: 'PILOTAGE', phase: 'LAUNCH', sortOrder: 12 },
+   484→    { code: 'passeport', name: 'Passeport', category: 'PILOTAGE', phase: 'LAUNCH', sortOrder: 13 },
+   485→  ]
+   486→
+   487→  for (const mod of appModules) {
+   488→    await seedIfMissing(db.appModule, { tenantId: tenant.id, code: mod.code }, {
+   489→      tenantId: tenant.id,
+   490→      code: mod.code,
+   491→      name: mod.name,
+   492→      category: mod.category as any,
+   493→      phase: mod.phase as any,
+   494→      isActive: true,
+   495→      sortOrder: mod.sortOrder,
+   496→    })
+   497→  }
+   498→  console.log(`  ✓ ${appModules.length} AppModules`)
+   499→
+   500→  // ── Actors ──
+   501→  const actors = [
+   502→    { id: 'actor-cci-paris', name: 'CCI Paris Île-de-France', type: 'CCI', city: 'Paris', phone: '01 49 52 42 00', website: 'https://www.cci-paris-idf.fr' },
+   503→    { id: 'actor-bge-paris', name: 'BGE Paris', type: 'GIDEF', city: 'Paris', phone: '01 42 46 01 10', website: 'https://www.bge.fr' },
+   504→    { id: 'actor-reseau-entreprendre', name: 'Réseau Entreprendre IDF', type: 'INCUBATOR', city: 'Paris', phone: '01 53 67 68 00', website: 'https://www.reseau-entreprendre.org' },
+   505→    { id: 'actor-initiative-paris', name: 'Initiative Paris', type: 'GIDEF', city: 'Paris', phone: '01 42 33 02 00', website: 'https://www.initiative-paris.fr' },
+   506→    { id: 'actor-bnp-paribis', name: 'BNP Paribas Création', type: 'BANK', city: 'Paris', phone: '01 42 66 00 00', website: 'https://entrepreneurs.bnpparibas.fr' },
+   507→  ]
+   508→
+   509→  for (const actor of actors) {
+   510→    await seedIfMissing(db.actor, { id: actor.id }, {
+   511→      id: actor.id,
+   512→      tenantId: tenant.id,
+   513→      name: actor.name,
+   514→      type: actor.type as any,
+   515→      city: actor.city,
+   516→      phone: actor.phone,
+   517→      website: actor.website,
+   518→      featured: true,
+   519→      successRate: actor.type === 'GIDEF' ? 85 : 72,
+   520→    })
+   521→  }
+   522→  console.log(`  ✓ ${actors.length} Actors`)
+   523→
+   524→  // ── Summary ──
+   525→  console.log('\n✅ Seed completed successfully!')
+   526→  console.log('─────────────────────────────────')
+   527→  console.log('🔐 Demo accounts:')
+   528→  console.log('   Admin:        admin@echo-entreprendre.fr / Admin2026!')
+   529→  console.log('   Conseiller:   dupont.jean@gidef-idf.fr / Conseiller2026!')
+   530→  console.log('   Bénéficiaire: marie.curie@example.fr / Beneficiaire2026!')
+   531→  console.log('─────────────────────────────────')
+   532→}
+   533→
+   534→main()
+   535→  .catch((e) => {
+   536→    console.error('❌ Seed failed:', e)
+   537→    process.exit(1)
+   538→  })
+   539→  .finally(async () => {
+   540→    await db.$disconnect()
+   541→  })
+   542→

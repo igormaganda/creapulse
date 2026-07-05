@@ -1,0 +1,916 @@
+     1→/**
+     2→ * ═══════════════════════════════════════════════════════════════
+     3→ * CreaPulse V2 — Module Scanner
+     4→ * CLIENT-SIDE ONLY — Scans localStorage to determine
+     5→ * started/completed status for all 38 platform modules.
+     6→ * ═══════════════════════════════════════════════════════════════
+     7→ *
+     8→ * Usage:
+     9→ *   import { scanAllModules, scanModule, getSectionProgress } from '@/lib/module-scanner'
+    10→ *   const scan = scanAllModules()
+    11→ */
+    12→
+    13→import {
+    14→  MODULE_REGISTRY,
+    15→  SECTION_LABELS,
+    16→  getModuleDef,
+    17→  getModulesBySection,
+    18→} from '@/lib/module-registry'
+    19→
+    20→/* ─── Types ─── */
+    21→
+    22→export interface ModuleScanResult {
+    23→  code: string
+    24→  label: string
+    25→  section: 'parcours' | 'strategie' | 'ecosysteme' | 'pilotage'
+    26→  status: 'not_started' | 'in_progress' | 'completed'
+    27→  hasData: boolean
+    28→  completionPercent: number // 0–100
+    29→  lastActivity: string | null // ISO date if available
+    30→  dataSummary?: string // brief one-line summary
+    31→}
+    32→
+    33→export interface SectionScanResult {
+    34→  section: string
+    35→  label: string
+    36→  modules: ModuleScanResult[]
+    37→  totalModules: number
+    38→  startedModules: number
+    39→  completedModules: number
+    40→  progressPercent: number
+    41→}
+    42→
+    43→export interface FullScanResult {
+    44→  modules: ModuleScanResult[]
+    45→  sections: SectionScanResult[]
+    46→  totalModules: number
+    47→  startedModules: number
+    48→  completedModules: number
+    49→  globalProgress: number
+    50→  lastActivity: string | null
+    51→  recommendedNext: ModuleScanResult[]
+    52→}
+    53→
+    54→/* ─── Storage map: module code → localStorage key + status checks ─── */
+    55→
+    56→interface StorageCheck {
+    57→  key: string
+    58→  checkStarted: (data: unknown) => boolean
+    59→  checkCompleted: (data: unknown) => boolean | null // null = cannot determine completion
+    60→  extractSummary: (data: unknown) => string
+    61→  extractLastActivity: (data: unknown) => string | null
+    62→  estimateCompletion: (data: unknown) => number
+    63→}
+    64→
+    65→const MODULE_STORAGE_MAP: Record<string, StorageCheck> = {
+    66→  'profil-createur': {
+    67→    key: 'creapulse-profil',
+    68→    checkStarted: (d) => !!d,
+    69→    checkCompleted: (d) => calculateProfilCompletion(d) === 100,
+    70→    extractSummary: (d: any) => {
+    71→      const parts: string[] = []
+    72→      if (d?.firstName) parts.push(`Prénom: ${d.firstName}`)
+    73→      if (d?.projectSector) parts.push(`Secteur: ${d.projectSector}`)
+    74→      if (d?.employmentStatus) parts.push(`Statut: ${d.employmentStatus}`)
+    75→      return parts.length > 0 ? parts.join(', ') : 'Profil partiel'
+    76→    },
+    77→    extractLastActivity: (d: any) => d?.updatedAt ?? d?.createdAt ?? null,
+    78→    estimateCompletion: (d) => calculateProfilCompletion(d),
+    79→  },
+    80→  'mon-projet': {
+    81→    key: 'creapulse-mon-projet',
+    82→    checkStarted: (d) => !!d,
+    83→    checkCompleted: (d) => calculateProjetCompletion(d) === 100,
+    84→    extractSummary: (d: any) => {
+    85→      const parts: string[] = []
+    86→      if (d?.projectTitle) parts.push(d.projectTitle)
+    87→      if (d?.projectStage) parts.push(`Phase: ${d.projectStage}`)
+    88→      return parts.length > 0 ? `${parts.join(' — ')}` : 'Projet non nommé'
+    89→    },
+    90→    extractLastActivity: (d: any) => d?.updatedAt ?? d?.createdAt ?? null,
+    91→    estimateCompletion: (d) => calculateProjetCompletion(d),
+    92→  },
+    93→  vision: {
+    94→    key: 'creapulse-vision',
+    95→    checkStarted: (d) => !!d,
+    96→    checkCompleted: (d) => calculateVisionCompletion(d) === 100,
+    97→    extractSummary: (d: any) => {
+    98→      const parts: string[] = []
+    99→      if (d?.objectives?.length > 0) parts.push(`${d.objectives.length} objectif${d.objectives.length > 1 ? 's' : ''}`)
+   100→      if (d?.coreValues?.length > 0) parts.push(`${d.coreValues.length} valeur${d.coreValues.length > 1 ? 's' : ''} définie${d.coreValues.length > 1 ? 's' : ''}`)
+   101→      return parts.length > 0 ? parts.join(', ') : 'Vision en cours'
+   102→    },
+   103→    extractLastActivity: (d: any) => d?.updatedAt ?? d?.createdAt ?? null,
+   104→    estimateCompletion: (d) => calculateVisionCompletion(d),
+   105→  },
+   106→  riasec: {
+   107→    key: 'creapulse-riasec-progress',
+   108→    checkStarted: (d) => !!(d && typeof d === 'object' && 'answers' in d && Object.keys((d as any).answers).length > 0),
+   109→    checkCompleted: (d) => !!(d && typeof d === 'object' && 'answers' in d && Object.keys((d as any).answers).length >= 42),
+   110→    extractSummary: (d: any) => {
+   111→      const count = d?.answers ? Object.keys(d.answers).length : 0
+   112→      if (count === 0) return 'Non commencé'
+   113→      const profile = d?.dominantProfile ? `Profil ${d.dominantProfile}` : `${count}/42 questions`
+   114→      return profile
+   115→    },
+   116→    extractLastActivity: (d: any) => d?.updatedAt ?? d?.completedAt ?? null,
+   117→    estimateCompletion: (d: any) => {
+   118→      const count = d?.answers ? Object.keys(d.answers).length : 0
+   119→      return Math.round((count / 42) * 100)
+   120→    },
+   121→  },
+   122→  kiviat: {
+   123→    key: 'creapulse-kiviat',
+   124→    checkStarted: (d) => !!(d && typeof d === 'object' && 'scores' in d && Object.values((d as any).scores).some((v: any) => v > 0)),
+   125→    checkCompleted: (d) => !!(d && typeof d === 'object' && 'scores' in d && Object.values((d as any).scores).every((v: any) => v > 0)),
+   126→    extractSummary: (d: any) => {
+   127→      if (!d?.scores) return 'Non évalué'
+   128→      const filled = Object.values(d.scores).filter((v: any) => v > 0).length
+   129→      const total = Object.keys(d.scores).length
+   130→      return `${filled}/${total} compétences évaluées`
+   131→    },
+   132→    extractLastActivity: (d: any) => d?.updatedAt ?? null,
+   133→    estimateCompletion: (d: any) => {
+   134→      if (!d?.scores) return 0
+   135→      const total = Object.keys(d.scores).length
+   136→      const filled = Object.values(d.scores).filter((v: any) => v > 0).length
+   137→      return total > 0 ? Math.round((filled / total) * 100) : 0
+   138→    },
+   139→  },
+   140→  marche: {
+   141→    key: 'creapulse-marche',
+   142→    checkStarted: (d) => !!(d && (typeof d === 'object') && ((d as any).sector || (d as any).aiSynthesis)),
+   143→    checkCompleted: null,
+   144→    extractSummary: (d: any) => {
+   145→      if (d?.aiSynthesis) return 'Synthèse IA générée'
+   146→      if (d?.sector) return `Secteur: ${d.sector}`
+   147→      return 'En exploration'
+   148→    },
+   149→    extractLastActivity: (d: any) => d?.updatedAt ?? null,
+   150→    estimateCompletion: (d: any) => {
+   151→      if (!d) return 0
+   152→      let score = 0
+   153→      if (d.sector) score += 25
+   154→      if (d.targetAudience) score += 25
+   155→      if (d.competitors) score += 25
+   156→      if (d.aiSynthesis) score += 25
+   157→      return score
+   158→    },
+   159→  },
+   160→  juridique: {
+   161→    key: 'creapulse-juridique',
+   162→    checkStarted: (d) => !!(d && typeof d === 'object' && (d as any).sim),
+   163→    checkCompleted: null,
+   164→    extractSummary: (d: any) => {
+   165→      if (d?.sim?.statutJuridique) return `Statut: ${d.sim.statutJuridique}`
+   166→      if (d?.sim) return 'Simulation en cours'
+   167→      return 'Non démarré'
+   168→    },
+   169→    extractLastActivity: (d: any) => d?.updatedAt ?? null,
+   170→    estimateCompletion: (d: any) => {
+   171→      if (!d?.sim) return 0
+   172→      const sim = d.sim
+   173→      let score = 0
+   174→      if (sim.statutJuridique) score += 33
+   175→      if (sim.capitalSocial) score += 33
+   176→      if (sim.regimeSocial) score += 34
+   177→      return score
+   178→    },
+   179→  },
+   180→  financier: {
+   181→    key: 'creapulse-financier-sim',
+   182→    checkStarted: (d) => !!(d && typeof d === 'object' && ((d as any).year1Revenue > 0 || (d as any).year1Expenses > 0)),
+   183→    checkCompleted: null,
+   184→    extractSummary: (d: any) => {
+   185→      if (!d) return 'Non démarré'
+   186→      const parts: string[] = []
+   187→      if (d.year1Revenue) parts.push(`CA An1: ${d.year1Revenue.toLocaleString('fr-FR')}€`)
+   188→      if (d.year1Expenses) parts.push(`Charges An1: ${d.year1Expenses.toLocaleString('fr-FR')}€`)
+   189→      return parts.length > 0 ? parts.join(', ') : 'Simulation vide'
+   190→    },
+   191→    extractLastActivity: (d: any) => d?.updatedAt ?? null,
+   192→    estimateCompletion: (d: any) => {
+   193→      if (!d) return 0
+   194→      let score = 0
+   195→      if (d.year1Revenue || d.year1Expenses) score += 33
+   196→      if (d.year2Revenue || d.year2Expenses) score += 33
+   197→      if (d.year3Revenue || d.year3Expenses) score += 34
+   198→      return score
+   199→    },
+   200→  },
+   201→  bmc: {
+   202→    key: 'creapulse-bmc',
+   203→    checkStarted: (d) => !!(d && typeof d === 'object' && 'blocks' in d && (d as any).blocks?.length > 0),
+   204→    checkCompleted: (d) => {
+   205→      if (!d || !d.blocks) return false
+   206→      return (d as any).blocks?.every((b: any) => b.content?.trim()) || (d as any).status === 'GENERATED'
+   207→    },
+   208→    extractSummary: (d: any) => {
+   209→      if (!d?.blocks) return 'Aucun bloc rempli'
+   210→      const filled = d.blocks.filter((b: any) => b.content?.trim()).length
+   211→      const total = d.blocks.length
+   212→      return `${filled}/${total} blocs remplis`
+   213→    },
+   214→    extractLastActivity: (d: any) => d?.updatedAt ?? null,
+   215→    estimateCompletion: (d: any) => {
+   216→      if (!d?.blocks) return 0
+   217→      const filled = d.blocks.filter((b: any) => b.content?.trim()).length
+   218→      return Math.round((filled / d.blocks.length) * 100)
+   219→    },
+   220→  },
+   221→  creasim: {
+   222→    key: 'creapulse-creasim',
+   223→    checkStarted: (d) => !!(d && typeof d === 'object' && 'monthlyRevenue' in d && (d as any).monthlyRevenue > 0),
+   224→    checkCompleted: null,
+   225→    extractSummary: (d: any) => {
+   226→      if (!d) return 'Non démarré'
+   227→      return `CA: ${new Intl.NumberFormat('fr-FR').format(d.monthlyRevenue ?? 0)} €/mois`
+   228→    },
+   229→    extractLastActivity: null,
+   230→    estimateCompletion: (d: any) => {
+   231→      if (!d || !d.monthlyRevenue) return 0
+   232→      let score = 25
+   233→      if (d.fixedCharges?.length > 0) score += 25
+   234→      if (d.averageSellingPrice && d.unitCost) score += 25
+   235→      if (d.initialInvestment > 0) score += 25
+   236→      return score
+   237→    },
+   238→  },
+   239→  'business-plan': {
+   240→    key: 'creapulse-bp',
+   241→    checkStarted: (d) => !!d,
+   242→    checkCompleted: (d) => !!(d && typeof d === 'object' && (d as any).completionInfo?.percent === 100),
+   243→    extractSummary: (d: any) => {
+   244→      const pct = d?.completionInfo?.percent ?? 0
+   245→      const totalSections = d?.sections?.length ?? 0
+   246→      return totalSections > 0
+   247→        ? `${pct}% (${totalSections} sections)`
+   248→        : `Completion: ${pct}%`
+   249→    },
+   250→    extractLastActivity: (d: any) => d?.updatedAt ?? d?.completionInfo?.lastUpdate ?? null,
+   251→    estimateCompletion: (d: any) => {
+   252→      if (!d) return 0
+   253→      if (d.completionInfo?.percent != null) return d.completionInfo.percent
+   254→      const totalSections = d.sections?.length ?? 0
+   255→      if (totalSections === 0) return 0
+   256→      const filledSections = d.sections.filter((s: any) => s.content?.trim()).length
+   257→      return Math.round((filledSections / totalSections) * 100)
+   258→    },
+   259→  },
+   260→  'pitch-deck': {
+   261→    key: 'creapulse-pitch-deck',
+   262→    checkStarted: (d) => !!(d && typeof d === 'object' && 'slides' in d && (d as any).slides?.length > 0),
+   263→    checkCompleted: (d) => !!(d && typeof d === 'object' && 'slides' in d && (d as any).slides?.every((s: any) => s.content?.trim())),
+   264→    extractSummary: (d: any) => {
+   265→      if (!d?.slides) return 'Aucune slide'
+   266→      const filled = d.slides.filter((s: any) => s.content?.trim()).length
+   267→      const total = d.slides.length
+   268→      return `${filled}/${total} slides remplies`
+   269→    },
+   270→    extractLastActivity: (d: any) => d?.updatedAt ?? null,
+   271→    estimateCompletion: (d: any) => {
+   272→      if (!d?.slides) return 0
+   273→      const filled = d.slides.filter((s: any) => s.content?.trim()).length
+   274→      return Math.round((filled / d.slides.length) * 100)
+   275→    },
+   276→  },
+   277→  swot: {
+   278→    key: 'creapulse-swot',
+   279→    checkStarted: (d) => {
+   280→      if (!d || typeof d !== 'object') return false
+   281→      return (
+   282→        ((d as any).forces?.length > 0 ||
+   283→        (d as any).faiblesses?.length > 0 ||
+   284→        (d as any).opportunites?.length > 0 ||
+   285→        (d as any).menaces?.length > 0)
+   286→      )
+   287→    },
+   288→    checkCompleted: (d) => {
+   289→      if (!d || typeof d !== 'object') return false
+   290→      return (
+   291→        (d as any).forces?.length > 0 &&
+   292→        (d as any).faiblesses?.length > 0 &&
+   293→        (d as any).opportunites?.length > 0 &&
+   294→        (d as any).menaces?.length > 0
+   295→      )
+   296→    },
+   297→    extractSummary: (d: any) => {
+   298→      const parts: string[] = []
+   299→      if (d?.forces?.length > 0) parts.push(`${d.forces.length} forces`)
+   300→      if (d?.faiblesses?.length > 0) parts.push(`${d.faiblesses.length} faiblesses`)
+   301→      if (d?.opportunites?.length > 0) parts.push(`${d.opportunites.length} opportunités`)
+   302→      if (d?.menaces?.length > 0) parts.push(`${d.menaces.length} menaces`)
+   303→      return parts.length > 0 ? parts.join(', ') : 'Analyse vide'
+   304→    },
+   305→    extractLastActivity: (d: any) => d?.updatedAt ?? null,
+   306→    estimateCompletion: (d: any) => {
+   307→      if (!d) return 0
+   308→      let count = 0
+   309→      if ((d as any).forces?.length > 0) count++
+   310→      if ((d as any).faiblesses?.length > 0) count++
+   311→      if ((d as any).opportunites?.length > 0) count++
+   312→      if ((d as any).menaces?.length > 0) count++
+   313→      return Math.round((count / 4) * 100)
+   314→    },
+   315→  },
+   316→  'gestion-temps': {
+   317→    key: 'creapulse-gestion-temps',
+   318→    checkStarted: (d) => !!(d && typeof d === 'object' && ((d as any).diagnostic?.trim() || (d as any).eisenhower?.urgentImportant?.length > 0)),
+   319→    checkCompleted: (d) => !!(d && typeof d === 'object' && (d as any).completion?.percent === 100),
+   320→    extractSummary: (d: any) => {
+   321→      if (d?.completion?.percent != null) return `Completion: ${d.completion.percent}%`
+   322→      if (d?.diagnostic) return 'Diagnostic renseigné'
+   323→      return 'En cours'
+   324→    },
+   325→    extractLastActivity: (d: any) => d?.updatedAt ?? null,
+   326→    estimateCompletion: (d: any) => {
+   327→      if (!d) return 0
+   328→      if (d.completion?.percent != null) return d.completion.percent
+   329→      let score = 0
+   330→      if (d.diagnostic?.trim()) score += 40
+   331→      if (d.eisenhower) score += 30
+   332→      if (d.routine) score += 30
+   333→      return score
+   334→    },
+   335→  },
+   336→  'gestion-crise': {
+   337→    key: 'creapulse-gestion-crise',
+   338→    checkStarted: (d) => !!(d && typeof d === 'object' && (d as any).risques?.length > 0),
+   339→    checkCompleted: (d) => !!(d && typeof d === 'object' && (d as any).risques?.some((r: any) => r.mitigation?.trim()) && (d as any).aiSynthesis),
+   340→    extractSummary: (d: any) => {
+   341→      if (!d?.risques) return 'Aucun risque identifié'
+   342→      const total = d.risques.length
+   343→      const mitigated = d.risques.filter((r: any) => r.mitigation?.trim()).length
+   344→      return `${mitigated}/${total} risques mitigés`
+   345→    },
+   346→    extractLastActivity: (d: any) => d?.updatedAt ?? null,
+   347→    estimateCompletion: (d: any) => {
+   348→      if (!d?.risques) return 0
+   349→      const total = d.risques.length
+   350→      const mitigated = d.risques.filter((r: any) => r.mitigation?.trim()).length
+   351→      let score = total > 0 ? Math.round((mitigated / total) * 70) : 0
+   352→      if (d.aiSynthesis) score += 30
+   353→      return score
+   354→    },
+   355→  },
+   356→  'marketing-commerciale': {
+   357→    key: 'creapulse-marketing-commerciale',
+   358→    checkStarted: (d) => !!(d && typeof d === 'object' && (d as any).mix),
+   359→    checkCompleted: null,
+   360→    extractSummary: (d: any) => {
+   361→      if (d?.mix?.product) return `Mix 4P: ${d.mix.product.substring(0, 30)}…`
+   362→      if (d?.mix) return 'Mix marketing défini'
+   363→      return 'En exploration'
+   364→    },
+   365→    extractLastActivity: (d: any) => d?.updatedAt ?? null,
+   366→    estimateCompletion: (d: any) => {
+   367→      if (!d?.mix) return 0
+   368→      const mix = d.mix
+   369→      let score = 0
+   370→      if (mix.product) score += 25
+   371→      if (mix.price) score += 25
+   372→      if (mix.place) score += 25
+   373→      if (mix.promotion) score += 25
+   374→      return score
+   375→    },
+   376→  },
+   377→  'mind-map': {
+   378→    key: 'creapulse-mindmap',
+   379→    checkStarted: (d) => Array.isArray(d) && d.length > 1,
+   380→    checkCompleted: null,
+   381→    extractSummary: (d: any) => {
+   382→      if (!Array.isArray(d)) return 'Vide'
+   383→      return `${d.length} nœuds`
+   384→    },
+   385→    extractLastActivity: (d: any) => {
+   386→      if (!Array.isArray(d) || d.length === 0) return null
+   387→      // Use the most recent node's updatedAt if available
+   388→      const dates = d.map((n: any) => n.updatedAt ?? n.createdAt).filter(Boolean) as string[]
+   389→      return dates.length > 0 ? dates.sort().pop() ?? null : null
+   390→    },
+   391→    estimateCompletion: (d: any) => {
+   392→      if (!Array.isArray(d) || d.length <= 1) return 0
+   393→      // Estimate based on depth/branches — no strict completion criteria
+   394→      return Math.min(100, Math.round((d.length / 10) * 100))
+   395→    },
+   396→  },
+   397→  tresorerie: {
+   398→    key: 'creapulse-tresorerie',
+   399→    checkStarted: (d) => !!(d && typeof d === 'object' && (d as any).transactions?.length > 0),
+   400→    checkCompleted: null,
+   401→    extractSummary: (d: any) => {
+   402→      if (!d?.transactions) return 'Aucune transaction'
+   403→      const count = d.transactions.length
+   404→      return `${count} transaction${count > 1 ? 's' : ''} enregistrée${count > 1 ? 's' : ''}`
+   405→    },
+   406→    extractLastActivity: (d: any) => {
+   407→      if (!d?.transactions?.length) return null
+   408→      const dates = d.transactions.map((t: any) => t.date).filter(Boolean).sort()
+   409→      return dates.length > 0 ? (dates[dates.length - 1] as string) : null
+   410→    },
+   411→    estimateCompletion: (d: any) => {
+   412→      // Treasury is ongoing; presence of data = at least started
+   413→      return d?.transactions?.length > 0 ? 50 : 0
+   414→    },
+   415→  },
+   416→  annuaire: {
+   417→    key: 'annuaire-favorites',
+   418→    checkStarted: (d) => Array.isArray(d) && d.length > 0,
+   419→    checkCompleted: null,
+   420→    extractSummary: (d: any) => {
+   421→      if (!Array.isArray(d)) return 'Aucun favori'
+   422→      return `${d.length} favori${d.length > 1 ? 's' : ''} sauvegardé${d.length > 1 ? 's' : ''}`
+   423→    },
+   424→    extractLastActivity: (d: any) => {
+   425→      if (!Array.isArray(d) || d.length === 0) return null
+   426→      const dates = d.map((f: any) => f.addedAt ?? f.savedAt).filter(Boolean).sort()
+   427→      return dates.length > 0 ? (dates[dates.length - 1] as string) : null
+   428→    },
+   429→    estimateCompletion: (d: any) => Array.isArray(d) && d.length > 0 ? 50 : 0,
+   430→  },
+   431→  crm: {
+   432→    key: 'creapulse-crm',
+   433→    checkStarted: (d) => !!(d && typeof d === 'object' && ((d as any).contacts?.length > 0 || (d as any).deals?.length > 0)),
+   434→    checkCompleted: null,
+   435→    extractSummary: (d: any) => {
+   436→      const parts: string[] = []
+   437→      if (d?.contacts?.length) parts.push(`${d.contacts.length} contacts`)
+   438→      if (d?.deals?.length) parts.push(`${d.deals.length} deals`)
+   439→      return parts.length > 0 ? parts.join(', ') : 'Aucune donnée'
+   440→    },
+   441→    extractLastActivity: (d: any) => d?.updatedAt ?? null,
+   442→    estimateCompletion: (d: any) => {
+   443→      if (!d) return 0
+   444→      let score = 0
+   445→      if (d.contacts?.length > 0) score += 50
+   446→      if (d.deals?.length > 0) score += 50
+   447→      return score
+   448→    },
+   449→  },
+   450→  tremplin: {
+   451→    key: 'creapulse-tremplin',
+   452→    checkStarted: (d) => !!(d && typeof d === 'object' && (d as any).responses && Object.keys((d as any).responses).length > 0),
+   453→    checkCompleted: (d) => !!(d && typeof d === 'object' && (d as any).isCompleted === true),
+   454→    extractSummary: (d: any) => {
+   455→      const total = d?.responses ? Object.keys(d.responses).length : 0
+   456→      if (d?.isCompleted) return `${total} réponses — Complété`
+   457→      if (total > 0) return `${total} réponse${total > 1 ? 's' : ''}`
+   458→      return 'Non commencé'
+   459→    },
+   460→    extractLastActivity: (d: any) => d?.completedAt ?? d?.updatedAt ?? null,
+   461→    estimateCompletion: (d: any) => {
+   462→      if (d?.isCompleted) return 100
+   463→      const total = d?.responses ? Object.keys(d.responses).length : 0
+   464→      // Assume ~8-10 questions typical
+   465→      return Math.min(100, Math.round((total / 10) * 100))
+   466→    },
+   467→  },
+   468→  'objectifs-smart': {
+   469→    key: 'creapulse-objectifs-smart',
+   470→    checkStarted: (d) => Array.isArray(d) && d.length > 0,
+   471→    checkCompleted: (d) => Array.isArray(d) && d.some((o: any) => o.status === 'termine'),
+   472→    extractSummary: (d: any) => {
+   473→      if (!Array.isArray(d) || d.length === 0) return 'Aucun objectif'
+   474→      const completed = d.filter((o: any) => o.status === 'termine').length
+   475→      return `${d.length} objectif${d.length > 1 ? 's' : ''} (${completed} terminé${completed > 1 ? 's' : ''})`
+   476→    },
+   477→    extractLastActivity: (d: any) => {
+   478→      if (!Array.isArray(d) || d.length === 0) return null
+   479→      const dates = d.map((o: any) => o.updatedAt ?? o.createdAt).filter(Boolean).sort()
+   480→      return dates.length > 0 ? (dates[dates.length - 1] as string) : null
+   481→    },
+   482→    estimateCompletion: (d: any) => {
+   483→      if (!Array.isArray(d) || d.length === 0) return 0
+   484→      const completed = d.filter((o: any) => o.status === 'termine').length
+   485→      return Math.round((completed / d.length) * 100)
+   486→    },
+   487→  },
+   488→  'cloture-rebond': {
+   489→    key: 'creapulse-cloture-rebond',
+   490→    checkStarted: (d) => !!(d && typeof d === 'object' && ((d as any).bilan?.trim() || (d as any).competences?.length > 0)),
+   491→    checkCompleted: (d) => !!(d && typeof d === 'object' && (d as any).completion?.percent === 100),
+   492→    extractSummary: (d: any) => {
+   493→      if (d?.completion?.percent != null) return `Completion: ${d.completion.percent}%`
+   494→      if (d?.bilan) return 'Bilan renseigné'
+   495→      if (d?.competences?.length > 0) return `${d.competences.length} compétences`
+   496→      return 'En cours'
+   497→    },
+   498→    extractLastActivity: (d: any) => d?.updatedAt ?? null,
+   499→    estimateCompletion: (d: any) => {
+   500→      if (!d) return 0
+   501→      if (d.completion?.percent != null) return d.completion.percent
+   502→      let score = 0
+   503→      if (d.bilan?.trim()) score += 40
+   504→      if (d.competences?.length > 0) score += 30
+   505→      if (d.rebondPlan) score += 30
+   506→      return score
+   507→    },
+   508→  },
+   509→  'e-learning': {
+   510→    key: 'creapulse-e-learning',
+   511→    checkStarted: (d) => !!(d && typeof d === 'object' && (d as any).formations && Object.keys((d as any).formations).length > 0),
+   512→    checkCompleted: (d) => !!(d && typeof d === 'object' && (d as any).formations && Object.values((d as any).formations).some((f: any) => f.completedAt)),
+   513→    extractSummary: (d: any) => {
+   514→      if (!d?.formations) return 'Aucune formation'
+   515→      const total = Object.keys(d.formations).length
+   516→      const completed = Object.values(d.formations).filter((f: any) => f.completedAt).length
+   517→      return `${completed}/${total} formation${total > 1 ? 's' : ''} terminée${completed > 1 ? 's' : (completed === 1 ? 'e' : 's')}`
+   518→    },
+   519→    extractLastActivity: (d: any) => {
+   520→      if (!d?.formations) return null
+   521→      const dates = Object.values(d.formations)
+   522→        .map((f: any) => f.completedAt ?? f.lastAccessedAt)
+   523→        .filter(Boolean) as string[]
+   524→      return dates.length > 0 ? dates.sort().pop() ?? null : null
+   525→    },
+   526→    estimateCompletion: (d: any) => {
+   527→      if (!d?.formations) return 0
+   528→      const total = Object.keys(d.formations).length
+   529→      const completed = Object.values(d.formations).filter((f: any) => f.completedAt).length
+   530→      return total > 0 ? Math.round((completed / total) * 100) : 0
+   531→    },
+   532→  },
+   533→  pepites: {
+   534→    key: 'creapulse-pepites',
+   535→    checkStarted: (d) => !!(d && typeof d === 'object' && ((d as any).swipeResults?.length > 0 || (d as any).questionAnswers?.length > 0)),
+   536→    checkCompleted: (d) => !!(d && typeof d === 'object' && (d as any).swipeResults?.length > 0),
+   537→    extractSummary: (d: any) => {
+   538→      const parts: string[] = []
+   539→      if (d?.swipeResults?.length > 0) parts.push(`${d.swipeResults.length} cartes`)
+   540→      if (d?.questionAnswers?.length > 0) parts.push(`${d.questionAnswers.length} réponses`)
+   541→      return parts.length > 0 ? parts.join(', ') : 'Non commencé'
+   542→    },
+   543→    extractLastActivity: (d: any) => d?.updatedAt ?? null,
+   544→    estimateCompletion: (d: any) => {
+   545→      if (!d) return 0
+   546→      let score = 0
+   547→      if (d.swipeResults?.length > 0) score += 50
+   548→      if (d.questionAnswers?.length > 0) score += 25
+   549→      if (d.scenarioAnswers?.length > 0) score += 25
+   550→      return score
+   551→    },
+   552→  },
+   553→  gamification: {
+   554→    key: 'creapulse-gamification',
+   555→    checkStarted: (d) => !!(d && typeof d === 'object' && (d as any).xp > 0),
+   556→    checkCompleted: null,
+   557→    extractSummary: (d: any) => {
+   558→      if (!d || d.xp <= 0) return 'Aucun XP'
+   559→      const parts: string[] = []
+   560→      if (d.level) parts.push(`Niveau ${d.level}`)
+   561→      parts.push(`${d.xp} XP`)
+   562→      if (d.badges?.length) parts.push(`${d.badges.length} badges`)
+   563→      return parts.join(' — ')
+   564→    },
+   565→    extractLastActivity: (d: any) => d?.lastActivityAt ?? d?.updatedAt ?? null,
+   566→    estimateCompletion: (d: any) => {
+   567→      // Gamification has no real "completion" — use XP as proxy for engagement
+   568→      if (!d || d.xp <= 0) return 0
+   569→      // At 500 XP we consider solid engagement
+   570→      return Math.min(100, Math.round((d.xp / 500) * 100))
+   571→    },
+   572→  },
+   573→}
+   574→
+   575→/**
+   576→ * Modules that have NO localStorage persistence at all (API-only, in-memory, or no data).
+   577→ * These will always return not_started when scanned.
+   578→ */
+   579→const MODULES_NO_STORAGE: Set<string> = new Set([
+   580→  'pepites',           // in-memory game
+   581→  'bilan-ia',          // reads from API
+   582→  'forum',             // API-only
+   583→  'messages',          // API-only
+   584→  'mentorat',          // API-only
+   585→  'passeport',         // API-only
+   586→  'certifications',    // API-only
+   587→  'telechargements',   // API-only
+   588→  'satisfaction-feedback', // API-only
+   589→  'creascope',         // API / no persistence
+   590→  'parcours-paa',      // API
+   591→  'pipeline-v3-overview', // API
+   592→  'privacy-dashboard', // API
+   593→  'vie-privee',        // API
+   594→])
+   595→
+   596→/* ─── Completion calculators ─── */
+   597→
+   598→/**
+   599→ * Calculate profile completion as a percentage (0–100).
+   600→ * Key fields: firstName, lastName, birthdate, phone, employmentStatus,
+   601→ *             educationLevel, skills, creationMotivation
+   602→ */
+   603→export function calculateProfilCompletion(data: any): number {
+   604→  if (!data || typeof data !== 'object') return 0
+   605→
+   606→  const keyFields = [
+   607→    'firstName',
+   608→    'lastName',
+   609→    'birthdate',
+   610→    'phone',
+   611→    'employmentStatus',
+   612→    'educationLevel',
+   613→    'skills',
+   614→    'creationMotivation',
+   615→  ]
+   616→
+   617→  const filled = keyFields.filter((field) => {
+   618→    const val = data[field]
+   619→    if (val == null) return false
+   620→    if (typeof val === 'string') return val.trim().length > 0
+   621→    if (Array.isArray(val)) return val.length > 0
+   622→    return true
+   623→  })
+   624→
+   625→  return Math.round((filled.length / keyFields.length) * 100)
+   626→}
+   627→
+   628→/**
+   629→ * Calculate project completion as a percentage (0–100).
+   630→ * Key fields: projectTitle, projectSector, projectDescription, projectStage,
+   631→ *             primaryTarget, problemSolved, competitiveAdvantage, revenueSources,
+   632→ *             teamType, motivation
+   633→ */
+   634→export function calculateProjetCompletion(data: any): number {
+   635→  if (!data || typeof data !== 'object') return 0
+   636→
+   637→  const keyFields = [
+   638→    'projectTitle',
+   639→    'projectSector',
+   640→    'projectDescription',
+   641→    'projectStage',
+   642→    'primaryTarget',
+   643→    'problemSolved',
+   644→    'competitiveAdvantage',
+   645→    'revenueSources',
+   646→    'teamType',
+   647→    'motivation',
+   648→  ]
+   649→
+   650→  const filled = keyFields.filter((field) => {
+   651→    const val = data[field]
+   652→    if (val == null) return false
+   653→    if (typeof val === 'string') return val.trim().length > 0
+   654→    if (Array.isArray(val)) return val.length > 0
+   655→    return true
+   656→  })
+   657→
+   658→  return Math.round((filled.length / keyFields.length) * 100)
+   659→}
+   660→
+   661→/**
+   662→ * Calculate vision completion as a percentage (0–100).
+   663→ * Checks: visionStatement, objectives (length > 0), coreValues (length > 0),
+   664→ *         motivation, desiredImpact
+   665→ */
+   666→export function calculateVisionCompletion(data: any): number {
+   667→  if (!data || typeof data !== 'object') return 0
+   668→
+   669→  let filled = 0
+   670→  const total = 5
+   671→
+   672→  if (typeof data.visionStatement === 'string' && data.visionStatement.trim()) filled++
+   673→  if (Array.isArray(data.objectives) && data.objectives.length > 0) filled++
+   674→  if (Array.isArray(data.coreValues) && data.coreValues.length > 0) filled++
+   675→  if (typeof data.motivation === 'string' && data.motivation.trim()) filled++
+   676→  if (typeof data.desiredImpact === 'string' && data.desiredImpact.trim()) filled++
+   677→
+   678→  return Math.round((filled / total) * 100)
+   679→}
+   680→
+   681→/* ─── localStorage helper ─── */
+   682→
+   683→/**
+   684→ * Safely read and parse a value from localStorage.
+   685→ * Returns null if not found, not in browser, or parse error.
+   686→ */
+   687→function safeGetStorage(key: string): unknown {
+   688→  try {
+   689→    if (typeof window === 'undefined') return null
+   690→    const raw = localStorage.getItem(key)
+   691→    if (raw == null) return null
+   692→    return JSON.parse(raw)
+   693→  } catch {
+   694→    return null
+   695→  }
+   696→}
+   697→
+   698→/* ─── Scan functions ─── */
+   699→
+   700→/**
+   701→ * Scan a single module by its code.
+   702→ * Returns null if the module code is not recognized in the registry.
+   703→ */
+   704→export function scanModule(code: string): ModuleScanResult | null {
+   705→  const def = getModuleDef(code)
+   706→  if (!def) return null
+   707→
+   708→  // Modules with no storage — always not_started
+   709→  if (MODULES_NO_STORAGE.has(code)) {
+   710→    return {
+   711→      code,
+   712→      label: def.label,
+   713→      section: def.section,
+   714→      status: 'not_started',
+   715→      hasData: false,
+   716→      completionPercent: 0,
+   717→      lastActivity: null,
+   718→      dataSummary: undefined,
+   719→    }
+   720→  }
+   721→
+   722→  const storageCheck = MODULE_STORAGE_MAP[code]
+   723→  if (!storageCheck) {
+   724→    // Module exists in registry but no storage check defined — treat as not_started
+   725→    return {
+   726→      code,
+   727→      label: def.label,
+   728→      section: def.section,
+   729→      status: 'not_started',
+   730→      hasData: false,
+   731→      completionPercent: 0,
+   732→      lastActivity: null,
+   733→      dataSummary: undefined,
+   734→    }
+   735→  }
+   736→
+   737→  const data = safeGetStorage(storageCheck.key)
+   738→  const hasData = data != null
+   739→  const isStarted = hasData && storageCheck.checkStarted(data)
+   740→  const isCompleted = isStarted && storageCheck.checkCompleted?.(data) === true
+   741→  const completion = hasData ? storageCheck.estimateCompletion(data) : 0
+   742→
+   743→  let status: ModuleScanResult['status'] = 'not_started'
+   744→  if (isCompleted) status = 'completed'
+   745→  else if (isStarted) status = 'in_progress'
+   746→
+   747→  return {
+   748→    code,
+   749→    label: def.label,
+   750→    section: def.section,
+   751→    status,
+   752→    hasData,
+   753→    completionPercent: completion,
+   754→    lastActivity: hasData ? storageCheck.extractLastActivity(data) : null,
+   755→    dataSummary: hasData ? storageCheck.extractSummary(data) : undefined,
+   756→  }
+   757→}
+   758→
+   759→/**
+   760→ * Scan all modules and return a comprehensive result grouped by section.
+   761→ */
+   762→export function scanAllModules(): FullScanResult {
+   763→  const modules: ModuleScanResult[] = []
+   764→
+   765→  // Scan all registered modules
+   766→  for (const def of MODULE_REGISTRY) {
+   767→    const result = scanModule(def.code)
+   768→    if (result) modules.push(result)
+   769→  }
+   770→
+   771→  // Sort modules by section + sortOrder
+   772→  modules.sort((a, b) => {
+   773→    const sectionOrder = ['parcours', 'strategie', 'ecosysteme', 'pilotage']
+   774→    const sDiff = sectionOrder.indexOf(a.section) - sectionOrder.indexOf(b.section)
+   775→    if (sDiff !== 0) return sDiff
+   776→    const aDef = getModuleDef(a.code)
+   777→    const bDef = getModuleDef(b.code)
+   778→    return (aDef?.sortOrder ?? 99) - (bDef?.sortOrder ?? 99)
+   779→  })
+   780→
+   781→  // Build sections
+   782→  const sectionMap = new Map<string, ModuleScanResult[]>()
+   783→  for (const m of modules) {
+   784→    if (!sectionMap.has(m.section)) sectionMap.set(m.section, [])
+   785→    sectionMap.get(m.section)!.push(m)
+   786→  }
+   787→
+   788→  const sectionOrder = ['parcours', 'strategie', 'ecosysteme', 'pilotage'] as const
+   789→  const sections: SectionScanResult[] = sectionOrder
+   790→    .filter((s) => sectionMap.has(s))
+   791→    .map((s) => {
+   792→      const sectionModules = sectionMap.get(s)!
+   793→      const started = sectionModules.filter((m) => m.status !== 'not_started').length
+   794→      const completed = sectionModules.filter((m) => m.status === 'completed').length
+   795→      const progress =
+   796→        sectionModules.length > 0
+   797→          ? Math.round((sectionModules.reduce((acc, m) => acc + m.completionPercent, 0) / sectionModules.length))
+   798→          : 0
+   799→
+   800→      return {
+   801→        section: s,
+   802→        label: SECTION_LABELS[s] ?? s,
+   803→        modules: sectionModules,
+   804→        totalModules: sectionModules.length,
+   805→        startedModules: started,
+   806→        completedModules: completed,
+   807→        progressPercent: progress,
+   808→      }
+   809→    })
+   810→
+   811→  // Global stats
+   812→  const totalModules = modules.length
+   813→  const startedModules = modules.filter((m) => m.status !== 'not_started').length
+   814→  const completedModules = modules.filter((m) => m.status === 'completed').length
+   815→  const globalProgress =
+   816→    totalModules > 0
+   817→      ? Math.round(modules.reduce((acc, m) => acc + m.completionPercent, 0) / totalModules)
+   818→      : 0
+   819→
+   820→  // Latest activity across all modules
+   821→  const allDates = modules
+   822→    .map((m) => m.lastActivity)
+   823→    .filter((d): d is string => d != null)
+   824→    .sort()
+   825→  const lastActivity = allDates.length > 0 ? allDates[allDates.length - 1] : null
+   826→
+   827→  // Recommended next modules
+   828→  const recommendedNext = getRecommendedNextModulesFromResults(modules, sections)
+   829→
+   830→  return {
+   831→    modules,
+   832→    sections,
+   833→    totalModules,
+   834→    startedModules,
+   835→    completedModules,
+   836→    globalProgress,
+   837→    lastActivity,
+   838→    recommendedNext,
+   839→  }
+   840→}
+   841→
+   842→/**
+   843→ * Get progress for a specific section.
+   844→ */
+   845→export function getSectionProgress(section: string): SectionScanResult {
+   846→  const defs = getModulesBySection(section)
+   847→  const modules: ModuleScanResult[] = []
+   848→
+   849→  for (const def of defs) {
+   850→    const result = scanModule(def.code)
+   851→    if (result) modules.push(result)
+   852→  }
+   853→
+   854→  const started = modules.filter((m) => m.status !== 'not_started').length
+   855→  const completed = modules.filter((m) => m.status === 'completed').length
+   856→  const progress =
+   857→    modules.length > 0
+   858→      ? Math.round(modules.reduce((acc, m) => acc + m.completionPercent, 0) / modules.length)
+   859→      : 0
+   860→
+   861→  return {
+   862→    section,
+   863→    label: SECTION_LABELS[section] ?? section,
+   864→    modules,
+   865→    totalModules: modules.length,
+   866→    startedModules: started,
+   867→    completedModules: completed,
+   868→    progressPercent: progress,
+   869→  }
+   870→}
+   871→
+   872→/**
+   873→ * Get smart recommendations: within each section, find the first
+   874→ * not-started or in-progress module. Returns up to `limit` results.
+   875→ */
+   876→export function getRecommendedNextModules(
+   877→  scan: FullScanResult,
+   878→  limit: number = 3,
+   879→): ModuleScanResult[] {
+   880→  return getRecommendedNextModulesFromResults(scan.modules, scan.sections, limit)
+   881→}
+   882→
+   883→/**
+   884→ * Internal implementation of recommendations (works with pre-computed or fresh modules).
+   885→ * Returns the next modules the user should work on, ordered by section priority
+   886→ * then by sort order within each section.
+   887→ */
+   888→function getRecommendedNextModulesFromResults(
+   889→  modules: ModuleScanResult[],
+   890→  _sections: SectionScanResult[],
+   891→  limit: number = 3,
+   892→): ModuleScanResult[] {
+   893→  const candidates = modules.filter(
+   894→    (m) => m.status === 'not_started' || m.status === 'in_progress',
+   895→  )
+   896→
+   897→  // Already sorted by section order + sort order from scanAllModules
+   898→  // Prioritize in_progress > not_started within the same section
+   899→  candidates.sort((a, b) => {
+   900→    const sectionOrder = ['parcours', 'strategie', 'ecosysteme', 'pilotage']
+   901→    const sDiff = sectionOrder.indexOf(a.section) - sectionOrder.indexOf(b.section)
+   902→    if (sDiff !== 0) return sDiff
+   903→
+   904→    const aDef = getModuleDef(a.code)
+   905→    const bDef = getModuleDef(b.code)
+   906→    const orderDiff = (aDef?.sortOrder ?? 99) - (bDef?.sortOrder ?? 99)
+   907→    if (orderDiff !== 0) return orderDiff
+   908→
+   909→    // Within same position, prioritize in_progress (user has momentum)
+   910→    const statusOrder: Record<string, number> = { in_progress: 0, not_started: 1 }
+   911→    return (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)
+   912→  })
+   913→
+   914→  return candidates.slice(0, limit)
+   915→}
+   916→

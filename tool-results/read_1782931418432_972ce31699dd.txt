@@ -1,0 +1,1069 @@
+     1→'use client'
+     2→
+     3→import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import { toast } from 'sonner'
+     6→import {
+     7→  Search,
+     8→  MapPin,
+     9→  Phone,
+    10→  Mail,
+    11→  ExternalLink,
+    12→  Bookmark,
+    13→  BookmarkCheck,
+    14→  Star,
+    15→  LayoutGrid,
+    16→  List,
+    17→  SlidersHorizontal,
+    18→  X,
+    19→  Building2,
+    20→  Sparkles,
+    21→  GraduationCap,
+    22→  Landmark,
+    23→  Banknote,
+    24→  TrendingUp,
+    25→  Users,
+    26→  BookOpen,
+    27→  CircleHelp,
+    28→  Loader2,
+    29→  ArrowUpDown,
+    30→  ChevronDown,
+    31→} from 'lucide-react'
+    32→import { Card, CardContent } from '@/components/ui/card'
+    33→import { Button } from '@/components/ui/button'
+    34→import { Input } from '@/components/ui/input'
+    35→import { Badge } from '@/components/ui/badge'
+    36→import { Progress } from '@/components/ui/progress'
+    37→import { Separator } from '@/components/ui/separator'
+    38→import {
+    39→  Select,
+    40→  SelectContent,
+    41→  SelectItem,
+    42→  SelectTrigger,
+    43→  SelectValue,
+    44→} from '@/components/ui/select'
+    45→import { cn } from '@/lib/utils'
+    46→
+    47→// ─── Types ──────────────────────────────────
+    48→
+    49→type ActorType =
+    50→  | 'GIDEF'
+    51→  | 'INCUBATOR'
+    52→  | 'PEPITE'
+    53→  | 'CCI'
+    54→  | 'BANK'
+    55→  | 'INVESTOR'
+    56→  | 'MENTOR'
+    57→  | 'FORMATION'
+    58→  | 'OTHER'
+    59→
+    60→interface Actor {
+    61→  id: string
+    62→  name: string
+    63→  type: ActorType
+    64→  category?: string | null
+    65→  city: string
+    66→  region?: string | null
+    67→  address?: string | null
+    68→  phone?: string | null
+    69→  email?: string | null
+    70→  website?: string | null
+    71→  description?: string | null
+    72→  services?: string[] | null
+    73→  featured: boolean
+    74→  successRate?: number | null
+    75→}
+    76→
+    77→// ─── Constants ──────────────────────────────
+    78→
+    79→const ACTOR_TYPE_CONFIG: Record<
+    80→  ActorType,
+    81→  { label: string; color: string; bgColor: string; icon: typeof Building2 }
+    82→> = {
+    83→  GIDEF: {
+    84→    label: 'Agence GIDEF',
+    85→    color: 'text-primary',
+    86→    bgColor: 'bg-primary/10',
+    87→    icon: Building2,
+    88→  },
+    89→  INCUBATOR: {
+    90→    label: 'Incubateur',
+    91→    color: 'text-amber-600 dark:text-amber-400',
+    92→    bgColor: 'bg-amber-50 dark:bg-amber-900/20',
+    93→    icon: Sparkles,
+    94→  },
+    95→  PEPITE: {
+    96→    label: 'Pépite',
+    97→    color: 'text-violet-600 dark:text-violet-400',
+    98→    bgColor: 'bg-violet-50 dark:bg-violet-900/20',
+    99→    icon: GraduationCap,
+   100→  },
+   101→  CCI: {
+   102→    label: 'CCI',
+   103→    color: 'text-sky-600 dark:text-sky-400',
+   104→    bgColor: 'bg-sky-50 dark:bg-sky-900/20',
+   105→    icon: Landmark,
+   106→  },
+   107→  BANK: {
+   108→    label: 'Banque',
+   109→    color: 'text-emerald-600 dark:text-emerald-400',
+   110→    bgColor: 'bg-emerald-50 dark:bg-emerald-900/20',
+   111→    icon: Banknote,
+   112→  },
+   113→  INVESTOR: {
+   114→    label: 'Investisseur',
+   115→    color: 'text-orange-600 dark:text-orange-400',
+   116→    bgColor: 'bg-orange-50 dark:bg-orange-900/20',
+   117→    icon: TrendingUp,
+   118→  },
+   119→  MENTOR: {
+   120→    label: 'Mentor',
+   121→    color: 'text-rose-600 dark:text-rose-400',
+   122→    bgColor: 'bg-rose-50 dark:bg-rose-900/20',
+   123→    icon: Users,
+   124→  },
+   125→  FORMATION: {
+   126→    label: 'Formation',
+   127→    color: 'text-indigo-600 dark:text-indigo-400',
+   128→    bgColor: 'bg-indigo-50 dark:bg-indigo-900/20',
+   129→    icon: BookOpen,
+   130→  },
+   131→  OTHER: {
+   132→    label: 'Autre',
+   133→    color: 'text-gray-600 dark:text-gray-400',
+   134→    bgColor: 'bg-gray-50 dark:bg-gray-900/20',
+   135→    icon: CircleHelp,
+   136→  },
+   137→}
+   138→
+   139→const CITIES_IDF = [
+   140→  'Paris',
+   141→  'Créteil',
+   142→  'Nanterre',
+   143→  'Bobigny',
+   144→  'Versailles',
+   145→  'Saint-Denis',
+   146→  'Montreuil',
+   147→  'Boulogne-Billancourt',
+   148→  'Argenteuil',
+   149→  'Evry-Courcouronnes',
+   150→  'Aubervilliers',
+   151→  'Levallois-Perret',
+   152→  'Vitry-sur-Seine',
+   153→  'Colombes',
+   154→]
+   155→
+   156→
+   157→// ─── Component ──────────────────────────────
+   158→
+   159→export function AnnuaireModule() {
+   160→  // State
+   161→  const [actors, setActors] = useState<Actor[]>([])
+   162→  const [featuredActors, setFeaturedActors] = useState<Actor[]>([])
+   163→  const [searchQuery, setSearchQuery] = useState('')
+   164→  const [selectedTypes, setSelectedTypes] = useState<ActorType[]>([])
+   165→  const [selectedCity, setSelectedCity] = useState<string>('')
+   166→  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+   167→  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(() => {
+   168→    if (typeof window !== 'undefined') {
+   169→      const stored = localStorage.getItem('annuaire-favorites')
+   170→      if (stored) {
+   171→        try {
+   172→          const ids: string[] = JSON.parse(stored)
+   173→          return new Set(ids)
+   174→        } catch {
+   175→          // ignore parse errors
+   176→        }
+   177→      }
+   178→    }
+   179→    return new Set()
+   180→  })
+   181→  const [loading, setLoading] = useState(true)
+   182→  const [error, setError] = useState(false)
+   183→  const [showFilters, setShowFilters] = useState(false)
+   184→  const [visibleCount, setVisibleCount] = useState(12)
+   185→  const [isFetching, setIsFetching] = useState(false)
+   186→
+   187→  // Fetch actors from API on mount or when filters change
+   188→  const fetchActors = useCallback(async (query: string, types: ActorType[], city: string) => {
+   189→    setIsFetching(true)
+   190→    setError(false)
+   191→    try {
+   192→      const params = new URLSearchParams()
+   193→      if (query.trim()) params.set('search', query.trim())
+   194→      if (types.length === 1) params.set('type', types[0])
+   195→      if (city) params.set('city', city)
+   196→      params.set('limit', '50')
+   197→
+   198→      const res = await fetch(`/api/annuaire?${params.toString()}`)
+   199→      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+   200→      const json = await res.json()
+   201→      if (json.success && json.data?.actors?.length > 0) {
+   202→        const apiActors: Actor[] = json.data.actors.map((a: Record<string, unknown>) => ({
+   203→          id: a.id as string,
+   204→          name: a.name as string,
+   205→          type: a.type as ActorType,
+   206→          category: (a.category as string) ?? null,
+   207→          city: (a.city as string) ?? '',
+   208→          region: (a.region as string) ?? null,
+   209→          address: (a.address as string) ?? null,
+   210→          phone: (a.phone as string) ?? null,
+   211→          email: (a.email as string) ?? null,
+   212→          website: (a.website as string) ?? null,
+   213→          description: (a.description as string) ?? null,
+   214→          services: Array.isArray(a.services) ? a.services : null,
+   215→          featured: (a.featured as boolean) ?? false,
+   216→          successRate: (a.successRate as number) ?? null,
+   217→        }))
+   218→        setActors(apiActors)
+   219→        setFeaturedActors(apiActors.filter((a: Actor) => a.featured))
+   220→      } else {
+   221→        setActors([])
+   222→        setFeaturedActors([])
+   223→      }
+   224→    } catch {
+   225→      setError(true)
+   226→      setActors([])
+   227→      setFeaturedActors([])
+   228→    } finally {
+   229→      setLoading(false)
+   230→      setIsFetching(false)
+   231→    }
+   232→  }, [])
+   233→
+   234→  // Initial load
+   235→  useEffect(() => {
+   236→    fetchActors('', [], '')
+   237→  }, [fetchActors])
+   238→
+   239→  // Re-fetch when filters change
+   240→  const filterTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+   241→  useEffect(() => {
+   242→    if (filterTimeoutRef.current) clearTimeout(filterTimeoutRef.current)
+   243→    filterTimeoutRef.current = setTimeout(() => {
+   244→      fetchActors(searchQuery, selectedTypes, selectedCity)
+   245→      setVisibleCount(12)
+   246→    }, 300)
+   247→    return () => {
+   248→      if (filterTimeoutRef.current) clearTimeout(filterTimeoutRef.current)
+   249→    }
+   250→  }, [searchQuery, selectedTypes, selectedCity, fetchActors])
+   251→
+   252→  // API already filters server-side; actors from fetch are already filtered
+   253→  // Only apply client-side type filter when multiple types selected (API only supports single type)
+   254→  const filteredActors = useMemo(() => {
+   255→    if (selectedTypes.length <= 1) return actors
+   256→    return actors.filter((a) => selectedTypes.includes(a.type))
+   257→  }, [actors, selectedTypes])
+   258→
+   259→  const visibleActors = filteredActors.slice(0, visibleCount)
+   260→  const hasMore = visibleCount < filteredActors.length
+   261→
+   262→  // Featured filtered
+   263→  const filteredFeatured = useMemo(() => {
+   264→    let result = featuredActors
+   265→    if (selectedTypes.length > 0) {
+   266→      result = result.filter((a) => selectedTypes.includes(a.type))
+   267→    }
+   268→    if (selectedCity) {
+   269→      result = result.filter((a) => a.city === selectedCity)
+   270→    }
+   271→    return result
+   272→  }, [featuredActors, selectedTypes, selectedCity])
+   273→
+   274→  // Toggle favorite (local + API)
+   275→  const toggleFavorite = useCallback(
+   276→    async (actorId: string) => {
+   277→      const isCurrentlyFavorite = favoriteIds.has(actorId)
+   278→      // Optimistic update
+   279→      setFavoriteIds((prev) => {
+   280→        const next = new Set(prev)
+   281→        if (next.has(actorId)) {
+   282→          next.delete(actorId)
+   283→          toast.info('Favori retiré')
+   284→        } else {
+   285→          next.add(actorId)
+   286→          toast.success('Favori ajouté')
+   287→        }
+   288→        localStorage.setItem('annuaire-favorites', JSON.stringify([...next]))
+   289→        return next
+   290→      })
+   291→      // Try API call
+   292→      try {
+   293→        const token = localStorage.getItem('creapulse-token')
+   294→        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+   295→        if (token) headers['Authorization'] = `Bearer ${token}`
+   296→        const res = await fetch('/api/annuaire/favorites', {
+   297→          method: 'POST',
+   298→          headers,
+   299→          body: JSON.stringify({ actorId }),
+   300→        })
+   301→        if (res.ok) {
+   302→          const json = await res.json()
+   303→          // Server confirmed, our optimistic update is correct
+   304→        } else {
+   305→          // Revert on error
+   306→          setFavoriteIds((prev) => {
+   307→            const next = new Set(prev)
+   308→            if (isCurrentlyFavorite) next.add(actorId)
+   309→            else next.delete(actorId)
+   310→            localStorage.setItem('annuaire-favorites', JSON.stringify([...next]))
+   311→            return next
+   312→          })
+   313→        }
+   314→      } catch {
+   315→        // Keep optimistic update even if API fails (localStorage is the source of truth)
+   316→      }
+   317→    },
+   318→    [favoriteIds]
+   319→  )
+   320→
+   321→  // Toggle type filter
+   322→  const toggleType = useCallback((type: ActorType) => {
+   323→    setSelectedTypes((prev) =>
+   324→      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+   325→    )
+   326→  }, [])
+   327→
+   328→  // Clear all filters
+   329→  const clearFilters = useCallback(() => {
+   330→    setSearchQuery('')
+   331→    setSelectedTypes([])
+   332→    setSelectedCity('')
+   333→    setVisibleCount(12)
+   334→  }, [])
+   335→
+   336→  // Active filters count
+   337→  const activeFiltersCount = selectedTypes.length + (selectedCity ? 1 : 0)
+   338→
+   339→  return (
+   340→    <motion.div
+   341→      initial={{ opacity: 0, y: 20 }}
+   342→      animate={{ opacity: 1, y: 0 }}
+   343→      transition={{ duration: 0.4 }}
+   344→      className="p-4 md:p-6 lg:p-8 space-y-6"
+   345→    >
+   346→      {/* Header */}
+   347→      <div>
+   348→        <div className="flex items-center gap-3">
+   349→          <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+   350→            <Building2 className="h-6 w-6 text-primary" />
+   351→            Annuaire de l&apos;Écosystème
+   352→          </h2>
+   353→        </div>
+   354→        <p className="mt-1 text-muted-foreground">
+   355→          Explorez les acteurs de l&apos;écosystème entrepreneurial en Île-de-France
+   356→        </p>
+   357→      </div>
+   358→
+   359→      {/* Search Bar */}
+   360→      <div className="flex flex-col sm:flex-row gap-3">
+   361→        <div className="relative flex-1">
+   362→          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   363→          <Input
+   364→            placeholder="Rechercher par nom, ville, service..."
+   365→            value={searchQuery}
+   366→            onChange={(e) => {
+   367→              setSearchQuery(e.target.value)
+   368→              setVisibleCount(12)
+   369→            }}
+   370→            className="pl-9 h-10"
+   371→            disabled={isFetching}
+   372→          />
+   373→          {searchQuery && (
+   374→            <button
+   375→              onClick={() => {
+   376→                setSearchQuery('')
+   377→                setVisibleCount(12)
+   378→              }}
+   379→              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+   380→            >
+   381→              <X className="h-4 w-4" />
+   382→            </button>
+   383→          )}
+   384→        </div>
+   385→        <Button
+   386→          variant="outline"
+   387→          size="sm"
+   388→          className="h-10 gap-2 shrink-0"
+   389→          onClick={() => setShowFilters(!showFilters)}
+   390→        >
+   391→          <SlidersHorizontal className="h-4 w-4" />
+   392→          Filtres
+   393→          {activeFiltersCount > 0 && (
+   394→            <Badge variant="default" className="h-5 min-w-5 px-1.5 text-xs rounded-full">
+   395→              {activeFiltersCount}
+   396→            </Badge>
+   397→          )}
+   398→        </Button>
+   399→        <div className="flex border rounded-md">
+   400→          <Button
+   401→            variant={viewMode === 'grid' ? 'default' : 'ghost'}
+   402→            size="icon"
+   403→            className="h-10 w-10 rounded-r-none"
+   404→            onClick={() => setViewMode('grid')}
+   405→          >
+   406→            <LayoutGrid className="h-4 w-4" />
+   407→          </Button>
+   408→          <Button
+   409→            variant={viewMode === 'list' ? 'default' : 'ghost'}
+   410→            size="icon"
+   411→            className="h-10 w-10 rounded-l-none"
+   412→            onClick={() => setViewMode('list')}
+   413→          >
+   414→            <List className="h-4 w-4" />
+   415→          </Button>
+   416→        </div>
+   417→      </div>
+   418→
+   419→      {/* Filter Panel */}
+   420→      <AnimatePresence>
+   421→        {showFilters && (
+   422→          <motion.div
+   423→            initial={{ opacity: 0, height: 0 }}
+   424→            animate={{ opacity: 1, height: 'auto' }}
+   425→            exit={{ opacity: 0, height: 0 }}
+   426→            transition={{ duration: 0.2 }}
+   427→            className="overflow-hidden"
+   428→          >
+   429→            <Card className="border-border/60">
+   430→              <CardContent className="p-4 space-y-4">
+   431→                {/* Actor Type Filters */}
+   432→                <div>
+   433→                  <label className="text-sm font-medium text-foreground mb-2 block">
+   434→                    Type d&apos;acteur
+   435→                  </label>
+   436→                  <div className="flex flex-wrap gap-2">
+   437→                    {(
+   438→                      Object.entries(ACTOR_TYPE_CONFIG) as [ActorType, (typeof ACTOR_TYPE_CONFIG)[ActorType]][]
+   439→                    ).map(([type, config]) => {
+   440→                      const isSelected = selectedTypes.includes(type)
+   441→                      return (
+   442→                        <button
+   443→                          key={type}
+   444→                          onClick={() => toggleType(type)}
+   445→                          className={cn(
+   446→                            'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all border',
+   447→                            isSelected
+   448→                              ? `${config.bgColor} ${config.color} border-current/20 shadow-sm`
+   449→                              : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted'
+   450→                          )}
+   451→                        >
+   452→                          <config.icon className="h-3 w-3" />
+   453→                          {config.label}
+   454→                          {isSelected && <X className="h-3 w-3 ml-0.5" />}
+   455→                        </button>
+   456→                      )
+   457→                    })}
+   458→                  </div>
+   459→                </div>
+   460→
+   461→                <Separator />
+   462→
+   463→                {/* City Filter */}
+   464→                <div>
+   465→                  <label className="text-sm font-medium text-foreground mb-2 block">
+   466→                    Ville
+   467→                  </label>
+   468→                  <Select value={selectedCity} onValueChange={(v) => setSelectedCity(v === '__all__' ? '' : v)}>
+   469→                    <SelectTrigger className="w-full sm:w-64">
+   470→                      <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
+   471→                      <SelectValue placeholder="Toutes les villes" />
+   472→                    </SelectTrigger>
+   473→                    <SelectContent>
+   474→                      <SelectItem value="__all__">Toutes les villes</SelectItem>
+   475→                      {CITIES_IDF.map((city) => (
+   476→                        <SelectItem key={city} value={city}>
+   477→                          {city}
+   478→                        </SelectItem>
+   479→                      ))}
+   480→                    </SelectContent>
+   481→                  </Select>
+   482→                </div>
+   483→
+   484→                {activeFiltersCount > 0 && (
+   485→                  <>
+   486→                    <Separator />
+   487→                    <div className="flex items-center justify-between">
+   488→                      <span className="text-sm text-muted-foreground">
+   489→                        {activeFiltersCount} filtre{activeFiltersCount > 1 ? 's' : ''} actif
+   490→                        {activeFiltersCount > 1 ? 's' : ''}
+   491→                      </span>
+   492→                      <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs h-7">
+   493→                        Réinitialiser
+   494→                      </Button>
+   495→                    </div>
+   496→                  </>
+   497→                )}
+   498→              </CardContent>
+   499→            </Card>
+   500→          </motion.div>
+   501→        )}
+   502→      </AnimatePresence>
+   503→
+   504→      {/* Active Filter Chips */}
+   505→      {activeFiltersCount > 0 && !showFilters && (
+   506→        <div className="flex flex-wrap gap-2 items-center">
+   507→          <span className="text-xs text-muted-foreground mr-1">Filtres :</span>
+   508→          {selectedTypes.map((type) => {
+   509→            const config = ACTOR_TYPE_CONFIG[type]
+   510→            return (
+   511→              <Badge
+   512→                key={type}
+   513→                variant="secondary"
+   514→                className="gap-1 cursor-pointer hover:bg-destructive/10 hover:text-destructive transition-colors"
+   515→                onClick={() => toggleType(type)}
+   516→              >
+   517→                <config.icon className="h-3 w-3" />
+   518→                {config.label}
+   519→                <X className="h-3 w-3" />
+   520→              </Badge>
+   521→            )
+   522→          })}
+   523→          {selectedCity && (
+   524→            <Badge
+   525→              variant="secondary"
+   526→              className="gap-1 cursor-pointer hover:bg-destructive/10 hover:text-destructive transition-colors"
+   527→              onClick={() => setSelectedCity('')}
+   528→            >
+   529→              <MapPin className="h-3 w-3" />
+   530→              {selectedCity}
+   531→              <X className="h-3 w-3" />
+   532→            </Badge>
+   533→          )}
+   534→        </div>
+   535→      )}
+   536→
+   537→      {/* Featured Section */}
+   538→      {filteredFeatured.length > 0 && !searchQuery && !selectedCity && selectedTypes.length === 0 && (
+   539→        <section className="space-y-3">
+   540→          <div className="flex items-center gap-2">
+   541→            <Star className="h-5 w-5 text-amber-500 fill-amber-500" />
+   542→            <h3 className="text-lg font-semibold text-foreground">Acteurs en vedette</h3>
+   543→          </div>
+   544→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+   545→            {filteredFeatured.slice(0, 4).map((actor) => (
+   546→              <FeaturedCard
+   547→                key={actor.id}
+   548→                actor={actor}
+   549→                isFavorite={favoriteIds.has(actor.id)}
+   550→                onToggleFavorite={() => toggleFavorite(actor.id)}
+   551→              />
+   552→            ))}
+   553→          </div>
+   554→        </section>
+   555→      )}
+   556→
+   557→      {/* Results count */}
+   558→      <div className="flex items-center justify-between">
+   559→        <p className="text-sm text-muted-foreground">
+   560→          {filteredActors.length} acteur{filteredActors.length !== 1 ? 's' : ''} trouvé
+   561→          {filteredActors.length !== 1 ? 's' : ''}
+   562→          {isFetching && <span className="ml-2 inline-block h-3 w-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />}
+   563→        </p>
+   564→        {filteredActors.length > 0 && (
+   565→          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+   566→            <ArrowUpDown className="h-3 w-3" />
+   567→            Tri alphabétique
+   568→          </div>
+   569→        )}
+   570→      </div>
+   571→
+   572→      {/* Loading State */}
+   573→      {loading && (
+   574→        <div className="flex flex-col items-center justify-center py-20 text-center">
+   575→          <Loader2 className="h-8 w-8 text-primary animate-spin mb-3" />
+   576→          <p className="text-sm text-muted-foreground">Chargement de l&apos;annuaire…</p>
+   577→        </div>
+   578→      )}
+   579→
+   580→      {/* Results Grid/List */}
+   581→      {!loading && visibleActors.length > 0 ? (
+   582→        <>
+   583→          <div
+   584→            className={cn(
+   585→              viewMode === 'grid'
+   586→                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4'
+   587→                : 'flex flex-col gap-3'
+   588→            )}
+   589→          >
+   590→            {visibleActors.map((actor) =>
+   591→              viewMode === 'grid' ? (
+   592→                <ActorCardGrid
+   593→                  key={actor.id}
+   594→                  actor={actor}
+   595→                  isFavorite={favoriteIds.has(actor.id)}
+   596→                  onToggleFavorite={() => toggleFavorite(actor.id)}
+   597→                />
+   598→              ) : (
+   599→                <ActorCardList
+   600→                  key={actor.id}
+   601→                  actor={actor}
+   602→                  isFavorite={favoriteIds.has(actor.id)}
+   603→                  onToggleFavorite={() => toggleFavorite(actor.id)}
+   604→                />
+   605→              )
+   606→            )}
+   607→          </div>
+   608→
+   609→          {/* Load More */}
+   610→          {hasMore && (
+   611→            <div className="flex justify-center pt-4">
+   612→              <Button
+   613→                variant="outline"
+   614→                onClick={() => setVisibleCount((prev) => prev + 12)}
+   615→                className="gap-2"
+   616→              >
+   617→                <ChevronDown className="h-4 w-4" />
+   618→                Charger plus ({filteredActors.length - visibleCount} restant
+   619→                {filteredActors.length - visibleCount > 1 ? 's' : ''})
+   620→              </Button>
+   621→            </div>
+   622→          )}
+   623→        </>
+   624→      ) : error ? (
+   625→        <ErrorState onRetry={() => fetchActors(searchQuery, selectedTypes, selectedCity)} />
+   626→      ) : (
+   627→        <EmptyState onClear={clearFilters} />
+   628→      )}
+   629→    </motion.div>
+   630→  )
+   631→}
+   632→
+   633→// ─── Featured Card ──────────────────────────
+   634→
+   635→function FeaturedCard({
+   636→  actor,
+   637→  isFavorite,
+   638→  onToggleFavorite,
+   639→}: {
+   640→  actor: Actor
+   641→  isFavorite: boolean
+   642→  onToggleFavorite: () => void
+   643→}) {
+   644→  const config = ACTOR_TYPE_CONFIG[actor.type]
+   645→  const Icon = config.icon
+   646→
+   647→  return (
+   648→    <motion.div whileHover={{ y: -2, scale: 1.01 }} transition={{ duration: 0.2 }}>
+   649→      <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-primary/5 via-transparent to-amber-500/5 hover:shadow-lg hover:border-primary/40 transition-all duration-300">
+   650→        <div className="absolute top-3 right-3 z-10">
+   651→          <button
+   652→            onClick={onToggleFavorite}
+   653→            className="p-1.5 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background transition-colors shadow-sm"
+   654→            aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+   655→          >
+   656→            {isFavorite ? (
+   657→              <BookmarkCheck className="h-4 w-4 text-primary" />
+   658→            ) : (
+   659→              <Bookmark className="h-4 w-4 text-muted-foreground" />
+   660→            )}
+   661→          </button>
+   662→        </div>
+   663→        <CardContent className="p-4">
+   664→          <div className="flex items-start gap-3">
+   665→            <div
+   666→              className={cn(
+   667→                'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
+   668→                config.bgColor
+   669→              )}
+   670→            >
+   671→              <Icon className={cn('h-5 w-5', config.color)} />
+   672→            </div>
+   673→            <div className="flex-1 min-w-0">
+   674→              <h4 className="text-sm font-semibold text-foreground leading-tight line-clamp-1">
+   675→                {actor.name}
+   676→              </h4>
+   677→              <div className="flex items-center gap-1.5 mt-1">
+   678→                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+   679→                  {config.label}
+   680→                </Badge>
+   681→                {actor.successRate && (
+   682→                  <span className="text-[10px] text-muted-foreground">
+   683→                    {Math.round(actor.successRate)}% de réussite
+   684→                  </span>
+   685→                )}
+   686→              </div>
+   687→            </div>
+   688→          </div>
+   689→          <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+   690→            <MapPin className="h-3 w-3 shrink-0" />
+   691→            <span className="line-clamp-1">{actor.city}</span>
+   692→          </div>
+   693→          {actor.services && actor.services.length > 0 && (
+   694→            <div className="mt-2 flex flex-wrap gap-1">
+   695→              {actor.services.slice(0, 3).map((s) => (
+   696→                <span
+   697→                  key={s}
+   698→                  className="inline-flex items-center rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+   699→                >
+   700→                  {s}
+   701→                </span>
+   702→              ))}
+   703→              {actor.services.length > 3 && (
+   704→                <span className="text-[10px] text-muted-foreground">
+   705→                  +{actor.services.length - 3}
+   706→                </span>
+   707→              )}
+   708→            </div>
+   709→          )}
+   710→        </CardContent>
+   711→      </Card>
+   712→    </motion.div>
+   713→  )
+   714→}
+   715→
+   716→// ─── Actor Grid Card ────────────────────────
+   717→
+   718→function ActorCardGrid({
+   719→  actor,
+   720→  isFavorite,
+   721→  onToggleFavorite,
+   722→}: {
+   723→  actor: Actor
+   724→  isFavorite: boolean
+   725→  onToggleFavorite: () => void
+   726→}) {
+   727→  const config = ACTOR_TYPE_CONFIG[actor.type]
+   728→  const Icon = config.icon
+   729→
+   730→  return (
+   731→    <motion.div
+   732→      initial={{ opacity: 0, y: 12 }}
+   733→      animate={{ opacity: 1, y: 0 }}
+   734→      whileHover={{ y: -2 }}
+   735→      transition={{ duration: 0.2 }}
+   736→    >
+   737→      <Card className="group h-full hover:shadow-md hover:border-primary/30 transition-all duration-300">
+   738→        <CardContent className="p-4 space-y-3">
+   739→          {/* Header: icon, name, favorite */}
+   740→          <div className="flex items-start justify-between gap-2">
+   741→            <div className="flex items-start gap-2.5 flex-1 min-w-0">
+   742→              <div
+   743→                className={cn(
+   744→                  'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
+   745→                  config.bgColor
+   746→                )}
+   747→              >
+   748→                <Icon className={cn('h-5 w-5', config.color)} />
+   749→              </div>
+   750→              <div className="min-w-0">
+   751→                <h4 className="text-sm font-semibold text-foreground leading-tight line-clamp-2">
+   752→                  {actor.name}
+   753→                </h4>
+   754→                <Badge
+   755→                  variant="secondary"
+   756→                  className={cn('mt-1 text-[10px] px-1.5 py-0 h-4 border-0', config.bgColor, config.color)}
+   757→                >
+   758→                  {config.label}
+   759→                </Badge>
+   760→              </div>
+   761→            </div>
+   762→            <button
+   763→              onClick={(e) => {
+   764→                e.stopPropagation()
+   765→                onToggleFavorite()
+   766→              }}
+   767→              className={cn(
+   768→                'p-1.5 rounded-full transition-colors shrink-0',
+   769→                isFavorite
+   770→                  ? 'bg-primary/10 text-primary'
+   771→                  : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+   772→              )}
+   773→              aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+   774→            >
+   775→              {isFavorite ? (
+   776→                <BookmarkCheck className="h-4 w-4" />
+   777→              ) : (
+   778→                <Bookmark className="h-4 w-4" />
+   779→              )}
+   780→            </button>
+   781→          </div>
+   782→
+   783→          {/* Description */}
+   784→          {actor.description && (
+   785→            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+   786→              {actor.description}
+   787→            </p>
+   788→          )}
+   789→
+   790→          {/* Location */}
+   791→          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+   792→            <MapPin className="h-3 w-3 shrink-0" />
+   793→            <span className="line-clamp-1">
+   794→              {actor.city}
+   795→              {actor.region ? `, ${actor.region}` : ''}
+   796→            </span>
+   797→          </div>
+   798→
+   799→          {/* Contact info */}
+   800→          <div className="flex flex-col gap-1.5 text-xs">
+   801→            {actor.phone && (
+   802→              <div className="flex items-center gap-1.5 text-muted-foreground">
+   803→                <Phone className="h-3 w-3 shrink-0" />
+   804→                <span className="truncate">{actor.phone}</span>
+   805→              </div>
+   806→            )}
+   807→            {actor.email && (
+   808→              <div className="flex items-center gap-1.5 text-muted-foreground">
+   809→                <Mail className="h-3 w-3 shrink-0" />
+   810→                <span className="truncate">{actor.email}</span>
+   811→              </div>
+   812→            )}
+   813→          </div>
+   814→
+   815→          {/* Services */}
+   816→          {actor.services && actor.services.length > 0 && (
+   817→            <div className="flex flex-wrap gap-1">
+   818→              {actor.services.slice(0, 3).map((s) => (
+   819→                <span
+   820→                  key={s}
+   821→                  className="inline-flex items-center rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+   822→                >
+   823→                  {s}
+   824→                </span>
+   825→              ))}
+   826→              {actor.services.length > 3 && (
+   827→                <span className="inline-flex items-center text-[10px] text-muted-foreground px-1">
+   828→                  +{actor.services.length - 3}
+   829→                </span>
+   830→              )}
+   831→            </div>
+   832→          )}
+   833→
+   834→          {/* Success rate */}
+   835→          {actor.successRate != null && (
+   836→            <div className="space-y-1">
+   837→              <div className="flex items-center justify-between text-xs">
+   838→                <span className="text-muted-foreground">Taux de réussite</span>
+   839→                <span
+   840→                  className={cn(
+   841→                    'font-medium',
+   842→                    actor.successRate >= 80
+   843→                      ? 'text-emerald-600 dark:text-emerald-400'
+   844→                      : actor.successRate >= 60
+   845→                        ? 'text-amber-600 dark:text-amber-400'
+   846→                        : 'text-red-500 dark:text-red-400'
+   847→                  )}
+   848→                >
+   849→                  {Math.round(actor.successRate)}%
+   850→                </span>
+   851→              </div>
+   852→              <Progress
+   853→                value={actor.successRate}
+   854→                className="h-1.5"
+   855→              />
+   856→            </div>
+   857→          )}
+   858→
+   859→          {/* Website link */}
+   860→          {actor.website && (
+   861→            <a
+   862→              href={actor.website}
+   863→              target="_blank"
+   864→              rel="noopener noreferrer"
+   865→              className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors font-medium"
+   866→            >
+   867→              Site web
+   868→              <ExternalLink className="h-3 w-3" />
+   869→            </a>
+   870→          )}
+   871→        </CardContent>
+   872→      </Card>
+   873→    </motion.div>
+   874→  )
+   875→}
+   876→
+   877→// ─── Actor List Card ────────────────────────
+   878→
+   879→function ActorCardList({
+   880→  actor,
+   881→  isFavorite,
+   882→  onToggleFavorite,
+   883→}: {
+   884→  actor: Actor
+   885→  isFavorite: boolean
+   886→  onToggleFavorite: () => void
+   887→}) {
+   888→  const config = ACTOR_TYPE_CONFIG[actor.type]
+   889→  const Icon = config.icon
+   890→
+   891→  return (
+   892→    <motion.div
+   893→      initial={{ opacity: 0, x: -8 }}
+   894→      animate={{ opacity: 1, x: 0 }}
+   895→      transition={{ duration: 0.2 }}
+   896→    >
+   897→      <Card className="group hover:shadow-md hover:border-primary/30 transition-all duration-300">
+   898→        <CardContent className="p-4">
+   899→          <div className="flex items-start gap-3">
+   900→            {/* Icon */}
+   901→            <div
+   902→              className={cn(
+   903→                'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
+   904→                config.bgColor
+   905→              )}
+   906→            >
+   907→              <Icon className={cn('h-5 w-5', config.color)} />
+   908→            </div>
+   909→
+   910→            {/* Content */}
+   911→            <div className="flex-1 min-w-0">
+   912→              <div className="flex items-start justify-between gap-2">
+   913→                <div className="min-w-0">
+   914→                  <h4 className="text-sm font-semibold text-foreground">{actor.name}</h4>
+   915→                  <div className="flex items-center gap-2 mt-0.5">
+   916→                    <Badge
+   917→                      variant="secondary"
+   918→                      className={cn('text-[10px] px-1.5 py-0 h-4 border-0', config.bgColor, config.color)}
+   919→                    >
+   920→                      {config.label}
+   921→                    </Badge>
+   922→                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+   923→                      <MapPin className="h-3 w-3" />
+   924→                      {actor.city}
+   925→                    </span>
+   926→                  </div>
+   927→                </div>
+   928→                <button
+   929→                  onClick={onToggleFavorite}
+   930→                  className={cn(
+   931→                    'p-1.5 rounded-full transition-colors shrink-0',
+   932→                    isFavorite
+   933→                      ? 'bg-primary/10 text-primary'
+   934→                      : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+   935→                  )}
+   936→                  aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+   937→                >
+   938→                  {isFavorite ? (
+   939→                    <BookmarkCheck className="h-4 w-4" />
+   940→                  ) : (
+   941→                    <Bookmark className="h-4 w-4" />
+   942→                  )}
+   943→                </button>
+   944→              </div>
+   945→
+   946→              {actor.description && (
+   947→                <p className="mt-1.5 text-xs text-muted-foreground line-clamp-1">
+   948→                  {actor.description}
+   949→                </p>
+   950→              )}
+   951→
+   952→              {/* Contact row */}
+   953→              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+   954→                {actor.phone && (
+   955→                  <span className="flex items-center gap-1">
+   956→                    <Phone className="h-3 w-3" />
+   957→                    {actor.phone}
+   958→                  </span>
+   959→                )}
+   960→                {actor.email && (
+   961→                  <span className="flex items-center gap-1">
+   962→                    <Mail className="h-3 w-3" />
+   963→                    {actor.email}
+   964→                  </span>
+   965→                )}
+   966→                {actor.website && (
+   967→                  <a
+   968→                    href={actor.website}
+   969→                    target="_blank"
+   970→                    rel="noopener noreferrer"
+   971→                    className="flex items-center gap-1 text-primary hover:text-primary/80 transition-colors"
+   972→                  >
+   973→                    <ExternalLink className="h-3 w-3" />
+   974→                    Site web
+   975→                  </a>
+   976→                )}
+   977→              </div>
+   978→
+   979→              {/* Services inline */}
+   980→              {actor.services && actor.services.length > 0 && (
+   981→                <div className="mt-2 flex flex-wrap gap-1">
+   982→                  {actor.services.map((s) => (
+   983→                    <span
+   984→                      key={s}
+   985→                      className="inline-flex items-center rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+   986→                    >
+   987→                      {s}
+   988→                    </span>
+   989→                  ))}
+   990→                </div>
+   991→              )}
+   992→
+   993→              {/* Success rate inline */}
+   994→              {actor.successRate != null && (
+   995→                <div className="mt-2 flex items-center gap-2">
+   996→                  <span className="text-[10px] text-muted-foreground">Réussite</span>
+   997→                  <div className="w-16">
+   998→                    <Progress value={actor.successRate} className="h-1.5" />
+   999→                  </div>
+  1000→                  <span
+  1001→                    className={cn(
+  1002→                      'text-[10px] font-medium',
+  1003→                      actor.successRate >= 80
+  1004→                        ? 'text-emerald-600 dark:text-emerald-400'
+  1005→                        : actor.successRate >= 60
+  1006→                          ? 'text-amber-600 dark:text-amber-400'
+  1007→                          : 'text-red-500 dark:text-red-400'
+  1008→                    )}
+  1009→                  >
+  1010→                    {Math.round(actor.successRate)}%
+  1011→                  </span>
+  1012→                </div>
+  1013→              )}
+  1014→            </div>
+  1015→          </div>
+  1016→        </CardContent>
+  1017→      </Card>
+  1018→    </motion.div>
+  1019→  )
+  1020→}
+  1021→
+  1022→// ─── Empty State ────────────────────────────
+  1023→
+  1024→function EmptyState({ onClear }: { onClear: () => void }) {
+  1025→  return (
+  1026→    <motion.div
+  1027→      initial={{ opacity: 0, scale: 0.95 }}
+  1028→      animate={{ opacity: 1, scale: 1 }}
+  1029→      className="flex flex-col items-center justify-center py-16 px-8 text-center"
+  1030→    >
+  1031→      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted mb-4">
+  1032→        <Search className="h-8 w-8 text-muted-foreground" />
+  1033→      </div>
+  1034→      <h3 className="text-lg font-semibold text-foreground">Aucun acteur trouvé</h3>
+  1035→      <p className="mt-1 text-sm text-muted-foreground max-w-sm">
+  1036→        Essayez de modifier vos critères de recherche ou de réinitialiser les filtres.
+  1037→      </p>
+  1038→      <Button variant="outline" size="sm" onClick={onClear} className="mt-4 gap-2">
+  1039→        <X className="h-4 w-4" />
+  1040→        Réinitialiser les filtres
+  1041→      </Button>
+  1042→    </motion.div>
+  1043→  )
+  1044→}
+  1045→
+  1046→// ─── Error State ────────────────────────────
+  1047→
+  1048→function ErrorState({ onRetry }: { onRetry: () => void }) {
+  1049→  return (
+  1050→    <motion.div
+  1051→      initial={{ opacity: 0, scale: 0.95 }}
+  1052→      animate={{ opacity: 1, scale: 1 }}
+  1053→      className="flex flex-col items-center justify-center py-16 px-8 text-center"
+  1054→    >
+  1055→      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-destructive/10 mb-4">
+  1056→        <CircleHelp className="h-8 w-8 text-destructive" />
+  1057→      </div>
+  1058→      <h3 className="text-lg font-semibold text-foreground">Impossible de charger l&apos;annuaire</h3>
+  1059→      <p className="mt-1 text-sm text-muted-foreground max-w-sm">
+  1060→        Une erreur est survenue lors du chargement des données. Veuillez réessayer.
+  1061→      </p>
+  1062→      <Button variant="outline" size="sm" onClick={onRetry} className="mt-4 gap-2">
+  1063→        <Loader2 className="h-4 w-4" />
+  1064→        Réessayer
+  1065→      </Button>
+  1066→    </motion.div>
+  1067→  )
+  1068→}
+  1069→

@@ -1,0 +1,719 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→import { useEffect, useState, useCallback, useRef, useSyncExternalStore } from 'react'
+     4→     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→     5→import {
+     6→     6→  Play,
+     7→     7→  Pause,
+     8→     8→  SkipForward,
+     9→     9→  ChevronLeft,
+    10→    10→  ChevronRight,
+    11→    11→  Brain,
+    12→    12→  Handshake,
+    13→    13→  Sparkles,
+    14→    14→  Search,
+    15→    15→  FileCheck,
+    16→    16→  Rocket,
+    17→    17→  Clock,
+    18→    18→  AlertTriangle,
+    19→    19→  MessageSquare,
+    20→    20→  StickyNote,
+    21→    21→  CheckCircle,
+    22→    22→  Circle,
+    23→    23→  Loader2,
+    24→    24→  Timer,
+    25→    25→  X,
+    26→    26→} from 'lucide-react'
+    27→    27→
+    28→    28→import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+    29→    29→import { Button } from '@/components/ui/button'
+    30→    30→import { Badge } from '@/components/ui/badge'
+    31→    31→import { Progress } from '@/components/ui/progress'
+    32→    32→import { ScrollArea } from '@/components/ui/scroll-area'
+    33→    33→import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+    34→    34→import { Separator } from '@/components/ui/separator'
+    35→    35→import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+    36→    36→import { Textarea } from '@/components/ui/textarea'
+    37→    37→
+    38→    38→import { useCreaScopeStore, CREASCOPE_PHASES } from './creascope-store'
+    39→    39→import type { PhaseConfig } from './creascope-store'
+    40→    40→
+    41→    41→import { PhaseAccueil } from './phases/phase-accueil'
+    42→    42→import { PhaseDecouverte } from './phases/phase-decouverte'
+    43→    43→import { PhaseApprofondissement } from './phases/phase-approfondissement'
+    44→    44→import { PhaseSynthese } from './phases/phase-synthese'
+    45→    45→import { PhasePlanAction } from './phases/phase-plan-action'
+    46→    46→
+    47→    47→// ─── Constants & Colors ──────────────────────────────────────────────────────
+    48→    48→
+    49→    49→const TEAL = '#00838F'
+    50→    50→const CORAL = '#FF6B35'
+    51→    51→const AMBER = '#FFB74D'
+    52→    52→const PHASE_ICONS: Record<string, React.ReactNode> = {
+    53→    53→  Handshake: <Handshake className="h-4 w-4" />,
+    54→    54→  Search: <Search className="h-4 w-4" />,
+    55→    55→  Brain: <Brain className="h-4 w-4" />,
+    56→    56→  FileCheck: <FileCheck className="h-4 w-4" />,
+    57→    57→  Rocket: <Rocket className="h-4 w-4" />,
+    58→    58→}
+    59→    59→const TOTAL_RECOMMENDED_MS = CREASCOPE_PHASES.reduce((s, p) => s + p.recommendedMinutes, 0) * 60 * 1000
+    60→    60→
+    61→    61→// ─── Helpers ────────────────────────────────────────────────────────────────
+    62→    62→
+    63→    63→function formatMs(ms: number): string {
+    64→    64→  const totalSec = Math.floor(Math.abs(ms) / 1000)
+    65→    65→  const h = Math.floor(totalSec / 3600)
+    66→    66→  const m = Math.floor((totalSec % 3600) / 60)
+    67→    67→  const s = totalSec % 60
+    68→    68→  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+    69→    69→}
+    70→    70→
+    71→    71→function getTimerColor(elapsedMs: number, recommendedMs: number): string {
+    72→    72→  if (recommendedMs === 0) return TEAL
+    73→    73→  const ratio = elapsedMs / recommendedMs
+    74→    74→  if (ratio < 0.8) return '#22c55e' // green
+    75→    75→  if (ratio < 1.0) return AMBER // yellow
+    76→    76→  if (ratio < 1.2) return CORAL // orange
+    77→    77→  return '#ef4444' // red
+    78→    78→}
+    79→    79→
+    80→    80→function getTimerLabel(ratio: number): string {
+    81→    81→  if (ratio < 0.8) return 'Dans le temps'
+    82→    82→  if (ratio < 1.0) return 'Approche de la limite'
+    83→    83→  if (ratio < 1.2) return 'Dépassement modéré'
+    84→    84→  return 'Dépassement significatif'
+    85→    85→}
+    86→    86→
+    87→    87→function getPhaseIcon(phase: PhaseConfig): React.ReactNode {
+    88→    88→  return PHASE_ICONS[phase.icon] ?? <Sparkles className="h-4 w-4" />
+    89→    89→}
+    90→    90→
+    91→    91→// ─── Phase Renderer ──────────────────────────────────────────────────────────
+    92→    92→
+    93→    93→function renderPhase(index: number) {
+    94→    94→  switch (index) {
+    95→    95→    case 0: return <PhaseAccueil />
+    96→    96→    case 1: return <PhaseDecouverte />
+    97→    97→    case 2: return <PhaseApprofondissement />
+    98→    98→    case 3: return <PhaseSynthese />
+    99→    99→    case 4: return <PhasePlanAction />
+   100→   100→    default: return null
+   101→   101→  }
+   102→   102→}
+   103→   103→
+   104→   104→// ─── Phase Navigation ────────────────────────────────────────────────────────
+   105→   105→
+   106→   106→function PhaseNav() {
+   107→   107→  const { currentPhaseIndex, goToPhase, sessionStatus } = useCreaScopeStore()
+   108→   108→
+   109→   109→  return (
+   110→   110→    <nav className="w-full overflow-x-auto pb-1">
+   111→   111→      <div className="flex items-center justify-start gap-1 sm:gap-2 min-w-max px-1">
+   112→   112→        {CREASCOPE_PHASES.map((phase, i) => {
+   113→   113→          const isActive = i === currentPhaseIndex
+   114→   114→          const isCompleted = i < currentPhaseIndex
+   115→   115→          const isPending = i > currentPhaseIndex
+   116→   116→
+   117→   117→          return (
+   118→   118→            <TooltipProvider key={phase.id} delayDuration={300}>
+   119→   119→              <Tooltip>
+   120→   120→                <TooltipTrigger asChild>
+   121→   121→                  <button
+   122→   122→                    onClick={() => {
+   123→   123→                      if (isCompleted || isActive) goToPhase(i)
+   124→   124→                    }}
+   125→   125→                    disabled={isPending}
+   126→   126→                    className={`
+   127→   127→                      flex items-center gap-1.5 sm:gap-2 rounded-full px-2.5 py-1.5 sm:px-3 sm:py-2
+   128→   128→                      text-xs sm:text-sm font-medium transition-all duration-200
+   129→   129→                      ${isCompleted
+   130→   130→                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 cursor-pointer hover:bg-emerald-200'
+   131→   131→                        : isActive
+   132→   132→                          ? 'ring-2 cursor-pointer'
+   133→   133→                          : 'bg-muted text-muted-foreground cursor-not-allowed opacity-50'
+   134→   134→                      }
+   135→   135→                    `}
+   136→   136→                    style={isActive ? { ringColor: TEAL, backgroundColor: `${TEAL}18`, color: TEAL, '--tw-ring-color': TEAL } as React.CSSProperties : undefined}
+   137→   137→                  >
+   138→   138→                    <span className="flex items-center justify-center">
+   139→   139→                      {isCompleted ? (
+   140→   140→                        <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 dark:text-emerald-400" />
+   141→   141→                      ) : isActive ? (
+   142→   142→                        <span className="flex h-3.5 w-3.5 sm:h-4 sm:w-4 items-center justify-center rounded-full" style={{ backgroundColor: TEAL, color: '#fff', animation: 'pulse 2s infinite' }}>
+   143→   143→                          {i + 1}
+   144→   144→                        </span>
+   145→   145→                      ) : (
+   146→   146→                        <Circle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground/40" />
+   147→   147→                      )}
+   148→   148→                    </span>
+   149→   149→                    <span className="hidden sm:inline">{phase.shortName}</span>
+   150→   150→                    <span className="sm:hidden">{phase.id}</span>
+   151→   151→                  </button>
+   152→   152→                </TooltipTrigger>
+   153→   153→                <TooltipContent side="bottom" className="text-xs">
+   154→   154→                  <p className="font-medium">{phase.name}</p>
+   155→   155→                  <p className="text-muted-foreground">{phase.recommendedMinutes} min recommandées</p>
+   156→   156→                </TooltipContent>
+   157→   157→              </Tooltip>
+   158→   158→            </TooltipProvider>
+   159→   159→          )
+   160→   160→        })}
+   161→   161→      </div>
+   162→   162→    </nav>
+   163→   163→  )
+   164→   164→}
+   165→   165→
+   166→   166→// ─── Timer Bar ───────────────────────────────────────────────────────────────
+   167→   167→
+   168→   168→function TimerBar() {
+   169→   169→  const {
+   170→   170→    sessionStatus,
+   171→   171→    sessionStartedAt,
+   172→   172→    phaseStartedAt,
+   173→   173→    totalPausedMs,
+   174→   174→    phasePausedMs,
+   175→   175→    currentPhaseIndex,
+   176→   176→    pauseSession,
+   177→   177→    resumeSession,
+   178→   178→    nextPhase,
+   179→   179→  } = useCreaScopeStore()
+   180→   180→
+   181→   181→  const [now, setNow] = useState(Date.now())
+   182→   182→  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+   183→   183→
+   184→   184→  useEffect(() => {
+   185→   185→    if (sessionStatus === 'active') {
+   186→   186→      timerRef.current = setInterval(() => setNow(Date.now()), 1000)
+   187→   187→    } else {
+   188→   188→      if (timerRef.current) clearInterval(timerRef.current)
+   189→   189→    }
+   190→   190→    return () => {
+   191→   191→      if (timerRef.current) clearInterval(timerRef.current)
+   192→   192→    }
+   193→   193→  }, [sessionStatus])
+   194→   194→
+   195→   195→  const sessionElapsed = sessionStartedAt ? now - sessionStartedAt - totalPausedMs : 0
+   196→   196→  const phaseElapsed = phaseStartedAt ? now - phaseStartedAt - phasePausedMs : 0
+   197→   197→  const currentPhase = CREASCOPE_PHASES[currentPhaseIndex]
+   198→   198→  const phaseRecommendedMs = currentPhase.recommendedMinutes * 60 * 1000
+   199→   199→  const sessionProgress = Math.min((sessionElapsed / TOTAL_RECOMMENDED_MS) * 100, 100)
+   200→   200→  const phaseProgress = Math.min((phaseElapsed / phaseRecommendedMs) * 100, 100)
+   201→   201→  const sessionRatio = sessionElapsed / TOTAL_RECOMMENDED_MS
+   202→   202→  const phaseRatio = phaseElapsed / phaseRecommendedMs
+   203→   203→  const timerColor = getTimerColor(phaseElapsed, phaseRecommendedMs)
+   204→   204→  const isPaused = sessionStatus === 'paused'
+   205→   205→
+   206→   206→  return (
+   207→   207→    <Card className="border-0 shadow-none bg-gradient-to-r from-muted/60 to-muted/30">
+   208→   208→      <CardContent className="p-3 sm:p-4">
+   209→   209→        {/* Session + Phase timers */}
+   210→   210→        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+   211→   211→          <div className="flex items-center gap-3">
+   212→   212→            <div className="flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground">
+   213→   213→              <Timer className="h-3.5 w-3.5" />
+   214→   214→              <span className="font-mono font-medium text-foreground">{formatMs(sessionElapsed)}</span>
+   215→   215→              <span className="text-muted-foreground">/</span>
+   216→   216→              <span className="font-mono">{formatMs(TOTAL_RECOMMENDED_MS)}</span>
+   217→   217→            </div>
+   218→   218→            <Separator orientation="vertical" className="h-4" />
+   219→   219→            <div className="flex items-center gap-1.5 text-xs sm:text-sm">
+   220→   220→              <Clock className="h-3.5 w-3.5" style={{ color: timerColor }} />
+   221→   221→              <span className="font-mono font-medium" style={{ color: timerColor }}>
+   222→   222→                {formatMs(phaseElapsed)}
+   223→   223→              </span>
+   224→   224→              <span className="text-muted-foreground">/</span>
+   225→   225→              <span className="font-mono text-muted-foreground">{formatMs(phaseRecommendedMs)}</span>
+   226→   226→            </div>
+   227→   227→          </div>
+   228→   228→          <div className="flex items-center gap-2">
+   229→   229→            <Badge
+   230→   230→              variant="outline"
+   231→   231→              className="text-[10px] sm:text-xs font-normal gap-1"
+   232→   232→              style={{ borderColor: timerColor, color: timerColor }}
+   233→   233→            >
+   234→   234→              <span
+   235→   235→                className="inline-block h-1.5 w-1.5 rounded-full"
+   236→   236→                style={{ backgroundColor: timerColor, animation: isPaused ? 'none' : 'pulse 2s infinite' }}
+   237→   237→              />
+   238→   238→              {isPaused ? 'En pause' : getTimerLabel(phaseRatio)}
+   239→   239→            </Badge>
+   240→   240→          </div>
+   241→   241→        </div>
+   242→   242→
+   243→   243→        {/* Progress bar */}
+   244→   244→        <Progress value={sessionProgress} className="h-1.5 mb-3" />
+   245→   245→
+   246→   246→        {/* Controls */}
+   247→   247→        <div className="flex items-center gap-2">
+   248→   248→          <Button
+   249→   249→            variant="outline"
+   250→   250→            size="sm"
+   251→   251→            onClick={isPaused ? resumeSession : pauseSession}
+   252→   252→            className="h-8 gap-1.5 text-xs"
+   253→   253→          >
+   254→   254→            {isPaused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+   255→   255→            {isPaused ? 'Reprendre' : 'Pause'}
+   256→   256→          </Button>
+   257→   257→          <Button
+   258→   258→            variant="outline"
+   259→   259→            size="sm"
+   260→   260→            onClick={nextPhase}
+   261→   261→            className="h-8 gap-1.5 text-xs"
+   262→   262→          >
+   263→   263→            <SkipForward className="h-3.5 w-3.5" />
+   264→   264→            Phase suivante
+   265→   265→          </Button>
+   266→   266→          <div className="ml-auto text-[10px] sm:text-xs text-muted-foreground">
+   267→   267→            Phase {currentPhaseIndex + 1} / {CREASCOPE_PHASES.length}
+   268→   268→          </div>
+   269→   269→        </div>
+   270→   270→      </CardContent>
+   271→   271→    </Card>
+   272→   272→  )
+   273→   273→}
+   274→   274→
+   275→   275→// ─── SOP Panel ──────────────────────────────────────────────────────────────
+   276→   276→
+   277→   277→function SopPanelContent() {
+   278→   278→  const { currentPhaseIndex, notes, addPhaseNote, updatePhaseNote } = useCreaScopeStore()
+   279→   279→  const currentPhase = CREASCOPE_PHASES[currentPhaseIndex]
+   280→   280→  const phaseNotes = notes.filter((n) => n.phaseIndex === currentPhaseIndex)
+   281→   281→  const latestNote = phaseNotes[phaseNotes.length - 1]
+   282→   282→  const [noteText, setNoteText] = useState(latestNote?.content ?? '')
+   283→   283→
+   284→   284→  const handleSaveNote = useCallback(() => {
+   285→   285→    const trimmed = noteText.trim()
+   286→   286→    if (!trimmed) return
+   287→   287→    if (latestNote) {
+   288→   288→      updatePhaseNote(latestNote.id, trimmed)
+   289→   289→    } else {
+   290→   290→      addPhaseNote(currentPhaseIndex, trimmed)
+   291→   291→    }
+   292→   292→  }, [noteText, latestNote, currentPhaseIndex, addPhaseNote, updatePhaseNote])
+   293→   293→
+   294→   294→  return (
+   295→   295→    <div className="space-y-4">
+   296→   296→      {/* Phase header */}
+   297→   297→      <div className="flex items-center gap-2">
+   298→   298→        <span
+   299→   299→          className="flex h-8 w-8 items-center justify-center rounded-lg text-white text-sm font-bold"
+   300→   300→          style={{ backgroundColor: currentPhase.color }}
+   301→   301→        >
+   302→   302→          {currentPhase.id}
+   303→   303→        </span>
+   304→   304→        <div>
+   305→   305→          <h3 className="text-sm font-semibold leading-tight">{currentPhase.name}</h3>
+   306→   306→          <p className="text-[11px] text-muted-foreground">{currentPhase.recommendedMinutes} min</p>
+   307→   307→        </div>
+   308→   308→      </div>
+   309→   309→
+   310→   310→      <Separator />
+   311→   311→
+   312→   312→      {/* SOP Steps */}
+   313→   313→      <div className="space-y-2">
+   314→   314→        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+   315→   315→          <FileCheck className="h-3.5 w-3.5" />
+   316→   316→          Procédure — SOP
+   317→   317→        </h4>
+   318→   318→        {currentPhase.steps.map((step) => (
+   319→   319→          <div
+   320→   320→            key={step.code}
+   321→   321→            className="flex items-start gap-2 rounded-lg border p-2.5 text-xs transition-colors hover:bg-muted/50"
+   322→   322→          >
+   323→   323→            <span className="flex items-center justify-center mt-0.5">
+   324→   324→              {step.status === 'completed' ? (
+   325→   325→                <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+   326→   326→              ) : step.status === 'in_progress' ? (
+   327→   327→                <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: CORAL }} />
+   328→   328→              ) : (
+   329→   329→                <Circle className="h-3.5 w-3.5 text-muted-foreground/30" />
+   330→   330→              )}
+   331→   331→            </span>
+   332→   332→            <div className="flex-1 min-w-0">
+   333→   333→              <div className="flex items-center gap-1.5">
+   334→   334→                <span className="font-mono font-medium text-muted-foreground">{step.code}</span>
+   335→   335→                <span className="font-medium truncate">{step.label}</span>
+   336→   336→              </div>
+   337→   337→              <p className="text-[10px] text-muted-foreground mt-0.5">
+   338→   338→                {step.recommendedMinutes} min recommandées
+   339→   339→              </p>
+   340→   340→            </div>
+   341→   341→          </div>
+   342→   342→        ))}
+   343→   343→      </div>
+   344→   344→
+   345→   345→      <Separator />
+   346→   346→
+   347→   347→      {/* Notes */}
+   348→   348→      <div className="space-y-2">
+   349→   349→        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+   350→   350→          <StickyNote className="h-3.5 w-3.5" />
+   351→   351→          Notes de session
+   352→   352→        </h4>
+   353→   353→        <Textarea
+   354→   354→          value={noteText}
+   355→   355→          onChange={(e) => setNoteText(e.target.value)}
+   356→   356→          onBlur={handleSaveNote}
+   357→   357→          placeholder="Prenez des notes pour cette phase…"
+   358→   358→          className="min-h-[100px] text-xs resize-y"
+   359→   359→          rows={5}
+   360→   360→        />
+   361→   361→        <p className="text-[10px] text-muted-foreground">
+   362→   362→          {phaseNotes.length > 0 ? `${phaseNotes.length} note(s) enregistrée(s)` : 'Les notes sont sauvegardées automatiquement'}
+   363→   363→        </p>
+   364→   364→      </div>
+   365→   365→    </div>
+   366→   366→  )
+   367→   367→}
+   368→   368→
+   369→   369→function SopPanelDesktop() {
+   370→   370→  return (
+   371→   371→    <aside className="hidden lg:block w-72 xl:w-80 flex-shrink-0">
+   372→   372→      <Card className="sticky top-4">
+   373→   373→        <CardHeader className="pb-3 pt-4 px-4">
+   374→   374→          <div className="flex items-center justify-between">
+   375→   375→            <CardTitle className="text-sm font-semibold">Guide & Notes</CardTitle>
+   376→   376→            <Badge variant="outline" className="text-[10px] font-normal">SOP</Badge>
+   377→   377→          </div>
+   378→   378→        </CardHeader>
+   379→   379→        <Separator />
+   380→   380→        <CardContent className="px-4 pb-4">
+   381→   381→          <ScrollArea className="max-h-[calc(100vh-220px)]">
+   382→   382→            <SopPanelContent key={currentPhaseIndex} />
+   383→   383→          </ScrollArea>
+   384→   384→        </CardContent>
+   385→   385→      </Card>
+   386→   386→    </aside>
+   387→   387→  )
+   388→   388→}
+   389→   389→
+   390→   390→function SopPanelMobile() {
+   391→   391→  return (
+   392→   392→    <Sheet>
+   393→   393→      <SheetTrigger asChild>
+   394→   394→        <Button variant="outline" size="sm" className="lg:hidden h-8 gap-1.5 text-xs">
+   395→   395→          <MessageSquare className="h-3.5 w-3.5" />
+   396→   396→          Guide SOP
+   397→   397→        </Button>
+   398→   398→      </SheetTrigger>
+   399→   399→      <SheetContent side="right" className="w-80 sm:w-96 p-0">
+   400→   400→        <SheetHeader className="px-4 pt-4 pb-2">
+   401→   401→          <SheetTitle className="text-sm font-semibold">Guide & Notes — SOP</SheetTitle>
+   402→   402→        </SheetHeader>
+   403→   403→        <Separator />
+   404→   404→        <ScrollArea className="h-[calc(100vh-80px)] px-4 pb-4">
+   405→   405→          <div className="pt-4">
+   406→   406→            <SopPanelContent key={currentPhaseIndex} />
+   407→   407→          </div>
+   408→   408→        </ScrollArea>
+   409→   409→      </SheetContent>
+   410→   410→    </Sheet>
+   411→   411→  )
+   412→   412→}
+   413→   413→
+   414→   414→// ─── Pre-Session Card ────────────────────────────────────────────────────────
+   415→   415→
+   416→   416→function PreSessionCard() {
+   417→   417→  const startSession = useCreaScopeStore((s) => s.startSession)
+   418→   418→
+   419→   419→  return (
+   420→   420→    <motion.div
+   421→   421→      initial={{ opacity: 0, y: 20 }}
+   422→   422→      animate={{ opacity: 1, y: 0 }}
+   423→   423→      transition={{ duration: 0.5, ease: 'easeOut' }}
+   424→   424→      className="max-w-2xl mx-auto"
+   425→   425→    >
+   426→   426→      <Card className="overflow-hidden border-2" style={{ borderColor: `${TEAL}30` }}>
+   427→   427→        {/* Hero */}
+   428→   428→        <div
+   429→   429→          className="relative px-6 py-10 sm:px-10 sm:py-14 text-center text-white"
+   430→   430→          style={{ background: `linear-gradient(135deg, ${TEAL}, ${TEAL}cc)` }}
+   431→   431→        >
+   432→   432→          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm">
+   433→   433→            <Sparkles className="h-8 w-8" />
+   434→   434→          </div>
+   435→   435→          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+   436→   436→            Prêt à démarrer une session CréaScope ?
+   437→   437→          </h1>
+   438→   438→          <p className="mt-3 max-w-lg mx-auto text-sm sm:text-base text-white/85 leading-relaxed">
+   439→   439→            Accompagnement structuré de 3h30 à 4h en 5 phases pour diagnostiquer
+   440→   440→            et guider le porteur de projet vers son épanouissement entrepreneurial.
+   441→   441→          </p>
+   442→   442→        </div>
+   443→   443→
+   444→   444→        {/* Phase cards */}
+   445→   445→        <CardContent className="p-4 sm:p-6">
+   446→   446→          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+   447→   447→            {CREASCOPE_PHASES.map((phase, i) => (
+   448→   448→              <div
+   449→   449→                key={phase.id}
+   450→   450→                className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
+   451→   451→              >
+   452→   452→                <span
+   453→   453→                  className="flex h-9 w-9 items-center justify-center rounded-lg text-white text-sm flex-shrink-0"
+   454→   454→                  style={{ backgroundColor: phase.color }}
+   455→   455→                >
+   456→   456→                  {getPhaseIcon(phase)}
+   457→   457→                </span>
+   458→   458→                <div className="min-w-0">
+   459→   459→                  <p className="text-sm font-medium truncate">{phase.name}</p>
+   460→   460→                  <p className="text-xs text-muted-foreground">{phase.recommendedMinutes} min</p>
+   461→   461→                </div>
+   462→   462→              </div>
+   463→   463→            ))}
+   464→   464→          </div>
+   465→   465→
+   466→   466→          {/* Total duration */}
+   467→   467→          <div className="flex items-center gap-2 mb-6 rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
+   468→   468→            <Clock className="h-4 w-4 flex-shrink-0" />
+   469→   469→            <span>
+   470→   470→              Durée totale recommandée :{' '}
+   471→   471→              <span className="font-semibold text-foreground">
+   472→   472→                {Math.floor(TOTAL_RECOMMENDED_MS / 60000)} minutes
+   473→   473→              </span>{' '}
+   474→   474→              ({Math.floor(TOTAL_RECOMMENDED_MS / 3600000)}h{Math.floor((TOTAL_RECOMMENDED_MS % 3600000) / 60000)})
+   475→   475→            </span>
+   476→   476→          </div>
+   477→   477→
+   478→   478→          {/* Start button */}
+   479→   479→          <Button
+   480→   480→            onClick={startSession}
+   481→   481→            size="lg"
+   482→   482→            className="w-full h-12 text-base font-semibold gap-2"
+   483→   483→            style={{ backgroundColor: TEAL, color: '#fff' }}
+   484→   484→          >
+   485→   485→            <Play className="h-5 w-5" />
+   486→   486→            Démarrer la session
+   487→   487→          </Button>
+   488→   488→        </CardContent>
+   489→   489→      </Card>
+   490→   490→    </motion.div>
+   491→   491→  )
+   492→   492→}
+   493→   493→
+   494→   494→// ─── Post-Session Card ───────────────────────────────────────────────────────
+   495→   495→
+   496→   496→function PostSessionCard() {
+   497→   497→  const {
+   498→   498→    sessionStartedAt,
+   499→   499→    totalPausedMs,
+   500→   500→    phases,
+   501→   501→    resetSession,
+   502→   502→    startSession,
+   503→   503→  } = useCreaScopeStore()
+   504→   504→
+   505→   505→  const totalDuration = sessionStartedAt
+   506→   506→    ? Math.max(0, Date.now() - sessionStartedAt - totalPausedMs)
+   507→   507→    : 0
+   508→   508→
+   509→   509→  const completedStepsPerPhase = phases.map((p) => ({
+   510→   510→    name: p.shortName,
+   511→   511→    total: p.steps.length,
+   512→   512→    completed: p.steps.filter((s) => s.status === 'completed').length,
+   513→   513→  }))
+   514→   514→
+   515→   515→  return (
+   516→   516→    <motion.div
+   517→   517→      initial={{ opacity: 0, scale: 0.95 }}
+   518→   518→      animate={{ opacity: 1, scale: 1 }}
+   519→   519→      transition={{ duration: 0.4, ease: 'easeOut' }}
+   520→   520→      className="max-w-2xl mx-auto"
+   521→   521→    >
+   522→   522→      <Card className="overflow-hidden border-2" style={{ borderColor: `${TEAL}30` }}>
+   523→   523→        <div
+   524→   524→          className="px-6 py-10 sm:px-10 sm:py-14 text-center text-white"
+   525→   525→          style={{ background: `linear-gradient(135deg, ${TEAL}, #00695C)` }}
+   526→   526→        >
+   527→   527→          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
+   528→   528→            <CheckCircle className="h-9 w-9 text-white" />
+   529→   529→          </div>
+   530→   530→          <h1 className="text-2xl sm:text-3xl font-bold">Session terminée !</h1>
+   531→   531→          <p className="mt-2 text-white/85 text-sm">
+   532→   532→            Bravo, vous avez mené à bien la session CréaScope.
+   533→   533→          </p>
+   534→   534→          <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-mono">
+   535→   535→            <Timer className="h-4 w-4" />
+   536→   536→            Durée : {formatMs(totalDuration)}
+   537→   537→          </div>
+   538→   538→        </div>
+   539→   539→
+   540→   540→        <CardContent className="p-4 sm:p-6">
+   541→   541→          {/* Summary */}
+   542→   542→          <h3 className="text-sm font-semibold mb-3">Bilan par phase</h3>
+   543→   543→          <div className="space-y-2 mb-6">
+   544→   544→            {completedStepsPerPhase.map((phase, i) => (
+   545→   545→              <div key={i} className="flex items-center justify-between rounded-lg border p-3 text-sm">
+   546→   546→                <div className="flex items-center gap-2">
+   547→   547→                  <span className="font-medium">{phase.name}</span>
+   548→   548→                </div>
+   549→   549→                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+   550→   550→                  <span>{phase.completed}/{phase.total} étapes</span>
+   551→   551→                  <Progress value={(phase.completed / phase.total) * 100} className="w-20 h-1.5" />
+   552→   552→                </div>
+   553→   553→              </div>
+   554→   554→            ))}
+   555→   555→          </div>
+   556→   556→
+   557→   557→          {/* Actions */}
+   558→   558→          <div className="flex flex-col sm:flex-row gap-3">
+   559→   559→            <Button variant="outline" className="flex-1 gap-2">
+   560→   560→              <FileCheck className="h-4 w-4" />
+   561→   561→              Revoir le bilan
+   562→   562→            </Button>
+   563→   563→            <Button
+   564→   564→              className="flex-1 gap-2"
+   565→   565→              style={{ backgroundColor: TEAL, color: '#fff' }}
+   566→   566→              onClick={() => {
+   567→   567→                resetSession()
+   568→   568→                startSession()
+   569→   569→              }}
+   570→   570→            >
+   571→   571→              <Sparkles className="h-4 w-4" />
+   572→   572→              Démarrer une nouvelle session
+   573→   573→            </Button>
+   574→   574→          </div>
+   575→   575→        </CardContent>
+   576→   576→      </Card>
+   577→   577→    </motion.div>
+   578→   578→  )
+   579→   579→}
+   580→   580→
+   581→   581→// ─── Main Component ──────────────────────────────────────────────────────────
+   582→   582→
+   583→   583→export function CreaScopeSession() {
+   584→   584→  const {
+   585→   585→    isSessionActive,
+   586→   586→    sessionStatus,
+   587→   587→    currentPhaseIndex,
+   588→   588→    phases,
+   589→   589→  } = useCreaScopeStore()
+   590→   590→
+   591→   591→  const mounted = useSyncExternalStore(
+   592→   592→    () => () => {},
+   593→   593→    () => true,
+   594→   594→    () => false,
+   595→   595→  )
+   596→   596→
+   597→   597→  // ── Pre-session ──
+   598→   598→  if (!mounted) {
+   599→   599→    return (
+   600→   600→      <div className="flex items-center justify-center min-h-[400px]">
+   601→   601→        <Loader2 className="h-6 w-6 animate-spin" style={{ color: TEAL }} />
+   602→   602→      </div>
+   603→   603→    )
+   604→   604→  }
+   605→   605→
+   606→   606→  if (!isSessionActive && sessionStatus === 'idle') {
+   607→   607→    return (
+   608→   608→      <div className="p-4 sm:p-6">
+   609→   609→        <PreSessionCard />
+   610→   610→      </div>
+   611→   611→    )
+   612→   612→  }
+   613→   613→
+   614→   614→  // ── Post-session ──
+   615→   615→  if (sessionStatus === 'completed') {
+   616→   616→    return (
+   617→   617→      <div className="p-4 sm:p-6">
+   618→   618→        <PostSessionCard />
+   619→   619→      </div>
+   620→   620→    )
+   621→   621→  }
+   622→   622→
+   623→   623→  // ── Active session ──
+   624→   624→  const currentPhase = phases[currentPhaseIndex]
+   625→   625→
+   626→   626→  return (
+   627→   627→    <TooltipProvider delayDuration={300}>
+   628→   628→      <div className="flex flex-col min-h-0">
+   629→   629→        {/* Header */}
+   630→   630→        <header className="flex items-center justify-between px-4 sm:px-6 py-3 border-b bg-background/95 backdrop-blur-sm sticky top-0 z-30">
+   631→   631→          <div className="flex items-center gap-2">
+   632→   632→            <span className="flex h-8 w-8 items-center justify-center rounded-lg text-white" style={{ backgroundColor: TEAL }}>
+   633→   633→              <Brain className="h-4 w-4" />
+   634→   634→            </span>
+   635→   635→            <div>
+   636→   636→              <h1 className="text-sm sm:text-base font-bold tracking-tight">CréaScope</h1>
+   637→   637→              <p className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">
+   638→   638→                Session d&apos;accompagnement — Phase {currentPhaseIndex + 1}/{CREASCOPE_PHASES.length}
+   639→   639→              </p>
+   640→   640→            </div>
+   641→   641→          </div>
+   642→   642→          <div className="flex items-center gap-2">
+   643→   643→            <SopPanelMobile />
+   644→   644→            <Badge
+   645→   645→              variant="outline"
+   646→   646→              className="text-[10px] sm:text-xs gap-1"
+   647→   647→              style={{
+   648→   648→                borderColor: sessionStatus === 'paused' ? AMBER : TEAL,
+   649→   649→                color: sessionStatus === 'paused' ? AMBER : TEAL,
+   650→   650→              }}
+   651→   651→            >
+   652→   652→              <span
+   653→   653→                className="inline-block h-1.5 w-1.5 rounded-full"
+   654→   654→                style={{
+   655→   655→                  backgroundColor: sessionStatus === 'paused' ? AMBER : TEAL,
+   656→   656→                  animation: sessionStatus === 'paused' ? 'none' : 'pulse 2s infinite',
+   657→   657→                }}
+   658→   658→              />
+   659→   659→              {sessionStatus === 'paused' ? 'En pause' : 'En cours'}
+   660→   660→            </Badge>
+   661→   661→          </div>
+   662→   662→        </header>
+   663→   663→
+   664→   664→        {/* Phase Nav */}
+   665→   665→        <div className="px-4 sm:px-6 py-3 border-b bg-muted/30">
+   666→   666→          <PhaseNav />
+   667→   667→        </div>
+   668→   668→
+   669→   669→        {/* Timer Bar */}
+   670→   670→        <div className="px-4 sm:px-6 py-2">
+   671→   671→          <TimerBar />
+   672→   672→        </div>
+   673→   673→
+   674→   674→        {/* Main Content + SOP sidebar */}
+   675→   675→        <div className="flex flex-1 min-h-0">
+   676→   676→          {/* Phase content */}
+   677→   677→          <main className="flex-1 min-w-0 p-4 sm:p-6">
+   678→   678→            <AnimatePresence mode="wait">
+   679→   679→              <motion.div
+   680→   680→                key={currentPhaseIndex}
+   681→   681→                initial={{ opacity: 0, x: 20 }}
+   682→   682→                animate={{ opacity: 1, x: 0 }}
+   683→   683→                exit={{ opacity: 0, x: -20 }}
+   684→   684→                transition={{ duration: 0.3, ease: 'easeInOut' }}
+   685→   685→              >
+   686→   686→                {/* Phase title */}
+   687→   687→                <div className="flex items-center gap-3 mb-5">
+   688→   688→                  <span
+   689→   689→                    className="flex h-10 w-10 items-center justify-center rounded-xl text-white"
+   690→   690→                    style={{ backgroundColor: currentPhase?.color ?? TEAL }}
+   691→   691→                  >
+   692→   692→                    {currentPhase ? getPhaseIcon(currentPhase) : <Sparkles className="h-5 w-5" />}
+   693→   693→                  </span>
+   694→   694→                  <div>
+   695→   695→                    <h2 className="text-lg sm:text-xl font-bold">
+   696→   696→                      {currentPhase?.name ?? 'Chargement…'}
+   697→   697→                    </h2>
+   698→   698→                    <p className="text-xs text-muted-foreground">
+   699→   699→                      {currentPhase?.recommendedMinutes ?? 0} minutes recommandées
+   700→   700→                    </p>
+   701→   701→                  </div>
+   702→   702→                </div>
+   703→   703→
+   704→   704→                {/* Phase component */}
+   705→   705→                <div className="max-w-4xl">
+   706→   706→                  {renderPhase(currentPhaseIndex)}
+   707→   707→                </div>
+   708→   708→              </motion.div>
+   709→   709→            </AnimatePresence>
+   710→   710→          </main>
+   711→   711→
+   712→   712→          {/* Desktop SOP panel */}
+   713→   713→          <SopPanelDesktop />
+   714→   714→        </div>
+   715→   715→      </div>
+   716→   716→    </TooltipProvider>
+   717→   717→  )
+   718→   718→}
+   719→   719→

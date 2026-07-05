@@ -1,0 +1,623 @@
+     1→// ============================================
+     2→// CreaPulse V2 — Bilan IA API
+     3→// GET   /api/bilan     — Collecter données + générer bilan IA
+     4→// POST  /api/bilan     — Régénérer le bilan IA (force refresh)
+     5→// ============================================
+     6→
+     7→import { NextRequest } from 'next/server'
+     8→import { db } from '@/lib/db'
+     9→import { success, Errors } from '@/lib/api-response'
+    10→import { withAuth } from '@/lib/api-auth'
+    11→import { callZAI, parseJSONFromAI, getZAIErrorMessage, aiUnavailableResponse } from '@/lib/zai-helper'
+    12→
+    13→// ─── Rate limiter (5 per hour per user) ──────
+    14→
+    15→const bilanRateLimit = new Map<string, { count: number; resetAt: number }>()
+    16→function checkBilanRateLimit(userId: string): boolean {
+    17→  const now = Date.now()
+    18→  const entry = bilanRateLimit.get(userId)
+    19→  if (!entry || now > entry.resetAt) {
+    20→    bilanRateLimit.set(userId, { count: 1, resetAt: now + 3600000 }) // 1 hour window
+    21→    return true
+    22→  }
+    23→  if (entry.count >= 5) return false // max 5 per hour
+    24→  entry.count++
+    25→  return true
+    26→}
+    27→
+    28→// ─── Types ──────────────────────────────────
+    29→
+    30→interface ParcoursData {
+    31→  profil: {
+    32→    firstName: string | null
+    33→    lastName: string | null
+    34→    email: string
+    35→    employmentStatus: string | null
+    36→    educationLevel: string | null
+    37→    skills: string[]
+    38→    creationMotivation: string | null
+    39→    previousExperience: boolean | null
+    40→    previousExperienceDetails: string | null
+    41→    availableTimePerWeek: number | null
+    42→    hasDisability: boolean
+    43→    rqthStatus: boolean
+    44→    supportNeeds: string[]
+    45→    completionPercent: number
+    46→  }
+    47→  projet: {
+    48→    projectTitle: string | null
+    49→    projectSector: string | null
+    50→    projectDescription: string | null
+    51→    projectStage: string | null
+    52→    targetAudience: string | null
+    53→    valueProposition: string | null
+    54→    estimatedRevenue: string | null
+    55→    estimatedInvestment: string | null
+    56→    completionPercent: number
+    57→  }
+    58→  vision: {
+    59→    visionStatement: string | null
+    60→    objectivesCount: number
+    61→    coreValues: string[]
+    62→    milestonesCount: number
+    63→    motivation: string | null
+    64→    desiredImpact: string | null
+    65→    completionPercent: number
+    66→  }
+    67→  riasec: {
+    68→    completed: boolean
+    69→    scores: Record<string, { score: number; isDominant: boolean }>
+    70→    dominantTypes: string[]
+    71→    totalScore: number
+    72→    moduleScore: number
+    73→  }
+    74→  kiviat: {
+    75→    completed: boolean
+    76→    scores: Record<string, number>
+    77→    average: number
+    78→    strengths: string[]
+    79→    weaknesses: string[]
+    80→    moduleScore: number
+    81→  }
+    82→  bilanSaved: boolean
+    83→}
+    84→
+    85→interface BilanAIGenerated {
+    86→  synthesis: string
+    87→  coherenceAnalysis: string
+    88→  strengths: string[]
+    89→  weaknesses: string[]
+    90→  recommendations: string[]
+    91→  priorityActions: Array<{ title: string; description: string; priority: 'high' | 'medium' | 'low' }>
+    92→  globalScore: number
+    93→  globalScoreLabel: string
+    94→}
+    95→
+    96→// ─── Helper: Token extraction ──────────────
+    97→// Uses centralized withAuth from api-auth (no local duplication)
+    98→
+    99→// ─── Helper: Build parcours data (resilient) ──
+   100→
+   101→async function collectParcoursData(userId: string, tenantId: string): Promise<ParcoursData> {
+   102→  // Fetch all data using safe queries — individual failures won't crash the whole thing
+   103→  // Each query is wrapped in try/catch so partial data is always returned
+   104→  let user: Awaited<ReturnType<typeof db.user.findUnique>> = null
+   105→  let beneficiary: Awaited<ReturnType<typeof db.beneficiary.findUnique>> = null
+   106→  let journey: Awaited<ReturnType<typeof db.creatorJourney.findUnique>> = null
+   107→  let riasecResults: Awaited<ReturnType<typeof db.riasecResult.findMany>> = []
+   108→  let kiviatResults: Awaited<ReturnType<typeof db.kiviatResult.findMany>> = []
+   109→  let bilanModuleResult: Awaited<ReturnType<typeof db.moduleResult.findUnique>> = null
+   110→  let profilModuleResult: Awaited<ReturnType<typeof db.moduleResult.findUnique>> = null
+   111→  let projetModuleResult: Awaited<ReturnType<typeof db.moduleResult.findUnique>> = null
+   112→  let visionModuleResult: Awaited<ReturnType<typeof db.moduleResult.findUnique>> = null
+   113→
+   114→  await Promise.allSettled([
+   115→    db.user.findUnique({ where: { id: userId, tenantId: payload.tenantId } }).then(r => { user = r }).catch(() => {}),
+   116→    db.beneficiary.findUnique({ where: { userId } }).then(r => { beneficiary = r }).catch(() => {}),
+   117→    db.creatorJourney.findUnique({ where: { userId } }).then(r => { journey = r }).catch(() => {}),
+   118→    db.riasecResult.findMany({ where: { userId }, orderBy: { profileType: 'asc' } }).then(r => { riasecResults = r }).catch(() => {}),
+   119→    db.kiviatResult.findMany({ where: { userId }, orderBy: { category: 'asc' } }).then(r => { kiviatResults = r }).catch(() => {}),
+   120→    db.moduleResult.findUnique({ where: { userId_moduleCode: { userId, moduleCode: 'bilan-ia' } } }).then(r => { bilanModuleResult = r }).catch(() => {}),
+   121→    db.moduleResult.findUnique({ where: { userId_moduleCode: { userId, moduleCode: 'profil-createur' } } }).then(r => { profilModuleResult = r }).catch(() => {}),
+   122→    db.moduleResult.findUnique({ where: { userId_moduleCode: { userId, moduleCode: 'mon-projet' } } }).then(r => { projetModuleResult = r }).catch(() => {}),
+   123→    db.moduleResult.findUnique({ where: { userId_moduleCode: { userId, moduleCode: 'vision' } } }).then(r => { visionModuleResult = r }).catch(() => {}),
+   124→  ])
+   125→
+   126→  // Parse vision answers from JSON blob
+   127→  const visionAnswers = (journey?.visionAnswers as Record<string, unknown>) || {}
+   128→
+   129→  // ─── Profil Créateur ───
+   130→  const profilData = {
+   131→    firstName: user?.firstName || null,
+   132→    lastName: user?.lastName || null,
+   133→    email: user?.email || '',
+   134→    employmentStatus: (beneficiary?.employmentStatus as string) || null,
+   135→    educationLevel: beneficiary?.educationLevel || null,
+   136→    skills: Array.isArray(beneficiary?.skills) ? (beneficiary.skills as string[]) : [],
+   137→    creationMotivation: journey?.creationMotivation || null,
+   138→    previousExperience: (visionAnswers.previousExperience as boolean) || null,
+   139→    previousExperienceDetails: (visionAnswers.previousExperienceDetails as string) || null,
+   140→    availableTimePerWeek: (visionAnswers.availableTimePerWeek as number) || null,
+   141→    hasDisability: beneficiary?.hasDisability || false,
+   142→    rqthStatus: beneficiary?.rqthStatus || false,
+   143→    supportNeeds: Array.isArray(visionAnswers.supportNeeds) ? (visionAnswers.supportNeeds as string[]) : [],
+   144→    completionPercent: profilModuleResult?.score || 0,
+   145→  }
+   146→
+   147→  // ─── Mon Projet ───
+   148→  const projetData = {
+   149→    projectTitle: journey?.projectTitle || null,
+   150→    projectSector: journey?.projectSector || null,
+   151→    projectDescription: journey?.projectDescription || null,
+   152→    projectStage: journey?.projectStage || null,
+   153→    targetAudience: journey?.targetAudience || null,
+   154→    valueProposition: journey?.valueProposition || null,
+   155→    estimatedRevenue: journey?.estimatedRevenue || null,
+   156→    estimatedInvestment: journey?.estimatedInvestment || null,
+   157→    completionPercent: projetModuleResult?.score || 0,
+   158→  }
+   159→
+   160→  // ─── Vision ───
+   161→  const objectives = Array.isArray(visionAnswers.objectives) ? visionAnswers.objectives as unknown[] : []
+   162→  const milestones = (visionAnswers.milestones || {}) as Record<string, { goals?: string[] }>
+   163→  const totalMilestones = Object.values(milestones).reduce((s, m) => s + (m?.goals?.length || 0), 0)
+   164→
+   165→  const visionData = {
+   166→    visionStatement: (visionAnswers.visionStatement as string) || null,
+   167→    objectivesCount: objectives.length,
+   168→    coreValues: Array.isArray(visionAnswers.coreValues) ? (visionAnswers.coreValues as string[]) : [],
+   169→    milestonesCount: totalMilestones,
+   170→    motivation: (visionAnswers.motivation as string) || null,
+   171→    desiredImpact: (visionAnswers.desiredImpact as string) || null,
+   172→    completionPercent: visionModuleResult?.score || 0,
+   173→  }
+   174→
+   175→  // ─── RIASEC ───
+   176→  const riasecScores: Record<string, { score: number; isDominant: boolean }> = {}
+   177→  let riasecTotal = 0
+   178→  let riasecModuleScore = 0
+   179→
+   180→  for (const r of riasecResults) {
+   181→    riasecScores[r.profileType] = { score: r.score, isDominant: r.isDominant }
+   182→    riasecTotal += r.score
+   183→  }
+   184→
+   185→  const riasecDominantTypes = Object.entries(riasecScores)
+   186→    .filter(([, v]) => v.isDominant)
+   187→    .sort((a, b) => b[1].score - a[1].score)
+   188→    .map(([k]) => k)
+   189→
+   190→  if (riasecResults.length === 6) {
+   191→    riasecModuleScore = Math.round((riasecTotal / 150) * 100)
+   192→  }
+   193→
+   194→  // ─── Kiviat ───
+   195→  const kiviatScores: Record<string, number> = {}
+   196→  let kiviatTotal = 0
+   197→  const kiviatStrengths: string[] = []
+   198→  const kiviatWeaknesses: string[] = []
+   199→
+   200→  const DIMENSION_LABELS: Record<string, string> = {
+   201→    creativite: 'Créativité',
+   202→    leadership: 'Leadership',
+   203→    gestion_financiere: 'Gestion financière',
+   204→    communication: 'Communication',
+   205→    resolution_problemes: 'Résolution de problèmes',
+   206→    perseverance: 'Persévérance',
+   207→    adaptabilite: 'Adaptabilité',
+   208→    organisation: 'Organisation',
+   209→  }
+   210→
+   211→  for (const r of kiviatResults) {
+   212→    kiviatScores[r.category] = r.score
+   213→    kiviatTotal += r.score
+   214→    if (r.score >= 7) kiviatStrengths.push(DIMENSION_LABELS[r.category] || r.category)
+   215→    if (r.score <= 4) kiviatWeaknesses.push(DIMENSION_LABELS[r.category] || r.category)
+   216→  }
+   217→
+   218→  const kiviatAverage = kiviatResults.length > 0
+   219→    ? Math.round((kiviatTotal / kiviatResults.length) * 10) / 10
+   220→    : 0
+   221→
+   222→  return {
+   223→    profil: profilData,
+   224→    projet: projetData,
+   225→    vision: visionData,
+   226→    riasec: {
+   227→      completed: riasecResults.length === 6,
+   228→      scores: riasecScores,
+   229→      dominantTypes: riasecDominantTypes,
+   230→      totalScore: riasecTotal,
+   231→      moduleScore: riasecModuleScore,
+   232→    },
+   233→    kiviat: {
+   234→      completed: kiviatResults.length === 8,
+   235→      scores: kiviatScores,
+   236→      average: kiviatAverage,
+   237→      strengths: kiviatStrengths,
+   238→      weaknesses: kiviatWeaknesses,
+   239→      moduleScore: Math.round(kiviatAverage * 10),
+   240→    },
+   241→    bilanSaved: !!bilanModuleResult?.completedAt,
+   242→  }
+   243→}
+   244→
+   245→// ─── Helper: Build AI prompt ────────────────
+   246→
+   247→function buildBilanPrompt(data: ParcoursData): string {
+   248→  const RIASEC_LABELS: Record<string, string> = {
+   249→    R: 'Réaliste', I: 'Investigateur', A: 'Artistique',
+   250→    S: 'Social', E: 'Entreprenant', C: 'Conventionnel',
+   251→  }
+   252→
+   253→  const riasecSummary = data.riasec.completed
+   254→    ? `\n  - Types dominants : ${data.riasec.dominantTypes.map(t => RIASEC_LABELS[t] || t).join(', ')}
+   255→  - Scores détaillés : ${Object.entries(data.riasec.scores).map(([k, v]) => `${RIASEC_LABELS[k] || k}: ${v.score}/25${v.isDominant ? ' ★' : ''}`).join(', ')}
+   256→  - Score global : ${data.riasec.totalScore}/150`
+   257→    : '\n  - Non complété'
+   258→
+   259→  const kiviatSummary = data.kiviat.completed
+   260→    ? `\n  - Score moyen : ${data.kiviat.average}/10
+   261→  - Points forts : ${data.kiviat.strengths.join(', ') || 'Aucun'}
+   262→  - Axes d\'amélioration : ${data.kiviat.weaknesses.join(', ') || 'Aucun'}`
+   263→    : '\n  - Non complété'
+   264→
+   265→  return `Tu es un expert en accompagnement entrepreneurial. Tu dois générer un BILAN COMPLET et PERSONNALISÉ pour un créateur d'entreprise sur la plateforme CreaPulse (GIDEF).
+   266→
+   267→Tu dois analyser TOUTES les données ci-dessous et produire un bilan structuré en JSON.
+   268→
+   269→═══ DONNÉES DU CRÉATEUR ═══
+   270→
+   271→👤 PROFIL CRÉATEUR (${data.profil.completionPercent}% complété) :
+   272→  - Nom : ${data.profil.firstName || '?'} ${data.profil.lastName || '?'}
+   273→  - Statut professionnel : ${data.profil.employmentStatus || 'Non renseigné'}
+   274→  - Niveau d'études : ${data.profil.educationLevel || 'Non renseigné'}
+   275→  - Compétences : ${data.profil.skills.join(', ') || 'Aucune'}
+   276→  - Motivation : ${data.profil.creationMotivation || 'Non renseignée'}
+   277→  - Expérience entrepreneuriale : ${data.profil.previousExperience ? `Oui — ${data.profil.previousExperienceDetails || ''}` : 'Non'}
+   278→  - Temps disponible : ${data.profil.availableTimePerWeek || '?'}h/semaine
+   279→  - RQTH : ${data.profil.rqthStatus ? 'Oui' : 'Non'}
+   280→  - Besoins : ${data.profil.supportNeeds.join(', ') || 'Aucun'}
+   281→
+   282→💡 PROJET (${data.projet.completionPercent}% complété) :
+   283→  - Titre : ${data.projet.projectTitle || 'Non défini'}
+   284→  - Secteur : ${data.projet.projectSector || 'Non défini'}
+   285→  - Stade : ${data.projet.projectStage || 'Non défini'}
+   286→  - Description : ${data.projet.projectDescription || 'Non renseignée'}
+   287→  - Client cible : ${data.projet.targetAudience || 'Non défini'}
+   288→  - Proposition de valeur : ${data.projet.valueProposition || 'Non définie'}
+   289→  - Revenus estimés : ${data.projet.estimatedRevenue || '?'}
+   290→  - Investissement : ${data.projet.estimatedInvestment || '?'}
+   291→
+   292→🔭 VISION (${data.vision.completionPercent}% complété) :
+   293→  - Vision à 5 ans : ${data.vision.visionStatement || 'Non définie'}
+   294→  - Objectifs : ${data.vision.objectivesCount} défini(s)
+   295→  - Valeurs : ${data.vision.coreValues.join(', ') || 'Aucune'}
+   296→  - Jalons : ${data.vision.milestonesCount} défini(s)
+   297→  - Impact souhaité : ${data.vision.desiredImpact || 'Non défini'}
+   298→
+   299→🧪 TEST RIASEC :${riasecSummary}
+   300→
+   301→📊 TEST KIVIAT :${kiviatSummary}
+   302→
+   303→═══ FORMAT DE RÉPONSE ═══
+   304→
+   305→Tu DOIS répondre UNIQUEMENT avec un JSON valide (pas de markdown, pas de \`\`\`) respectant cette structure :
+   306→
+   307→{
+   308→  "synthesis": "Paragraphes synthétiques personnalisés (3-4 phrases max) qui résument le profil, le projet et les résultats des tests. Utilise le prénom du créateur.",
+   309→  "coherenceAnalysis": "Analyse de la cohérence entre le profil RIASEC/Kiviat et le projet choisi. Met en évidence les alignements et les écarts. 2-3 phrases.",
+   310→  "strengths": ["Force 1", "Force 2", "Force 3", "Force 4", "Force 5"],
+   311→  "weaknesses": ["Faiblesse 1", "Faiblesse 2", "Faiblesse 3"],
+   312→  "recommendations": ["Recommandation concrète 1", "Recommandation concrète 2", "Recommandation concrète 3", "Recommandation concrète 4", "Recommandation concrète 5"],
+   313→  "priorityActions": [
+   314→    {"title": "Action prioritaire 1", "description": "Description courte", "priority": "high"},
+   315→    {"title": "Action 2", "description": "Description courte", "priority": "medium"},
+   316→    {"title": "Action 3", "description": "Description courte", "priority": "low"}
+   317→  ],
+   318→  "globalScore": 75,
+   319→  "globalScoreLabel": "Profil Prometteur"
+   320→}
+   321→
+   322→RÈGLES :
+   323→- "strengths" : minimum 3, maximum 6. Basé sur RIASEC + Kiviat + Profil + Projet.
+   324→- "weaknesses" : minimum 2, maximum 5. Basé sur les faiblesses Kiviat + écarts RIASEC/projet.
+   325→- "recommendations" : minimum 3, maximum 7. Chaque recommandation doit être CONCRÈTE et ACTIONNABLE.
+   326→- "priorityActions" : exactement 3 actions, avec priorities "high", "medium", "low".
+   327→- "globalScore" : score global de préparation entrepreneuriale de 0 à 100. Calculé en pondérant : Profil(20%) + Projet(25%) + RIASEC(20%) + Kiviat(25%) + Vision(10%).
+   328→- "globalScoreLabel" : "Profil Émergent" (0-30), "Profil en Développement" (31-50), "Profil Prometteur" (51-70), "Profil Avancé" (71-85), "Profil Complet" (86-100).
+   329→- "coherenceAnalysis" : identifie les compatibilités et incompatibilités entre profil et projet.
+   330→- Utilise TOUJOURS le français.
+   331→- Sois encourageant mais honnête sur les axes d'amélioration.`
+   332→}
+   333→
+   334→// ─── Helper: Default fallback bilan ──────────
+   335→
+   336→function getFallbackBilan(data: ParcoursData, reason: string): BilanAIGenerated {
+   337→  const isAiDown = reason === 'sdk_init' || reason === 'ai_call'
+   338→  return {
+   339→    synthesis: `Bonjour ${data.profil.firstName || ''}, ${isAiDown
+   340→      ? "votre bilan est en cours de préparation. L'IA n'est pas disponible pour le moment, mais vos données de parcours sont bien enregistrées."
+   341→      : "votre bilan a été généré avec des données partielles. Complétez davantage de modules pour un bilan plus précis."
+   342→    }`,
+   343→    coherenceAnalysis: '',
+   344→    strengths: ['Parcours entrepreneurial initié', ...data.riasec.completed ? ['Test RIASEC complété'] : [], ...data.kiviat.completed ? ['Test Kiviat complété'] : []],
+   345→    weaknesses: isAiDown
+   346→      ? ['Service IA temporairement indisponible']
+   347→      : ['Complétez les modules du parcours pour un bilan détaillé'],
+   348→    recommendations: isAiDown
+   349→      ? ['Réessayez dans quelques instants', 'Complétez les modules du parcours en attendant']
+   350→      : ['Complétez votre Profil Créateur', 'Remplissez la fiche Mon Projet', 'Passez le test RIASEC', 'Passez le test Kiviat'],
+   351→    priorityActions: [
+   352→      { title: 'Compléter le profil', description: 'Remplissez vos informations entrepreneuriales', priority: 'high' },
+   353→      { title: 'Définir le projet', description: 'Décrivez votre projet en détail', priority: 'medium' },
+   354→      { title: isAiDown ? 'Réessayer le bilan' : 'Passer les tests', description: isAiDown ? 'Le service IA sera bientôt disponible' : 'Complétez les tests RIASEC et Kiviat', priority: 'low' },
+   355→    ],
+   356→    globalScore: calculateLocalGlobalScore(data),
+   357→    globalScoreLabel: getScoreLabel(calculateLocalGlobalScore(data)),
+   358→  }
+   359→}
+   360→
+   361→// ─── Helper: Call LLM via shared helper ──────
+   362→
+   363→async function generateBilanAI(data: ParcoursData): Promise<BilanAIGenerated> {
+   364→  const prompt = buildBilanPrompt(data)
+   365→
+   366→  // Use the shared ZAI helper — never throws
+   367→  const result = await callZAI([
+   368→    { role: 'system', content: 'Tu es un assistant IA expert en bilan entrepreneurial. Tu réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.' },
+   369→    { role: 'user', content: prompt },
+   370→  ], { temperature: 0.5, max_tokens: 2000 })
+   371→
+   372→  if (!result.success) {
+   373→    console.error('[Bilan IA] AI generation failed:', result.reason, result.error)
+   374→    return getFallbackBilan(data, result.reason)
+   375→  }
+   376→
+   377→  // Parse the JSON response
+   378→  const parsed = parseJSONFromAI<BilanAIGenerated>(result.content)
+   379→  if (!parsed) {
+   380→    console.error('[Bilan IA] JSON parsing failed')
+   381→    return getFallbackBilan(data, 'empty_response')
+   382→  }
+   383→
+   384→  // Validate and sanitize
+   385→  return {
+   386→    synthesis: typeof parsed.synthesis === 'string' ? parsed.synthesis : 'Bilan en cours de génération.',
+   387→    coherenceAnalysis: typeof parsed.coherenceAnalysis === 'string' ? parsed.coherenceAnalysis : '',
+   388→    strengths: Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 6) : [],
+   389→    weaknesses: Array.isArray(parsed.weaknesses) ? parsed.weaknesses.slice(0, 5) : [],
+   390→    recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations.slice(0, 7) : [],
+   391→    priorityActions: Array.isArray(parsed.priorityActions) ? parsed.priorityActions.slice(0, 3).map(a => ({
+   392→      title: String(a.title || ''),
+   393→      description: String(a.description || ''),
+   394→      priority: ['high', 'medium', 'low'].includes(a.priority) ? a.priority : 'medium' as const,
+   395→    })) : [],
+   396→    globalScore: typeof parsed.globalScore === 'number' ? Math.min(100, Math.max(0, Math.round(parsed.globalScore))) : calculateLocalGlobalScore(data),
+   397→    globalScoreLabel: typeof parsed.globalScoreLabel === 'string' ? parsed.globalScoreLabel : getScoreLabel(calculateLocalGlobalScore(data)),
+   398→  }
+   399→}
+   400→
+   401→// ─── Helper: Calculate local score ──────────
+   402→
+   403→function calculateLocalGlobalScore(data: ParcoursData): number {
+   404→  const profilWeight = 0.20
+   405→  const projetWeight = 0.25
+   406→  const riasecWeight = 0.20
+   407→  const kiviatWeight = 0.25
+   408→  const visionWeight = 0.10
+   409→
+   410→  const profilScore = data.profil.completionPercent
+   411→  const projetScore = data.projet.completionPercent
+   412→  const riasecScore = data.riasec.completed ? data.riasec.moduleScore : 0
+   413→  const kiviatScore = data.kiviat.completed ? data.kiviat.moduleScore : 0
+   414→  const visionScore = data.vision.completionPercent
+   415→
+   416→  return Math.round(
+   417→    profilScore * profilWeight +
+   418→    projetScore * projetWeight +
+   419→    riasecScore * riasecWeight +
+   420→    kiviatScore * kiviatWeight +
+   421→    visionScore * visionWeight
+   422→  )
+   423→}
+   424→
+   425→function getScoreLabel(score: number): string {
+   426→  if (score >= 86) return 'Profil Complet'
+   427→  if (score >= 71) return 'Profil Avancé'
+   428→  if (score >= 51) return 'Profil Prometteur'
+   429→  if (score >= 31) return 'Profil en Développement'
+   430→  return 'Profil Émergent'
+   431→}
+   432→
+   433→// ─── GET: Collecter données + bilan ─────────
+   434→
+   435→export async function GET(request: NextRequest) {
+   436→  try {
+   437→    const authResult = await withAuth(request)
+   438→    if (authResult instanceof Response) return authResult
+   439→    const { payload } = authResult
+   440→
+   441→    // Collect parcours data (resilient — individual query failures won't crash)
+   442→    const parcoursData = await collectParcoursData(payload.userId, payload.tenantId)
+   443→
+   444→    // Check if a bilan already exists in ModuleResult
+   445→    let existingBilan: Awaited<ReturnType<typeof db.moduleResult.findUnique>> = null
+   446→    try {
+   447→      existingBilan = await db.moduleResult.findUnique({
+   448→        where: { userId_moduleCode: { userId: payload.userId, moduleCode: 'bilan-ia' } },
+   449→      })
+   450→    } catch { /* non-critical */ }
+   451→
+   452→    // If bilan already saved, return it with parcours data
+   453→    if (existingBilan?.feedback) {
+   454→      try {
+   455→        const savedBilan = JSON.parse(existingBilan.feedback) as BilanAIGenerated
+   456→        return success({
+   457→          parcours: parcoursData,
+   458→          bilan: savedBilan,
+   459→          localScore: calculateLocalGlobalScore(parcoursData),
+   460→          localScoreLabel: getScoreLabel(calculateLocalGlobalScore(parcoursData)),
+   461→          generatedAt: existingBilan.completedAt,
+   462→          isStale: false,
+   463→        })
+   464→      } catch {
+   465→        // feedback JSON corrupted, will return no bilan below
+   466→      }
+   467→    }
+   468→
+   469→    // Otherwise return parcours data + local score (no AI bilan yet)
+   470→    return success({
+   471→      parcours: parcoursData,
+   472→      bilan: null,
+   473→      localScore: calculateLocalGlobalScore(parcoursData),
+   474→      localScoreLabel: getScoreLabel(calculateLocalGlobalScore(parcoursData)),
+   475→      generatedAt: existingBilan?.completedAt || null,
+   476→      isStale: false,
+   477→    })
+   478→  } catch (err) {
+   479→    if (err instanceof Error && err.message.includes('unauthorized')) {
+   480→      return Errors.unauthorized(err.message)
+   481→    }
+   482→    // Never return 500 — return partial/empty data on unexpected errors
+   483→    console.error('[Bilan GET] Unexpected error:', err)
+   484→    return success({
+   485→      parcours: null,
+   486→      bilan: null,
+   487→      localScore: 0,
+   488→      localScoreLabel: 'Profil Émergent',
+   489→      generatedAt: null,
+   490→      isStale: false,
+   491→      error: 'Impossible de charger les données du parcours. Veuillez réessayer.',
+   492→    })
+   493→  }
+   494→}
+   495→
+   496→// ─── POST: Générer / régénérer bilan IA ───
+   497→
+   498→export async function POST(request: NextRequest) {
+   499→  try {
+   500→    const authResult = await withAuth(request)
+   501→    if (authResult instanceof Response) return authResult
+   502→    const { payload } = authResult
+   503→
+   504→    // Rate limit: max 5 AI bilan generations per hour per user
+   505→    if (!checkBilanRateLimit(payload.userId)) {
+   506→      return Response.json(
+   507→        {
+   508→          success: false,
+   509→          error: {
+   510→            code: 'RATE_LIMITED',
+   511→            message: 'Trop de requêtes. Veuillez réessayer dans une heure.',
+   512→          },
+   513→          timestamp: new Date().toISOString(),
+   514→        },
+   515→        { status: 429 },
+   516→      )
+   517→    }
+   518→
+   519→    // Collect parcours data (resilient)
+   520→    const parcoursData = await collectParcoursData(payload.userId, payload.tenantId)
+   521→
+   522→    // Check minimum data available
+   523→    const hasSomeData =
+   524→      parcoursData.profil.completionPercent > 0 ||
+   525→      parcoursData.projet.completionPercent > 0 ||
+   526→      parcoursData.riasec.completed ||
+   527→      parcoursData.kiviat.completed
+   528→
+   529→    if (!hasSomeData) {
+   530→      return Response.json(
+   531→        {
+   532→          success: false,
+   533→          error: {
+   534→            code: 'INSUFFICIENT_DATA',
+   535→            message: 'Veuillez compléter au moins un module du parcours avant de générer votre bilan.',
+   536→          },
+   537→          timestamp: new Date().toISOString(),
+   538→        },
+   539→        { status: 400 },
+   540→      )
+   541→    }
+   542→
+   543→    // Generate AI bilan (uses shared ZAI helper — never throws)
+   544→    const bilan = await generateBilanAI(parcoursData)
+   545→
+   546→    // Save to ModuleResult (safe — non-critical)
+   547→    const bilanJson = JSON.stringify(bilan)
+   548→    const localScore = calculateLocalGlobalScore(parcoursData)
+   549→
+   550→    try {
+   551→      await db.moduleResult.upsert({
+   552→        where: {
+   553→          userId_moduleCode: {
+   554→            userId: payload.userId,
+   555→            moduleCode: 'bilan-ia',
+   556→          },
+   557→        },
+   558→        create: {
+   559→          userId: payload.userId,
+   560→          moduleCode: 'bilan-ia',
+   561→          score: localScore,
+   562→          maxScore: 100,
+   563→          answers: {
+   564→            profilCompletion: parcoursData.profil.completionPercent,
+   565→            projetCompletion: parcoursData.projet.completionPercent,
+   566→            riasecCompleted: parcoursData.riasec.completed,
+   567→            kiviatCompleted: parcoursData.kiviat.completed,
+   568→            riasecModuleScore: parcoursData.riasec.moduleScore,
+   569→            kiviatModuleScore: parcoursData.kiviat.moduleScore,
+   570→          },
+   571→          feedback: bilanJson,
+   572→          completedAt: new Date(),
+   573→        },
+   574→        update: {
+   575→          score: localScore,
+   576→          answers: {
+   577→            profilCompletion: parcoursData.profil.completionPercent,
+   578→            projetCompletion: parcoursData.projet.completionPercent,
+   579→            riasecCompleted: parcoursData.riasec.completed,
+   580→            kiviatCompleted: parcoursData.kiviat.completed,
+   581→            riasecModuleScore: parcoursData.riasec.moduleScore,
+   582→            kiviatModuleScore: parcoursData.kiviat.moduleScore,
+   583→          },
+   584→          feedback: bilanJson,
+   585→          completedAt: new Date(),
+   586→        },
+   587→      })
+   588→    } catch { /* non-critical: bilan was generated even if save fails */ }
+   589→
+   590→    return success({
+   591→      parcours: parcoursData,
+   592→      bilan,
+   593→      localScore,
+   594→      localScoreLabel: getScoreLabel(localScore),
+   595→      generatedAt: new Date().toISOString(),
+   596→    }, 'Bilan IA généré avec succès')
+   597→  } catch (err) {
+   598→    if (err instanceof Error && err.message.includes('unauthorized')) {
+   599→      return Errors.unauthorized(err.message)
+   600→    }
+   601→    // Never return 500 — return the generated bilan with a warning
+   602→    console.error('[Bilan POST] Unexpected error:', err)
+   603→    return success({
+   604→      parcours: null,
+   605→      bilan: {
+   606→        synthesis: 'Une erreur inattendue est survenue. Veuillez réessayer.',
+   607→        coherenceAnalysis: '',
+   608→        strengths: [],
+   609→        weaknesses: ['Erreur de serveur'],
+   610→        recommendations: ['Réessayez de générer le bilan'],
+   611→        priorityActions: [
+   612→          { title: 'Réessayer', description: 'Relancez la génération du bilan IA', priority: 'high' },
+   613→        ],
+   614→        globalScore: 0,
+   615→        globalScoreLabel: 'Profil Émergent',
+   616→      },
+   617→      localScore: 0,
+   618→      localScoreLabel: 'Profil Émergent',
+   619→      generatedAt: new Date().toISOString(),
+   620→    }, 'Erreur lors de la sauvegarde — le bilan a été généré partiellement')
+   621→  }
+   622→}
+   623→

@@ -1,0 +1,891 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Input } from '@/components/ui/input'
+     9→import {
+    10→  GitBranch,
+    11→  Plus,
+    12→  Trash2,
+    13→  Copy,
+    14→  Download,
+    15→  LayoutTemplate,
+    16→  ZoomIn,
+    17→  ZoomOut,
+    18→  Move,
+    19→} from 'lucide-react'
+    20→import { toast } from 'sonner'
+    21→import { cn } from '@/lib/utils'
+    22→import { authFetch } from '@/lib/auth-fetch'
+    23→import { Undo2, Redo2 } from 'lucide-react'
+    24→
+    25→// ─── Types ──────────────────────────────────
+    26→
+    27→interface MindMapNode {
+    28→  id: string
+    29→  text: string
+    30→  x: number
+    31→  y: number
+    32→  parentId: string | null
+    33→  color: string
+    34→  children: string[]
+    35→}
+    36→
+    37→const BRANCH_COLORS = [
+    38→  '#8b5cf6', // violet
+    39→  '#f97316', // orange
+    40→  '#06b6d4', // cyan
+    41→  '#10b981', // emerald
+    42→  '#f43f5e', // rose
+    43→  '#eab308', // yellow
+    44→  '#3b82f6', // blue
+    45→  '#ec4899', // pink
+    46→]
+    47→
+    48→const STORAGE_KEY = 'creapulse-mindmap'
+    49→
+    50→const TEMPLATES: Record<string, MindMapNode[]> = {
+    51→  'Mon Projet': [
+    52→    { id: 'root', text: 'Mon Projet', x: 400, y: 300, parentId: null, color: '#8b5cf6', children: ['p1', 'p2', 'p3', 'p4'] },
+    53→    { id: 'p1', text: 'Produit / Service', x: 200, y: 120, parentId: 'root', color: '#f97316', children: [] },
+    54→    { id: 'p2', text: 'Marché cible', x: 600, y: 120, parentId: 'root', color: '#06b6d4', children: [] },
+    55→    { id: 'p3', text: 'Ressources', x: 200, y: 480, parentId: 'root', color: '#10b981', children: [] },
+    56→    { id: 'p4', text: 'Objectifs', x: 600, y: 480, parentId: 'root', color: '#f43f5e', children: [] },
+    57→  ],
+    58→  'Offre Commerciale': [
+    59→    { id: 'root', text: 'Offre Commerciale', x: 400, y: 300, parentId: null, color: '#8b5cf6', children: ['o1', 'o2', 'o3', 'o4'] },
+    60→    { id: 'o1', text: 'Tarification', x: 180, y: 140, parentId: 'root', color: '#f97316', children: [] },
+    61→    { id: 'o2', text: 'Avantages clients', x: 620, y: 140, parentId: 'root', color: '#06b6d4', children: [] },
+    62→    { id: 'o3', text: 'Canaux de vente', x: 180, y: 460, parentId: 'root', color: '#10b981', children: [] },
+    63→    { id: 'o4', text: 'Différenciation', x: 620, y: 460, parentId: 'root', color: '#eab308', children: [] },
+    64→  ],
+    65→  'Réseau': [
+    66→    { id: 'root', text: 'Mon Réseau', x: 400, y: 300, parentId: null, color: '#8b5cf6', children: ['r1', 'r2', 'r3', 'r4', 'r5'] },
+    67→    { id: 'r1', text: 'Mentors', x: 150, y: 100, parentId: 'root', color: '#f97316', children: [] },
+    68→    { id: 'r2', text: 'Partenaires', x: 400, y: 80, parentId: 'root', color: '#06b6d4', children: [] },
+    69→    { id: 'r3', text: 'Conseillers', x: 650, y: 100, parentId: 'root', color: '#10b981', children: [] },
+    70→    { id: 'r4', text: 'Pairs', x: 150, y: 500, parentId: 'root', color: '#f43f5e', children: [] },
+    71→    { id: 'r5', text: 'Fournisseurs', x: 650, y: 500, parentId: 'root', color: '#eab308', children: [] },
+    72→  ],
+    73→}
+    74→
+    75→const CANVAS_W = 900
+    76→const CANVAS_H = 650
+    77→
+    78→// ─── Helpers ────────────────────────────────
+    79→
+    80→function uid(): string {
+    81→  return crypto.randomUUID()
+    82→}
+    83→
+    84→function getNextColor(childCount: number): string {
+    85→  return BRANCH_COLORS[childCount % BRANCH_COLORS.length]
+    86→}
+    87→
+    88→function buildTextOutline(nodes: MindMapNode[], nodeId: string, indent: number = 0): string {
+    89→  const node = nodes.find(n => n.id === nodeId)
+    90→  if (!node) return ''
+    91→  const prefix = '  '.repeat(indent)
+    92→  let result = `${prefix}${indent === 0 ? '## ' : '- '}${node.text}\n`
+    93→  for (const childId of node.children) {
+    94→    result += buildTextOutline(nodes, childId, indent + 1)
+    95→  }
+    96→  return result
+    97→}
+    98→
+    99→// ─── Main Component ─────────────────────────
+   100→
+   101→// ─── Auto-layout: radial tree from root ───
+   102→function autoLayout(nodes: MindMapNode[], canvasW: number, canvasH: number): MindMapNode[] {
+   103→  const root = nodes.find(n => n.parentId === null)
+   104→  if (!root) return nodes
+   105→
+   106→  const result = nodes.map(n => ({ ...n, children: [...n.children] }))
+   107→  const map = new Map(result.map(n => [n.id, n]))
+   108→  const cx = canvasW / 2
+   109→  const cy = canvasH / 2
+   110→
+   111→  // Root at center
+   112→  const r = map.get(root.id)!
+   113→  r.x = cx
+   114→  r.y = cy
+   115→
+   116→  // Direct children in a circle
+   117→  const directChildren = result.filter(n => n.parentId === root.id)
+   118→  const childCount = directChildren.length
+   119→  directChildren.forEach((child, i) => {
+   120→    const angle = (i / Math.max(childCount, 1)) * Math.PI * 2 - Math.PI / 2
+   121→    const dist = 160
+   122→    child.x = cx + Math.cos(angle) * dist
+   123→    child.y = cy + Math.sin(angle) * dist
+   124→
+   125→    // Grandchildren in smaller arc around their parent
+   126→    const grandChildren = result.filter(n => n.parentId === child.id)
+   127→ grandChildren.forEach((gc, j) => {
+   128→      const spread = Math.PI / Math.max(childCount, 3)
+   129→ const gcAngle = angle + (j - (grandChildren.length - 1) / 2) * (spread / Math.max(grandChildren.length, 1))
+   130→      const gcDist = 100
+   131→      gc.x = child.x + Math.cos(gcAngle) * gcDist
+   132→      gc.y = child.y + Math.sin(gcAngle) * gcDist
+   133→      // Clamp to canvas
+   134→      gc.x = Math.max(60, Math.min(canvasW - 60, gc.x))
+   135→      gc.y = Math.max(30, Math.min(canvasH - 30, gc.y))
+   136→    })
+   137→  })
+   138→
+   139→  return result
+   140→}
+   141→
+   142→// ─── Main Component ─────────────────────────
+   143→
+   144→export function MindMapModule() {
+   145→  const [isLoading, setIsLoading] = useState(true)
+   146→  const [nodes, setNodes] = useState<MindMapNode[]>([])
+   147→  const [selectedId, setSelectedId] = useState<string | null>(null)
+   148→  const [editingId, setEditingId] = useState<string | null>(null)
+   149→  const [editText, setEditText] = useState('')
+   150→  const [zoom, setZoom] = useState(1)
+   151→  const [isDragging, setIsDragging] = useState(false)
+   152→  const [dragNodeId, setDragNodeId] = useState<string | null>(null)
+   153→  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+   154→  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null)
+   155→  const [serverMapId, setServerMapId] = useState<string | null>(null)
+   156→  const [saving, setSaving] = useState(false)
+   157→  const canvasRef = useRef<HTMLDivElement>(null)
+   158→  const editInputRef = useRef<HTMLInputElement>(null)
+   159→  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+   160→
+   161→  // ─── Undo / Redo ───────────────────────
+   162→  const [history, setHistory] = useState<MindMapNode[][]>([])
+   163→  const [historyIdx, setHistoryIdx] = useState(-1)
+   164→  const pushHistory = useCallback((newNodes: MindMapNode[]) => {
+   165→    setHistory(prev => {
+   166→      const truncated = prev.slice(0, historyIdx + 1)
+   167→      return [...truncated, newNodes.map(n => ({ ...n, children: [...n.children] }))]
+   168→    })
+   169→    setHistoryIdx(prev => prev + 1)
+   170→  }, [historyIdx])
+   171→  const undo = useCallback(() => {
+   172→    if (historyIdx <= 0) return
+   173→    const prev = history[historyIdx - 1]
+   174→    if (prev) { setNodes(prev.map(n => ({ ...n, children: [...n.children] }))); setHistoryIdx(historyIdx - 1) }
+   175→  }, [history, historyIdx])
+   176→  const redo = useCallback(() => {
+   177→    if (historyIdx >= history.length - 1) return
+   178→    const next = history[historyIdx + 1]
+   179→    if (next) { setNodes(next.map(n => ({ ...n, children: [...n.children] }))); setHistoryIdx(historyIdx + 1) }
+   180→  }, [history, historyIdx])
+   181→
+   182→  // ─── Load from API, fallback localStorage ──
+   183→  useEffect(() => {
+   184→    async function load() {
+   185→      try {
+   186→        const res = await authFetch('/api/mind-map')
+   187→        if (res.ok) {
+   188→          const json = await res.json()
+   189→          if (json.success && json.data?.mindMaps?.length > 0) {
+   190→            // Load the most recent map
+   191→            const latest = json.data.mindMaps[0]
+   192→            const resFull = await authFetch(`/api/mind-map?id=${latest.id}`)
+   193→            if (resFull.ok) {
+   194→              const full = await resFull.json()
+   195→              if (full.success && full.data?.nodes) {
+   196→                const parsed = full.data.nodes
+   197→                if (Array.isArray(parsed) && parsed.length > 0) {
+   198→                  setNodes(parsed)
+   199→                  setServerMapId(latest.id)
+   200→                  pushHistory(parsed)
+   201→                  setIsLoading(false)
+   202→                  return
+   203→                }
+   204→              }
+   205→            }
+   206→          }
+   207→        }
+   208→      } catch { /* fallback */ }
+   209→      // Fallback: localStorage
+   210→      try {
+   211→        const saved = localStorage.getItem(STORAGE_KEY)
+   212→        if (saved) {
+   213→          const parsed = JSON.parse(saved)
+   214→          if (Array.isArray(parsed) && parsed.length > 0) {
+   215→            setNodes(parsed)
+   216→            pushHistory(parsed)
+   217→            setIsLoading(false)
+   218→            return
+   219→          }
+   220→        }
+   221→      } catch { /* ignore */ }
+   222→      // Default: empty root
+   223→      const defaults = [
+   224→        { id: 'root', text: 'Idée centrale', x: CANVAS_W / 2, y: CANVAS_H / 2, parentId: null, color: BRANCH_COLORS[0], children: [] },
+   225→      ]
+   226→      setNodes(defaults)
+   227→      pushHistory(defaults)
+   228→      setIsLoading(false)
+   229→    }
+   230→    load()
+   231→  }, [])
+   232→
+   233→  // ─── Auto-save (localStorage + API with debounce) ──
+   234→  useEffect(() => {
+   235→    if (isLoading) return
+   236→    // Local always
+   237→    localStorage.setItem(STORAGE_KEY, JSON.stringify(nodes))
+   238→    // Debounced server save
+   239→    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+   240→    saveTimerRef.current = setTimeout(async () => {
+   241→      setSaving(true)
+   242→      try {
+   243→        if (serverMapId) {
+   244→          await authFetch('/api/mind-map', {
+   245→            method: 'PUT',
+   246→            headers: { 'Content-Type': 'application/json' },
+   247→            body: JSON.stringify({ id: serverMapId, nodes }),
+   248→          })
+   249→        } else {
+   250→          const res = await authFetch('/api/mind-map', {
+   251→            method: 'POST',
+   252→            headers: { 'Content-Type': 'application/json' },
+   253→            body: JSON.stringify({ nodes }),
+   254→          })
+   255→          if (res.ok) {
+   256→            const json = await res.json()
+   257→            if (json.success && json.data?.id) setServerMapId(json.data.id)
+   258→          }
+   259→        }
+   260→      } catch { /* silent */ }
+   261→      setSaving(false)
+   262→    }, 2000)
+   263→    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
+   264→  }, [isLoading, nodes, serverMapId])
+   265→
+   266→  // ─── Focus edit input ────────────────────
+   267→  useEffect(() => {
+   268→    if (editingId && editInputRef.current) {
+   269→      editInputRef.current.focus()
+   270→      editInputRef.current.select()
+   271→    }
+   272→  }, [editingId])
+   273→
+   274→  // ─── Keyboard shortcuts ────────────────
+   275→  useEffect(() => {
+   276→    const handler = (e: KeyboardEvent) => {
+   277→      if (editingId) return // don't intercept while editing text
+   278→      if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); undo() }
+   279→      if ((e.metaKey || e.ctrlKey) && e.key === 'y') { e.preventDefault(); redo() }
+   280→    }
+   281→    window.addEventListener('keydown', handler)
+   282→    return () => window.removeEventListener('keydown', handler)
+   283→  }, [editingId, undo, redo])
+   284→
+   285→  // ─── Close context menu on click ─────────
+   286→  useEffect(() => {
+   287→    const handler = () => setContextMenu(null)
+   288→    window.addEventListener('click', handler)
+   289→    return () => window.removeEventListener('click', handler)
+   290→  }, [])
+   291→
+   292→  // ─── Node map for quick lookup ───────────
+   293→  const nodeMap = useMemo(() => {
+   294→    const map = new Map<string, MindMapNode>()
+   295→    for (const n of nodes) map.set(n.id, n)
+   296→    return map
+   297→  }, [nodes])
+   298→
+   299→  // ─── Add child node ──────────────────────
+   300→  const addChildNode = useCallback((parentId: string) => {
+   301→    const parent = nodeMap.get(parentId)
+   302→    if (!parent) return
+   303→
+   304→    const angle = (parent.children.length * Math.PI * 2) / Math.max(parent.children.length + 1, 5) - Math.PI / 2
+   305→    const dist = 120 + parent.children.length * 10
+   306→    const newX = Math.max(80, Math.min(CANVAS_W - 80, parent.x + Math.cos(angle) * dist))
+   307→    const newY = Math.max(40, Math.min(CANVAS_H - 40, parent.y + Math.sin(angle) * dist))
+   308→
+   309→    const newId = uid()
+   310→    const color = parentId === 'root' || parent.parentId === null
+   311→      ? getNextColor(parent.children.length)
+   312→      : parent.color
+   313→
+   314→    const newNode: MindMapNode = {
+   315→      id: newId,
+   316→      text: 'Nouvelle idée',
+   317→      x: newX,
+   318→      y: newY,
+   319→      parentId,
+   320→      color,
+   321→      children: [],
+   322→    }
+   323→
+   324→    setNodes(prev => {
+   325→      const updated = prev.map(n =>
+   326→        n.id === parentId ? { ...n, children: [...n.children, newId] } : n
+   327→      )
+   328→      const result = [...updated, newNode]
+   329→      pushHistory(result)
+   330→      return result
+   331→    })
+   332→    setSelectedId(newId)
+   333→    setEditingId(newId)
+   334→    setEditText('Nouvelle idée')
+   335→  }, [nodeMap])
+   336→
+   337→  // ─── Delete node ─────────────────────────
+   338→  const deleteNode = useCallback((nodeId: string) => {
+   339→    const node = nodeMap.get(nodeId)
+   340→    if (!node || !node.parentId) {
+   341→      toast.error('Impossible de supprimer le nœud central')
+   342→      return
+   343→    }
+   344→
+   345→    // Recursively collect all descendant ids
+   346→    const toDelete = new Set<string>()
+   347→    const collect = (id: string) => {
+   348→      toDelete.add(id)
+   349→      const n = nodeMap.get(id)
+   350→      if (n) n.children.forEach(collect)
+   351→    }
+   352→    collect(nodeId)
+   353→
+   354→    setNodes(prev => {
+   355→      // Remove node from parent's children
+   356→      const updated = prev.map(n =>
+   357→        n.id === node.parentId
+   358→          ? { ...n, children: n.children.filter(c => c !== nodeId) }
+   359→          : n
+   360→      )
+   361→      const result = updated.filter(n => !toDelete.has(n.id))
+   362→      pushHistory(result)
+   363→      return result
+   364→    })
+   365→    setSelectedId(null)
+   366→    setEditingId(null)
+   367→  }, [nodeMap])
+   368→
+   369→  // ─── Update node text ────────────────────
+   370→  const updateNodeText = useCallback((nodeId: string, text: string) => {
+   371→    setNodes(prev => {
+   372→      const result = prev.map(n => n.id === nodeId ? { ...n, text } : n)
+   373→      return result
+   374→    })
+   375→  }, [])
+   376→
+   377→  // ─── Update node position (no history push during drag) ────
+   378→  const updateNodePosition = useCallback((nodeId: string, x: number, y: number) => {
+   379→    setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, x, y } : n))
+   380→  }, [])
+   381→
+   382→  // Push history on drag end
+   383→  useEffect(() => {
+   384→    if (!isDragging && nodes.length > 0) {
+   385→      // Push to history when drag ends (debounced by the render cycle)
+   386→      const current = history[historyIdx]
+   387→      if (!current || JSON.stringify(current) !== JSON.stringify(nodes)) {
+   388→        setHistory(prev => [...prev.slice(0, historyIdx + 1), nodes.map(n => ({ ...n, children: [...n.children] }))])
+   389→        setHistoryIdx(prev => prev + 1)
+   390→      }
+   391→    }
+   392→  // eslint-disable-next-line react-hooks/exhaustive-deps
+   393→  }, [isDragging])
+   394→
+   395→  // ─── Drag handlers ───────────────────────
+   396→  const handleMouseDown = useCallback((e: React.MouseEvent, nodeId: string) => {
+   397→    if (e.button !== 0) return // left click only
+   398→    e.stopPropagation()
+   399→    const node = nodeMap.get(nodeId)
+   400→    if (!node) return
+   401→
+   402→    const canvas = canvasRef.current
+   403→    if (!canvas) return
+   404→    const rect = canvas.getBoundingClientRect()
+   405→    const scaleX = CANVAS_W / (rect.width * zoom)
+   406→    const scaleY = CANVAS_H / (rect.height * zoom)
+   407→
+   408→    setIsDragging(true)
+   409→    setDragNodeId(nodeId)
+   410→    setDragOffset({
+   411→      x: (e.clientX - rect.left) * scaleX - node.x,
+   412→      y: (e.clientY - rect.top) * scaleY - node.y,
+   413→    })
+   414→    setSelectedId(nodeId)
+   415→  }, [nodeMap, zoom])
+   416→
+   417→  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+   418→    if (!isDragging || !dragNodeId) return
+   419→
+   420→    const canvas = canvasRef.current
+   421→    if (!canvas) return
+   422→    const rect = canvas.getBoundingClientRect()
+   423→    const scaleX = CANVAS_W / (rect.width * zoom)
+   424→    const scaleY = CANVAS_H / (rect.height * zoom)
+   425→
+   426→    const x = Math.max(40, Math.min(CANVAS_W - 40, (e.clientX - rect.left) * scaleX - dragOffset.x))
+   427→    const y = Math.max(20, Math.min(CANVAS_H - 20, (e.clientY - rect.top) * scaleY - dragOffset.y))
+   428→    updateNodePosition(dragNodeId, x, y)
+   429→  }, [isDragging, dragNodeId, dragOffset, zoom, updateNodePosition])
+   430→
+   431→  const handleMouseUp = useCallback(() => {
+   432→    setIsDragging(false)
+   433→    setDragNodeId(null)
+   434→  }, [])
+   435→
+   436→  // ─── Double click to edit ────────────────
+   437→  const handleDoubleClick = useCallback((e: React.MouseEvent, nodeId: string) => {
+   438→    e.stopPropagation()
+   439→    const node = nodeMap.get(nodeId)
+   440→    if (!node) return
+   441→    setEditingId(nodeId)
+   442→    setEditText(node.text)
+   443→  }, [nodeMap])
+   444→
+   445→  // ─── Submit edit ─────────────────────────
+   446→  const submitEdit = useCallback(() => {
+   447→    if (editingId && editText.trim()) {
+   448→      updateNodeText(editingId, editText.trim())
+   449→    }
+   450→    setEditingId(null)
+   451→  }, [editingId, editText, updateNodeText])
+   452→
+   453→  // ─── Right click context menu ────────────
+   454→  const handleContextMenu = useCallback((e: React.MouseEvent, nodeId: string) => {
+   455→    e.preventDefault()
+   456→    e.stopPropagation()
+   457→    setContextMenu({ x: e.clientX, y: e.clientY, nodeId })
+   458→  }, [])
+   459→
+   460→  // ─── Load template ───────────────────────
+   461→  const loadTemplate = useCallback((name: string) => {
+   462→    const template = TEMPLATES[name]
+   463→    if (template) {
+   464→      const loaded = template.map(n => ({ ...n, children: [...n.children] }))
+   465→      setNodes(loaded)
+   466→      pushHistory(loaded)
+   467→      setSelectedId(null)
+   468→      setEditingId(null)
+   469→      toast.success(`Template "${name}" chargé`)
+   470→    }
+   471→  }, [pushHistory])
+   472→
+   473→  // ─── Run auto-layout ────────────────────
+   474→  const handleAutoLayout = useCallback(() => {
+   475→    const laid = autoLayout(nodes, CANVAS_W, CANVAS_H)
+   476→    setNodes(laid)
+   477→    pushHistory(laid)
+   478→    toast.success('Disposition automatique appliquée')
+   479→  }, [nodes, pushHistory])
+   480→
+   481→  // ─── Export as JSON ──────────────────────
+   482→  const handleExportJSON = useCallback(() => {
+   483→    const blob = new Blob([JSON.stringify(nodes, null, 2)], { type: 'application/json' })
+   484→    const url = URL.createObjectURL(blob)
+   485→    const a = document.createElement('a')
+   486→    a.href = url
+   487→    a.download = `carte-mentale-${Date.now()}.json`
+   488→    a.click()
+   489→    URL.revokeObjectURL(url)
+   490→    toast.success('Carte mentale exportée en JSON')
+   491→  }, [nodes])
+   492→
+   493→  // ─── Export as SVG ───────────────────────
+   494→  const handleExportSVG = useCallback(() => {
+   495→    const svgEl = document.querySelector('.mind-map-svg') as SVGSVGElement | null
+   496→    if (!svgEl) { toast.error('Impossible d\'exporter le SVG'); return }
+   497→    const svgData = new XMLSerializer().serializeToString(svgEl)
+   498→    const blob = new Blob([svgData], { type: 'image/svg+xml' })
+   499→    const url = URL.createObjectURL(blob)
+   500→    const a = document.createElement('a')
+   501→    a.href = url
+   502→    a.download = `carte-mentale-${Date.now()}.svg`
+   503→    a.click()
+   504→    URL.revokeObjectURL(url)
+   505→    toast.success('Carte mentale exportée en SVG')
+   506→  }, [])
+   507→
+   508→  // ─── Export as text outline ──────────────
+   509→  const handleExportText = useCallback(async () => {
+   510→    const root = nodes.find(n => n.parentId === null)
+   511→    if (!root) return
+   512→    const outline = buildTextOutline(nodes, root.id)
+   513→    try {
+   514→      await navigator.clipboard.writeText(outline)
+   515→      toast.success('Plan textuel copié dans le presse-papier !')
+   516→    } catch {
+   517→      toast.error('Impossible de copier dans le presse-papier')
+   518→    }
+   519→  }, [nodes])
+   520→
+   521→  // ─── Zoom controls ───────────────────────
+   522→  const zoomIn = useCallback(() => setZoom(z => Math.min(z + 0.15, 2)), [])
+   523→  const zoomOut = useCallback(() => setZoom(z => Math.max(z - 0.15, 0.4)), [])
+   524→
+   525→  // ─── SVG connections (must be before early return for hooks rules) ───
+   526→  const connections = useMemo(() => {
+   527→    return nodes
+   528→      .filter(n => n.parentId !== null)
+   529→      .map(n => {
+   530→        const parent = nodeMap.get(n.parentId!)
+   531→        if (!parent) return null
+   532→        return (
+   533→          <line
+   534→            key={`line-${n.id}`}
+   535→            x1={parent.x}
+   536→            y1={parent.y}
+   537→            x2={n.x}
+   538→            y2={n.y}
+   539→            stroke={n.color}
+   540→            strokeWidth={2}
+   541→            strokeOpacity={0.5}
+   542→            strokeLinecap="round"
+   543→          />
+   544→        )
+   545→      })
+   546→      .filter(Boolean)
+   547→  }, [nodes, nodeMap])
+   548→
+   549→  // ─── Loading skeleton ───────────────────
+   550→  if (isLoading) {
+   551→    return (
+   552→      <div className="p-4 md:p-6 lg:p-8 space-y-6">
+   553→        <div className="h-8 w-64 bg-muted animate-pulse rounded" />
+   554→        <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+   555→        <div className="h-96 bg-muted animate-pulse rounded-xl" />
+   556→      </div>
+   557→    )
+   558→  }
+   559→
+   560→  // ─── Main Render ─────────────────────────
+   561→  return (
+   562→    <motion.div
+   563→      initial={{ opacity: 0, y: 20 }}
+   564→      animate={{ opacity: 1, y: 0 }}
+   565→      transition={{ duration: 0.4 }}
+   566→      className="flex-1 overflow-y-auto"
+   567→    >
+   568→      {/* Header */}
+   569→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 md:px-6 border-b bg-background">
+   570→        <div className="flex items-center gap-3">
+   571→          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10">
+   572→            <GitBranch className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+   573→          </div>
+   574→          <div>
+   575→            <h2 className="text-xl font-bold text-foreground">Carte Mentale</h2>
+   576→            <p className="text-xs text-muted-foreground">
+   577→              {nodes.length} nœud(s){saving ? ' — Sauvegarde…' : ''} — Cliquez pour sélectionner, double-cliquez pour éditer
+   578→            </p>
+   579→          </div>
+   580→        </div>
+   581→        <div className="flex items-center gap-2 flex-wrap">
+   582→          {/* Templates */}
+   583→          {Object.keys(TEMPLATES).map((name) => (
+   584→            <Button
+   585→              key={name}
+   586→              variant="outline"
+   587→              size="sm"
+   588→              className="gap-1.5 text-xs border-violet-300 text-violet-600 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-400"
+   589→              onClick={() => loadTemplate(name)}
+   590→            >
+   591→              <LayoutTemplate className="h-3 w-3" />
+   592→              {name}
+   593→            </Button>
+   594→          ))}
+   595→          <Button
+   596→            variant="outline"
+   597→            size="sm"
+   598→            className="gap-1.5 text-xs"
+   599→            onClick={handleExportJSON}
+   600→          >
+   601→            <Download className="h-3 w-3" />
+   602→            JSON
+   603→          </Button>
+   604→          <Button
+   605→            variant="outline"
+   606→            size="sm"
+   607→            className="gap-1.5 text-xs"
+   608→            onClick={handleExportSVG}
+   609→          >
+   610→            <Download className="h-3 w-3" />
+   611→            SVG
+   612→          </Button>
+   613→          <Button
+   614→            variant="outline"
+   615→            size="sm"
+   616→            className="gap-1.5 text-xs"
+   617→            onClick={handleExportText}
+   618→          >
+   619→            <Copy className="h-3 w-3" />
+   620→            Copier
+   621→          </Button>
+   622→        </div>
+   623→      </div>
+   624→
+   625→      <div className="p-4 md:p-6 space-y-4">
+   626→        {/* ── Toolbar ── */}
+   627→        <div className="flex items-center justify-between">
+   628→          <div className="flex items-center gap-2">
+   629→            <Button
+   630→              size="sm"
+   631→              variant="outline"
+   632→              className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white border-0"
+   633→              onClick={() => {
+   634→                const targetId = selectedId || 'root'
+   635→                addChildNode(targetId)
+   636→              }}
+   637→            >
+   638→              <Plus className="h-3.5 w-3.5" />
+   639→              Ajouter
+   640→            </Button>
+   641→            {selectedId && selectedId !== 'root' && (
+   642→              <Button
+   643→                size="sm"
+   644→                variant="outline"
+   645→                className="gap-1.5 text-red-600 border-red-300 hover:bg-red-50 dark:border-red-800"
+   646→                onClick={() => deleteNode(selectedId)}
+   647→              >
+   648→                <Trash2 className="h-3.5 w-3.5" />
+   649→                Supprimer
+   650→              </Button>
+   651→            )}
+   652→          </div>
+   653→          <div className="flex items-center gap-2">
+   654→            <span className="text-xs text-muted-foreground flex items-center gap-1">
+   655→              <Move className="h-3 w-3" />
+   656→              Glisser pour déplacer
+   657→            </span>
+   658→            <Button variant="ghost" size="sm" onClick={undo} disabled={historyIdx <= 0} className="h-8 w-8 p-0" title="Annuler (Ctrl+Z)">
+   659→              <Undo2 className="h-4 w-4" />
+   660→            </Button>
+   661→            <Button variant="ghost" size="sm" onClick={redo} disabled={historyIdx >= history.length - 1} className="h-8 w-8 p-0" title="Refaire (Ctrl+Y)">
+   662→              <Redo2 className="h-4 w-4" />
+   663→            </Button>
+   664→            <span className="w-px h-5 bg-border" />
+   665→            <Button variant="ghost" size="sm" onClick={handleAutoLayout} className="h-8 gap-1 text-xs" title="Disposition automatique">
+   666→              <LayoutTemplate className="h-3.5 w-3.5" />
+   667→              Auto
+   668→            </Button>
+   669→            <Button variant="ghost" size="sm" onClick={zoomOut} className="h-8 w-8 p-0">
+   670→              <ZoomOut className="h-4 w-4" />
+   671→            </Button>
+   672→            <span className="text-xs font-mono text-muted-foreground w-12 text-center">{Math.round(zoom * 100)}%</span>
+   673→            <Button variant="ghost" size="sm" onClick={zoomIn} className="h-8 w-8 p-0">
+   674→              <ZoomIn className="h-4 w-4" />
+   675→            </Button>
+   676→          </div>
+   677→        </div>
+   678→
+   679→        {/* ── Canvas ── */}
+   680→        <Card className="overflow-hidden">
+   681→          <CardContent className="p-0">
+   682→            <div
+   683→              ref={canvasRef}
+   684→              className="relative w-full bg-muted/20 border rounded-lg overflow-hidden cursor-crosshair select-none"
+   685→              style={{
+   686→                paddingBottom: `${(CANVAS_H / CANVAS_W) * 100}%`,
+   687→                minHeight: 400,
+   688→              }}
+   689→              onMouseMove={handleMouseMove}
+   690→              onMouseUp={handleMouseUp}
+   691→              onMouseLeave={handleMouseUp}
+   692→              onClick={() => { setSelectedId(null); setEditingId(null) }}
+   693→            >
+   694→              <svg
+   695→                className="absolute inset-0 w-full h-full mind-map-svg"
+   696→                viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`}
+   697→                style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+   698→              >
+   699→                {/* Grid dots */}
+   700→                {Array.from({ length: 20 }, (_, i) => (
+   701→                  Array.from({ length: 14 }, (_, j) => (
+   702→                    <circle
+   703→                      key={`dot-${i}-${j}`}
+   704→                      cx={i * 50 + 25}
+   705→                      cy={j * 50 + 25}
+   706→                      r={0.8}
+   707→                      fill="currentColor"
+   708→                      className="text-muted-foreground/10"
+   709→                    />
+   710→                  ))
+   711→                ))}
+   712→                {/* Connections */}
+   713→                {connections}
+   714→              </svg>
+   715→
+   716→              {/* Nodes (rendered as HTML for better interaction) */}
+   717→              <div
+   718→                className="absolute inset-0"
+   719→                style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+   720→              >
+   721→                <AnimatePresence>
+   722→                  {nodes.map((node) => {
+   723→                    const isSelected = selectedId === node.id
+   724→                    const isEditing = editingId === node.id
+   725→                    const isRoot = node.parentId === null
+   726→
+   727→                    return (
+   728→                      <motion.div
+   729→                        key={node.id}
+   730→                        initial={{ opacity: 0, scale: 0.8 }}
+   731→                        animate={{ opacity: 1, scale: 1 }}
+   732→                        exit={{ opacity: 0, scale: 0.5 }}
+   733→                        transition={{ duration: 0.2 }}
+   734→                        className="absolute"
+   735→                        style={{
+   736→                          left: `${(node.x / CANVAS_W) * 100}%`,
+   737→                          top: `${(node.y / CANVAS_H) * 100}%`,
+   738→                          transform: 'translate(-50%, -50%)',
+   739→                        }}
+   740→                        onMouseDown={(e) => handleMouseDown(e, node.id)}
+   741→                        onDoubleClick={(e) => handleDoubleClick(e, node.id)}
+   742→                        onContextMenu={(e) => handleContextMenu(e, node.id)}
+   743→                      >
+   744→                        <div
+   745→                          className={cn(
+   746→                            'rounded-xl px-4 py-2 text-center whitespace-nowrap cursor-grab active:cursor-grabbing transition-shadow border-2 min-w-[60px] max-w-[200px] truncate',
+   747→                            isRoot
+   748→                              ? 'px-5 py-3 shadow-lg'
+   749→                              : 'shadow-md',
+   750→                            isSelected
+   751→                              ? 'ring-2 ring-violet-500 ring-offset-2 shadow-xl'
+   752→                              : 'hover:shadow-lg',
+   753→                          )}
+   754→                          style={{
+   755→                            backgroundColor: `${node.color}15`,
+   756→                            borderColor: node.color,
+   757→                            color: node.color,
+   758→                          }}
+   759→                        >
+   760→                          {isEditing ? (
+   761→                            <input
+   762→                              ref={editInputRef}
+   763→                              type="text"
+   764→                              value={editText}
+   765→                              onChange={(e) => setEditText(e.target.value)}
+   766→                              onBlur={submitEdit}
+   767→                              onKeyDown={(e) => {
+   768→                                if (e.key === 'Enter') submitEdit()
+   769→                                if (e.key === 'Escape') setEditingId(null)
+   770→                                e.stopPropagation()
+   771→                              }}
+   772→                              onMouseDown={(e) => e.stopPropagation()}
+   773→                              className="bg-transparent border-none outline-none text-center text-sm font-medium w-full"
+   774→                              style={{ color: node.color }}
+   775→                            />
+   776→                          ) : (
+   777→                            <span className={cn(
+   778→                              'text-sm font-medium block truncate',
+   779→                              isRoot && 'text-base font-bold'
+   780→                            )}>
+   781→                              {node.text || '...'}
+   782→                            </span>
+   783→                          )}
+   784→                        </div>
+   785→
+   786→                        {/* Add button on hover for non-editing nodes */}
+   787→                        {isSelected && !isEditing && (
+   788→                          <button
+   789→                            type="button"
+   790→                            onClick={(e) => {
+   791→                              e.stopPropagation()
+   792→                              addChildNode(node.id)
+   793→                            }}
+   794→                            className="absolute -right-2 -bottom-2 h-5 w-5 rounded-full bg-violet-600 text-white flex items-center justify-center shadow-md hover:bg-violet-700 transition-colors"
+   795→                          >
+   796→                            <Plus className="h-3 w-3" />
+   797→                          </button>
+   798→                        )}
+   799→                      </motion.div>
+   800→                    )
+   801→                  })}
+   802→                </AnimatePresence>
+   803→              </div>
+   804→            </div>
+   805→          </CardContent>
+   806→        </Card>
+   807→
+   808→        {/* ── Selected node info ── */}
+   809→        {selectedId && nodeMap.get(selectedId) && (
+   810→          <motion.div
+   811→            initial={{ opacity: 0, y: 10 }}
+   812→            animate={{ opacity: 1, y: 0 }}
+   813→          >
+   814→            <Card className="border-violet-200 dark:border-violet-800 bg-violet-50/50 dark:bg-violet-950/20">
+   815→              <CardContent className="py-3 flex items-center justify-between">
+   816→                <div className="flex items-center gap-3">
+   817→                  <div
+   818→                    className="h-4 w-4 rounded-full shrink-0"
+   819→                    style={{ backgroundColor: nodeMap.get(selectedId)!.color }}
+   820→                  />
+   821→                  <div>
+   822→                    <p className="text-sm font-medium">{nodeMap.get(selectedId)!.text}</p>
+   823→                    <p className="text-[10px] text-muted-foreground">
+   824→                      {nodeMap.get(selectedId)!.children.length} enfant(s) — {nodeMap.get(selectedId)!.parentId === null ? 'Racine' : 'Branche'}
+   825→                    </p>
+   826→                  </div>
+   827→                </div>
+   828→                <div className="flex items-center gap-1">
+   829→                  <Button
+   830→                    size="sm"
+   831→                    variant="outline"
+   832→                    className="gap-1 h-7 text-xs border-violet-300 text-violet-600"
+   833→                    onClick={() => addChildNode(selectedId)}
+   834→                  >
+   835→                    <Plus className="h-3 w-3" />
+   836→                    Enfant
+   837→                  </Button>
+   838→                  {selectedId !== 'root' && (
+   839→                    <Button
+   840→                      size="sm"
+   841→                      variant="outline"
+   842→                      className="gap-1 h-7 text-xs text-red-600 border-red-300"
+   843→                      onClick={() => deleteNode(selectedId)}
+   844→                    >
+   845→                      <Trash2 className="h-3 w-3" />
+   846→                    </Button>
+   847→                  )}
+   848→                </div>
+   849→              </CardContent>
+   850→            </Card>
+   851→          </motion.div>
+   852→        )}
+   853→
+   854→        {/* ── Context Menu ── */}
+   855→        {contextMenu && (
+   856→          <div
+   857→            className="fixed z-50 rounded-lg border bg-popover p-1 shadow-xl min-w-[160px]"
+   858→            style={{ left: contextMenu.x, top: contextMenu.y }}
+   859→          >
+   860→            <button
+   861→              type="button"
+   862→              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted transition-colors"
+   863→              onClick={(e) => {
+   864→                e.stopPropagation()
+   865→                addChildNode(contextMenu.nodeId)
+   866→                setContextMenu(null)
+   867→              }}
+   868→            >
+   869→              <Plus className="h-4 w-4" />
+   870→              Ajouter un enfant
+   871→            </button>
+   872→            {contextMenu.nodeId !== 'root' && (
+   873→              <button
+   874→                type="button"
+   875→                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+   876→                onClick={(e) => {
+   877→                  e.stopPropagation()
+   878→                  deleteNode(contextMenu.nodeId)
+   879→                  setContextMenu(null)
+   880→                }}
+   881→              >
+   882→                <Trash2 className="h-4 w-4" />
+   883→                Supprimer
+   884→              </button>
+   885→            )}
+   886→          </div>
+   887→        )}
+   888→      </div>
+   889→    </motion.div>
+   890→  )
+   891→}

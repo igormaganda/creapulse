@@ -1,0 +1,953 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import { MODULE_REGISTRY } from '@/lib/module-registry'
+     6→import { useModuleConfigStore } from '@/lib/stores/module-config-store'
+     7→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     8→import { Badge } from '@/components/ui/badge'
+     9→import { Button } from '@/components/ui/button'
+    10→import { Input } from '@/components/ui/input'
+    11→import { Label } from '@/components/ui/label'
+    12→import { Switch } from '@/components/ui/switch'
+    13→import { Separator } from '@/components/ui/separator'
+    14→import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+    15→import {
+    16→  Select,
+    17→  SelectContent,
+    18→  SelectGroup,
+    19→  SelectItem,
+    20→  SelectLabel,
+    21→  SelectTrigger,
+    22→  SelectValue,
+    23→} from '@/components/ui/select'
+    24→import {
+    25→  Dialog,
+    26→  DialogContent,
+    27→  DialogDescription,
+    28→  DialogFooter,
+    29→  DialogHeader,
+    30→  DialogTitle,
+    31→  DialogTrigger,
+    32→} from '@/components/ui/dialog'
+    33→import {
+    34→  Building2,
+    35→  Users,
+    36→  Sliders,
+    37→  Puzzle,
+    38→  Database,
+    39→  Plus,
+    40→  Pencil,
+    41→  Trash2,
+    42→  Upload,
+    43→  Save,
+    44→  Download,
+    45→  Trash,
+    46→  RefreshCw,
+    47→  CheckCircle2,
+    48→  XCircle,
+    49→  Eye,
+    50→  MapPin,
+    51→  Phone,
+    52→  Mail,
+    53→  Globe,
+    54→  ImageIcon,
+    55→  Shield,
+    56→  HardDrive,
+    57→  BarChart3,
+    58→  Zap,
+    59→} from 'lucide-react'
+    60→import { toast } from 'sonner'
+    61→
+    62→/* ─── Types ─── */
+    63→type TeamMember = {
+    64→  id: string
+    65→  name: string
+    66→  email: string
+    67→  role: 'Admin' | 'Conseiller' | 'LECTURE'
+    68→  status: 'Actif' | 'Inactif'
+    69→  avatar: string
+    70→}
+    71→
+    72→type CenterInfo = {
+    73→  name: string
+    74→  siret: string
+    75→  address: string
+    76→  city: string
+    77→  postalCode: string
+    78→  region: string
+    79→  phone: string
+    80→  email: string
+    81→  website: string
+    82→}
+    83→
+    84→type Preferences = {
+    85→  language: string
+    86→  timezone: string
+    87→  dateFormat: string
+    88→  currency: string
+    89→  notifications: boolean
+    90→  emailNotifications: boolean
+    91→  autoBackup: string
+    92→  theme: string
+    93→}
+    94→
+    95→/* ─── Mock Data ─── */
+    96→const initialCenterInfo: CenterInfo = {
+    97→  name: 'GIDEF Créteil',
+    98→  siret: '123 456 789 00012',
+    99→  address: '12 Rue de la République',
+   100→  city: 'Créteil',
+   101→  postalCode: '94000',
+   102→  region: 'Île-de-France',
+   103→  phone: '01 43 77 50 00',
+   104→  email: 'contact@lidef-creteil.fr',
+   105→  website: 'www.lidef-creteil.fr',
+   106→}
+   107→
+   108→const initialTeam: TeamMember[] = [
+   109→  { id: '1', name: 'Marie Dupont', email: 'marie.dupont@lidef.fr', role: 'Admin', status: 'Actif', avatar: 'MD' },
+   110→  { id: '2', name: 'Jean-Pierre Martin', email: 'jp.martin@lidef.fr', role: 'Conseiller', status: 'Actif', avatar: 'JM' },
+   111→  { id: '3', name: 'Sophie Lefèvre', email: 'sophie.lefevre@lidef.fr', role: 'Conseiller', status: 'Actif', avatar: 'SL' },
+   112→  { id: '4', name: 'Philippe Petit', email: 'philippe.petit@lidef.fr', role: 'Conseiller', status: 'Actif', avatar: 'PP' },
+   113→  { id: '5', name: 'Amina Roux', email: 'amina.roux@lidef.fr', role: 'LECTURE', status: 'Actif', avatar: 'AR' },
+   114→  { id: '6', name: 'Luc Bernard', email: 'luc.bernard@lidef.fr', role: 'Conseiller', status: 'Inactif', avatar: 'LB' },
+   115→]
+   116→
+   117→const initialPreferences: Preferences = {
+   118→  language: 'Français',
+   119→  timezone: 'Europe/Paris',
+   120→  dateFormat: 'JJ/MM/AAAA',
+   121→  currency: 'EUR (€)',
+   122→  notifications: true,
+   123→  emailNotifications: true,
+   124→  autoBackup: 'Quotidien',
+   125→  theme: 'Système',
+   126→}
+   127→
+   128→const regions = [
+   129→  'Île-de-France', 'Auvergne-Rhône-Alpes', 'Bretagne', 'Bourgogne-Franche-Comté',
+   130→  'Centre-Val de Loire', 'Corse', 'Grand Est', 'Hauts-de-France',
+   131→  'Normandie', 'Nouvelle-Aquitaine', 'Occitanie', 'Pays de la Loire',
+   132→  "Provence-Alpes-Côte d'Azur", 'DOM-TOM',
+   133→]
+   134→
+   135→const dbStats = {
+   136→  totalRecords: 4256,
+   137→  storageUsed: '247 Mo',
+   138→  beneficiaires: 130,
+   139→  conseillers: 7,
+   140→  entretiens: 48,
+   141→  documents: 342,
+   142→}
+   143→
+   144→/* ─── Section 1: Informations du Centre ─── */
+   145→function CenterInfoSection() {
+   146→  const [info, setInfo] = useState<CenterInfo>(initialCenterInfo)
+   147→  const [saving, setSaving] = useState(false)
+   148→
+   149→  const handleSave = async () => {
+   150→    setSaving(true)
+   151→    await new Promise(r => setTimeout(r, 800))
+   152→    setSaving(false)
+   153→    toast.success('Informations du centre mises à jour')
+   154→  }
+   155→
+   156→  return (
+   157→    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+   158→      <Card>
+   159→        <CardHeader>
+   160→          <CardTitle className="text-base font-semibold flex items-center gap-2">
+   161→            <Building2 className="h-5 w-5 text-[#FF6B35]" />
+   162→            Informations du Centre
+   163→          </CardTitle>
+   164→          <CardDescription>Informations générales et coordonnées du centre GIDEF</CardDescription>
+   165→        </CardHeader>
+   166→        <CardContent className="space-y-6">
+   167→          {/* Logo upload */}
+   168→          <div className="flex items-center gap-6">
+   169→            <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-[#FF6B35]/10 border-2 border-dashed border-[#FF6B35]/30">
+   170→              <Zap className="h-8 w-8 text-[#FF6B35]" />
+   171→            </div>
+   172→            <div className="flex-1">
+   173→              <p className="text-sm font-medium text-foreground">Logo du centre</p>
+   174→              <p className="text-xs text-muted-foreground mt-1">PNG ou SVG, max 2 Mo</p>
+   175→              <Button variant="outline" size="sm" className="mt-2 gap-2">
+   176→                <Upload className="h-3.5 w-3.5" />
+   177→                Telecharger un logo
+   178→              </Button>
+   179→            </div>
+   180→          </div>
+   181→
+   182→          <Separator />
+   183→
+   184→          {/* Form grid */}
+   185→          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   186→            <div className="md:col-span-2 space-y-2">
+   187→              <Label htmlFor="center-name">Nom du centre</Label>
+   188→              <Input
+   189→                id="center-name"
+   190→                value={info.name}
+   191→                onChange={(e) => setInfo({ ...info, name: e.target.value })}
+   192→              />
+   193→            </div>
+   194→
+   195→            <div className="space-y-2">
+   196→              <Label htmlFor="siret">SIRET</Label>
+   197→              <Input
+   198→                id="siret"
+   199→                value={info.siret}
+   200→                onChange={(e) => setInfo({ ...info, siret: e.target.value })}
+   201→              />
+   202→            </div>
+   203→
+   204→            <div className="space-y-2">
+   205→              <Label htmlFor="region">Region</Label>
+   206→              <Select value={info.region} onValueChange={(v) => setInfo({ ...info, region: v })}>
+   207→                <SelectTrigger className="w-full">
+   208→                  <SelectValue placeholder="Selectionner une region" />
+   209→                </SelectTrigger>
+   210→                <SelectContent>
+   211→                  {regions.map((r) => (
+   212→                    <SelectItem key={r} value={r}>{r}</SelectItem>
+   213→                  ))}
+   214→                </SelectContent>
+   215→              </Select>
+   216→            </div>
+   217→
+   218→            <div className="space-y-2">
+   219→              <Label htmlFor="address">Adresse</Label>
+   220→              <Input
+   221→                id="address"
+   222→                value={info.address}
+   223→                onChange={(e) => setInfo({ ...info, address: e.target.value })}
+   224→              />
+   225→            </div>
+   226→
+   227→            <div className="space-y-2">
+   228→              <Label htmlFor="city">Ville</Label>
+   229→              <Input
+   230→                id="city"
+   231→                value={info.city}
+   232→                onChange={(e) => setInfo({ ...info, city: e.target.value })}
+   233→              />
+   234→            </div>
+   235→
+   236→            <div className="space-y-2">
+   237→              <Label htmlFor="postal-code">Code postal</Label>
+   238→              <Input
+   239→                id="postal-code"
+   240→                value={info.postalCode}
+   241→                onChange={(e) => setInfo({ ...info, postalCode: e.target.value })}
+   242→              />
+   243→            </div>
+   244→
+   245→            <div className="space-y-2">
+   246→              <Label htmlFor="phone" className="flex items-center gap-1.5">
+   247→                <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+   248→                Téléphone
+   249→              </Label>
+   250→              <Input
+   251→                id="phone"
+   252→                value={info.phone}
+   253→                onChange={(e) => setInfo({ ...info, phone: e.target.value })}
+   254→              />
+   255→            </div>
+   256→
+   257→            <div className="space-y-2">
+   258→              <Label htmlFor="email" className="flex items-center gap-1.5">
+   259→                <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+   260→                Email
+   261→              </Label>
+   262→              <Input
+   263→                id="email"
+   264→                type="email"
+   265→                value={info.email}
+   266→                onChange={(e) => setInfo({ ...info, email: e.target.value })}
+   267→              />
+   268→            </div>
+   269→
+   270→            <div className="space-y-2">
+   271→              <Label htmlFor="website" className="flex items-center gap-1.5">
+   272→                <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+   273→                Site web
+   274→              </Label>
+   275→              <Input
+   276→                id="website"
+   277→                value={info.website}
+   278→                onChange={(e) => setInfo({ ...info, website: e.target.value })}
+   279→              />
+   280→            </div>
+   281→          </div>
+   282→
+   283→          <div className="flex justify-end pt-2">
+   284→            <Button onClick={handleSave} disabled={saving} className="gap-2 bg-[#FF6B35] hover:bg-[#FF6B35]/90 text-white">
+   285→              {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+   286→              Sauvegarder
+   287→            </Button>
+   288→          </div>
+   289→        </CardContent>
+   290→      </Card>
+   291→    </motion.div>
+   292→  )
+   293→}
+   294→
+   295→/* ─── Section 2: Equipe & Accès ─── */
+   296→function TeamSection() {
+   297→  const [team, setTeam] = useState<TeamMember[]>(initialTeam)
+   298→  const [dialogOpen, setDialogOpen] = useState(false)
+   299→  const [editingMember, setEditingMember] = useState<TeamMember | null>(null)
+   300→  const [form, setForm] = useState({ name: '', email: '', role: 'Conseiller' as TeamMember['role'] })
+   301→
+   302→  const roleColors: Record<string, string> = {
+   303→    Admin: 'bg-[#FF6B35] text-white',
+   304→    Conseiller: 'bg-primary/10 text-primary',
+   305→    LECTURE: 'bg-muted text-muted-foreground',
+   306→  }
+   307→
+   308→  const openAddDialog = () => {
+   309→    setEditingMember(null)
+   310→    setForm({ name: '', email: '', role: 'Conseiller' })
+   311→    setDialogOpen(true)
+   312→  }
+   313→
+   314→  const openEditDialog = (member: TeamMember) => {
+   315→    setEditingMember(member)
+   316→    setForm({ name: member.name, email: member.email, role: member.role })
+   317→    setDialogOpen(true)
+   318→  }
+   319→
+   320→  const handleSaveMember = () => {
+   321→    if (!form.name.trim() || !form.email.trim()) {
+   322→      toast.error('Veuillez remplir tous les champs')
+   323→      return
+   324→    }
+   325→    if (editingMember) {
+   326→      setTeam(team.map(m => m.id === editingMember.id ? { ...m, ...form, avatar: form.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) } : m))
+   327→      toast.success('Membre mis à jour')
+   328→    } else {
+   329→      const newMember: TeamMember = {
+   330→        id: String(Date.now()),
+   331→        name: form.name,
+   332→        email: form.email,
+   333→        role: form.role,
+   334→        status: 'Actif',
+   335→        avatar: form.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2),
+   336→      }
+   337→      setTeam([...team, newMember])
+   338→      toast.success('Membre ajouté')
+   339→    }
+   340→    setDialogOpen(false)
+   341→  }
+   342→
+   343→  const handleDeleteMember = (id: string) => {
+   344→    setTeam(team.filter(m => m.id !== id))
+   345→    toast.success('Membre supprimé')
+   346→  }
+   347→
+   348→  const toggleStatus = (id: string) => {
+   349→    setTeam(team.map(m => m.id === id ? { ...m, status: m.status === 'Actif' ? 'Inactif' as const : 'Actif' as const } : m))
+   350→  }
+   351→
+   352→  return (
+   353→    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+   354→      <Card>
+   355→        <CardHeader>
+   356→          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+   357→            <div>
+   358→              <CardTitle className="text-base font-semibold flex items-center gap-2">
+   359→                <Users className="h-5 w-5 text-[#FF6B35]" />
+   360→                Equipe & Accès
+   361→              </CardTitle>
+   362→              <CardDescription>Gestion des membres et de leurs droits d&apos;acces</CardDescription>
+   363→            </div>
+   364→            <Button onClick={openAddDialog} size="sm" className="gap-2 bg-[#FF6B35] hover:bg-[#FF6B35]/90 text-white w-fit">
+   365→              <Plus className="h-4 w-4" />
+   366→              Ajouter un membre
+   367→            </Button>
+   368→          </div>
+   369→        </CardHeader>
+   370→        <CardContent>
+   371→          <div className="overflow-x-auto">
+   372→            <table className="w-full text-sm">
+   373→              <thead>
+   374→                <tr className="border-b text-left">
+   375→                  <th className="pb-3 font-medium text-muted-foreground">Membre</th>
+   376→                  <th className="pb-3 font-medium text-muted-foreground hidden md:table-cell">Email</th>
+   377→                  <th className="pb-3 font-medium text-muted-foreground">Role</th>
+   378→                  <th className="pb-3 font-medium text-muted-foreground">Statut</th>
+   379→                  <th className="pb-3 font-medium text-muted-foreground text-right">Actions</th>
+   380→                </tr>
+   381→              </thead>
+   382→              <tbody className="divide-y">
+   383→                {team.map((member) => (
+   384→                  <tr key={member.id} className="group">
+   385→                    <td className="py-3 pr-4">
+   386→                      <div className="flex items-center gap-3">
+   387→                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FF6B35]/10 text-[#FF6B35] text-xs font-bold shrink-0">
+   388→                          {member.avatar}
+   389→                        </div>
+   390→                        <div>
+   391→                          <p className="font-medium text-foreground">{member.name}</p>
+   392→                          <p className="text-xs text-muted-foreground md:hidden">{member.email}</p>
+   393→                        </div>
+   394→                      </div>
+   395→                    </td>
+   396→                    <td className="py-3 pr-4 text-muted-foreground hidden md:table-cell">{member.email}</td>
+   397→                    <td className="py-3 pr-4">
+   398→                      <Badge variant="secondary" className={roleColors[member.role]}>
+   399→                        <Shield className="h-3 w-3 mr-1" />
+   400→                        {member.role}
+   401→                      </Badge>
+   402→                    </td>
+   403→                    <td className="py-3 pr-4">
+   404→                      <button
+   405→                        onClick={() => toggleStatus(member.id)}
+   406→                        className="flex items-center gap-1.5 cursor-pointer"
+   407→                      >
+   408→                        {member.status === 'Actif' ? (
+   409→                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+   410→                        ) : (
+   411→                          <XCircle className="h-4 w-4 text-muted-foreground" />
+   412→                        )}
+   413→                        <span className={`text-xs font-medium ${member.status === 'Actif' ? 'text-green-600' : 'text-muted-foreground'}`}>
+   414→                          {member.status}
+   415→                        </span>
+   416→                      </button>
+   417→                    </td>
+   418→                    <td className="py-3 text-right">
+   419→                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+   420→                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(member)}>
+   421→                          <Pencil className="h-3.5 w-3.5" />
+   422→                          <span className="sr-only">Modifier</span>
+   423→                        </Button>
+   424→                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteMember(member.id)}>
+   425→                          <Trash2 className="h-3.5 w-3.5" />
+   426→                          <span className="sr-only">Supprimer</span>
+   427→                        </Button>
+   428→                      </div>
+   429→                    </td>
+   430→                  </tr>
+   431→                ))}
+   432→              </tbody>
+   433→            </table>
+   434→          </div>
+   435→        </CardContent>
+   436→      </Card>
+   437→
+   438→      {/* Add/Edit dialog */}
+   439→      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+   440→        <DialogContent className="sm:max-w-md">
+   441→          <DialogHeader>
+   442→            <DialogTitle>
+   443→              {editingMember ? 'Modifier le membre' : 'Ajouter un membre'}
+   444→            </DialogTitle>
+   445→            <DialogDescription>
+   446→              {editingMember ? 'Modifiez les informations du membre' : 'Ajoutez un nouveau membre a l\'equipe'}
+   447→            </DialogDescription>
+   448→          </DialogHeader>
+   449→          <div className="space-y-4 py-2">
+   450→            <div className="space-y-2">
+   451→              <Label htmlFor="member-name">Nom complet</Label>
+   452→              <Input
+   453→                id="member-name"
+   454→                placeholder="Ex: Marie Dupont"
+   455→                value={form.name}
+   456→                onChange={(e) => setForm({ ...form, name: e.target.value })}
+   457→              />
+   458→            </div>
+   459→            <div className="space-y-2">
+   460→              <Label htmlFor="member-email">Email</Label>
+   461→              <Input
+   462→                id="member-email"
+   463→                type="email"
+   464→                placeholder="marie.dupont@lidef.fr"
+   465→                value={form.email}
+   466→                onChange={(e) => setForm({ ...form, email: e.target.value })}
+   467→              />
+   468→            </div>
+   469→            <div className="space-y-2">
+   470→              <Label>Role</Label>
+   471→              <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as TeamMember['role'] })}>
+   472→                <SelectTrigger className="w-full">
+   473→                  <SelectValue />
+   474→                </SelectTrigger>
+   475→                <SelectContent>
+   476→                  <SelectItem value="Admin">Admin — Acces complet</SelectItem>
+   477→                  <SelectItem value="Conseiller">Conseiller — Gestion des bénéficiaires</SelectItem>
+   478→                  <SelectItem value="LECTURE">Lecture seule — Consultation</SelectItem>
+   479→                </SelectContent>
+   480→              </Select>
+   481→            </div>
+   482→          </div>
+   483→          <DialogFooter>
+   484→            <Button variant="outline" onClick={() => setDialogOpen(false)}>Annuler</Button>
+   485→            <Button onClick={handleSaveMember} className="bg-[#FF6B35] hover:bg-[#FF6B35]/90 text-white">
+   486→              {editingMember ? 'Mettre a jour' : 'Ajouter'}
+   487→            </Button>
+   488→          </DialogFooter>
+   489→        </DialogContent>
+   490→      </Dialog>
+   491→    </motion.div>
+   492→  )
+   493→}
+   494→
+   495→/* ─── Section 3: Préférences ─── */
+   496→function PreferencesSection() {
+   497→  const [prefs, setPrefs] = useState<Preferences>(initialPreferences)
+   498→  const [saving, setSaving] = useState(false)
+   499→
+   500→  const handleSave = async () => {
+   501→    setSaving(true)
+   502→    await new Promise(r => setTimeout(r, 600))
+   503→    setSaving(false)
+   504→    toast.success('Préférences mises à jour')
+   505→  }
+   506→
+   507→  return (
+   508→    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+   509→      <Card>
+   510→        <CardHeader>
+   511→          <CardTitle className="text-base font-semibold flex items-center gap-2">
+   512→            <Sliders className="h-5 w-5 text-[#FF6B35]" />
+   513→            Préférences
+   514→          </CardTitle>
+   515→          <CardDescription>Paramètres d&apos;affichage, langue et notifications</CardDescription>
+   516→        </CardHeader>
+   517→        <CardContent className="space-y-6">
+   518→          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   519→            <div className="space-y-2">
+   520→              <Label>Langue par defaut</Label>
+   521→              <Select value={prefs.language} onValueChange={(v) => setPrefs({ ...prefs, language: v })}>
+   522→                <SelectTrigger className="w-full">
+   523→                  <SelectValue />
+   524→                </SelectTrigger>
+   525→                <SelectContent>
+   526→                  <SelectItem value="Français">Français</SelectItem>
+   527→                  <SelectItem value="English">English</SelectItem>
+   528→                  <SelectItem value="Español">Español</SelectItem>
+   529→                </SelectContent>
+   530→              </Select>
+   531→            </div>
+   532→
+   533→            <div className="space-y-2">
+   534→              <Label>Fuseau horaire</Label>
+   535→              <Select value={prefs.timezone} onValueChange={(v) => setPrefs({ ...prefs, timezone: v })}>
+   536→                <SelectTrigger className="w-full">
+   537→                  <SelectValue />
+   538→                </SelectTrigger>
+   539→                <SelectContent>
+   540→                  <SelectItem value="Europe/Paris">Europe/Paris (UTC+1)</SelectItem>
+   541→                  <SelectItem value="Europe/London">Europe/London (UTC+0)</SelectItem>
+   542→                  <SelectItem value="Europe/Berlin">Europe/Berlin (UTC+1)</SelectItem>
+   543→                </SelectContent>
+   544→              </Select>
+   545→            </div>
+   546→
+   547→            <div className="space-y-2">
+   548→              <Label>Format de date</Label>
+   549→              <Select value={prefs.dateFormat} onValueChange={(v) => setPrefs({ ...prefs, dateFormat: v })}>
+   550→                <SelectTrigger className="w-full">
+   551→                  <SelectValue />
+   552→                </SelectTrigger>
+   553→                <SelectContent>
+   554→                  <SelectItem value="JJ/MM/AAAA">JJ/MM/AAAA</SelectItem>
+   555→                  <SelectItem value="MM/JJ/AAAA">MM/JJ/AAAA</SelectItem>
+   556→                  <SelectItem value="AAAA-MM-JJ">AAAA-MM-JJ</SelectItem>
+   557→                </SelectContent>
+   558→              </Select>
+   559→            </div>
+   560→
+   561→            <div className="space-y-2">
+   562→              <Label>Devise</Label>
+   563→              <Select value={prefs.currency} onValueChange={(v) => setPrefs({ ...prefs, currency: v })}>
+   564→                <SelectTrigger className="w-full">
+   565→                  <SelectValue />
+   566→                </SelectTrigger>
+   567→                <SelectContent>
+   568→                  <SelectItem value="EUR (€)">EUR (€)</SelectItem>
+   569→                  <SelectItem value="USD ($)">USD ($)</SelectItem>
+   570→                  <SelectItem value="GBP (£)">GBP (£)</SelectItem>
+   571→                </SelectContent>
+   572→              </Select>
+   573→            </div>
+   574→
+   575→            <div className="space-y-2">
+   576→              <Label>Frequence de sauvegarde automatique</Label>
+   577→              <Select value={prefs.autoBackup} onValueChange={(v) => setPrefs({ ...prefs, autoBackup: v })}>
+   578→                <SelectTrigger className="w-full">
+   579→                  <SelectValue />
+   580→                </SelectTrigger>
+   581→                <SelectContent>
+   582→                  <SelectItem value="Quotidien">Quotidien</SelectItem>
+   583→                  <SelectItem value="Hebdomadaire">Hebdomadaire</SelectItem>
+   584→                  <SelectItem value="Mensuel">Mensuel</SelectItem>
+   585→                  <SelectItem value="Jamais">Jamais</SelectItem>
+   586→                </SelectContent>
+   587→              </Select>
+   588→            </div>
+   589→
+   590→            <div className="space-y-2">
+   591→              <Label>Theme</Label>
+   592→              <Select value={prefs.theme} onValueChange={(v) => setPrefs({ ...prefs, theme: v })}>
+   593→                <SelectTrigger className="w-full">
+   594→                  <SelectValue />
+   595→                </SelectTrigger>
+   596→                <SelectContent>
+   597→                  <SelectItem value="Système">Système (automatique)</SelectItem>
+   598→                  <SelectItem value="Clair">Clair</SelectItem>
+   599→                  <SelectItem value="Sombre">Sombre</SelectItem>
+   600→                </SelectContent>
+   601→              </Select>
+   602→            </div>
+   603→          </div>
+   604→
+   605→          <Separator />
+   606→
+   607→          {/* Toggles */}
+   608→          <div className="space-y-4">
+   609→            <div className="flex items-center justify-between">
+   610→              <div className="space-y-0.5">
+   611→                <Label className="text-sm font-medium">Notifications in-app</Label>
+   612→                <p className="text-xs text-muted-foreground">Recevoir les notifications dans l&apos;application</p>
+   613→              </div>
+   614→              <Switch checked={prefs.notifications} onCheckedChange={(v) => setPrefs({ ...prefs, notifications: v })} />
+   615→            </div>
+   616→            <div className="flex items-center justify-between">
+   617→              <div className="space-y-0.5">
+   618→                <Label className="text-sm font-medium">Notifications par email</Label>
+   619→                <p className="text-xs text-muted-foreground">Recevoir les alertes par email</p>
+   620→              </div>
+   621→              <Switch checked={prefs.emailNotifications} onCheckedChange={(v) => setPrefs({ ...prefs, emailNotifications: v })} />
+   622→            </div>
+   623→          </div>
+   624→
+   625→          <div className="flex justify-end pt-2">
+   626→            <Button onClick={handleSave} disabled={saving} className="gap-2 bg-[#FF6B35] hover:bg-[#FF6B35]/90 text-white">
+   627→              {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+   628→              Sauvegarder
+   629→            </Button>
+   630→          </div>
+   631→        </CardContent>
+   632→      </Card>
+   633→    </motion.div>
+   634→  )
+   635→}
+   636→
+   637→/* ─── Section 4: Modules Actifs (connected to real API) ─── */
+   638→function ModulesSection() {
+   639→  const { isModuleActive, toggleModule, fetchActiveModules } = useModuleConfigStore()
+   640→  const [saving, setSaving] = useState(false)
+   641→
+   642→  useEffect(() => {
+   643→    fetchActiveModules()
+   644→  }, [fetchActiveModules])
+   645→
+   646→  const sections = ['parcours', 'strategie', 'ecosysteme', 'pilotage'] as const
+   647→  const sectionLabels: Record<string, string> = {
+   648→    parcours: 'Parcours',
+   649→    strategie: 'Stratégie',
+   650→    ecosysteme: 'Écosystème',
+   651→    pilotage: 'Pilotage',
+   652→  }
+   653→  const sectionColors: Record<string, string> = {
+   654→    parcours: 'text-primary',
+   655→    strategie: 'text-amber-500',
+   656→    ecosysteme: 'text-green-500',
+   657→    pilotage: 'text-purple-500',
+   658→  }
+   659→  const sectionIcons: Record<string, React.ReactNode> = {
+   660→    parcours: <MapPin className="h-4 w-4" />,
+   661→    strategie: <BarChart3 className="h-4 w-4" />,
+   662→    ecosysteme: <Globe className="h-4 w-4" />,
+   663→    pilotage: <HardDrive className="h-4 w-4" />,
+   664→  }
+   665→
+   666→  const toggleModuleAction = (code: string, active: boolean) => {
+   667→    toggleModule(code, active)
+   668→    // Persist via admin API
+   669→    handleBulkSave([{ code, isActive: active }])
+   670→  }
+   671→
+   672→  const handleBulkSave = async (modules: { code: string; isActive: boolean }[]) => {
+   673→    setSaving(true)
+   674→    try {
+   675→      const res = await fetch('/api/admin-plateforme/modules-sync', {
+   676→        method: 'PUT',
+   677→        credentials: 'include',
+   678→        headers: { 'Content-Type': 'application/json' },
+   679→        body: JSON.stringify({ modules }),
+   680→      })
+   681→      if (res.ok) {
+   682→        toast.success(`${modules.length} module(s) mis à jour`)
+   683→      }
+   684→    } catch {
+   685→      toast.error('Erreur lors de la sauvegarde')
+   686→    }
+   687→    setSaving(false)
+   688→  }
+   689→
+   690→  const enableAll = () => {
+   691→    const all = MODULE_REGISTRY.map((m) => ({ code: m.code, isActive: true }))
+   692→    all.forEach((m) => toggleModule(m.code, true))
+   693→    handleBulkSave(all)
+   694→    toast.success('Tous les modules ont été activés')
+   695→  }
+   696→
+   697→  const disableAll = () => {
+   698→    const nonCore = MODULE_REGISTRY.filter((m) => !m.core).map((m) => ({ code: m.code, isActive: false }))
+   699→    nonCore.forEach((m) => toggleModule(m.code, false))
+   700→    handleBulkSave(nonCore)
+   701→    toast.success('Modules non-core désactivés (modules core conservés)')
+   702→  }
+   703→
+   704→  const activeCount = MODULE_REGISTRY.filter((m) => isModuleActive(m.code)).length
+   705→
+   706→  return (
+   707→    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+   708→      <Card>
+   709→        <CardHeader>
+   710→          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+   711→            <div>
+   712→              <CardTitle className="text-base font-semibold flex items-center gap-2">
+   713→                <Puzzle className="h-5 w-5 text-[#FF6B35]" />
+   714→                Modules Actifs
+   715→              </CardTitle>
+   716→              <CardDescription>
+   717→                {activeCount} / {modules.length} modules activés
+   718→              </CardDescription>
+   719→            </div>
+   720→            <div className="flex items-center gap-2">
+   721→              <Button variant="outline" size="sm" onClick={enableAll} className="gap-1.5 text-xs">
+   722→                <CheckCircle2 className="h-3.5 w-3.5" />
+   723→                Tout activer
+   724→              </Button>
+   725→              <Button variant="outline" size="sm" onClick={disableAll} className="gap-1.5 text-xs">
+   726→                <XCircle className="h-3.5 w-3.5" />
+   727→                Tout désactiver
+   728→              </Button>
+   729→            </div>
+   730→          </div>
+   731→        </CardHeader>
+   732→        <CardContent className="space-y-6">
+   733→          {sections.map((section) => {
+   734→            const sectionModules = MODULE_REGISTRY
+   735→              .filter((m) => m.section === section)
+   736→              .sort((a, b) => a.sortOrder - b.sortOrder)
+   737→            const sectionActive = sectionModules.filter((m) => isModuleActive(m.code)).length
+   738→            return (
+   739→              <div key={section}>
+   740→                <div className="flex items-center gap-2 mb-3">
+   741→                  <span className={sectionColors[section]}>{sectionIcons[section]}</span>
+   742→                  <h3 className={`text-sm font-semibold ${sectionColors[section]}`}>{sectionLabels[section]}</h3>
+   743→                  <Badge variant="secondary" className="text-xs ml-auto">
+   744→                    {sectionActive}/{sectionModules.length}
+   745→                  </Badge>
+   746→                </div>
+   747→                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   748→                  {sectionModules.map((mod) => {
+   749→                    const active = isModuleActive(mod.code)
+   750→                    return (
+   751→                      <div
+   752→                        key={mod.code}
+   753→                        className={`flex items-center justify-between gap-3 p-3 rounded-lg border transition-colors ${
+   754→                          active ? 'bg-[#FF6B35]/5 border-[#FF6B35]/20' : 'bg-muted/30 border-transparent'
+   755→                        }`}
+   756→                      >
+   757→                        <div className="flex-1 min-w-0">
+   758→                          <div className="flex items-center gap-2">
+   759→                            <p className={`text-sm font-medium ${active ? 'text-foreground' : 'text-muted-foreground'}`}>
+   760→                              {mod.label}
+   761→                            </p>
+   762→                            {mod.core && (
+   763→                              <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 bg-primary/10 text-primary">
+   764→                                core
+   765→                              </Badge>
+   766→                            )}
+   767→                          </div>
+   768→                          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{mod.description}</p>
+   769→                        </div>
+   770→                        <Switch
+   771→                          checked={active}
+   772→                          onCheckedChange={(checked) => toggleModuleAction(mod.code, checked)}
+   773→                          disabled={saving}
+   774→                        />
+   775→                      </div>
+   776→                    )
+   777→                  })}
+   778→                </div>
+   779→                {section !== 'pilotage' && <Separator className="mt-5" />}
+   780→              </div>
+   781→            )
+   782→          })}
+   783→        </CardContent>
+   784→      </Card>
+   785→    </motion.div>
+   786→  )
+   787→}
+   788→
+   789→/* ─── Section 5: Données & Export ─── */
+   790→function DataSection() {
+   791→  const [exporting, setExporting] = useState(false)
+   792→  const [clearing, setClearing] = useState(false)
+   793→
+   794→  const handleExport = async () => {
+   795→    setExporting(true)
+   796→    await new Promise(r => setTimeout(r, 1500))
+   797→    setExporting(false)
+   798→    toast.success('Export complet ! Fichier téléchargé.')
+   799→  }
+   800→
+   801→  const handleClearCache = async () => {
+   802→    setClearing(true)
+   803→    await new Promise(r => setTimeout(r, 1000))
+   804→    setClearing(false)
+   805→    toast.success('Cache effacé avec succès')
+   806→  }
+   807→
+   808→  return (
+   809→    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+   810→      <Card>
+   811→        <CardHeader>
+   812→          <CardTitle className="text-base font-semibold flex items-center gap-2">
+   813→            <Database className="h-5 w-5 text-[#FF6B35]" />
+   814→            Données & Export
+   815→          </CardTitle>
+   816→          <CardDescription>Export, conservation des données et statistiques de la base</CardDescription>
+   817→        </CardHeader>
+   818→        <CardContent className="space-y-6">
+   819→          {/* Actions */}
+   820→          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+   821→            <Button
+   822→              onClick={handleExport}
+   823→              disabled={exporting}
+   824→              className="gap-2 bg-[#FF6B35] hover:bg-[#FF6B35]/90 text-white h-auto py-4 flex-col items-center justify-center"
+   825→            >
+   826→              {exporting ? <RefreshCw className="h-6 w-6 animate-spin" /> : <Download className="h-6 w-6" />}
+   827→              <span className="text-sm font-medium mt-1">
+   828→                {exporting ? 'Export en cours...' : 'Exporter toutes les données'}
+   829→              </span>
+   830→              <span className="text-xs opacity-70">CSV / JSON</span>
+   831→            </Button>
+   832→
+   833→            <div className="space-y-2">
+   834→              <Label>Durée de conservation</Label>
+   835→              <Select defaultValue="3-annees">
+   836→                <SelectTrigger className="w-full">
+   837→                  <SelectValue />
+   838→                </SelectTrigger>
+   839→                <SelectContent>
+   840→                  <SelectItem value="1-annee">1 an</SelectItem>
+   841→                  <SelectItem value="2-annees">2 ans</SelectItem>
+   842→                  <SelectItem value="3-annees">3 ans</SelectItem>
+   843→                  <SelectItem value="5-annees">5 ans</SelectItem>
+   844→                  <SelectItem value="illimitee">Illimitée</SelectItem>
+   845→                </SelectContent>
+   846→              </Select>
+   847→            </div>
+   848→
+   849→            <Button
+   850→              variant="outline"
+   851→              onClick={handleClearCache}
+   852→              disabled={clearing}
+   853→              className="gap-2 h-auto py-4 flex-col items-center justify-center"
+   854→            >
+   855→              {clearing ? <RefreshCw className="h-6 w-6 animate-spin" /> : <Trash className="h-6 w-6" />}
+   856→              <span className="text-sm font-medium mt-1">
+   857→                {clearing ? 'Effacement...' : 'Effacer le cache'}
+   858→              </span>
+   859→              <span className="text-xs text-muted-foreground">Données temporaires</span>
+   860→            </Button>
+   861→          </div>
+   862→
+   863→          <Separator />
+   864→
+   865→          {/* Stats */}
+   866→          <div>
+   867→            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+   868→              <Eye className="h-4 w-4 text-muted-foreground" />
+   869→              Statistiques de la base
+   870→            </h3>
+   871→            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+   872→              {[
+   873→                { label: 'Total enregistrements', value: dbStats.totalRecords.toLocaleString('fr-FR'), icon: Database, color: 'text-[#FF6B35]' },
+   874→                { label: 'Espace utilisé', value: dbStats.storageUsed, icon: HardDrive, color: 'text-primary' },
+   875→                { label: 'Bénéficiaires', value: String(dbStats.beneficiaires), icon: Users, color: 'text-green-500' },
+   876→                { label: 'Entretiens', value: String(dbStats.entretiens), icon: Mail, color: 'text-amber-500' },
+   877→              ].map((stat) => (
+   878→                <div key={stat.label} className="p-3 rounded-lg bg-muted/50 border">
+   879→                  <stat.icon className={`h-4 w-4 ${stat.color} mb-2`} />
+   880→                  <p className="text-xl font-bold text-foreground">{stat.value}</p>
+   881→                  <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
+   882→                </div>
+   883→              ))}
+   884→            </div>
+   885→          </div>
+   886→        </CardContent>
+   887→      </Card>
+   888→    </motion.div>
+   889→  )
+   890→}
+   891→
+   892→/* ─── Main ParametresView ─── */
+   893→export function ParametresView() {
+   894→  const [activeTab, setActiveTab] = useState('informations')
+   895→
+   896→  const tabs = [
+   897→    { id: 'informations', label: 'Informations', icon: Building2 },
+   898→    { id: 'equipe', label: 'Equipe', icon: Users },
+   899→    { id: 'preferences', label: 'Préférences', icon: Sliders },
+   900→    { id: 'modules', label: 'Modules', icon: Puzzle },
+   901→    { id: 'donnees', label: 'Données', icon: Database },
+   902→  ]
+   903→
+   904→  return (
+   905→    <div className="p-4 md:p-6 lg:p-8 space-y-6">
+   906→      {/* Header */}
+   907→      <div>
+   908→        <h2 className="text-xl font-bold text-foreground">Parametres</h2>
+   909→        <p className="text-sm text-muted-foreground">Configuration et gestion du centre GIDEF</p>
+   910→      </div>
+   911→
+   912→      {/* Tabs navigation */}
+   913→      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+   914→        <TabsList className="flex flex-wrap h-auto gap-1 bg-muted p-1">
+   915→          {tabs.map((tab) => {
+   916→            const Icon = tab.icon
+   917→            return (
+   918→              <TabsTrigger
+   919→                key={tab.id}
+   920→                value={tab.id}
+   921→                className="gap-1.5 data-[state=active]:bg-[#FF6B35] data-[state=active]:text-white text-sm px-3 py-1.5"
+   922→              >
+   923→                <Icon className="h-4 w-4" />
+   924→                <span className="hidden sm:inline">{tab.label}</span>
+   925→              </TabsTrigger>
+   926→            )
+   927→          })}
+   928→        </TabsList>
+   929→
+   930→        <TabsContent value="informations">
+   931→          <CenterInfoSection />
+   932→        </TabsContent>
+   933→
+   934→        <TabsContent value="equipe">
+   935→          <TeamSection />
+   936→        </TabsContent>
+   937→
+   938→        <TabsContent value="preferences">
+   939→          <PreferencesSection />
+   940→        </TabsContent>
+   941→
+   942→        <TabsContent value="modules">
+   943→          <ModulesSection />
+   944→        </TabsContent>
+   945→
+   946→        <TabsContent value="donnees">
+   947→          <DataSection />
+   948→        </TabsContent>
+   949→      </Tabs>
+   950→    </div>
+   951→  )
+   952→}
+   953→

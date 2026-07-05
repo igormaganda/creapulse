@@ -1,0 +1,648 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Textarea } from '@/components/ui/textarea'
+     9→import { Separator } from '@/components/ui/separator'
+    10→import {
+    11→  Popover,
+    12→  PopoverContent,
+    13→  PopoverTrigger,
+    14→} from '@/components/ui/popover'
+    15→import {
+    16→  RotateCcw,
+    17→  Save,
+    18→  Sparkles,
+    19→  Loader2,
+    20→  Check,
+    21→  Info,
+    22→  FileCheck,
+    23→  Briefcase,
+    24→  GraduationCap,
+    25→  Building2,
+    26→  Users,
+    27→  Heart,
+    28→  ArrowRight,
+    29→  Minus,
+    30→  Plus,
+    31→} from 'lucide-react'
+    32→import { toast } from 'sonner'
+    33→import { cn } from '@/lib/utils'
+    34→import { authFetch } from '@/lib/auth-fetch'
+    35→
+    36→// ─── Types ──────────────────────────────────
+    37→
+    38→interface CompetenceItem {
+    39→  id: string
+    40→  name: string
+    41→}
+    42→
+    43→interface ClotureChecklist {
+    44→  declarationCessation: boolean
+    45→  urssaf: boolean
+    46→  impots: boolean
+    47→  rcs: boolean
+    48→  banque: boolean
+    49→  clients: boolean
+    50→  employes: boolean
+    51→  assurance: boolean
+    52→  bail: boolean
+    53→  comptable: boolean
+    54→}
+    55→
+    56→interface RebondOption {
+    57→  id: string
+    58→  title: string
+    59→  icon: typeof Briefcase
+    60→  avantages: string[]
+    61→  inconvenients: string[]
+    62→}
+    63→
+    64→interface ClotureRebondData {
+    65→  bilan: string
+    66→  competences: CompetenceItem[]
+    67→  checklist: ClotureChecklist
+    68→  rebondPrefere: string | null
+    69→}
+    70→
+    71→// ─── Constants ──────────────────────────────
+    72→
+    73→const REBOND_OPTIONS: RebondOption[] = [
+    74→  {
+    75→    id: 'salariat',
+    76→    title: 'Reprise du salariat',
+    77→    icon: Briefcase,
+    78→    avantages: ['Revenus stables et réguliers', 'Protection sociale complète', 'Formation par l\'entreprise', 'Moins de stress financier'],
+    79→    inconvenients: ['Moins d\'autonomie', 'Plafond de revenus', 'Dépendance hiérarchique', 'Décalage créatif possible'],
+    80→  },
+    81→  {
+    82→    id: 'nouvelle-creation',
+    83→    title: 'Nouvelle création d\'entreprise',
+    84→    icon: Building2,
+    85→    avantages: ['Expérience acquise valorisable', 'Réseau professionnel existant', 'Meilleure connaissance du marché', 'Éligibilité ARE/ACRE'],
+    86→    inconvenients: ['Risque de répéter les erreurs', 'Fatigue entrepreneuriale', 'Nécessite du financement', 'Temps de montage'],
+    87→  },
+    88→  {
+    89→    id: 'formation',
+    90→    title: 'Formation ou reconversion',
+    91→    icon: GraduationCap,
+    92→    avantages: ['Montée en compétences', 'Certification valorisable', 'Réorientation possible', 'Financement CPF possible'],
+    93→    inconvenients: ['Pas de revenus pendant la période', 'Durée variable (6-24 mois)', 'Pas de garantie d\'emploi', 'Adaptation au rythme scolaire'],
+    94→  },
+    95→  {
+    96→    id: 'freelance',
+    97→    title: 'Freelance / Portage salarial',
+    98→    icon: Users,
+    99→    avantages: ['Autonomie avec filet de sécurité', 'Rapidité de démarrage', 'Flexibilité des missions', 'Gestion admin simplifiée'],
+   100→    inconvenients: ['Prélèvements élevés (~10%)', 'Engagement minimum', 'Pression commerciale', 'Moins de crédibilité qu\'une entreprise'],
+   101→  },
+   102→  {
+   103→    id: 'conge-entrepreneurs',
+   104→    title: 'Congé pour création d\'entreprise',
+   105→    icon: Heart,
+   106→    avantages: ['Poste salarié conservé', 'Test à moindre risque', 'Retour possible si échec', 'Indemnisation chômage préservée'],
+   107→    inconvenients: ['Durée limitée (1-2 ans)', 'Pas possible si CDI < 24 mois dans certains cas', 'Accord de l\'employeur', 'Double activité difficile'],
+   108→  },
+   109→]
+   110→
+   111→const CHECKLIST_ITEMS: { key: keyof ClotureChecklist; label: string; detail: string }[] = [
+   112→  { key: 'declarationCessation', label: 'Déclaration de cessation', detail: 'Déclarer la cessation d\'activité au CFE (Centre de Formalités des Entreprises)' },
+   113→  { key: 'urssaf', label: 'URSSAF / Sécurité sociale', detail: 'Régulariser les cotisations sociales et clôturer le compte Urssaf' },
+   114→  { key: 'impots', label: 'Impôts (SIE)', detail: 'Déclarer les résultats de la dernière période et régulariser la TVA' },
+   115→  { key: 'rcs', label: 'RCS / Greffe du tribunal', detail: 'Inscrire la radiation au Registre du Commerce et des Sociétés' },
+   116→  { key: 'banque', label: 'Compte bancaire professionnel', detail: 'Clôturer le compte bancaire dédié à l\'activité' },
+   117→  { key: 'clients', label: 'Clients & fournisseurs', detail: 'Informer les clients, facturer les prestations restantes, payer les fournisseurs' },
+   118→  { key: 'employes', label: 'Employés (si applicable)', detail: 'Procéder aux formalités de licenciement ou transfert' },
+   119→  { key: 'assurance', label: 'Assurances', detail: 'Résilier les contrats d\'assurance professionnelle' },
+   120→  { key: 'bail', label: 'Bail commercial', detail: 'Résilier le bail commercial ou prévoir la cession' },
+   121→  { key: 'comptable', label: 'Comptable / Expert-comptable', detail: 'Obtenir les bilans de clôture et le certificat de radiation' },
+   122→]
+   123→
+   124→function createCompetence(name: string): CompetenceItem {
+   125→  return { id: crypto.randomUUID(), name: name.trim() }
+   126→}
+   127→
+   128→// ─── Helpers ────────────────────────────────
+   129→
+   130→function InfoPopover({ text }: { text: string }) {
+   131→  return (
+   132→    <Popover>
+   133→      <PopoverTrigger asChild>
+   134→        <button type="button" className="inline-flex items-center justify-center h-5 w-5 rounded-full text-muted-foreground hover:text-purple-600 hover:bg-purple-600/10 transition-colors shrink-0">
+   135→          <Info className="h-3.5 w-3.5" />
+   136→          <span className="sr-only">Aide</span>
+   137→        </button>
+   138→      </PopoverTrigger>
+   139→      <PopoverContent side="top" className="max-w-sm text-sm bg-popover border-border shadow-lg">
+   140→        <p className="text-muted-foreground leading-relaxed">{text}</p>
+   141→      </PopoverContent>
+   142→    </Popover>
+   143→  )
+   144→}
+   145→
+   146→// ─── Main Component ─────────────────────────
+   147→
+   148→export function ClotureRebondModule() {
+   149→  const [isLoading, setIsLoading] = useState(true)
+   150→  const [isSaving, setIsSaving] = useState(false)
+   151→  const [aiLoading, setAiLoading] = useState(false)
+   152→
+   153→  const [bilan, setBilan] = useState('')
+   154→  const [competences, setCompetences] = useState<CompetenceItem[]>([])
+   155→  const [newCompetence, setNewCompetence] = useState('')
+   156→  const [checklist, setChecklist] = useState<ClotureChecklist>({
+   157→    declarationCessation: false,
+   158→    urssaf: false,
+   159→    impots: false,
+   160→    rcs: false,
+   161→    banque: false,
+   162→    clients: false,
+   163→    employes: false,
+   164→    assurance: false,
+   165→    bail: false,
+   166→    comptable: false,
+   167→  })
+   168→  const [rebondPrefere, setRebondPrefere] = useState<string | null>(null)
+   169→  const [aiOrientation, setAiOrientation] = useState('')
+   170→
+   171→  // ─── Load data on mount ──────────────────
+   172→  useEffect(() => {
+   173→    async function load() {
+   174→      const saved = localStorage.getItem('creapulse-cloture-rebond')
+   175→      if (saved) {
+   176→        try {
+   177→          const parsed = JSON.parse(saved)
+   178→          if (parsed.bilan) setBilan(parsed.bilan)
+   179→          if (parsed.competences?.length) setCompetences(parsed.competences)
+   180→          if (parsed.checklist) setChecklist(prev => ({ ...prev, ...parsed.checklist }))
+   181→          if (parsed.rebondPrefere) setRebondPrefere(parsed.rebondPrefere)
+   182→          if (parsed.aiOrientation) setAiOrientation(parsed.aiOrientation)
+   183→        } catch { /* ignore */ }
+   184→      }
+   185→
+   186→      try {
+   187→        const res = await authFetch('/api/paa/ateliers', {
+   188→          method: 'POST',
+   189→          body: JSON.stringify({ action: 'get', atelierCode: 'cloture-rebond' }),
+   190→        })
+   191→        if (res.ok) {
+   192→          const json = await res.json()
+   193→          if (json.success && json.data) {
+   194→            const d = json.data
+   195→            if (d.bilan) setBilan(d.bilan)
+   196→            if (d.competences?.length) setCompetences(d.competences)
+   197→            if (d.checklist) setChecklist(prev => ({ ...prev, ...d.checklist }))
+   198→            if (d.rebondPrefere) setRebondPrefere(d.rebondPrefere)
+   199→            if (d.aiOrientation) setAiOrientation(d.aiOrientation)
+   200→          }
+   201→        }
+   202→      } catch { /* ignore */ }
+   203→
+   204→      setIsLoading(false)
+   205→    }
+   206→    load()
+   207→  }, [])
+   208→
+   209→  // ─── Auto-save to localStorage ──────────
+   210→  useEffect(() => {
+   211→    if (!isLoading) {
+   212→      localStorage.setItem('creapulse-cloture-rebond', JSON.stringify({
+   213→        bilan, competences, checklist, rebondPrefere, aiOrientation,
+   214→      }))
+   215→    }
+   216→  }, [isLoading, bilan, competences, checklist, rebondPrefere, aiOrientation])
+   217→
+   218→  // ─── Competence helpers ─────────────────
+   219→  const addCompetence = useCallback(() => {
+   220→    if (newCompetence.trim()) {
+   221→      setCompetences(prev => [...prev, createCompetence(newCompetence)])
+   222→      setNewCompetence('')
+   223→    }
+   224→  }, [newCompetence])
+   225→
+   226→  const removeCompetence = useCallback((id: string) => {
+   227→    setCompetences(prev => prev.filter(c => c.id !== id))
+   228→  }, [])
+   229→
+   230→  // ─── Checklist helper ────────────────────
+   231→  const toggleChecklist = useCallback((key: keyof ClotureChecklist) => {
+   232→    setChecklist(prev => ({ ...prev, [key]: !prev[key] }))
+   233→  }, [])
+   234→
+   235→  // ─── Completion ─────────────────────────
+   236→  const completion = useMemo(() => {
+   237→    let filled = 0
+   238→    const total = 4
+   239→    if (bilan.trim()) filled++
+   240→    if (competences.length > 0) filled++
+   241→    const checked = Object.values(checklist).filter(Boolean).length
+   242→    if (checked >= 5) filled++
+   243→    if (rebondPrefere) filled++
+   244→    return { filled, total, percent: Math.round((filled / total) * 100) }
+   245→  }, [bilan, competences, checklist, rebondPrefere])
+   246→
+   247→  const checklistProgress = useMemo(() => {
+   248→    const checked = Object.values(checklist).filter(Boolean).length
+   249→    return { checked, total: CHECKLIST_ITEMS.length, percent: Math.round((checked / CHECKLIST_ITEMS.length) * 100) }
+   250→  }, [checklist])
+   251→
+   252→  // ─── Save to API ────────────────────────
+   253→  const handleSave = useCallback(async () => {
+   254→    setIsSaving(true)
+   255→    try {
+   256→      const res = await authFetch('/api/paa/ateliers', {
+   257→        method: 'PUT',
+   258→        body: JSON.stringify({
+   259→          atelierCode: 'cloture-rebond',
+   260→          bilan,
+   261→          competences,
+   262→          checklist,
+   263→          rebondPrefere,
+   264→          aiOrientation,
+   265→        }),
+   266→      })
+   267→      const json = await res.json()
+   268→      if (!json.success) {
+   269→        toast.error(json.error?.message || 'Erreur lors de la sauvegarde')
+   270→        return
+   271→      }
+   272→      toast.success('Atelier Clôture & Rebond sauvegardé')
+   273→    } catch {
+   274→      toast.error('Erreur de connexion au serveur')
+   275→    } finally {
+   276→      setIsSaving(false)
+   277→    }
+   278→  }, [bilan, competences, checklist, rebondPrefere, aiOrientation])
+   279→
+   280→  // ─── AI Orientation ──────────────────────
+   281→  const handleAiOrientation = useCallback(async () => {
+   282→    setAiLoading(true)
+   283→    try {
+   284→      const res = await authFetch('/api/paa/ateliers', {
+   285→        method: 'POST',
+   286→        body: JSON.stringify({
+   287→          action: 'ai-analyze',
+   288→          atelierCode: 'cloture-rebond',
+   289→          bilan,
+   290→          competences: competences.map(c => c.name),
+   291→          rebondPrefere,
+   292→        }),
+   293→      })
+   294→      const json = await res.json()
+   295→      if (json.success && json.data?.suggestion) {
+   296→        setAiOrientation(typeof json.data.suggestion === 'string' ? json.data.suggestion : JSON.stringify(json.data.suggestion))
+   297→        toast.success('Orientation IA générée !')
+   298→      } else {
+   299→        toast.error(json.error?.message || 'Erreur lors de la génération IA')
+   300→      }
+   301→    } catch {
+   302→      toast.error('Erreur de connexion au serveur')
+   303→    } finally {
+   304→      setAiLoading(false)
+   305→    }
+   306→  }, [bilan, competences, rebondPrefere])
+   307→
+   308→  // ─── Loading skeleton ───────────────────
+   309→  if (isLoading) {
+   310→    return (
+   311→      <div className="p-4 md:p-6 lg:p-8 space-y-6">
+   312→        <div className="h-8 w-64 bg-muted animate-pulse rounded" />
+   313→        <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+   314→        <div className="h-48 bg-muted animate-pulse rounded-xl" />
+   315→      </div>
+   316→    )
+   317→  }
+   318→
+   319→  // ─── Main Render ─────────────────────────
+   320→  return (
+   321→    <motion.div
+   322→      initial={{ opacity: 0, y: 20 }}
+   323→      animate={{ opacity: 1, y: 0 }}
+   324→      transition={{ duration: 0.4 }}
+   325→      className="flex-1 overflow-y-auto"
+   326→    >
+   327→      {/* Header */}
+   328→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 md:px-6 border-b bg-background">
+   329→        <div className="flex items-center gap-3">
+   330→          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/10">
+   331→            <RotateCcw className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+   332→          </div>
+   333→          <div>
+   334→            <div className="flex items-center gap-2">
+   335→              <h2 className="text-xl font-bold text-foreground">Clôture &amp; Rebond Professionnel</h2>
+   336→              <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 text-[10px] px-1.5">Atelier 9</Badge>
+   337→            </div>
+   338→            <p className="text-xs text-muted-foreground">
+   339→              {completion.filled}/{completion.total} sections — {completion.percent}%
+   340→            </p>
+   341→          </div>
+   342→        </div>
+   343→        <div className="flex items-center gap-2 flex-wrap">
+   344→          <Button
+   345→            variant="outline"
+   346→            size="sm"
+   347→            className="gap-1.5 border-amber-400/40 text-amber-500 hover:bg-amber-400/10"
+   348→            onClick={handleAiOrientation}
+   349→            disabled={aiLoading}
+   350→          >
+   351→            {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+   352→            Orientation IA
+   353→          </Button>
+   354→          <Button
+   355→            size="sm"
+   356→            className="gap-1.5 bg-purple-600 hover:bg-purple-700 text-white"
+   357→            onClick={handleSave}
+   358→            disabled={isSaving}
+   359→          >
+   360→            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+   361→            Enregistrer
+   362→          </Button>
+   363→        </div>
+   364→      </div>
+   365→
+   366→      {/* Content */}
+   367→      <div className="p-4 md:p-6 space-y-6">
+   368→        {/* ── Bilan de l'expérience ── */}
+   369→        <Card className="border-purple-200 dark:border-purple-800">
+   370→          <CardHeader className="pb-3">
+   371→            <div className="flex items-center gap-2">
+   372→              <CardTitle className="text-base flex items-center gap-2">
+   373→                <FileCheck className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+   374→                Bilan de l&apos;expérience
+   375→              </CardTitle>
+   376→              <InfoPopover text="Réfléchissez à ce que vous avez appris, ce qui a fonctionné et ce qui n'a pas fonctionné. Ce bilan est précieux pour votre parcours futur." />
+   377→            </div>
+   378→            <CardDescription>Atelier 9 — Synthèse de votre parcours entrepreneurial</CardDescription>
+   379→          </CardHeader>
+   380→          <CardContent className="space-y-4">
+   381→            <div className="space-y-3">
+   382→              <div>
+   383→                <p className="text-sm font-medium text-muted-foreground mb-1.5">Ce qui a fonctionné</p>
+   384→                <Textarea
+   385→                  value={bilan}
+   386→                  onChange={(e) => setBilan(e.target.value)}
+   387→                  placeholder={"- J'ai développé un réseau solide de 20+ contacts\n- J'ai acquis des compétences en gestion de projet\n- J'ai compris les besoins de mon marché cible\n- J'ai appris à gérer un budget prévisionnel"}
+   388→                  className="min-h-[120px] text-sm resize-none"
+   389→                />
+   390→              </div>
+   391→            </div>
+   392→          </CardContent>
+   393→        </Card>
+   394→
+   395→        {/* ── Compétences transférables ── */}
+   396→        <Card className="border-purple-200 dark:border-purple-800">
+   397→          <CardHeader className="pb-3">
+   398→            <div className="flex items-center gap-2">
+   399→              <CardTitle className="text-base flex items-center gap-2">
+   400→                <GraduationCap className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+   401→                Compétences transférables
+   402→              </CardTitle>
+   403→              <InfoPopover text="Listez les compétences que vous avez acquises et qui sont valorisables dans d'autres contextes professionnels." />
+   404→            </div>
+   405→          </CardHeader>
+   406→          <CardContent>
+   407→            <div className="flex gap-2 mb-3">
+   408→              <input
+   409→                type="text"
+   410→                value={newCompetence}
+   411→                onChange={(e) => setNewCompetence(e.target.value)}
+   412→                onKeyDown={(e) => e.key === 'Enter' && addCompetence()}
+   413→                placeholder="Ex: Gestion de projet, Vente B2B, Community management..."
+   414→                className="flex-1 text-sm rounded-lg border border-border bg-background/60 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+   415→              />
+   416→              <Button size="sm" variant="outline" onClick={addCompetence} disabled={!newCompetence.trim()} className="gap-1 border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400">
+   417→                <Plus className="h-3.5 w-3.5" />
+   418→                Ajouter
+   419→              </Button>
+   420→            </div>
+   421→            {competences.length > 0 && (
+   422→              <div className="flex flex-wrap gap-2">
+   423→                {competences.map((comp) => (
+   424→                  <Badge
+   425→                    key={comp.id}
+   426→                    variant="outline"
+   427→                    className="gap-1.5 px-3 py-1.5 text-sm border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300"
+   428→                  >
+   429→                    <GraduationCap className="h-3 w-3" />
+   430→                    {comp.name}
+   431→                    <button
+   432→                      type="button"
+   433→                      onClick={() => removeCompetence(comp.id)}
+   434→                      className="ml-1 hover:text-red-500 transition-colors"
+   435→                    >
+   436→                      ×
+   437→                    </button>
+   438→                  </Badge>
+   439→                ))}
+   440→              </div>
+   441→            )}
+   442→            {competences.length === 0 && (
+   443→              <p className="text-xs text-muted-foreground">Aucune compétence ajoutée. Utilisez le champ ci-dessus.</p>
+   444→            )}
+   445→          </CardContent>
+   446→        </Card>
+   447→
+   448→        <Separator />
+   449→
+   450→        {/* ── Formalités de clôture ── */}
+   451→        <Card className="border-purple-200 dark:border-purple-800">
+   452→          <CardHeader className="pb-3">
+   453→            <div className="flex items-center justify-between">
+   454→              <div className="flex items-center gap-2">
+   455→                <CardTitle className="text-base flex items-center gap-2">
+   456→                  <FileCheck className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+   457→                  Formalités de clôture
+   458→                </CardTitle>
+   459→                <InfoPopover text="Cochez chaque étape au fur et à mesure de son accomplissement. Ce checklist vous guidera dans les démarches administratives de fermeture." />
+   460→              </div>
+   461→              <Badge variant="outline" className="text-xs">
+   462→                {checklistProgress.checked}/{checklistProgress.total} — {checklistProgress.percent}%
+   463→              </Badge>
+   464→            </div>
+   465→          </CardHeader>
+   466→          <CardContent>
+   467→            <div className="space-y-2">
+   468→              {CHECKLIST_ITEMS.map((item) => (
+   469→                <button
+   470→                  key={item.key}
+   471→                  type="button"
+   472→                  onClick={() => toggleChecklist(item.key)}
+   473→                  className={cn(
+   474→                    'flex items-start gap-3 w-full rounded-lg border p-3 text-left transition-all',
+   475→                    checklist[item.key]
+   476→                      ? 'border-purple-300 dark:border-purple-700 bg-purple-50/50 dark:bg-purple-950/20'
+   477→                      : 'border-border bg-muted/20 hover:bg-muted/40'
+   478→                  )}
+   479→                >
+   480→                  <div className={cn(
+   481→                    'flex h-5 w-5 shrink-0 mt-0.5 items-center justify-center rounded-md border transition-colors',
+   482→                    checklist[item.key]
+   483→                      ? 'border-purple-500 bg-purple-500'
+   484→                      : 'border-muted-foreground/30'
+   485→                  )}>
+   486→                    {checklist[item.key] && <Check className="h-3 w-3 text-white" />}
+   487→                  </div>
+   488→                  <div className="flex-1">
+   489→                    <p className={cn(
+   490→                      'text-sm font-medium',
+   491→                      checklist[item.key] && 'line-through text-muted-foreground'
+   492→                    )}>
+   493→                      {item.label}
+   494→                    </p>
+   495→                    <p className="text-xs text-muted-foreground mt-0.5">{item.detail}</p>
+   496→                  </div>
+   497→                </button>
+   498→              ))}
+   499→            </div>
+   500→            <div className="mt-4">
+   501→              <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+   502→                <motion.div
+   503→                  className="h-full rounded-full bg-purple-500"
+   504→                  animate={{ width: `${checklistProgress.percent}%` }}
+   505→                  transition={{ duration: 0.4 }}
+   506→                />
+   507→              </div>
+   508→            </div>
+   509→          </CardContent>
+   510→        </Card>
+   511→
+   512→        <Separator />
+   513→
+   514→        {/* ── Parcours de rebond ── */}
+   515→        <div className="space-y-4">
+   516→          <h3 className="text-base font-semibold flex items-center gap-2">
+   517→            <ArrowRight className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+   518→            Parcours de rebond
+   519→            <InfoPopover text="Découvrez les options disponibles après la clôture de votre entreprise. Chaque option a ses avantages et inconvénients. Sélectionnez celle qui correspond le mieux à votre profil." />
+   520→          </h3>
+   521→          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   522→            {REBOND_OPTIONS.map((option) => {
+   523→              const OptionIcon = option.icon
+   524→              const isSelected = rebondPrefere === option.id
+   525→              return (
+   526→                <motion.button
+   527→                  key={option.id}
+   528→                  whileHover={{ scale: 1.01 }}
+   529→                  whileTap={{ scale: 0.99 }}
+   530→                  type="button"
+   531→                  onClick={() => setRebondPrefere(isSelected ? null : option.id)}
+   532→                  className={cn(
+   533→                    'text-left rounded-xl border-2 p-4 transition-all relative',
+   534→                    isSelected
+   535→                      ? 'shadow-lg border-purple-500 dark:border-purple-500'
+   536→                      : 'border-border hover:border-purple-300 dark:hover:border-purple-700'
+   537→                  )}
+   538→                >
+   539→                  {isSelected && (
+   540→                    <div className="absolute top-2 right-2">
+   541→                      <Check className="h-4 w-4 text-purple-500" />
+   542→                    </div>
+   543→                  )}
+   544→                  <div className="flex items-center gap-3 mb-3">
+   545→                    <div className={cn(
+   546→                      'flex h-10 w-10 items-center justify-center rounded-xl',
+   547→                      isSelected ? 'bg-purple-100 dark:bg-purple-900/30' : 'bg-muted'
+   548→                    )}>
+   549→                      <OptionIcon className={cn(
+   550→                        'h-5 w-5',
+   551→                        isSelected ? 'text-purple-600 dark:text-purple-400' : 'text-muted-foreground'
+   552→                      )} />
+   553→                    </div>
+   554→                    <div>
+   555→                      <p className={cn(
+   556→                        'text-sm font-bold',
+   557→                        isSelected ? 'text-purple-600 dark:text-purple-400' : 'text-foreground'
+   558→                      )}>
+   559→                        {option.title}
+   560→                      </p>
+   561→                      {isSelected && (
+   562→                        <Badge className="text-[10px] px-1.5 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+   563→                          Sélectionné
+   564→                        </Badge>
+   565→                      )}
+   566→                    </div>
+   567→                  </div>
+   568→                  <div className="grid grid-cols-2 gap-4">
+   569→                    <div>
+   570→                      <p className="text-[11px] font-semibold text-green-600 mb-1 flex items-center gap-1">
+   571→                        <Plus className="h-3 w-3" /> Avantages
+   572→                      </p>
+   573→                      <ul className="space-y-0.5">
+   574→                        {option.avantages.map((a, i) => (
+   575→                          <li key={i} className="text-[11px] text-muted-foreground">• {a}</li>
+   576→                        ))}
+   577→                      </ul>
+   578→                    </div>
+   579→                    <div>
+   580→                      <p className="text-[11px] font-semibold text-red-500 mb-1 flex items-center gap-1">
+   581→                        <Minus className="h-3 w-3" /> Inconvénients
+   582→                      </p>
+   583→                      <ul className="space-y-0.5">
+   584→                        {option.inconvenients.map((inc, i) => (
+   585→                          <li key={i} className="text-[11px] text-muted-foreground">• {inc}</li>
+   586→                        ))}
+   587→                      </ul>
+   588→                    </div>
+   589→                  </div>
+   590→                </motion.button>
+   591→              )
+   592→            })}
+   593→          </div>
+   594→        </div>
+   595→
+   596→        {/* ── AI Orientation ── */}
+   597→        {aiOrientation && (
+   598→          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+   599→            <Card className="border-amber-300 dark:border-amber-700">
+   600→              <CardHeader className="pb-3">
+   601→                <CardTitle className="text-base flex items-center gap-2">
+   602→                  <Sparkles className="h-4 w-4 text-amber-500" />
+   603→                  Orientation IA — Recommandation personnalisée
+   604→                </CardTitle>
+   605→              </CardHeader>
+   606→              <CardContent>
+   607→                <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed">
+   608→                  {aiOrientation}
+   609→                </div>
+   610→              </CardContent>
+   611→            </Card>
+   612→          </motion.div>
+   613→        )}
+   614→
+   615→        {/* ── Bottom Save Bar ── */}
+   616→        <Card className="bg-gradient-to-r from-purple-500/5 to-purple-300/5 border-purple-200 dark:border-purple-800">
+   617→          <CardContent className="py-4">
+   618→            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+   619→              <div className="flex items-center gap-3">
+   620→                <div className="flex items-center gap-1">
+   621→                  {Array.from({ length: completion.total }).map((_, i) => (
+   622→                    <div key={i} className={cn(
+   623→                      'h-2 w-2 rounded-full transition-colors',
+   624→                      i < completion.filled ? 'bg-purple-500' : 'bg-muted',
+   625→                    )} />
+   626→                  ))}
+   627→                </div>
+   628→                <span className="text-sm text-muted-foreground">
+   629→                  {completion.percent}% complété
+   630→                </span>
+   631→              </div>
+   632→              <Button
+   633→                size="sm"
+   634→                className="gap-1.5 bg-purple-600 hover:bg-purple-700 text-white"
+   635→                onClick={handleSave}
+   636→                disabled={isSaving}
+   637→              >
+   638→                {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+   639→                Enregistrer
+   640→              </Button>
+   641→            </div>
+   642→          </CardContent>
+   643→        </Card>
+   644→      </div>
+   645→    </motion.div>
+   646→  )
+   647→}
+   648→
