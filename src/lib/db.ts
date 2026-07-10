@@ -1,6 +1,4 @@
 import { PrismaClient } from '@prisma/client'
-import { PrismaPg } from '@prisma/adapter-pg'
-import pg from 'pg'
 import { createLogger } from './logger'
 
 const log = createLogger('DB')
@@ -26,16 +24,8 @@ function createPrismaClient(): PrismaClient {
   const connectionString = getConnectionString()
   log.info('Creating PrismaClient')
 
-  const pool = new pg.Pool({
-    connectionString,
-    connectionTimeoutMillis: 10000,
-    idleTimeoutMillis: 30000,
-    max: 5,
-  })
-  const adapter = new PrismaPg(pool)
-
   return new PrismaClient({
-    adapter,
+    datasourceUrl: connectionString,
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   })
 }

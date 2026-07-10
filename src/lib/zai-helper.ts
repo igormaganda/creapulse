@@ -33,7 +33,7 @@ export type ZAIResponse = ZAIResult | ZAIFailure
 
 // ─── Default model ──────────────────────────
 
-const DEFAULT_MODEL = 'claude-sonnet-4-20250514'
+const DEFAULT_MODEL = process.env.ZAI_MODEL || 'glm-4.7'
 
 // ─── Main helper ────────────────────────────
 
