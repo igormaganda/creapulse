@@ -1,0 +1,688 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Input } from '@/components/ui/input'
+     9→import { Textarea } from '@/components/ui/textarea'
+    10→import { Slider } from '@/components/ui/slider'
+    11→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    12→import { Separator } from '@/components/ui/separator'
+    13→import {
+    14→  Megaphone,
+    15→  Save,
+    16→  Plus,
+    17→  X,
+    18→  User,
+    19→  Target,
+    20→  TrendingUp,
+    21→  DollarSign,
+    22→  MapPin,
+    23→  Bell,
+    24→  BarChart3,
+    25→  Trash2,
+    26→  GripVertical,
+    27→} from 'lucide-react'
+    28→import { toast } from 'sonner'
+    29→import { cn } from '@/lib/utils'
+    30→
+    31→// ─── Types ──────────────────────────────────
+    32→
+    33→interface MarketingMixP {
+    34→  produit: string
+    35→  prix: string
+    36→  place: string
+    37→  promotion: string
+    38→}
+    39→
+    40→interface Persona {
+    41→  id: string
+    42→  name: string
+    43→  age: string
+    44→  genre: string
+    45→  localisation: string
+    46→  revenus: string
+    47→  painPoints: string
+    48→  objectifs: string
+    49→}
+    50→
+    51→interface Channel {
+    52→  id: string
+    53→  name: string
+    54→  type: 'online' | 'offline'
+    55→  priority: 'haute' | 'moyenne' | 'basse'
+    56→  budget: number
+    57→  notes: string
+    58→}
+    59→
+    60→interface KpiItem {
+    61→  id: string
+    62→  name: string
+    63→  target: string
+    64→  current: string
+    65→  unit: string
+    66→}
+    67→
+    68→interface MarketingData {
+    69→  mix: MarketingMixP
+    70→  personas: Persona[]
+    71→  channels: Channel[]
+    72→  kpis: KpiItem[]
+    73→  totalBudget: number
+    74→}
+    75→
+    76→const STORAGE_KEY = 'creapulse-marketing-commerciale'
+    77→
+    78→const defaultData: MarketingData = {
+    79→  mix: { produit: '', prix: '', place: '', promotion: '' },
+    80→  personas: [],
+    81→  channels: [],
+    82→  kpis: [],
+    83→  totalBudget: 100,
+    84→}
+    85→
+    86→const PRIORITY_CONFIG = {
+    87→  haute: { label: 'Haute', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-800' },
+    88→  moyenne: { label: 'Moyenne', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800' },
+    89→  basse: { label: 'Basse', color: 'bg-stone-100 text-stone-600 dark:bg-stone-900/30 dark:text-stone-400 border-stone-200 dark:border-stone-800' },
+    90→}
+    91→
+    92→// ─── Helpers ────────────────────────────────
+    93→
+    94→function uid(): string {
+    95→  return crypto.randomUUID()
+    96→}
+    97→
+    98→// ─── 4P Editor Sub-component ─────────────────
+    99→
+   100→function MixEditor({ label, value, onChange, icon: Icon, color }: {
+   101→  label: string
+   102→  value: string
+   103→  onChange: (v: string) => void
+   104→  icon: typeof Megaphone
+   105→  color: string
+   106→}) {
+   107→  return (
+   108→    <div className={cn('rounded-xl border p-4 space-y-2', color)}>
+   109→      <div className="flex items-center gap-2">
+   110→        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-background/80">
+   111→          <Icon className="h-4 w-4" />
+   112→        </div>
+   113→        <p className="text-sm font-bold">{label}</p>
+   114→      </div>
+   115→      <Textarea
+   116→        value={value}
+   117→        onChange={(e) => onChange(e.target.value)}
+   118→        placeholder={`Décrivez votre stratégie ${label.toLowerCase()}...`}
+   119→        className="min-h-[80px] text-sm bg-background/60 border-border/50 resize-none"
+   120→      />
+   121→    </div>
+   122→  )
+   123→}
+   124→
+   125→// ─── Persona Form ────────────────────────────
+   126→
+   127→function PersonaCard({ persona, onUpdate, onDelete }: {
+   128→  persona: Persona
+   129→  onUpdate: (p: Persona) => void
+   130→  onDelete: (id: string) => void
+   131→}) {
+   132→  return (
+   133→    <motion.div
+   134→      initial={{ opacity: 0, y: 10 }}
+   135→      animate={{ opacity: 1, y: 0 }}
+   136→      className="rounded-xl border border-orange-200 dark:border-orange-800 bg-orange-50/30 dark:bg-orange-950/20 p-4 space-y-3"
+   137→    >
+   138→      <div className="flex items-center justify-between">
+   139→        <div className="flex items-center gap-2">
+   140→          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/30">
+   141→            <User className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+   142→          </div>
+   143→          <Input
+   144→            value={persona.name}
+   145→            onChange={(e) => onUpdate({ ...persona, name: e.target.value })}
+   146→            placeholder="Nom du persona"
+   147→            className="h-8 text-sm font-semibold border-0 p-0 focus-visible:ring-0 bg-transparent w-40"
+   148→          />
+   149→        </div>
+   150→        <Button variant="ghost" size="sm" onClick={() => onDelete(persona.id)} className="h-8 w-8 p-0 text-muted-foreground hover:text-red-500">
+   151→          <Trash2 className="h-3.5 w-3.5" />
+   152→        </Button>
+   153→      </div>
+   154→      <div className="grid grid-cols-2 gap-2">
+   155→        <Input
+   156→          value={persona.age}
+   157→          onChange={(e) => onUpdate({ ...persona, age: e.target.value })}
+   158→          placeholder="Âge"
+   159→          className="h-8 text-xs"
+   160→        />
+   161→        <Input
+   162→          value={persona.genre}
+   163→          onChange={(e) => onUpdate({ ...persona, genre: e.target.value })}
+   164→          placeholder="Genre"
+   165→          className="h-8 text-xs"
+   166→        />
+   167→        <Input
+   168→          value={persona.localisation}
+   169→          onChange={(e) => onUpdate({ ...persona, localisation: e.target.value })}
+   170→          placeholder="Localisation"
+   171→          className="h-8 text-xs"
+   172→        />
+   173→        <Input
+   174→          value={persona.revenus}
+   175→          onChange={(e) => onUpdate({ ...persona, revenus: e.target.value })}
+   176→          placeholder="Revenus"
+   177→          className="h-8 text-xs"
+   178→        />
+   179→      </div>
+   180→      <Textarea
+   181→        value={persona.painPoints}
+   182→        onChange={(e) => onUpdate({ ...persona, painPoints: e.target.value })}
+   183→        placeholder="Points de douleur / frustrations..."
+   184→        className="min-h-[50px] text-xs bg-background/60 resize-none"
+   185→      />
+   186→      <Textarea
+   187→        value={persona.objectifs}
+   188→        onChange={(e) => onUpdate({ ...persona, objectifs: e.target.value })}
+   189→        placeholder="Objectifs / attentes..."
+   190→        className="min-h-[50px] text-xs bg-background/60 resize-none"
+   191→      />
+   192→    </motion.div>
+   193→  )
+   194→}
+   195→
+   196→// ─── Channel Card ────────────────────────────
+   197→
+   198→function ChannelCard({ channel, onUpdate, onDelete, budgetPercent }: {
+   199→  channel: Channel
+   200→  onUpdate: (c: Channel) => void
+   201→  onDelete: (id: string) => void
+   202→  budgetPercent: number
+   203→}) {
+   204→  const prio = PRIORITY_CONFIG[channel.priority]
+   205→  return (
+   206→    <motion.div
+   207→      initial={{ opacity: 0, y: 10 }}
+   208→      animate={{ opacity: 1, y: 0 }}
+   209→      className="rounded-xl border border-orange-200 dark:border-orange-800 bg-orange-50/30 dark:bg-orange-950/20 p-4 space-y-3"
+   210→    >
+   211→      <div className="flex items-center justify-between">
+   212→        <div className="flex items-center gap-2 flex-1 min-w-0">
+   213→          <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+   214→          <Input
+   215→            value={channel.name}
+   216→            onChange={(e) => onUpdate({ ...channel, name: e.target.value })}
+   217→            placeholder="Nom du canal"
+   218→            className="h-8 text-sm font-semibold border-0 p-0 focus-visible:ring-0 bg-transparent"
+   219→          />
+   220→        </div>
+   221→        <div className="flex items-center gap-2 shrink-0">
+   222→          <Badge variant="outline" className={cn('text-[10px] border', prio.color)}>
+   223→            {channel.type === 'online' ? '🌐' : '🏪'} {prio.label}
+   224→          </Badge>
+   225→          <Button variant="ghost" size="sm" onClick={() => onDelete(channel.id)} className="h-7 w-7 p-0 text-muted-foreground hover:text-red-500">
+   226→            <X className="h-3.5 w-3.5" />
+   227→          </Button>
+   228→        </div>
+   229→      </div>
+   230→      <div className="flex items-center gap-3">
+   231→        <Badge
+   232→          variant="outline"
+   233→          className={cn(
+   234→            'cursor-pointer text-[10px] border transition-colors',
+   235→            channel.type === 'online'
+   236→              ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300 border-sky-200 dark:border-sky-800'
+   237→              : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+   238→          )}
+   239→          onClick={() => onUpdate({ ...channel, type: channel.type === 'online' ? 'offline' : 'online' })}
+   240→        >
+   241→          {channel.type === 'online' ? 'En ligne' : 'Physique'}
+   242→        </Badge>
+   243→        {(['haute', 'moyenne', 'basse'] as const).map((p) => (
+   244→          <Badge
+   245→            key={p}
+   246→            variant="outline"
+   247→            className={cn(
+   248→              'cursor-pointer text-[10px] border transition-colors',
+   249→              channel.priority === p ? PRIORITY_CONFIG[p].color : 'opacity-40 hover:opacity-70'
+   250→            )}
+   251→            onClick={() => onUpdate({ ...channel, priority: p })}
+   252→          >
+   253→            {PRIORITY_CONFIG[p].label}
+   254→          </Badge>
+   255→        ))}
+   256→      </div>
+   257→      <div className="space-y-1">
+   258→        <div className="flex items-center justify-between text-xs text-muted-foreground">
+   259→          <span>Budget alloué</span>
+   260→          <span className="font-mono font-semibold text-foreground">{budgetPercent}%</span>
+   261→        </div>
+   262→        <Slider
+   263→          value={[channel.budget]}
+   264→          onValueChange={([v]) => onUpdate({ ...channel, budget: v })}
+   265→          max={100}
+   266→          step={1}
+   267→          className="w-full"
+   268→        />
+   269→      </div>
+   270→      <Textarea
+   271→        value={channel.notes}
+   272→        onChange={(e) => onUpdate({ ...channel, notes: e.target.value })}
+   273→        placeholder="Notes ou actions prévues..."
+   274→        className="min-h-[40px] text-xs bg-background/60 resize-none"
+   275→      />
+   276→    </motion.div>
+   277→  )
+   278→}
+   279→
+   280→// ─── Main Component ─────────────────────────
+   281→
+   282→export function MarketingCommercialeModule() {
+   283→  const [isLoading, setIsLoading] = useState(true)
+   284→  const [data, setData] = useState<MarketingData>(defaultData)
+   285→  const [activeTab, setActiveTab] = useState('mix')
+   286→
+   287→  // ─── Load from localStorage ──────────────
+   288→  useEffect(() => {
+   289→    async function load() {
+   290→      try {
+   291→        const saved = localStorage.getItem(STORAGE_KEY)
+   292→        if (saved) {
+   293→          const parsed = JSON.parse(saved)
+   294→          if (parsed.mix) {
+   295→            setData({
+   296→              mix: parsed.mix ?? defaultData.mix,
+   297→              personas: parsed.personas ?? [],
+   298→              channels: parsed.channels ?? [],
+   299→              kpis: parsed.kpis ?? [],
+   300→              totalBudget: parsed.totalBudget ?? 100,
+   301→            })
+   302→          }
+   303→        }
+   304→      } catch { /* ignore */ }
+   305→      setIsLoading(false)
+   306→    }
+   307→    load()
+   308→  }, [])
+   309→
+   310→  // ─── Auto-save to localStorage ──────────
+   311→  useEffect(() => {
+   312→    if (!isLoading) {
+   313→      localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+   314→    }
+   315→  }, [isLoading, data])
+   316→
+   317→  // ─── Handlers ─────────────────────────────
+   318→  const updateMix = useCallback((key: keyof MarketingMixP, value: string) => {
+   319→    setData(prev => ({ ...prev, mix: { ...prev.mix, [key]: value } }))
+   320→  }, [])
+   321→
+   322→  const addPersona = useCallback(() => {
+   323→    const newPersona: Persona = {
+   324→      id: uid(), name: '', age: '', genre: '', localisation: '',
+   325→      revenus: '', painPoints: '', objectifs: '',
+   326→    }
+   327→    setData(prev => ({ ...prev, personas: [...prev.personas, newPersona] }))
+   328→    setActiveTab('personas')
+   329→  }, [])
+   330→
+   331→  const updatePersona = useCallback((p: Persona) => {
+   332→    setData(prev => ({
+   333→      ...prev,
+   334→      personas: prev.personas.map(x => x.id === p.id ? p : x),
+   335→    }))
+   336→  }, [])
+   337→
+   338→  const deletePersona = useCallback((id: string) => {
+   339→    setData(prev => ({ ...prev, personas: prev.personas.filter(x => x.id !== id) }))
+   340→  }, [])
+   341→
+   342→  const addChannel = useCallback(() => {
+   343→    const newChannel: Channel = {
+   344→      id: uid(), name: '', type: 'online', priority: 'moyenne', budget: 10, notes: '',
+   345→    }
+   346→    setData(prev => ({ ...prev, channels: [...prev.channels, newChannel] }))
+   347→    setActiveTab('channels')
+   348→  }, [])
+   349→
+   350→  const updateChannel = useCallback((c: Channel) => {
+   351→    setData(prev => ({
+   352→      ...prev,
+   353→      channels: prev.channels.map(x => x.id === c.id ? c : x),
+   354→    }))
+   355→  }, [])
+   356→
+   357→  const deleteChannel = useCallback((id: string) => {
+   358→    setData(prev => ({ ...prev, channels: prev.channels.filter(x => x.id !== id) }))
+   359→  }, [])
+   360→
+   361→  const addKpi = useCallback(() => {
+   362→    const newKpi: KpiItem = { id: uid(), name: '', target: '', current: '', unit: '%' }
+   363→    setData(prev => ({ ...prev, kpis: [...prev.kpis, newKpi] }))
+   364→    setActiveTab('kpis')
+   365→  }, [])
+   366→
+   367→  const updateKpi = useCallback((k: KpiItem) => {
+   368→    setData(prev => ({
+   369→      ...prev,
+   370→      kpis: prev.kpis.map(x => x.id === k.id ? k : x),
+   371→    }))
+   372→  }, [])
+   373→
+   374→  const deleteKpi = useCallback((id: string) => {
+   375→    setData(prev => ({ ...prev, kpis: prev.kpis.filter(x => x.id !== id) }))
+   376→  }, [])
+   377→
+   378→  const totalChannelBudget = useMemo(() =>
+   379→    data.channels.reduce((sum, c) => sum + c.budget, 0),
+   380→    [data.channels]
+   381→  )
+   382→
+   383→  const handleSave = useCallback(() => {
+   384→    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+   385→    toast.success('Stratégie marketing sauvegardée')
+   386→  }, [data])
+   387→
+   388→  // ─── Loading skeleton ───────────────────
+   389→  if (isLoading) {
+   390→    return (
+   391→      <div className="p-4 md:p-6 lg:p-8 space-y-6">
+   392→        <div className="h-8 w-64 bg-muted animate-pulse rounded" />
+   393→        <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+   394→        <div className="h-64 bg-muted animate-pulse rounded-xl" />
+   395→      </div>
+   396→    )
+   397→  }
+   398→
+   399→  // ─── Main Render ─────────────────────────
+   400→  return (
+   401→    <motion.div
+   402→      initial={{ opacity: 0, y: 20 }}
+   403→      animate={{ opacity: 1, y: 0 }}
+   404→      transition={{ duration: 0.4 }}
+   405→      className="flex-1 overflow-y-auto"
+   406→    >
+   407→      {/* Header */}
+   408→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 md:px-6 border-b bg-background">
+   409→        <div className="flex items-center gap-3">
+   410→          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/10">
+   411→            <Megaphone className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+   412→          </div>
+   413→          <div>
+   414→            <h2 className="text-xl font-bold text-foreground">Stratégie Marketing & Commercial</h2>
+   415→            <p className="text-xs text-muted-foreground">
+   416→              {data.personas.length} persona(s) — {data.channels.length} canal(aux) — {data.kpis.length} KPI(s)
+   417→            </p>
+   418→          </div>
+   419→        </div>
+   420→        <Button size="sm" className="gap-1.5 bg-orange-600 hover:bg-orange-700 text-white" onClick={handleSave}>
+   421→          <Save className="h-3.5 w-3.5" />
+   422→          Enregistrer
+   423→        </Button>
+   424→      </div>
+   425→
+   426→      {/* Content */}
+   427→      <div className="p-4 md:p-6 space-y-6">
+   428→        {/* ── Quick Stats ── */}
+   429→        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   430→          <div className="flex items-center gap-2 rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/20 p-3">
+   431→            <Target className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+   432→            <div>
+   433→              <p className="text-[11px] text-muted-foreground">Personas</p>
+   434→              <p className="text-lg font-bold text-orange-600 dark:text-orange-400">{data.personas.length}</p>
+   435→            </div>
+   436→          </div>
+   437→          <div className="flex items-center gap-2 rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/20 p-3">
+   438→            <Bell className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+   439→            <div>
+   440→              <p className="text-[11px] text-muted-foreground">Canaux</p>
+   441→              <p className="text-lg font-bold text-orange-600 dark:text-orange-400">{data.channels.length}</p>
+   442→            </div>
+   443→          </div>
+   444→          <div className="flex items-center gap-2 rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/20 p-3">
+   445→            <BarChart3 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+   446→            <div>
+   447→              <p className="text-[11px] text-muted-foreground">KPIs</p>
+   448→              <p className="text-lg font-bold text-orange-600 dark:text-orange-400">{data.kpis.length}</p>
+   449→            </div>
+   450→          </div>
+   451→          <div className="flex items-center gap-2 rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/20 p-3">
+   452→            <DollarSign className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+   453→            <div>
+   454→              <p className="text-[11px] text-muted-foreground">Budget total</p>
+   455→              <p className="text-lg font-bold text-orange-600 dark:text-orange-400">{totalChannelBudget}%</p>
+   456→            </div>
+   457→          </div>
+   458→        </div>
+   459→
+   460→        {/* ── Tabs ── */}
+   461→        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+   462→          <TabsList className="grid w-full grid-cols-4">
+   463→            <TabsTrigger value="mix" className="text-xs sm:text-sm gap-1.5">
+   464→              <Megaphone className="h-3.5 w-3.5 hidden sm:block" />
+   465→              Mix 4P
+   466→            </TabsTrigger>
+   467→            <TabsTrigger value="personas" className="text-xs sm:text-sm gap-1.5">
+   468→              <User className="h-3.5 w-3.5 hidden sm:block" />
+   469→              Personas
+   470→              {data.personas.length > 0 && (
+   471→                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{data.personas.length}</Badge>
+   472→              )}
+   473→            </TabsTrigger>
+   474→            <TabsTrigger value="channels" className="text-xs sm:text-sm gap-1.5">
+   475→              <TrendingUp className="h-3.5 w-3.5 hidden sm:block" />
+   476→              Canaux
+   477→              {data.channels.length > 0 && (
+   478→                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{data.channels.length}</Badge>
+   479→              )}
+   480→            </TabsTrigger>
+   481→            <TabsTrigger value="kpis" className="text-xs sm:text-sm gap-1.5">
+   482→              <BarChart3 className="h-3.5 w-3.5 hidden sm:block" />
+   483→              KPIs
+   484→              {data.kpis.length > 0 && (
+   485→                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{data.kpis.length}</Badge>
+   486→              )}
+   487→            </TabsTrigger>
+   488→          </TabsList>
+   489→
+   490→          {/* ── Mix 4P Tab ── */}
+   491→          <TabsContent value="mix" className="mt-4 space-y-4">
+   492→            <p className="text-sm text-muted-foreground">
+   493→              Définissez votre marketing mix selon les 4P : Produit, Prix, Place, Promotion.
+   494→            </p>
+   495→            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   496→              <MixEditor label="Produit" value={data.mix.produit} onChange={(v) => updateMix('produit', v)} icon={Target} color="border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/20" />
+   497→              <MixEditor label="Prix" value={data.mix.prix} onChange={(v) => updateMix('prix', v)} icon={DollarSign} color="border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20" />
+   498→              <MixEditor label="Place" value={data.mix.place} onChange={(v) => updateMix('place', v)} icon={MapPin} color="border-sky-200 dark:border-sky-800 bg-sky-50/50 dark:bg-sky-950/20" />
+   499→              <MixEditor label="Promotion" value={data.mix.promotion} onChange={(v) => updateMix('promotion', v)} icon={Bell} color="border-rose-200 dark:border-rose-800 bg-rose-50/50 dark:bg-rose-950/20" />
+   500→            </div>
+   501→          </TabsContent>
+   502→
+   503→          {/* ── Personas Tab ── */}
+   504→          <TabsContent value="personas" className="mt-4 space-y-4">
+   505→            <div className="flex items-center justify-between">
+   506→              <p className="text-sm text-muted-foreground">
+   507→                Définissez vos personas cibles pour mieux comprendre votre marché.
+   508→              </p>
+   509→              <Button size="sm" variant="outline" className="gap-1.5 border-orange-300 text-orange-600 hover:bg-orange-50" onClick={addPersona}>
+   510→                <Plus className="h-3.5 w-3.5" />
+   511→                Ajouter
+   512→              </Button>
+   513→            </div>
+   514→            {data.personas.length === 0 ? (
+   515→              <Card className="border-dashed">
+   516→                <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+   517→                  <User className="h-10 w-10 mb-3 opacity-30" />
+   518→                  <p className="text-sm">Aucun persona défini</p>
+   519→                  <p className="text-xs mt-1">Cliquez sur &quot;Ajouter&quot; pour créer votre premier persona cible.</p>
+   520→                </CardContent>
+   521→              </Card>
+   522→            ) : (
+   523→              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   524→                {data.personas.map((p) => (
+   525→                  <PersonaCard key={p.id} persona={p} onUpdate={updatePersona} onDelete={deletePersona} />
+   526→                ))}
+   527→              </div>
+   528→            )}
+   529→          </TabsContent>
+   530→
+   531→          {/* ── Channels Tab ── */}
+   532→          <TabsContent value="channels" className="mt-4 space-y-4">
+   533→            <div className="flex items-center justify-between">
+   534→              <div className="flex items-center gap-3">
+   535→                <p className="text-sm text-muted-foreground">
+   536→                  Planifiez vos canaux de distribution et communication.
+   537→                </p>
+   538→                {totalChannelBudget > 100 && (
+   539→                  <Badge variant="destructive" className="text-[10px]">
+   540→                    Budget {totalChannelBudget}% &gt; 100%
+   541→                  </Badge>
+   542→                )}
+   543→              </div>
+   544→              <Button size="sm" variant="outline" className="gap-1.5 border-orange-300 text-orange-600 hover:bg-orange-50" onClick={addChannel}>
+   545→                <Plus className="h-3.5 w-3.5" />
+   546→                Ajouter
+   547→              </Button>
+   548→            </div>
+   549→            {data.channels.length === 0 ? (
+   550→              <Card className="border-dashed">
+   551→                <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+   552→                  <TrendingUp className="h-10 w-10 mb-3 opacity-30" />
+   553→                  <p className="text-sm">Aucun canal défini</p>
+   554→                  <p className="text-xs mt-1">Ajoutez vos canaux marketing et commerciaux.</p>
+   555→                </CardContent>
+   556→              </Card>
+   557→            ) : (
+   558→              <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+   559→                {data.channels.map((c) => {
+   560→                  const total = Math.max(totalChannelBudget, 1)
+   561→                  const pct = Math.round((c.budget / total) * 100)
+   562→                  return (
+   563→                    <ChannelCard
+   564→                      key={c.id}
+   565→                      channel={c}
+   566→                      onUpdate={updateChannel}
+   567→                      onDelete={deleteChannel}
+   568→                      budgetPercent={pct}
+   569→                    />
+   570→                  )
+   571→                })}
+   572→              </div>
+   573→            )}
+   574→            {data.channels.length > 0 && (
+   575→              <Card className="bg-orange-50/50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800">
+   576→                <CardContent className="py-3">
+   577→                  <div className="flex items-center justify-between text-sm">
+   578→                    <span className="text-muted-foreground">Répartition du budget</span>
+   579→                    <span className={cn('font-bold', totalChannelBudget > 100 ? 'text-red-500' : 'text-orange-600 dark:text-orange-400')}>
+   580→                      {totalChannelBudget}%
+   581→                    </span>
+   582→                  </div>
+   583→                  <div className="mt-2 h-2 w-full rounded-full bg-muted overflow-hidden flex">
+   584→                    {data.channels.map((c) => {
+   585→                      const total = Math.max(totalChannelBudget, 1)
+   586→                      const width = (c.budget / total) * 100
+   587→                      return (
+   588→                        <div
+   589→                          key={c.id}
+   590→                          className="h-full bg-orange-500 first:rounded-l-full last:rounded-r-full"
+   591→                          style={{ width: `${width}%` }}
+   592→                          title={`${c.name || 'Sans nom'}: ${c.budget}%`}
+   593→                        />
+   594→                      )
+   595→                    })}
+   596→                  </div>
+   597→                </CardContent>
+   598→              </Card>
+   599→            )}
+   600→          </TabsContent>
+   601→
+   602→          {/* ── KPIs Tab ── */}
+   603→          <TabsContent value="kpis" className="mt-4 space-y-4">
+   604→            <div className="flex items-center justify-between">
+   605→              <p className="text-sm text-muted-foreground">
+   606→                Suivez vos indicateurs clés de performance marketing.
+   607→              </p>
+   608→              <Button size="sm" variant="outline" className="gap-1.5 border-orange-300 text-orange-600 hover:bg-orange-50" onClick={addKpi}>
+   609→                <Plus className="h-3.5 w-3.5" />
+   610→                Ajouter
+   611→              </Button>
+   612→            </div>
+   613→            {data.kpis.length === 0 ? (
+   614→              <Card className="border-dashed">
+   615→                <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+   616→                  <BarChart3 className="h-10 w-10 mb-3 opacity-30" />
+   617→                  <p className="text-sm">Aucun KPI défini</p>
+   618→                  <p className="text-xs mt-1">Ajoutez vos indicateurs de performance pour suivre vos résultats.</p>
+   619→                </CardContent>
+   620→              </Card>
+   621→            ) : (
+   622→              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+   623→                {data.kpis.map((kpi) => (
+   624→                  <motion.div
+   625→                    key={kpi.id}
+   626→                    initial={{ opacity: 0, x: -10 }}
+   627→                    animate={{ opacity: 1, x: 0 }}
+   628→                    className="flex items-center gap-3 rounded-xl border border-orange-200 dark:border-orange-800 bg-orange-50/30 dark:bg-orange-950/20 p-4"
+   629→                  >
+   630→                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/30 shrink-0">
+   631→                      <BarChart3 className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+   632→                    </div>
+   633→                    <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
+   634→                      <Input
+   635→                        value={kpi.name}
+   636→                        onChange={(e) => updateKpi({ ...kpi, name: e.target.value })}
+   637→                        placeholder="Nom du KPI"
+   638→                        className="h-8 text-sm font-medium border-0 p-0 focus-visible:ring-0 bg-transparent"
+   639→                      />
+   640→                      <div className="flex items-center gap-1">
+   641→                        <span className="text-[10px] text-muted-foreground shrink-0">Cible:</span>
+   642→                        <Input
+   643→                          value={kpi.target}
+   644→                          onChange={(e) => updateKpi({ ...kpi, target: e.target.value })}
+   645→                          placeholder="100"
+   646→                          className="h-8 text-xs text-right"
+   647→                        />
+   648→                        <span className="text-[10px] text-muted-foreground shrink-0">{kpi.unit}</span>
+   649→                      </div>
+   650→                      <div className="flex items-center gap-1">
+   651→                        <span className="text-[10px] text-muted-foreground shrink-0">Actuel:</span>
+   652→                        <Input
+   653→                          value={kpi.current}
+   654→                          onChange={(e) => updateKpi({ ...kpi, current: e.target.value })}
+   655→                          placeholder="0"
+   656→                          className="h-8 text-xs text-right"
+   657→                        />
+   658→                        <span className="text-[10px] text-muted-foreground shrink-0">{kpi.unit}</span>
+   659→                      </div>
+   660→                      <div className="flex items-center gap-2">
+   661→                        <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+   662→                          <div
+   663→                            className={cn(
+   664→                              'h-full rounded-full transition-all',
+   665→                              parseFloat(kpi.current) >= parseFloat(kpi.target) && kpi.target !== ''
+   666→                                ? 'bg-emerald-500'
+   667→                                : 'bg-orange-500'
+   668→                            )}
+   669→                            style={{
+   670→                              width: `${kpi.target ? Math.min((parseFloat(kpi.current || '0') / parseFloat(kpi.target)) * 100, 100) : 0}%`
+   671→                            }}
+   672→                          />
+   673→                        </div>
+   674→                        <Button variant="ghost" size="sm" onClick={() => deleteKpi(kpi.id)} className="h-7 w-7 p-0 shrink-0 text-muted-foreground hover:text-red-500">
+   675→                          <X className="h-3.5 w-3.5" />
+   676→                        </Button>
+   677→                      </div>
+   678→                    </div>
+   679→                  </motion.div>
+   680→                ))}
+   681→              </div>
+   682→            )}
+   683→          </TabsContent>
+   684→        </Tabs>
+   685→      </div>
+   686→    </motion.div>
+   687→  )
+   688→}

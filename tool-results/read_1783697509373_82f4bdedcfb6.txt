@@ -1,0 +1,796 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Input } from '@/components/ui/input'
+     9→import { Textarea } from '@/components/ui/textarea'
+    10→import { Separator } from '@/components/ui/separator'
+    11→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    12→import { Checkbox } from '@/components/ui/checkbox'
+    13→import {
+    14→  Dialog,
+    15→  DialogContent,
+    16→  DialogHeader,
+    17→  DialogTitle,
+    18→  DialogDescription,
+    19→} from '@/components/ui/dialog'
+    20→import {
+    21→  Select,
+    22→  SelectContent,
+    23→  SelectItem,
+    24→  SelectTrigger,
+    25→  SelectValue,
+    26→} from '@/components/ui/select'
+    27→import { cn } from '@/lib/utils'
+    28→import { toast } from 'sonner'
+    29→import { authFetch } from '@/lib/auth-fetch'
+    30→import {
+    31→  GraduationCap,
+    32→  Search,
+    33→  Star,
+    34→  MapPin,
+    35→  Clock,
+    36→  Send,
+    37→  Loader2,
+    38→  X,
+    39→  CheckCircle2,
+    40→  XCircle,
+    41→  AlertCircle,
+    42→  MessageSquare,
+    43→  Target,
+    44→  User,
+    45→  Calendar,
+    46→  Briefcase,
+    47→  ChevronRight,
+    48→  SlidersHorizontal,
+    49→} from 'lucide-react'
+    50→
+    51→// ────────────────────────────────────────────
+    52→// Types
+    53→// ────────────────────────────────────────────
+    54→
+    55→interface Mentor {
+    56→  id: string
+    57→  name: string
+    58→  email: string
+    59→  avatarUrl: string | null
+    60→  bio: string
+    61→  expertise: string[]
+    62→  sectors: string[]
+    63→  location: string
+    64→  availability: 'AVAILABLE' | 'LIMITED' | 'UNAVAILABLE'
+    65→  maxMentees: number
+    66→  rating: number
+    67→  reviewCount: number
+    68→}
+    69→
+    70→interface MentorRequest {
+    71→  id: string
+    72→  mentorId: string
+    73→  mentorName: string
+    74→  mentorAvatarUrl: string | null
+    75→  message: string
+    76→  objectives: string[]
+    77→  status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELLED'
+    78→  createdAt: string
+    79→  updatedAt: string
+    80→}
+    81→
+    82→// ────────────────────────────────────────────
+    83→// Constants
+    84→// ────────────────────────────────────────────
+    85→
+    86→const AVAILABILITY_CONFIG = {
+    87→  AVAILABLE: { label: 'Disponible', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', dot: 'bg-emerald-500' },
+    88→  LIMITED: { label: 'Disponibilité limitée', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20', dot: 'bg-amber-500' },
+    89→  UNAVAILABLE: { label: 'Indisponible', color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20', dot: 'bg-red-500' },
+    90→}
+    91→
+    92→const REQUEST_STATUS_CONFIG = {
+    93→  PENDING: { label: 'En attente', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-900/20', icon: Clock },
+    94→  ACCEPTED: { label: 'Acceptée', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900/20', icon: CheckCircle2 },
+    95→  REJECTED: { label: 'Refusée', color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-900/20', icon: XCircle },
+    96→  CANCELLED: { label: 'Annulée', color: 'text-muted-foreground', bg: 'bg-muted', icon: XCircle },
+    97→}
+    98→
+    99→const EXPERTISE_OPTIONS = [
+   100→  'Business Plan', 'Financement', 'Marketing Digital', 'Stratégie',
+   101→  'Gestion d\'équipe', 'Commerce International', 'Innovation',
+   102→  'Fiscalité', 'Droit des sociétés', 'Développement commercial',
+   103→  'Gestion de projet', 'Ressources Humaines',
+   104→]
+   105→
+   106→const SECTOR_OPTIONS = [
+   107→  'Tech / Numérique', 'Commerce', 'Restauration', 'BTP',
+   108→  'Santé / Bien-être', 'Formation', 'Services', 'Industrie',
+   109→  'Immobilier', 'Événementiel', 'Artisanat', 'Autre',
+   110→]
+   111→
+   112→const MENTOR_OBJECTIVES = [
+   113→  'Valider mon idée de business',
+   114→  'Structurer mon business plan',
+   115→  'Préparer ma levée de fonds',
+   116→  'Développer mon réseau',
+   117→  'Améliorer ma stratégie marketing',
+   118→  'Gérer mes finances',
+   119→  'Recruter et manager une équipe',
+   120→  'Préparer le lancement',
+   121→]
+   122→
+   123→const AVATAR_COLORS = [
+   124→  'bg-rose-500', 'bg-amber-500', 'bg-emerald-500', 'bg-sky-500',
+   125→  'bg-violet-500', 'bg-orange-500', 'bg-teal-500', 'bg-pink-500',
+   126→  'bg-indigo-500', 'bg-lime-500',
+   127→]
+   128→
+   129→// Types for active mentorships returned by API
+   130→interface ActiveMentorship {
+   131→  id: string
+   132→  mentorId: string
+   133→  mentorName: string
+   134→  mentorAvatarUrl: string | null
+   135→  status: string
+   136→  startedAt: string
+   137→}
+   138→
+   139→// ────────────────────────────────────────────
+   140→// Component
+   141→// ────────────────────────────────────────────
+   142→
+   143→export function Mentorat() {
+   144→  const [mentors, setMentors] = useState<Mentor[]>([])
+   145→  const [requests, setRequests] = useState<MentorRequest[]>([])
+   146→  const [activeMentorships, setActiveMentorships] = useState<ActiveMentorship[]>([])
+   147→  const [loading, setLoading] = useState(true)
+   148→  const [activeTab, setActiveTab] = useState('mentors')
+   149→
+   150→  // Filters
+   151→  const [searchQuery, setSearchQuery] = useState('')
+   152→  const [selectedExpertise, setSelectedExpertise] = useState('')
+   153→  const [selectedSector, setSelectedSector] = useState('')
+   154→  const [selectedAvailability, setSelectedAvailability] = useState('')
+   155→
+   156→  // Request dialog
+   157→  const [requestDialogOpen, setRequestDialogOpen] = useState(false)
+   158→  const [selectedMentor, setSelectedMentor] = useState<Mentor | null>(null)
+   159→  const [requestMessage, setRequestMessage] = useState('')
+   160→  const [requestObjectives, setRequestObjectives] = useState<string[]>([])
+   161→  const [sending, setSending] = useState(false)
+   162→
+   163→  // Mentor detail
+   164→  const [selectedDetailMentor, setSelectedDetailMentor] = useState<Mentor | null>(null)
+   165→
+   166→  // Load data from API
+   167→  useEffect(() => {
+   168→    const fetchData = async () => {
+   169→      try {
+   170→        const res = await authFetch('/api/mentorat')
+   171→        if (res.ok) {
+   172→          const json = await res.json()
+   173→          if (json.success && json.data) {
+   174→            setMentors(json.data.mentors ?? [])
+   175→            setRequests(json.data.myRequests ?? [])
+   176→            setActiveMentorships(json.data.activeMentorships ?? [])
+   177→          }
+   178→        }
+   179→      } catch {
+   180→        // Silently fail — empty state will show
+   181→      } finally {
+   182→        setLoading(false)
+   183→      }
+   184→    }
+   185→    fetchData()
+   186→  }, [])
+   187→
+   188→  // Filter mentors
+   189→  const filteredMentors = useMemo(() => {
+   190→    let result = mentors
+   191→    if (searchQuery.trim()) {
+   192→      const q = searchQuery.toLowerCase()
+   193→      result = result.filter((m) =>
+   194→        m.name.toLowerCase().includes(q) ||
+   195→        m.bio.toLowerCase().includes(q) ||
+   196→        m.expertise.some((e) => e.toLowerCase().includes(q)) ||
+   197→        m.sectors.some((s) => s.toLowerCase().includes(q))
+   198→      )
+   199→    }
+   200→    if (selectedExpertise) {
+   201→      result = result.filter((m) => m.expertise.includes(selectedExpertise))
+   202→    }
+   203→    if (selectedSector) {
+   204→      result = result.filter((m) => m.sectors.includes(selectedSector))
+   205→    }
+   206→    if (selectedAvailability) {
+   207→      result = result.filter((m) => m.availability === selectedAvailability)
+   208→    }
+   209→    return result
+   210→  }, [mentors, searchQuery, selectedExpertise, selectedSector, selectedAvailability])
+   211→
+   212→  const openRequestDialog = useCallback((mentor: Mentor) => {
+   213→    setSelectedMentor(mentor)
+   214→    setRequestMessage('')
+   215→    setRequestObjectives([])
+   216→    setRequestDialogOpen(true)
+   217→  }, [])
+   218→
+   219→  const sendRequest = async () => {
+   220→    if (!selectedMentor || !requestMessage.trim() || requestObjectives.length === 0) return
+   221→    setSending(true)
+   222→    try {
+   223→      const res = await authFetch('/api/mentorat', {
+   224→        method: 'POST',
+   225→        headers: { 'Content-Type': 'application/json' },
+   226→        body: JSON.stringify({
+   227→          mentorId: selectedMentor.id,
+   228→          message: requestMessage,
+   229→          objectives: requestObjectives,
+   230→        }),
+   231→      })
+   232→
+   233→      if (res.ok) {
+   234→        setRequests((prev) => [
+   235→          {
+   236→            id: `req-${Date.now()}`,
+   237→            mentorName: selectedMentor.name,
+   238→            mentorAvatarUrl: selectedMentor.avatarUrl,
+   239→            message: requestMessage,
+   240→            objectives: requestObjectives,
+   241→            status: 'PENDING',
+   242→            createdAt: new Date().toISOString(),
+   243→            updatedAt: new Date().toISOString(),
+   244→          },
+   245→          ...prev,
+   246→        ])
+   247→        toast.success('Demande de mentorat envoyée avec succès !')
+   248→        setRequestDialogOpen(false)
+   249→      } else {
+   250→        const json = await res.json()
+   251→        toast.error(json.error?.message || 'Erreur lors de l\'envoi de la demande')
+   252→      }
+   253→    } catch {
+   254→      toast.error('Erreur lors de l\'envoi de la demande')
+   255→    } finally {
+   256→      setSending(false)
+   257→    }
+   258→  }
+   259→
+   260→  const toggleObjective = (objective: string) => {
+   261→    setRequestObjectives((prev) =>
+   262→      prev.includes(objective) ? prev.filter((o) => o !== objective) : [...prev, objective]
+   263→    )
+   264→  }
+   265→
+   266→  const clearFilters = () => {
+   267→    setSearchQuery('')
+   268→    setSelectedExpertise('')
+   269→    setSelectedSector('')
+   270→    setSelectedAvailability('')
+   271→  }
+   272→
+   273→  const activeFiltersCount = [selectedExpertise, selectedSector, selectedAvailability].filter(Boolean).length
+   274→
+   275→  if (loading) {
+   276→    return (
+   277→      <div className="flex items-center justify-center min-h-[60vh]">
+   278→        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+   279→      </div>
+   280→    )
+   281→  }
+   282→
+   283→  return (
+   284→    <motion.div
+   285→      initial={{ opacity: 0, y: 20 }}
+   286→      animate={{ opacity: 1, y: 0 }}
+   287→      transition={{ duration: 0.4 }}
+   288→      className="p-4 md:p-6 lg:p-8 space-y-6"
+   289→    >
+   290→      {/* Header */}
+   291→      <div className="flex items-center gap-3">
+   292→        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 shadow-lg">
+   293→          <GraduationCap className="h-6 w-6 text-white" />
+   294→        </div>
+   295→        <div>
+   296→          <h2 className="text-2xl font-bold text-foreground">Mentorat</h2>
+   297→          <p className="text-sm text-muted-foreground">Trouvez un mentor pour vous accompagner dans votre parcours</p>
+   298→        </div>
+   299→      </div>
+   300→
+   301→      {/* Tabs */}
+   302→      <Tabs value={activeTab} onValueChange={setActiveTab}>
+   303→        <TabsList className="w-full sm:w-auto">
+   304→          <TabsTrigger value="mentors" className="gap-1.5">
+   305→            <User className="h-4 w-4" />
+   306→            Mentors disponibles ({mentors.filter(m => m.availability !== 'UNAVAILABLE').length})
+   307→          </TabsTrigger>
+   308→          <TabsTrigger value="requests" className="gap-1.5">
+   309→            <MessageSquare className="h-4 w-4" />
+   310→            Mes demandes ({requests.filter(r => r.status === 'PENDING').length > 0 ? `${requests.filter(r => r.status === 'PENDING').length} en attente` : requests.length})
+   311→          </TabsTrigger>
+   312→          {activeMentorships.length > 0 && (
+   313→            <TabsTrigger value="active" className="gap-1.5">
+   314→              <CheckCircle2 className="h-4 w-4" />
+   315→              Mon mentor ({activeMentorships.length})
+   316→            </TabsTrigger>
+   317→          )}
+   318→        </TabsList>
+   319→
+   320→        {/* Mentors Tab */}
+   321→        <TabsContent value="mentors" className="space-y-4 mt-4">
+   322→          {/* Search & Filters */}
+   323→          <div className="flex flex-col sm:flex-row gap-3">
+   324→            <div className="relative flex-1">
+   325→              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   326→              <Input
+   327→                placeholder="Rechercher un mentor..."
+   328→                value={searchQuery}
+   329→                onChange={(e) => setSearchQuery(e.target.value)}
+   330→                className="pl-9 h-10"
+   331→              />
+   332→              {searchQuery && (
+   333→                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+   334→                  <X className="h-4 w-4" />
+   335→                </button>
+   336→              )}
+   337→            </div>
+   338→            <Button variant="outline" size="sm" className="h-10 gap-2" onClick={() => {
+   339→              if (activeFiltersCount > 0) clearFilters()
+   340→            }}>
+   341→              <SlidersHorizontal className="h-4 w-4" />
+   342→              Filtres
+   343→              {activeFiltersCount > 0 && (
+   344→                <Badge variant="default" className="h-5 min-w-5 px-1.5 text-xs rounded-full">{activeFiltersCount}</Badge>
+   345→              )}
+   346→            </Button>
+   347→          </div>
+   348→
+   349→          {/* Filter Dropdowns */}
+   350→          <div className="flex flex-wrap gap-3">
+   351→            <Select value={selectedExpertise} onValueChange={(v) => setSelectedExpertise(v === '__all__' ? '' : v)}>
+   352→              <SelectTrigger className="w-full sm:w-48 h-9 text-sm">
+   353→                <Briefcase className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+   354→                <SelectValue placeholder="Expertise" />
+   355→              </SelectTrigger>
+   356→              <SelectContent>
+   357→                <SelectItem value="__all__">Toutes les expertises</SelectItem>
+   358→                {EXPERTISE_OPTIONS.map((e) => (
+   359→                  <SelectItem key={e} value={e}>{e}</SelectItem>
+   360→                ))}
+   361→              </SelectContent>
+   362→            </Select>
+   363→
+   364→            <Select value={selectedSector} onValueChange={(v) => setSelectedSector(v === '__all__' ? '' : v)}>
+   365→              <SelectTrigger className="w-full sm:w-48 h-9 text-sm">
+   366→                <Target className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+   367→                <SelectValue placeholder="Secteur" />
+   368→              </SelectTrigger>
+   369→              <SelectContent>
+   370→                <SelectItem value="__all__">Tous les secteurs</SelectItem>
+   371→                {SECTOR_OPTIONS.map((s) => (
+   372→                  <SelectItem key={s} value={s}>{s}</SelectItem>
+   373→                ))}
+   374→              </SelectContent>
+   375→            </Select>
+   376→
+   377→            <Select value={selectedAvailability} onValueChange={(v) => setSelectedAvailability(v === '__all__' ? '' : v)}>
+   378→              <SelectTrigger className="w-full sm:w-48 h-9 text-sm">
+   379→                <Clock className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+   380→                <SelectValue placeholder="Disponibilité" />
+   381→              </SelectTrigger>
+   382→              <SelectContent>
+   383→                <SelectItem value="__all__">Toutes</SelectItem>
+   384→                <SelectItem value="AVAILABLE">Disponible</SelectItem>
+   385→                <SelectItem value="LIMITED">Limitée</SelectItem>
+   386→                <SelectItem value="UNAVAILABLE">Indisponible</SelectItem>
+   387→              </SelectContent>
+   388→            </Select>
+   389→          </div>
+   390→
+   391→          {/* Results count */}
+   392→          <p className="text-sm text-muted-foreground">
+   393→            {filteredMentors.length} mentor{filteredMentors.length !== 1 ? 's' : ''} trouvé{filteredMentors.length !== 1 ? 's' : ''}
+   394→          </p>
+   395→
+   396→          {/* Mentor Grid */}
+   397→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   398→            {filteredMentors.map((mentor, idx) => (
+   399→              <MentorCard
+   400→                key={mentor.id}
+   401→                mentor={mentor}
+   402→                index={idx}
+   403→                onRequest={() => openRequestDialog(mentor)}
+   404→                onViewDetail={() => setSelectedDetailMentor(mentor)}
+   405→                hasPendingRequest={requests.some(r => r.mentorId === mentor.id && r.status === 'PENDING')}
+   406→                hasActiveMentorship={activeMentorships.some(ms => ms.mentorId === mentor.id)}
+   407→              />
+   408→            ))}
+   409→          </div>
+   410→
+   411→          {filteredMentors.length === 0 && (
+   412→            <div className="text-center py-12">
+   413→              <p className="text-muted-foreground">Aucun mentor ne correspond à vos critères.</p>
+   414→              <Button variant="outline" size="sm" className="mt-3" onClick={clearFilters}>
+   415→                Réinitialiser les filtres
+   416→              </Button>
+   417→            </div>
+   418→          )}
+   419→        </TabsContent>
+   420→
+   421→        {/* Requests Tab */}
+   422→        <TabsContent value="requests" className="space-y-4 mt-4">
+   423→          {requests.length === 0 ? (
+   424→            <Card className="border-none shadow-sm">
+   425→              <CardContent className="p-8 text-center">
+   426→                <MessageSquare className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+   427→                <p className="text-lg font-medium text-foreground">Aucune demande</p>
+   428→                <p className="text-sm text-muted-foreground mt-1">Vous n&apos;avez pas encore envoyé de demande de mentorat.</p>
+   429→                <Button className="mt-4" onClick={() => setActiveTab('mentors')}>Trouver un mentor</Button>
+   430→              </CardContent>
+   431→            </Card>
+   432→          ) : (
+   433→            <div className="space-y-3">
+   434→              {requests.map((req) => (
+   435→                <RequestCard key={req.id} request={req} />
+   436→              ))}
+   437→            </div>
+   438→          )}
+   439→        </TabsContent>
+   440→
+   441→        {/* Active Mentorship Tab */}
+   442→        <TabsContent value="active" className="space-y-4 mt-4">
+   443→          {activeMentorships.length === 0 ? (
+   444→            <Card className="border-none shadow-sm">
+   445→              <CardContent className="py-12 text-center">
+   446→                <GraduationCap className="h-12 w-12 mx-auto text-muted-foreground/30 mb-3" />
+   447→                <p className="text-muted-foreground">Aucun mentorat actif</p>
+   448→              </CardContent>
+   449→            </Card>
+   450→          ) : (
+   451→            <div className="space-y-3">
+   452→              {activeMentorships.map((ms) => (
+   453→                <Card key={ms.id} className="border-emerald-200 dark:border-emerald-800">
+   454→                  <CardContent className="py-4 flex items-center gap-4">
+   455→                    <div className={cn('h-10 w-10 rounded-full flex items-center justify-center text-white font-semibold text-sm shrink-0', AVATAR_COLORS[(ms.mentorName || 'M').charCodeAt(0) % AVATAR_COLORS.length])}>
+   456→                      {ms.mentorName.charAt(0)}
+   457→                    </div>
+   458→                    <div className="flex-1 min-w-0">
+   459→                      <p className="font-medium truncate">{ms.mentorName}</p>
+   460→                      <p className="text-xs text-muted-foreground">
+   461→                        <Calendar className="h-3 w-3 inline mr-1" />
+   462→                        Depuis le {new Date(ms.startedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+   463→                      </p>
+   464→                    </div>
+   465→                    <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-0">
+   466→                      <CheckCircle2 className="h-3 w-3 mr-1" />
+   467→                      Actif
+   468→                    </Badge>
+   469→                  </CardContent>
+   470→                </Card>
+   471→              ))}
+   472→            </div>
+   473→          )}
+   474→        </TabsContent>
+   475→      </Tabs>
+   476→
+   477→      {/* Request Dialog */}
+   478→      <Dialog open={requestDialogOpen} onOpenChange={setRequestDialogOpen}>
+   479→        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+   480→          <DialogHeader>
+   481→            <DialogTitle className="flex items-center gap-2">
+   482→              <Send className="h-5 w-5 text-primary" />
+   483→              Demande de mentorat
+   484→            </DialogTitle>
+   485→            <DialogDescription>
+   486→              Envoyez une demande à {selectedMentor?.name}
+   487→            </DialogDescription>
+   488→          </DialogHeader>
+   489→          <div className="space-y-4 mt-4">
+   490→            {/* Mentor info */}
+   491→            {selectedMentor && (
+   492→              <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50">
+   493→                <MentorAvatar mentor={selectedMentor} size="sm" />
+   494→                <div>
+   495→                  <p className="text-sm font-semibold text-foreground">{selectedMentor.name}</p>
+   496→                  <p className="text-xs text-muted-foreground">{selectedMentor.expertise.slice(0, 3).join(' · ')}</p>
+   497→                </div>
+   498→              </div>
+   499→            )}
+   500→
+   501→            {/* Objectives */}
+   502→            <div>
+   503→              <label className="text-sm font-medium text-foreground mb-2 block">
+   504→                Vos objectifs <span className="text-destructive">*</span>
+   505→              </label>
+   506→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+   507→                {MENTOR_OBJECTIVES.map((obj) => (
+   508→                  <label key={obj} className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors">
+   509→                    <Checkbox
+   510→                      checked={requestObjectives.includes(obj)}
+   511→                      onCheckedChange={() => toggleObjective(obj)}
+   512→                      className="mt-0.5"
+   513→                    />
+   514→                    <span className="text-sm text-muted-foreground leading-snug">{obj}</span>
+   515→                  </label>
+   516→                ))}
+   517→              </div>
+   518→            </div>
+   519→
+   520→            {/* Message */}
+   521→            <div>
+   522→              <label className="text-sm font-medium text-foreground mb-2 block">
+   523→                Votre message <span className="text-destructive">*</span>
+   524→              </label>
+   525→              <Textarea
+   526→                placeholder="Présentez votre projet et expliquez pourquoi vous souhaitez être mentoré(e)..."
+   527→                value={requestMessage}
+   528→                onChange={(e) => setRequestMessage(e.target.value)}
+   529→                rows={4}
+   530→                className="resize-none"
+   531→              />
+   532→              <p className="text-xs text-muted-foreground mt-1">{requestMessage.length}/500 caractères min. 10</p>
+   533→            </div>
+   534→
+   535→            {/* Submit */}
+   536→            <div className="flex gap-3">
+   537→              <Button variant="outline" onClick={() => setRequestDialogOpen(false)} className="flex-1">
+   538→                Annuler
+   539→              </Button>
+   540→              <Button
+   541→                onClick={sendRequest}
+   542→                disabled={sending || requestMessage.length < 10 || requestObjectives.length === 0}
+   543→                className="flex-1 gap-2"
+   544→              >
+   545→                {sending ? (
+   546→                  <Loader2 className="h-4 w-4 animate-spin" />
+   547→                ) : (
+   548→                  <Send className="h-4 w-4" />
+   549→                )}
+   550→                Envoyer la demande
+   551→              </Button>
+   552→            </div>
+   553→          </div>
+   554→        </DialogContent>
+   555→      </Dialog>
+   556→
+   557→      {/* Mentor Detail Dialog */}
+   558→      <Dialog open={!!selectedDetailMentor} onOpenChange={() => setSelectedDetailMentor(null)}>
+   559→        <DialogContent className="max-w-lg">
+   560→          <DialogHeader>
+   561→            <DialogTitle>Profil du Mentor</DialogTitle>
+   562→          </DialogHeader>
+   563→          {selectedDetailMentor && (
+   564→            <div className="space-y-4 mt-2">
+   565→              <div className="flex items-center gap-4">
+   566→                <MentorAvatar mentor={selectedDetailMentor} size="lg" />
+   567→                <div>
+   568→                  <h3 className="text-lg font-bold text-foreground">{selectedDetailMentor.name}</h3>
+   569→                  <div className="flex items-center gap-2 mt-1">
+   570→                    <Badge variant="secondary" className="text-xs gap-1">
+   571→                      <Star className="h-3 w-3 text-amber-500 fill-amber-500" />
+   572→                      {selectedDetailMentor.rating}
+   573→                    </Badge>
+   574→                    <Badge variant="secondary" className="text-xs">
+   575→                      {selectedDetailMentor.reviewCount} avis
+   576→                    </Badge>
+   577→                  </div>
+   578→                </div>
+   579→              </div>
+   580→
+   581→              <Separator />
+   582→
+   583→              <div>
+   584→                <h4 className="text-sm font-semibold text-foreground mb-1.5">Bio</h4>
+   585→                <p className="text-sm text-muted-foreground leading-relaxed">{selectedDetailMentor.bio}</p>
+   586→              </div>
+   587→
+   588→              <div>
+   589→                <h4 className="text-sm font-semibold text-foreground mb-1.5">Expertises</h4>
+   590→                <div className="flex flex-wrap gap-1.5">
+   591→                  {selectedDetailMentor.expertise.map((e) => (
+   592→                    <Badge key={e} variant="secondary" className="text-xs">{e}</Badge>
+   593→                  ))}
+   594→                </div>
+   595→              </div>
+   596→
+   597→              <div>
+   598→                <h4 className="text-sm font-semibold text-foreground mb-1.5">Secteurs</h4>
+   599→                <div className="flex flex-wrap gap-1.5">
+   600→                  {selectedDetailMentor.sectors.map((s) => (
+   601→                    <Badge key={s} variant="outline" className="text-xs">{s}</Badge>
+   602→                  ))}
+   603→                </div>
+   604→              </div>
+   605→
+   606→              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+   607→                <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4" />{selectedDetailMentor.location}</span>
+   608→                <AvailabilityBadge availability={selectedDetailMentor.availability} />
+   609→              </div>
+   610→
+   611→              <Button
+   612→                className="w-full gap-2"
+   613→                onClick={() => {
+   614→                  setSelectedDetailMentor(null)
+   615→                  openRequestDialog(selectedDetailMentor)
+   616→                }}
+   617→                disabled={selectedDetailMentor.availability === 'UNAVAILABLE'}
+   618→              >
+   619→                <Send className="h-4 w-4" />
+   620→                {selectedDetailMentor.availability === 'UNAVAILABLE' ? 'Indisponible' : 'Demander un mentor'}
+   621→              </Button>
+   622→            </div>
+   623→          )}
+   624→        </DialogContent>
+   625→      </Dialog>
+   626→    </motion.div>
+   627→  )
+   628→}
+   629→
+   630→// ────────────────────────────────────────────
+   631→// Sub-components
+   632→// ────────────────────────────────────────────
+   633→
+   634→function MentorAvatar({ mentor, size = 'md' }: { mentor: Mentor; size?: 'sm' | 'md' | 'lg' }) {
+   635→  const initials = mentor.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+   636→  const colorIndex = (mentor.name || 'M').charCodeAt(0) % AVATAR_COLORS.length
+   637→  const colorClass = AVATAR_COLORS[colorIndex]
+   638→
+   639→  const sizeClass = size === 'sm' ? 'h-10 w-10 text-sm' : size === 'lg' ? 'h-16 w-16 text-xl' : 'h-12 w-12 text-base'
+   640→
+   641→  return (
+   642→    <div className={cn('flex items-center justify-center rounded-full text-white font-semibold shrink-0', sizeClass, colorClass)}>
+   643→      {initials}
+   644→    </div>
+   645→  )
+   646→}
+   647→
+   648→function AvailabilityBadge({ availability }: { availability: Mentor['availability'] }) {
+   649→  const config = AVAILABILITY_CONFIG[availability]
+   650→  return (
+   651→    <span className={cn('flex items-center gap-1.5 text-xs font-medium', config.color)}>
+   652→      <span className={cn('h-2 w-2 rounded-full', config.dot)} />
+   653→      {config.label}
+   654→    </span>
+   655→  )
+   656→}
+   657→
+   658→function MentorCard({
+   659→  mentor,
+   660→  index,
+   661→  onRequest,
+   662→  onViewDetail,
+   663→  hasPendingRequest,
+   664→  hasActiveMentorship,
+   665→}: {
+   666→  mentor: Mentor
+   667→  index: number
+   668→  onRequest: () => void
+   669→  onViewDetail: () => void
+   670→  hasPendingRequest: boolean
+   671→  hasActiveMentorship: boolean
+   672→}) {
+   673→  return (
+   674→    <motion.div
+   675→      initial={{ opacity: 0, y: 12 }}
+   676→      animate={{ opacity: 1, y: 0 }}
+   677→      transition={{ delay: index * 0.05 }}
+   678→    >
+   679→      <Card className="h-full hover:shadow-md hover:border-primary/30 transition-all duration-300">
+   680→        <CardContent className="p-4 space-y-3">
+   681→          {/* Header */}
+   682→          <div className="flex items-start gap-3">
+   683→            <MentorAvatar mentor={mentor} />
+   684→            <div className="flex-1 min-w-0">
+   685→              <button onClick={onViewDetail} className="text-sm font-semibold text-foreground hover:text-primary transition-colors text-left">
+   686→                {mentor.name}
+   687→                <ChevronRight className="h-3.5 w-3.5 inline ml-0.5" />
+   688→              </button>
+   689→              <div className="flex items-center gap-2 mt-0.5">
+   690→                <AvailabilityBadge availability={mentor.availability} />
+   691→              </div>
+   692→            </div>
+   693→          </div>
+   694→
+   695→          {/* Rating */}
+   696→          <div className="flex items-center gap-1">
+   697→            {[1, 2, 3, 4, 5].map((s) => (
+   698→              <Star
+   699→                key={s}
+   700→                className={cn(
+   701→                  'h-3.5 w-3.5',
+   702→                  s <= Math.round(mentor.rating) ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground/30'
+   703→                )}
+   704→              />
+   705→            ))}
+   706→            <span className="text-xs text-muted-foreground ml-1">{mentor.rating} ({mentor.reviewCount})</span>
+   707→          </div>
+   708→
+   709→          {/* Bio */}
+   710→          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{mentor.bio}</p>
+   711→
+   712→          {/* Location */}
+   713→          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+   714→            <MapPin className="h-3 w-3 shrink-0" />
+   715→            <span>{mentor.location}</span>
+   716→          </div>
+   717→
+   718→          {/* Expertise */}
+   719→          <div className="flex flex-wrap gap-1">
+   720→            {mentor.expertise.slice(0, 3).map((e) => (
+   721→              <Badge key={e} variant="secondary" className="text-[10px] px-1.5 py-0 h-5">{e}</Badge>
+   722→            ))}
+   723→            {mentor.expertise.length > 3 && (
+   724→              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5">+{mentor.expertise.length - 3}</Badge>
+   725→            )}
+   726→          </div>
+   727→
+   728→          {/* Action */}
+   729→          <Button
+   730→            size="sm"
+   731→            className="w-full gap-2 rounded-full"
+   732→            disabled={mentor.availability === 'UNAVAILABLE' || hasActiveMentorship}
+   733→            variant={hasPendingRequest ? 'outline' : 'default'}
+   734→            onClick={hasPendingRequest ? undefined : onRequest}
+   735→          >
+   736→            {hasActiveMentorship ? (
+   737→              <><CheckCircle2 className="h-3.5 w-3.5" /> Mentorat actif</>
+   738→            ) : hasPendingRequest ? (
+   739→              <><Clock className="h-3.5 w-3.5" /> Demande en attente</>
+   740→            ) : mentor.availability === 'UNAVAILABLE' ? (
+   741→              <><XCircle className="h-3.5 w-3.5" /> Indisponible</>
+   742→            ) : (
+   743→              <><Send className="h-3.5 w-3.5" /> Demander un mentor</>
+   744→            )}
+   745→          </Button>
+   746→        </CardContent>
+   747→      </Card>
+   748→    </motion.div>
+   749→  )
+   750→}
+   751→
+   752→function RequestCard({ request }: { request: MentorRequest }) {
+   753→  const config = REQUEST_STATUS_CONFIG[request.status]
+   754→  const StatusIcon = config.icon
+   755→
+   756→  const initials = request.mentorName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+   757→  const colorIndex = (request.mentorName || 'M').charCodeAt(0) % AVATAR_COLORS.length
+   758→  const colorClass = AVATAR_COLORS[colorIndex]
+   759→
+   760→  return (
+   761→    <motion.div
+   762→      initial={{ opacity: 0, x: -8 }}
+   763→      animate={{ opacity: 1, x: 0 }}
+   764→    >
+   765→      <Card className="hover:shadow-sm transition-all">
+   766→        <CardContent className="p-4">
+   767→          <div className="flex items-start gap-3">
+   768→            <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white text-sm font-semibold', colorClass)}>
+   769→              {initials}
+   770→            </div>
+   771→            <div className="flex-1 min-w-0">
+   772→              <div className="flex items-center gap-2">
+   773→                <h4 className="text-sm font-semibold text-foreground">{request.mentorName}</h4>
+   774→                <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium', config.bg, config.color)}>
+   775→                  <StatusIcon className="h-3 w-3" />
+   776→                  {config.label}
+   777→                </span>
+   778→              </div>
+   779→              <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{request.message}</p>
+   780→              <div className="flex flex-wrap gap-1 mt-2">
+   781→                {request.objectives.map((obj) => (
+   782→                  <Badge key={obj} variant="outline" className="text-[10px]">{obj}</Badge>
+   783→                ))}
+   784→              </div>
+   785→              <p className="text-[10px] text-muted-foreground mt-2">
+   786→                <Calendar className="h-3 w-3 inline mr-1" />
+   787→                {new Date(request.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+   788→              </p>
+   789→            </div>
+   790→          </div>
+   791→        </CardContent>
+   792→      </Card>
+   793→    </motion.div>
+   794→  )
+   795→}
+   796→

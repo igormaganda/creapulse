@@ -1,0 +1,2002 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import ReactMarkdown from 'react-markdown'
+     6→import rehypeSanitize from 'rehype-sanitize'
+     7→
+     8→import { Button } from '@/components/ui/button'
+     9→import { Input } from '@/components/ui/input'
+    10→import { Textarea } from '@/components/ui/textarea'
+    11→import { Label } from '@/components/ui/label'
+    12→import { Badge } from '@/components/ui/badge'
+    13→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    14→import { ScrollArea } from '@/components/ui/scroll-area'
+    15→import { Separator } from '@/components/ui/separator'
+    16→import { Progress } from '@/components/ui/progress'
+    17→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+    18→import {
+    19→  AlertDialog,
+    20→  AlertDialogContent,
+    21→  AlertDialogHeader,
+    22→  AlertDialogTitle,
+    23→  AlertDialogDescription,
+    24→  AlertDialogAction,
+    25→  AlertDialogCancel,
+    26→  AlertDialogFooter,
+    27→} from '@/components/ui/alert-dialog'
+    28→import {
+    29→  Select,
+    30→  SelectContent,
+    31→  SelectItem,
+    32→  SelectTrigger,
+    33→  SelectValue,
+    34→} from '@/components/ui/select'
+    35→import {
+    36→  Tooltip,
+    37→  TooltipContent,
+    38→  TooltipProvider,
+    39→  TooltipTrigger,
+    40→} from '@/components/ui/tooltip'
+    41→import {
+    42→  FileText,
+    43→  Save,
+    44→  Eye,
+    45→  Download,
+    46→  Sparkles,
+    47→  Check,
+    48→  Circle,
+    49→  ChevronLeft,
+    50→  ChevronRight,
+    51→  Loader2,
+    52→  Plus,
+    53→  Trash2,
+    54→  Building2,
+    55→  Users,
+    56→  Target,
+    57→  TrendingUp,
+    58→  Calculator,
+    59→  BarChart3,
+    60→  Shield,
+    61→  MapPin,
+    62→  CalendarDays,
+    63→  Briefcase,
+    64→  Lightbulb,
+    65→  ArrowUpRight,
+    66→  Package,
+    67→  UserCheck,
+    68→  Crown,
+    69→  AlertTriangle,
+    70→  History,
+    71→} from 'lucide-react'
+    72→import { toast } from 'sonner'
+    73→import { cn } from '@/lib/utils'
+    74→import { authFetch } from '@/lib/auth-fetch'
+    75→import { BusinessPlanPdf } from '@/components/bureau/export/business-plan-pdf'
+    76→
+    77→// ─── Section Definitions ─────────────────────
+    78→
+    79→type SectionType = 'textarea' | 'swot' | 'financing-table' | 'result-table' | 'treasury-table' | 'investments-list' | 'bilan-table' | 'select' | 'timeline' | 'products-list' | 'associates-list' | 'cogerants-list'
+    80→
+    81→interface SectionDef {
+    82→  id: string
+    83→  title: string
+    84→  description: string
+    85→  type: SectionType
+    86→  hasAiSuggestion: boolean
+    87→  icon: React.ElementType
+    88→  color: string
+    89→}
+    90→
+    91→const PRESENTATION_SECTIONS: SectionDef[] = [
+    92→  { id: 'resume', title: 'Résumé opérationnel', description: 'Synthèse de votre projet et de ses perspectives', type: 'textarea', hasAiSuggestion: true, icon: FileText, color: 'text-[#00838F] bg-[#00838F]/10' },
+    93→  { id: 'equipe', title: "Présentation de l'équipe", description: 'Les membres clés et leurs compétences', type: 'textarea', hasAiSuggestion: true, icon: Users, color: 'text-[#FF6B35] bg-[#FF6B35]/10' },
+    94→  { id: 'historique', title: 'Historique et contexte', description: "L'origine du projet et son évolution", type: 'textarea', hasAiSuggestion: true, icon: Briefcase, color: 'text-[#FFB74D] bg-[#FFB74D]/10' },
+    95→  { id: 'vision', title: 'Vision et mission', description: 'Votre vision à long terme et votre mission', type: 'textarea', hasAiSuggestion: true, icon: Lightbulb, color: 'text-purple-600 bg-purple-600/10' },
+    96→  { id: 'valeurs', title: 'Valeurs et engagements', description: 'Les valeurs fondamentales de votre entreprise', type: 'textarea', hasAiSuggestion: true, icon: Shield, color: 'text-green-600 bg-green-600/10' },
+    97→]
+    98→
+    99→const MARCHE_SECTIONS: SectionDef[] = [
+   100→  { id: 'etude-marche', title: 'Étude de marché', description: 'Analyse du marché global et des tendances', type: 'textarea', hasAiSuggestion: true, icon: TrendingUp, color: 'text-[#00838F] bg-[#00838F]/10' },
+   101→  { id: 'segmentation', title: 'Segmentation client', description: 'Identification et profil de vos segments de clientèle', type: 'textarea', hasAiSuggestion: true, icon: Users, color: 'text-[#FF6B35] bg-[#FF6B35]/10' },
+   102→  { id: 'concurrence', title: 'Analyse concurrentielle', description: "Étude de vos concurrents et positionnement", type: 'textarea', hasAiSuggestion: true, icon: BarChart3, color: 'text-[#FFB74D] bg-[#FFB74D]/10' },
+   103→  { id: 'strategie-marketing', title: 'Stratégie marketing', description: 'Votre approche marketing et communication', type: 'textarea', hasAiSuggestion: true, icon: Target, color: 'text-purple-600 bg-purple-600/10' },
+   104→  { id: 'plan-commercial', title: 'Plan commercial', description: 'Votre stratégie de vente et de distribution', type: 'textarea', hasAiSuggestion: true, icon: ArrowUpRight, color: 'text-green-600 bg-green-600/10' },
+   105→  { id: 'swot', title: 'Analyse SWOT', description: 'Forces, faiblesses, opportunités, menaces', type: 'swot', hasAiSuggestion: true, icon: Shield, color: 'text-[#00838F] bg-[#00838F]/10' },
+   106→]
+   107→
+   108→const FINANCES_SECTIONS: SectionDef[] = [
+   109→  { id: 'financement', title: 'Plan de financement initial', description: "Sources et montants de financement de lancement", type: 'financing-table', hasAiSuggestion: false, icon: Calculator, color: 'text-[#00838F] bg-[#00838F]/10' },
+   110→  { id: 'compte-resultat', title: 'Compte de résultat prévisionnel', description: "Prévisions sur 3 ans (CA, charges, résultat)", type: 'result-table', hasAiSuggestion: false, icon: BarChart3, color: 'text-[#FF6B35] bg-[#FF6B35]/10' },
+   111→  { id: 'tresorerie', title: 'Plan de trésorerie', description: "Suivi mensuel des encaissements et décaissements", type: 'treasury-table', hasAiSuggestion: false, icon: TrendingUp, color: 'text-[#FFB74D] bg-[#FFB74D]/10' },
+   112→  { id: 'seuil-rentabilite', title: 'Seuil de rentabilité', description: 'Calcul automatique du point mort', type: 'textarea', hasAiSuggestion: false, icon: Target, color: 'text-green-600 bg-green-600/10' },
+   113→  { id: 'investissements', title: 'Investissements', description: "Liste des investissements prévus", type: 'investments-list', hasAiSuggestion: false, icon: Building2, color: 'text-purple-600 bg-purple-600/10' },
+   114→  { id: 'bilan', title: 'Bilan prévisionnel', description: 'Vue simplifiée du bilan prévisionnel', type: 'bilan-table', hasAiSuggestion: false, icon: Calculator, color: 'text-[#00838F] bg-[#00838F]/10' },
+   115→]
+   116→
+   117→const OPERATIONS_SECTIONS: SectionDef[] = [
+   118→  { id: 'statut-juridique', title: 'Statut juridique', description: 'Forme juridique adaptée à votre projet', type: 'select', hasAiSuggestion: false, icon: Shield, color: 'text-[#00838F] bg-[#00838F]/10' },
+   119→  { id: 'localisation', title: 'Localisation et implantation', description: "Choix du lieu et justification stratégique", type: 'textarea', hasAiSuggestion: true, icon: MapPin, color: 'text-[#FF6B35] bg-[#FF6B35]/10' },
+   120→  { id: 'organisation', title: 'Organisation et moyens humains', description: "Structure organisationnelle et effectifs", type: 'textarea', hasAiSuggestion: true, icon: Users, color: 'text-[#FFB74D] bg-[#FFB74D]/10' },
+   121→  { id: 'production', title: 'Catalogue produits / services', description: 'Produits et services proposés avec prix, quantités et marges', type: 'products-list', hasAiSuggestion: false, icon: Package, color: 'text-purple-600 bg-purple-600/10' },
+   122→  { id: 'associes', title: 'Associés et répartition du capital', description: 'Nombre de parts, capital apporté et répartition', type: 'associates-list', hasAiSuggestion: false, icon: Crown, color: 'text-[#00838F] bg-[#00838F]/10' },
+   123→  { id: 'cogerants', title: 'Co-gérance', description: 'Co-gérants et répartition des responsabilités', type: 'cogerants-list', hasAiSuggestion: false, icon: UserCheck, color: 'text-[#FF6B35] bg-[#FF6B35]/10' },
+   124→  { id: 'calendrier', title: 'Calendrier de réalisation', description: 'Jalons clés et planning de lancement', type: 'timeline', hasAiSuggestion: false, icon: CalendarDays, color: 'text-green-600 bg-green-600/10' },
+   125→]
+   126→
+   127→const ALL_SECTIONS = [...PRESENTATION_SECTIONS, ...MARCHE_SECTIONS, ...FINANCES_SECTIONS, ...OPERATIONS_SECTIONS]
+   128→
+   129→const TAB_GROUPS: { id: string; label: string; icon: React.ElementType; sections: SectionDef[] }[] = [
+   130→  { id: 'presentation', label: 'Présentation', icon: FileText, sections: PRESENTATION_SECTIONS },
+   131→  { id: 'marche', label: 'Marché', icon: TrendingUp, sections: MARCHE_SECTIONS },
+   132→  { id: 'finances', label: 'Finances', icon: Calculator, sections: FINANCES_SECTIONS },
+   133→  { id: 'operations', label: 'Opérations', icon: Building2, sections: OPERATIONS_SECTIONS },
+   134→]
+   135→
+   136→const STATUT_JURIDIQUE_OPTIONS = [
+   137→  { value: 'auto-entrepreneur', label: 'Auto-entrepreneur (Micro-entreprise)' },
+   138→  { value: 'eurl', label: 'EURL (Entreprise Unipersonnelle à Responsabilité Limitée)' },
+   139→  { value: 'sas', label: 'SAS (Société par Actions Simplifiée)' },
+   140→  { value: 'sasu', label: 'SASU (SAS Unipersonnelle)' },
+   141→  { value: 'sarl', label: 'SARL (Société à Responsabilité Limitée)' },
+   142→  { value: 'sa', label: 'SA (Société Anonyme)' },
+   143→  { value: 'sei', label: 'SEI (Société d\'Exercice Libéral à Responsabilité Limitée)' },
+   144→  { value: 'snc', label: 'SNC (Société en Nom Collectif)' },
+   145→  { value: 'association', label: 'Association loi 1901' },
+   146→  { value: 'autre', label: 'Autre' },
+   147→]
+   148→
+   149→const MONTHS_FR = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
+   150→
+   151→// ─── Types ──────────────────────────────────
+   152→
+   153→interface SwotData {
+   154→  strengths: string
+   155→  weaknesses: string
+   156→  opportunities: string
+   157→  threats: string
+   158→}
+   159→
+   160→interface FinancingRow {
+   161→  id: string
+   162→  source: string
+   163→  montant: number
+   164→}
+   165→
+   166→interface TreasuryMonth {
+   167→  month: string
+   168→  encaissements: number
+   169→  decaissements: number
+   170→  solde: number
+   171→}
+   172→
+   173→interface Investment {
+   174→  id: string
+   175→  name: string
+   176→  amount: number
+   177→}
+   178→
+   179→interface Milestone {
+   180→  id: string
+   181→  title: string
+   182→  date: string
+   183→  completed: boolean
+   184→}
+   185→
+   186→interface BpProduct {
+   187→  id: string
+   188→  nom: string
+   189→  description: string
+   190→  prixVente: number
+   191→  coutUnitaire: number
+   192→  quantiteMensuelle: number
+   193→  marge: number
+   194→}
+   195→
+   196→interface Associate {
+   197→  id: string
+   198→  nom: string
+   199→  prenom: string
+   200→  role: string
+   201→  nombreParts: number
+   202→  pourcentage: number
+   203→  apportCapital: number
+   204→}
+   205→
+   206→interface Cogerant {
+   207→  id: string
+   208→  nom: string
+   209→  prenom: string
+   210→  fonction: string
+   211→  email: string
+   212→  telephone: string
+   213→}
+   214→
+   215→interface BpSections {
+   216→  [key: string]: unknown
+   217→}
+   218→
+   219→// ─── P9 Types ───────────────────────────────
+   220→
+   221→interface QualityResult {
+   222→  score: number
+   223→  pertinence: number
+   224→  profondeur: number
+   225→  coherence: number
+   226→  recommendations: string[]
+   227→}
+   228→
+   229→interface Snapshot {
+   230→  id: string
+   231→  version: string
+   232→  createdAt: string
+   233→  trigger: 'manual' | 'auto' | 'sync'
+   234→  sectionsCount: number
+   235→  wordCount: number
+   236→}
+   237→
+   238→// ─── Default data ───────────────────────────
+   239→
+   240→function genId(): string {
+   241→  return Math.random().toString(36).slice(2, 9)
+   242→}
+   243→
+   244→const DEFAULT_SECTIONS: BpSections = {
+   245→  resume: '',
+   246→  equipe: '',
+   247→  historique: '',
+   248→  vision: '',
+   249→  valeurs: '',
+   250→  'etude-marche': '',
+   251→  segmentation: '',
+   252→  concurrence: '',
+   253→  'strategie-marketing': '',
+   254→  'plan-commercial': '',
+   255→  swot: { strengths: '', weaknesses: '', opportunities: '', threats: '' },
+   256→  financement: [],
+   257→  'compte-resultat': {
+   258→    year1: { ca: 0, charges: 0, resultat: 0 },
+   259→    year2: { ca: 0, charges: 0, resultat: 0 },
+   260→    year3: { ca: 0, charges: 0, resultat: 0 },
+   261→  },
+   262→  tresorerie: [],
+   263→  'seuil-rentabilite': '',
+   264→  investissements: [],
+   265→  bilan: {
+   266→    actif: { immobilisations: 0, stocks: 0, creances: 0, tresorerie: 0 },
+   267→    passif: { capital: 0, emprunts: 0, fournisseurs: 0, autresDettes: 0 },
+   268→  },
+   269→  'statut-juridique': '',
+   270→  localisation: '',
+   271→  organisation: '',
+   272→  production: [],
+   273→  associes: [],
+   274→  cogerants: [],
+   275→  calendrier: [],
+   276→}
+   277→
+   278→// ─── Helpers ────────────────────────────────
+   279→
+   280→function isSectionFilled(key: string, value: unknown): boolean {
+   281→  if (value === null || value === undefined) return false
+   282→  if (typeof value === 'string') return value.trim().length > 0
+   283→  if (Array.isArray(value)) return value.length > 0
+   284→  if (typeof value === 'object') {
+   285→    const obj = value as Record<string, unknown>
+   286→    return Object.values(obj).some(
+   287→      (v) => typeof v === 'string' && v.trim().length > 0 || typeof v === 'number' && v !== 0,
+   288→    )
+   289→  }
+   290→  return false
+   291→}
+   292→
+   293→function formatCurrency(value: number): string {
+   294→  return new Intl.NumberFormat('fr-FR', {
+   295→    style: 'currency',
+   296→    currency: 'EUR',
+   297→    minimumFractionDigits: 0,
+   298→    maximumFractionDigits: 0,
+   299→  }).format(value)
+   300→}
+   301→
+   302→function formatRelativeTime(iso: string): string {
+   303→  const now = Date.now()
+   304→  const then = new Date(iso).getTime()
+   305→  const diffMs = now - then
+   306→  const seconds = Math.floor(diffMs / 1000)
+   307→  const minutes = Math.floor(seconds / 60)
+   308→  const hours = Math.floor(minutes / 60)
+   309→  const days = Math.floor(hours / 24)
+   310→
+   311→  if (seconds < 60) return 'à l\'instant'
+   312→  if (minutes < 60) return `il y a ${minutes} min`
+   313→  if (hours < 24) return `il y a ${hours}h`
+   314→  if (days < 7) return `il y a ${days}j`
+   315→
+   316→  return new Date(iso).toLocaleDateString('fr-FR', {
+   317→    day: 'numeric',
+   318→    month: 'short',
+   319→    year: 'numeric',
+   320→  })
+   321→}
+   322→
+   323→// ─── Main Component ─────────────────────────
+   324→
+   325→interface PipelineStatus {
+   326→  parcours: boolean
+   327→  marche: boolean
+   328→  financier: boolean
+   329→  juridique: boolean
+   330→  creasim: boolean
+   331→}
+   332→
+   333→const DEFAULT_PIPELINE: PipelineStatus = {
+   334→  parcours: false,
+   335→  marche: false,
+   336→  financier: false,
+   337→  juridique: false,
+   338→  creasim: false,
+   339→}
+   340→
+   341→export function BusinessPlanModule() {
+   342→  const [sections, setSections] = useState<BpSections>(DEFAULT_SECTIONS)
+   343→  const [activeTab, setActiveTab] = useState('presentation')
+   344→  const [activeSection, setActiveSection] = useState<string | null>(null)
+   345→  const [isLoading, setIsLoading] = useState(true)
+   346→  const [isSaving, setIsSaving] = useState(false)
+   347→  const [isGeneratingParcours, setIsGeneratingParcours] = useState(false)
+   348→  const [isSyncing, setIsSyncing] = useState(false)
+   349→  const [aiLoading, setAiLoading] = useState<string | null>(null)
+   350→  const [previewOpen, setPreviewOpen] = useState(false)
+   351→  const [exportPdfOpen, setExportPdfOpen] = useState(false)
+   352→  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+   353→  const [projectContext, setProjectContext] = useState<Record<string, string | null> | null>(null)
+   354→  const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus>(DEFAULT_PIPELINE)
+   355→
+   356→  // ─── P9 state ─────────────────────────────
+   357→  const [sectionTimestamps, setSectionTimestamps] = useState<Record<string, { lastModified?: string }>>({})
+   358→  const [sectionWarnings, setSectionWarnings] = useState<Record<string, string>>({})
+   359→  const [qualityResults, setQualityResults] = useState<Record<string, QualityResult>>({})
+   360→  const [qualityLoading, setQualityLoading] = useState<string | null>(null)
+   361→  const [historyOpen, setHistoryOpen] = useState(false)
+   362→  const [snapshots, setSnapshots] = useState<Snapshot[]>([])
+   363→  const [snapshotsLoading, setSnapshotsLoading] = useState(false)
+   364→  const [restoreTarget, setRestoreTarget] = useState<Snapshot | null>(null)
+   365→  const [isSavingSnapshot, setIsSavingSnapshot] = useState(false)
+   366→  const [isRestoring, setIsRestoring] = useState(false)
+   367→
+   368→
+   369→  // ─── Load data on mount ──────────────────
+   370→  useEffect(() => {
+   371→    async function load() {
+   372→      // Try localStorage first
+   373→      const saved = localStorage.getItem('creapulse-bp')
+   374→      if (saved) {
+   375→        try {
+   376→          const parsed = JSON.parse(saved) as BpSections
+   377→          setSections(parsed)
+   378→        } catch { /* ignore */ }
+   379→      }
+   380→
+   381→      // Then try API
+   382→      try {
+   383→        const res = await fetch('/api/business-plan')
+   384→        if (res.ok) {
+   385→          const json = await res.json()
+   386→          if (json.success && json.data?.sections) {
+   387→            const apiSections = json.data.sections as BpSections
+   388→            // Merge with defaults for any missing keys
+   389→            const merged = { ...DEFAULT_SECTIONS, ...apiSections }
+   390→            setSections(merged)
+   391→            localStorage.setItem('creapulse-bp', JSON.stringify(merged))
+   392→          }
+   393→          if (json.data?.projectContext) {
+   394→            setProjectContext(json.data.projectContext)
+   395→          }
+   396→        }
+   397→      } catch { /* ignore */ }
+   398→
+   399→      setIsLoading(false)
+   400→    }
+   401→    load()
+   402→  }, [])
+   403→
+   404→  // ─── P9: Fetch timestamps on mount ──────
+   405→  useEffect(() => {
+   406→    async function fetchTimestamps() {
+   407→      try {
+   408→        const res = await authFetch('/api/pipeline-v3?action=get-timestamps')
+   409→        if (res.ok) {
+   410→          const json = await res.json()
+   411→          if (json.success && json.data?.timestamps) {
+   412→            setSectionTimestamps(json.data.timestamps as Record<string, { lastModified?: string }>)
+   413→          }
+   414→        }
+   415→      } catch { /* ignore */ }
+   416→    }
+   417→    fetchTimestamps()
+   418→  }, [])
+   419→
+   420→  // ─── P9: Fetch cross-validate warnings on mount ──
+   421→  useEffect(() => {
+   422→    async function fetchWarnings() {
+   423→      try {
+   424→        const res = await authFetch('/api/pipeline-v3?action=cross-validate')
+   425→        if (res.ok) {
+   426→          const json = await res.json()
+   427→          if (json.success && json.data?.warnings) {
+   428→            const raw = json.data.warnings as Record<string, string[] | string>
+   429→            const mapped: Record<string, string> = {}
+   430→            for (const [key, val] of Object.entries(raw)) {
+   431→              mapped[key] = Array.isArray(val) ? val[0] : val
+   432→            }
+   433→            setSectionWarnings(mapped)
+   434→          }
+   435→        }
+   436→      } catch { /* ignore */ }
+   437→    }
+   438→    fetchWarnings()
+   439→  }, [])
+   440→
+   441→  // ─── Auto-save to localStorage ──────────
+   442→  useEffect(() => {
+   443→    if (!isLoading) {
+   444→      localStorage.setItem('creapulse-bp', JSON.stringify(sections))
+   445→    }
+   446→  }, [sections, isLoading])
+   447→
+   448→  // ─── Completion tracking ────────────────
+   449→  const completionInfo = useMemo(() => {
+   450→    let filled = 0
+   451→    ALL_SECTIONS.forEach((s) => {
+   452→      if (isSectionFilled(s.id, sections[s.id])) filled++
+   453→    })
+   454→    return { filled, total: ALL_SECTIONS.length, percent: Math.round((filled / ALL_SECTIONS.length) * 100) }
+   455→  }, [sections])
+   456→
+   457→  // ─── Update section helper ──────────────
+   458→  const updateSection = useCallback((key: string, value: unknown) => {
+   459→    setSections((prev) => ({ ...prev, [key]: value }))
+   460→  }, [])
+   461→
+   462→  // ─── Save to API ────────────────────────
+   463→  const handleSave = useCallback(async () => {
+   464→    setIsSaving(true)
+   465→    try {
+   466→      const res = await fetch('/api/business-plan', {
+   467→        method: 'PUT',
+   468→        headers: { 'Content-Type': 'application/json' },
+   469→        body: JSON.stringify({ sections }),
+   470→      })
+   471→      const json = await res.json()
+   472→      if (json.success) {
+   473→        toast.success(`Business plan sauvegardé — ${completionInfo.filled}/${completionInfo.total} sections remplies (${completionInfo.percent}%)`)
+   474→      } else {
+   475→        toast.error(json.error?.message || 'Erreur lors de la sauvegarde')
+   476→      }
+   477→    } catch {
+   478→      toast.error('Erreur de connexion au serveur')
+   479→    } finally {
+   480→      setIsSaving(false)
+   481→    }
+   482→  }, [sections, completionInfo])
+   483→
+   484→  // ─── AI Suggestion ──────────────────────
+   485→  const handleAiSuggest = useCallback(async (sectionDef: SectionDef) => {
+   486→    setAiLoading(sectionDef.id)
+   487→    try {
+   488→      const contextStr = projectContext
+   489→        ? `${projectContext.projectTitle || ''} ${projectContext.projectSector || ''} ${projectContext.targetAudience || ''}`
+   490→        : ''
+   491→
+   492→      const res = await fetch('/api/business-plan', {
+   493→        method: 'POST',
+   494→        headers: { 'Content-Type': 'application/json' },
+   495→        body: JSON.stringify({
+   496→          action: 'ai-suggest',
+   497→          sectionId: sectionDef.id,
+   498→          sectionTitle: sectionDef.title,
+   499→          existingContent: typeof sections[sectionDef.id] === 'string' ? (sections[sectionDef.id] as string) : undefined,
+   500→          projectContext: contextStr || undefined,
+   501→        }),
+   502→      })
+   503→
+   504→      const json = await res.json()
+   505→      if (json.success && json.data?.suggestion) {
+   506→        if (sectionDef.type === 'swot') {
+   507→          updateSection(sectionDef.id, {
+   508→            ...(sections[sectionDef.id] as SwotData || { strengths: '', weaknesses: '', opportunities: '', threats: '' }),
+   509→            strengths: json.data.suggestion,
+   510→          })
+   511→        } else {
+   512→          updateSection(sectionDef.id, json.data.suggestion)
+   513→        }
+   514→        toast.success('Suggestion IA appliquée ! Modifiez le contenu si nécessaire.')
+   515→      } else {
+   516→        toast.error(json.error?.message || 'Erreur lors de la génération IA')
+   517→      }
+   518→    } catch {
+   519→      toast.error('Erreur de connexion au serveur')
+   520→    } finally {
+   521→      setAiLoading(null)
+   522→    }
+   523→  }, [sections, projectContext, updateSection])
+   524→
+   525→  // ─── Generate from Parcours ─────────────
+   526→  const handleGenerateFromParcours = useCallback(async () => {
+   527→    setIsGeneratingParcours(true)
+   528→    try {
+   529→      const res = await fetch('/api/business-plan', {
+   530→        method: 'POST',
+   531→        headers: { 'Content-Type': 'application/json' },
+   532→        body: JSON.stringify({ action: 'generate-from-parcours' }),
+   533→      })
+   534→      const json = await res.json()
+   535→      if (json.success && json.data?.sections) {
+   536→        setSections(prev => {
+   537→          const merged = { ...DEFAULT_SECTIONS, ...prev, ...json.data.sections }
+   538→          localStorage.setItem('creapulse-bp', JSON.stringify(merged))
+   539→          return merged
+   540→        })
+   541→        setPipelineStatus(prev => ({ ...prev, parcours: true }))
+   542→        toast.success('Business Plan généré depuis votre parcours entrepreneurial')
+   543→      } else {
+   544→        toast.error(json.error?.message || 'Erreur lors de la génération depuis le parcours')
+   545→      }
+   546→    } catch {
+   547→      toast.error('Erreur de connexion au serveur')
+   548→    } finally {
+   549→      setIsGeneratingParcours(false)
+   550→    }
+   551→  }, [])
+   552→
+   553→  // ─── Sync Simulators ─────────────────────
+   554→  const handleSyncSimulators = useCallback(async () => {
+   555→    setIsSyncing(true)
+   556→    try {
+   557→      const res = await fetch('/api/business-plan', {
+   558→        method: 'POST',
+   559→        headers: { 'Content-Type': 'application/json' },
+   560→        body: JSON.stringify({ action: 'sync-simulators' }),
+   561→      })
+   562→      const json = await res.json()
+   563→      if (json.success && json.data) {
+   564→        if (json.data.sections) {
+   565→          setSections(prev => {
+   566→            const merged = { ...DEFAULT_SECTIONS, ...prev, ...json.data.sections }
+   567→            localStorage.setItem('creapulse-bp', JSON.stringify(merged))
+   568→            return merged
+   569→          })
+   570→        }
+   571→        if (json.data.syncedSources) {
+   572→          setPipelineStatus(prev => ({
+   573→            ...prev,
+   574→            ...(json.data.syncedSources.marche && { marche: true }),
+   575→            ...(json.data.syncedSources.financier && { financier: true }),
+   576→            ...(json.data.syncedSources.juridique && { juridique: true }),
+   577→            ...(json.data.syncedSources.creasim && { creasim: true }),
+   578→          }))
+   579→        }
+   580→        const summary = json.data.summary || 'Données synchronisées'
+   581→        toast.success(`Simulateurs synchronisés — ${summary}`)
+   582→      } else {
+   583→        toast.error(json.error?.message || 'Erreur lors de la synchronisation')
+   584→      }
+   585→    } catch {
+   586→      toast.error('Erreur de connexion au serveur')
+   587→    } finally {
+   588→      setIsSyncing(false)
+   589→    }
+   590→  }, [])
+   591→
+   592→  // ─── Export PDF ──────────────────────────
+   593→  const handleExportPdf = useCallback(() => {
+   594→    setExportPdfOpen(true)
+   595→  }, [])
+   596→
+   597→  // ─── P9: AI Quality Evaluation ──────────
+   598→  const handleEvaluateQuality = useCallback(async (sectionDef: SectionDef) => {
+   599→    setQualityLoading(sectionDef.id)
+   600→    try {
+   601→      const content = typeof sections[sectionDef.id] === 'string'
+   602→        ? sections[sectionDef.id] as string
+   603→        : JSON.stringify(sections[sectionDef.id])
+   604→      const res = await authFetch('/api/business-plan/quality', {
+   605→        method: 'POST',
+   606→        body: JSON.stringify({
+   607→          sectionId: sectionDef.id,
+   608→          content,
+   609→          sectionType: sectionDef.type,
+   610→        }),
+   611→      })
+   612→      const json = await res.json()
+   613→      if (json.success && json.data) {
+   614→        setQualityResults(prev => ({
+   615→          ...prev,
+   616→          [sectionDef.id]: json.data as QualityResult,
+   617→        }))
+   618→      } else {
+   619→        toast.error(json.error?.message || 'Erreur lors de l\'évaluation')
+   620→      }
+   621→    } catch {
+   622→      toast.error('Erreur de connexion au serveur')
+   623→    } finally {
+   624→      setQualityLoading(null)
+   625→    }
+   626→  }, [sections])
+   627→
+   628→  // ─── P9: Load snapshots ──────────────────
+   629→  const handleLoadSnapshots = useCallback(async () => {
+   630→    setSnapshotsLoading(true)
+   631→    try {
+   632→      const res = await authFetch('/api/business-plan/snapshots')
+   633→      if (res.ok) {
+   634→        const json = await res.json()
+   635→        if (json.success && json.data?.snapshots) {
+   636→          setSnapshots(json.data.snapshots as Snapshot[])
+   637→        }
+   638→      }
+   639→    } catch { /* ignore */ } finally {
+   640→      setSnapshotsLoading(false)
+   641→    }
+   642→  }, [])
+   643→
+   644→  // ─── P9: Save manual snapshot ────────────
+   645→  const handleSaveSnapshot = useCallback(async () => {
+   646→    setIsSavingSnapshot(true)
+   647→    try {
+   648→      const res = await authFetch('/api/business-plan/snapshots', {
+   649→        method: 'POST',
+   650→        body: JSON.stringify({ trigger: 'manual' }),
+   651→      })
+   652→      const json = await res.json()
+   653→      if (json.success) {
+   654→        toast.success('Sauvegarde créée avec succès')
+   655→        handleLoadSnapshots()
+   656→      } else {
+   657→        toast.error(json.error?.message || 'Erreur lors de la sauvegarde')
+   658→      }
+   659→    } catch {
+   660→      toast.error('Erreur de connexion au serveur')
+   661→    } finally {
+   662→      setIsSavingSnapshot(false)
+   663→    }
+   664→  }, [handleLoadSnapshots])
+   665→
+   666→  // ─── P9: Restore snapshot ────────────────
+   667→  const handleRestoreSnapshot = useCallback(async (snapshot: Snapshot) => {
+   668→    setIsRestoring(true)
+   669→    try {
+   670→      const res = await authFetch('/api/business-plan/snapshots', {
+   671→        method: 'POST',
+   672→        body: JSON.stringify({ action: 'restore', snapshotId: snapshot.id }),
+   673→      })
+   674→      const json = await res.json()
+   675→      if (json.success && json.data?.sections) {
+   676→        const merged = { ...DEFAULT_SECTIONS, ...json.data.sections }
+   677→        setSections(merged)
+   678→        localStorage.setItem('creapulse-bp', JSON.stringify(merged))
+   679→        toast.success(`Version "${snapshot.version}" restaurée avec succès`)
+   680→        setHistoryOpen(false)
+   681→        setRestoreTarget(null)
+   682→      } else {
+   683→        toast.error(json.error?.message || 'Erreur lors de la restauration')
+   684→      }
+   685→    } catch {
+   686→      toast.error('Erreur de connexion au serveur')
+   687→    } finally {
+   688→      setIsRestoring(false)
+   689→    }
+   690→  }, [])
+   691→
+   692→  // ─── P9: Open history & load ─────────────
+   693→  const handleOpenHistory = useCallback(() => {
+   694→    setHistoryOpen(true)
+   695→    handleLoadSnapshots()
+   696→  }, [handleLoadSnapshots])
+   697→
+   698→  // ─── Section finder ─────────────────────
+   699→  const findSectionDef = useCallback((id: string): SectionDef | undefined => {
+   700→    return ALL_SECTIONS.find((s) => s.id === id)
+   701→  }, [])
+   702→
+   703→  // ─── Set first section on tab change ────
+   704→  useEffect(() => {
+   705→    const group = TAB_GROUPS.find((g) => g.id === activeTab)
+   706→    if (group && !activeSection) {
+   707→      setActiveSection(group.sections[0]?.id || null)
+   708→    }
+   709→    // Ensure activeSection is within the tab
+   710→    if (activeSection) {
+   711→      const group2 = TAB_GROUPS.find((g) => g.id === activeTab)
+   712→      if (group2 && !group2.sections.some((s) => s.id === activeSection)) {
+   713→        setActiveSection(group2.sections[0]?.id || null)
+   714→      }
+   715→    }
+   716→  }, [activeTab, activeSection])
+   717→
+   718→  // ─── Loading skeleton ───────────────────
+   719→  if (isLoading) {
+   720→    return (
+   721→      <div className="p-4 md:p-6 lg:p-8 space-y-6">
+   722→        <div className="h-8 w-64 bg-muted animate-pulse rounded" />
+   723→        <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+   724→        <div className="grid grid-cols-4 gap-4">
+   725→          {[...Array(4)].map((_, i) => (
+   726→            <div key={i} className="h-32 bg-muted animate-pulse rounded-xl" />
+   727→          ))}
+   728→        </div>
+   729→      </div>
+   730→    )
+   731→  }
+   732→
+   733→  // ─── Render section content ─────────────
+   734→  const renderSectionContent = (sectionDef: SectionDef) => {
+   735→    const val = sections[sectionDef.id]
+   736→
+   737→    switch (sectionDef.type) {
+   738→      case 'textarea':
+   739→        return (
+   740→          <div className="space-y-3">
+   741→            <div className="flex items-center gap-2 flex-wrap">
+   742→              {sectionDef.hasAiSuggestion && (
+   743→                <Button
+   744→                  variant="outline"
+   745→                  size="sm"
+   746→                  className="gap-1.5 border-[#FFB74D]/40 text-[#FFB74D] hover:bg-[#FFB74D]/10 hover:text-[#FFB74D]"
+   747→                  onClick={() => handleAiSuggest(sectionDef)}
+   748→                  disabled={aiLoading === sectionDef.id}
+   749→                >
+   750→                  {aiLoading === sectionDef.id ? (
+   751→                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+   752→                  ) : (
+   753→                    <Sparkles className="h-3.5 w-3.5" />
+   754→                  )}
+   755→                  Aide IA
+   756→                </Button>
+   757→              )}
+   758→              <Button
+   759→                variant="outline"
+   760→                size="sm"
+   761→                className="gap-1.5 border-[#00838F]/40 text-[#00838F] hover:bg-[#00838F]/10 hover:text-[#00838F]"
+   762→                onClick={() => handleEvaluateQuality(sectionDef)}
+   763→                disabled={qualityLoading === sectionDef.id}
+   764→              >
+   765→                {qualityLoading === sectionDef.id ? (
+   766→                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+   767→                ) : (
+   768→                  <Sparkles className="h-3.5 w-3.5" />
+   769→                )}
+   770→                Évaluer
+   771→              </Button>
+   772→            </div>
+   773→            <Textarea
+   774→              value={(val as string) || ''}
+   775→              onChange={(e) => updateSection(sectionDef.id, e.target.value)}
+   776→              placeholder={`Rédigez le contenu de la section "${sectionDef.title}"...`}
+   777→              className="min-h-[200px] resize-y text-sm leading-relaxed"
+   778→            />
+   779→            <div className="flex items-center justify-between">
+   780→              <span className="text-xs text-muted-foreground">
+   781→                {(val as string)?.length || 0} caractères
+   782→              </span>
+   783→              {(val as string)?.length > 0 && (
+   784→                <Badge variant="secondary" className="text-xs gap-1">
+   785→                  <Eye className="h-3 w-3" />
+   786→                  Aperçu
+   787→                </Badge>
+   788→              )}
+   789→            </div>
+   790→            {(val as string)?.length > 0 && (
+   791→              <div className="prose prose-sm dark:prose-invert max-w-none rounded-lg border bg-muted/30 p-4">
+   792→                <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{val as string}</ReactMarkdown>
+   793→              </div>
+   794→            )}
+   795→            {/* P9: Quality results */}
+   796→            <AnimatePresence>
+   797→              {qualityResults[sectionDef.id] && (
+   798→                <motion.div
+   799→                  initial={{ opacity: 0, height: 0 }}
+   800→                  animate={{ opacity: 1, height: 'auto' }}
+   801→                  exit={{ opacity: 0, height: 0 }}
+   802→                  className="rounded-lg border bg-muted/30 p-4 space-y-3 overflow-hidden"
+   803→                >
+   804→                  <div className="flex items-center gap-2">
+   805→                    <span className="text-sm font-semibold">Qualité</span>
+   806→                    <Badge className={cn(
+   807→                      'text-xs font-bold',
+   808→                      qualityResults[sectionDef.id].score >= 7
+   809→                        ? 'bg-green-500/20 text-green-600 border-green-500/30'
+   810→                        : qualityResults[sectionDef.id].score >= 4
+   811→                          ? 'bg-amber-500/20 text-amber-600 border-amber-500/30'
+   812→                          : 'bg-red-500/20 text-red-600 border-red-500/30',
+   813→                    )}>
+   814→                      {qualityResults[sectionDef.id].score}/10
+   815→                    </Badge>
+   816→                  </div>
+   817→                  <div className="grid grid-cols-3 gap-2">
+   818→                    {[
+   819→                      { label: 'Pertinence', value: qualityResults[sectionDef.id].pertinence },
+   820→                      { label: 'Profondeur', value: qualityResults[sectionDef.id].profondeur },
+   821→                      { label: 'Cohérence', value: qualityResults[sectionDef.id].coherence },
+   822→                    ].map((sub) => (
+   823→                      <div key={sub.label} className="space-y-1">
+   824→                        <div className="flex items-center justify-between">
+   825→                          <span className="text-[10px] text-muted-foreground">{sub.label}</span>
+   826→                          <span className="text-[10px] font-medium">{sub.value}/10</span>
+   827→                        </div>
+   828→                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+   829→                          <motion.div
+   830→                            initial={{ width: 0 }}
+   831→                            animate={{ width: `${sub.value * 10}%` }}
+   832→                            className={cn(
+   833→                              'h-full rounded-full',
+   834→                              sub.value >= 7 ? 'bg-green-500' : sub.value >= 4 ? 'bg-amber-500' : 'bg-red-500',
+   835→                            )}
+   836→                          />
+   837→                        </div>
+   838→                      </div>
+   839→                    ))}
+   840→                  </div>
+   841→                  {qualityResults[sectionDef.id].recommendations.length > 0 && (
+   842→                    <div className="space-y-1">
+   843→                      <p className="text-xs font-medium text-muted-foreground">Recommandations</p>
+   844→                      <ul className="space-y-0.5">
+   845→                        {qualityResults[sectionDef.id].recommendations.map((r, i) => (
+   846→                          <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+   847→                            <span className="text-[#00838F] mt-0.5">•</span>
+   848→                            <span>{r}</span>
+   849→                          </li>
+   850→                        ))}
+   851→                      </ul>
+   852→                    </div>
+   853→                  )}
+   854→                </motion.div>
+   855→              )}
+   856→            </AnimatePresence>
+   857→          </div>
+   858→        )
+   859→
+   860→      case 'swot':
+   861→        return (
+   862→          <div className="space-y-3">
+   863→            {sectionDef.hasAiSuggestion && (
+   864→              <Button
+   865→                variant="outline"
+   866→                size="sm"
+   867→                className="gap-1.5 border-[#FFB74D]/40 text-[#FFB74D] hover:bg-[#FFB74D]/10 hover:text-[#FFB74D]"
+   868→                onClick={() => handleAiSuggest(sectionDef)}
+   869→                disabled={aiLoading === sectionDef.id}
+   870→              >
+   871→                {aiLoading === sectionDef.id ? (
+   872→                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+   873→                ) : (
+   874→                  <Sparkles className="h-3.5 w-3.5" />
+   875→                )}
+   876→                Aide IA
+   877→              </Button>
+   878→            )}
+   879→            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   880→              {[
+   881→                { key: 'strengths', label: 'Forces', color: 'border-green-500/30 bg-green-50/50 dark:bg-green-900/10', icon: '💪' },
+   882→                { key: 'weaknesses', label: 'Faiblesses', color: 'border-red-500/30 bg-red-50/50 dark:bg-red-900/10', icon: '⚠️' },
+   883→                { key: 'opportunities', label: 'Opportunités', color: 'border-blue-500/30 bg-blue-50/50 dark:bg-blue-900/10', icon: '🚀' },
+   884→                { key: 'threats', label: 'Menaces', color: 'border-amber-500/30 bg-amber-50/50 dark:bg-amber-900/10', icon: '🛡️' },
+   885→              ].map((q) => (
+   886→                <div key={q.key} className={cn('rounded-lg border p-3', q.color)}>
+   887→                  <Label className="text-sm font-semibold flex items-center gap-1.5 mb-2">
+   888→                    <span>{q.icon}</span> {q.label}
+   889→                  </Label>
+   890→                  <Textarea
+   891→                    value={((val as SwotData)?.[q.key as keyof SwotData]) || ''}
+   892→                    onChange={(e) =>
+   893→                      updateSection(sectionDef.id, {
+   894→                        ...(val as SwotData || { strengths: '', weaknesses: '', opportunities: '', threats: '' }),
+   895→                        [q.key]: e.target.value,
+   896→                      })
+   897→                    }
+   898→                    placeholder={`Listez vos ${q.label.toLowerCase()}...`}
+   899→                    className="min-h-[100px] text-sm bg-background/60"
+   900→                  />
+   901→                </div>
+   902→              ))}
+   903→            </div>
+   904→          </div>
+   905→        )
+   906→
+   907→      case 'financing-table':
+   908→        return <FinancingTable value={val as FinancingRow[] || []} onChange={(v) => updateSection(sectionDef.id, v)} />
+   909→
+   910→      case 'result-table':
+   911→        return <ResultTable value={val as Record<string, Record<string, number>> || {}} onChange={(v) => updateSection(sectionDef.id, v)} />
+   912→
+   913→      case 'treasury-table':
+   914→        return <TreasuryTable value={val as TreasuryMonth[] || []} onChange={(v) => updateSection(sectionDef.id, v)} />
+   915→
+   916→      case 'investments-list':
+   917→        return <InvestmentsList value={val as Investment[] || []} onChange={(v) => updateSection(sectionDef.id, v)} />
+   918→
+   919→      case 'bilan-table':
+   920→        return <BilanTable value={val as Record<string, Record<string, number>> || {}} onChange={(v) => updateSection(sectionDef.id, v)} />
+   921→
+   922→      case 'select':
+   923→        return (
+   924→          <div className="space-y-3">
+   925→            <Select
+   926→              value={(val as string) || ''}
+   927→              onValueChange={(v) => updateSection(sectionDef.id, v)}
+   928→            >
+   929→              <SelectTrigger className="w-full">
+   930→                <SelectValue placeholder="Sélectionnez votre statut juridique..." />
+   931→              </SelectTrigger>
+   932→              <SelectContent>
+   933→                {STATUT_JURIDIQUE_OPTIONS.map((opt) => (
+   934→                  <SelectItem key={opt.value} value={opt.value}>
+   935→                    {opt.label}
+   936→                  </SelectItem>
+   937→                ))}
+   938→              </SelectContent>
+   939→            </Select>
+   940→            {(val as string) && (
+   941→              <p className="text-xs text-muted-foreground">
+   942→                Statut sélectionné : <span className="font-medium text-foreground">{STATUT_JURIDIQUE_OPTIONS.find(o => o.value === val)?.label}</span>
+   943→              </p>
+   944→            )}
+   945→          </div>
+   946→        )
+   947→
+   948→      case 'timeline':
+   949→        return <TimelineView value={val as Milestone[] || []} onChange={(v) => updateSection(sectionDef.id, v)} />
+   950→
+   951→      case 'products-list':
+   952→        return <ProductsList value={val as BpProduct[] || []} onChange={(v) => updateSection(sectionDef.id, v)} />
+   953→
+   954→      case 'associates-list':
+   955→        return <AssociatesList value={val as Associate[] || []} onChange={(v) => updateSection(sectionDef.id, v)} />
+   956→
+   957→      case 'cogerants-list':
+   958→        return <CogerantsList value={val as Cogerant[] || []} onChange={(v) => updateSection(sectionDef.id, v)} />
+   959→
+   960→      default:
+   961→        return null
+   962→    }
+   963→  }
+   964→
+   965→  // ─── Main Render ─────────────────────────
+   966→  return (
+   967→    <TooltipProvider>
+   968→      <motion.div
+   969→        initial={{ opacity: 0, y: 20 }}
+   970→        animate={{ opacity: 1, y: 0 }}
+   971→        transition={{ duration: 0.4 }}
+   972→        className="flex h-full"
+   973→      >
+   974→        {/* ═══ Left Sidebar ═══ */}
+   975→        <div
+   976→          className={cn(
+   977→            'hidden lg:flex flex-col border-r bg-muted/30 transition-all duration-300 overflow-hidden',
+   978→            sidebarCollapsed ? 'w-12' : 'w-72',
+   979→          )}
+   980→        >
+   981→          {/* Sidebar header */}
+   982→          <div className="flex items-center justify-between p-3 border-b">
+   983→            {!sidebarCollapsed && (
+   984→              <h3 className="text-sm font-semibold text-foreground truncate">Sections</h3>
+   985→            )}
+   986→            <Button
+   987→              variant="ghost"
+   988→              size="sm"
+   989→              className="h-7 w-7 p-0 shrink-0"
+   990→              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+   991→            >
+   992→              {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+   993→            </Button>
+   994→          </div>
+   995→
+   996→          {/* Progress */}
+   997→          {!sidebarCollapsed && (
+   998→            <div className="px-3 py-2 border-b">
+   999→              <div className="flex items-center justify-between mb-1">
+  1000→                <span className="text-xs text-muted-foreground">Progression</span>
+  1001→                <span className="text-xs font-semibold text-[#00838F]">{completionInfo.filled}/{completionInfo.total}</span>
+  1002→              </div>
+  1003→              <Progress value={completionInfo.percent} className="h-2" />
+  1004→            </div>
+  1005→          )}
+  1006→
+  1007→          {/* Section list */}
+  1008→          <ScrollArea className="flex-1">
+  1009→            <div className="p-2 space-y-1">
+  1010→              {TAB_GROUPS.map((group) => (
+  1011→                <div key={group.id} className="mb-1">
+  1012→                  {!sidebarCollapsed && (
+  1013→                    <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+  1014→                      {group.label}
+  1015→                    </p>
+  1016→                  )}
+  1017→                  {group.sections.map((s) => {
+  1018→                    const filled = isSectionFilled(s.id, sections[s.id])
+  1019→                    const isActive = activeSection === s.id
+  1020→                    const Icon = s.icon
+  1021→                    const ts = sectionTimestamps[s.id]?.lastModified
+  1022→                    const warning = sectionWarnings[s.id]
+  1023→                    return (
+  1024→                      <Tooltip key={s.id}>
+  1025→                        <TooltipTrigger asChild>
+  1026→                          <button
+  1027→                            onClick={() => { setActiveSection(s.id); setActiveTab(group.id) }}
+  1028→                            className={cn(
+  1029→                              'w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
+  1030→                              sidebarCollapsed ? 'justify-center px-1' : '',
+  1031→                              isActive
+  1032→                                ? 'bg-[#00838F]/10 text-[#00838F] font-medium'
+  1033→                                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+  1034→                            )}
+  1035→                          >
+  1036→                            {filled ? (
+  1037→                              <Check className="h-4 w-4 text-green-500 shrink-0" />
+  1038→                            ) : (
+  1039→                              <Circle className="h-4 w-4 shrink-0 opacity-40" />
+  1040→                            )}
+  1041→                            {!sidebarCollapsed && <Icon className="h-3.5 w-3.5 shrink-0" />}
+  1042→                            {!sidebarCollapsed && (
+  1043→                              <div className="flex-1 min-w-0">
+  1044→                                <div className="flex items-center gap-1">
+  1045→                                  {warning && (
+  1046→                                    <Tooltip>
+  1047→                                      <TooltipTrigger asChild>
+  1048→                                        <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />
+  1049→                                      </TooltipTrigger>
+  1050→                                      <TooltipContent side="right" className="text-xs max-w-[200px]">
+  1051→                                        {warning}
+  1052→                                      </TooltipContent>
+  1053→                                    </Tooltip>
+  1054→                                  )}
+  1055→                                  <span className="truncate">{s.title}</span>
+  1056→                                  {ts && (
+  1057→                                    <span className="text-xs text-muted-foreground ml-1">{formatRelativeTime(ts)}</span>
+  1058→                                  )}
+  1059→                                </div>
+  1060→                              </div>
+  1061→                            )}
+  1062→                          </button>
+  1063→                        </TooltipTrigger>
+  1064→                        {sidebarCollapsed && (
+  1065→                          <TooltipContent side="right" className="text-xs">
+  1066→                            {s.title}
+  1067→                          </TooltipContent>
+  1068→                        )}
+  1069→                      </Tooltip>
+  1070→                    )
+  1071→                  })}
+  1072→                </div>
+  1073→              ))}
+  1074→            </div>
+  1075→          </ScrollArea>
+  1076→        </div>
+  1077→
+  1078→        {/* ═══ Main Content Area ═══ */}
+  1079→        <div className="flex-1 flex flex-col overflow-hidden">
+  1080→          {/* Mobile Section Navigation (horizontal scroll) */}
+  1081→          <div className="lg:hidden border-b bg-muted/30 overflow-x-auto scrollbar-none">
+  1082→            <div className="flex items-center gap-1 p-2 min-w-max">
+  1083→              {ALL_SECTIONS.map((s) => {
+  1084→                const filled = isSectionFilled(s.id, sections[s.id])
+  1085→                const isActive = activeSection === s.id
+  1086→                const Icon = s.icon
+  1087→                return (
+  1088→                  <Button
+  1089→                    key={s.id}
+  1090→                    variant={isActive ? 'default' : 'ghost'}
+  1091→                    size="sm"
+  1092→                    className={cn(
+  1093→                      'gap-1 h-8 shrink-0 text-xs',
+  1094→                      isActive ? 'bg-[#00838F] text-white' : '',
+  1095→                    )}
+  1096→                    onClick={() => setActiveSection(s.id)}
+  1097→                  >
+  1098→                    {filled ? (
+  1099→                      <Check className="h-3 w-3 text-green-400" />
+  1100→                    ) : (
+  1101→                      <Circle className="h-3 w-3 opacity-40" />
+  1102→                    )}
+  1103→                    <Icon className="h-3 w-3" />
+  1104→                    <span className="hidden sm:inline">{s.title}</span>
+  1105→                  </Button>
+  1106→                )
+  1107→              })}
+  1108→            </div>
+  1109→          </div>
+  1110→
+  1111→          {/* Header */}
+  1112→          <div className="flex flex-col gap-3 p-4 md:px-6 border-b bg-background">
+  1113→            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+  1114→              <div className="flex items-center gap-3">
+  1115→                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00838F]/10">
+  1116→                  <FileText className="h-5 w-5 text-[#00838F]" />
+  1117→                </div>
+  1118→                <div>
+  1119→                  <h2 className="text-xl font-bold text-foreground">Business Plan IA</h2>
+  1120→                  <p className="text-xs text-muted-foreground">
+  1121→                    {completionInfo.filled}/{completionInfo.total} sections complétées — {completionInfo.percent}%
+  1122→                  </p>
+  1123→                </div>
+  1124→              </div>
+  1125→              <div className="flex items-center gap-2 flex-wrap">
+  1126→                <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExportPdf}>
+  1127→                  <Download className="h-3.5 w-3.5" />
+  1128→                  <span className="hidden sm:inline">Exporter PDF</span>
+  1129→                </Button>
+  1130→                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setPreviewOpen(true)}>
+  1131→                  <Eye className="h-3.5 w-3.5" />
+  1132→                  <span className="hidden sm:inline">Prévisualiser</span>
+  1133→                </Button>
+  1134→                <Button variant="outline" size="sm" className="gap-1.5" onClick={handleOpenHistory}>
+  1135→                  <History className="h-3.5 w-3.5" />
+  1136→                  <span className="hidden sm:inline">Historique</span>
+  1137→                </Button>
+  1138→                <Button
+  1139→                  variant="outline"
+  1140→                  size="sm"
+  1141→                  className="gap-1.5"
+  1142→                  onClick={handleSaveSnapshot}
+  1143→                  disabled={isSavingSnapshot}
+  1144→                >
+  1145→                  {isSavingSnapshot ? (
+  1146→                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+  1147→                  ) : (
+  1148→                    <Save className="h-3.5 w-3.5" />
+  1149→                  )}
+  1150→                  <span className="hidden sm:inline">Sauvegarder</span>
+  1151→                </Button>
+  1152→                <Button
+  1153→                  size="sm"
+  1154→                  className="gap-1.5 bg-[#00838F] hover:bg-[#00838F]/90 text-white"
+  1155→                  onClick={handleSave}
+  1156→                  disabled={isSaving}
+  1157→                >
+  1158→                  {isSaving ? (
+  1159→                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+  1160→                  ) : (
+  1161→                    <Save className="h-3.5 w-3.5" />
+  1162→                  )}
+  1163→                  <span className="hidden sm:inline">Enregistrer</span>
+  1164→                </Button>
+  1165→              </div>
+  1166→            </div>
+  1167→
+  1168→            {/* ── AI Action Buttons ── */}
+  1169→            <div className="flex flex-wrap items-center gap-2">
+  1170→              <Button
+  1171→                size="sm"
+  1172→                className="gap-1.5 bg-[#FFB74D]/20 text-[#FFB74D] hover:bg-[#FFB74D]/30 border border-[#FFB74D]/30"
+  1173→                onClick={handleGenerateFromParcours}
+  1174→                disabled={isGeneratingParcours}
+  1175→              >
+  1176→                {isGeneratingParcours ? (
+  1177→                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+  1178→                ) : (
+  1179→                  <Sparkles className="h-3.5 w-3.5" />
+  1180→                )}
+  1181→                {isGeneratingParcours ? 'Génération en cours...' : 'Générer depuis Parcours'}
+  1182→              </Button>
+  1183→              <Button
+  1184→                variant="outline"
+  1185→                size="sm"
+  1186→                className="gap-1.5 border-[#00838F]/30 text-[#00838F] hover:bg-[#00838F]/10 hover:text-[#00838F]"
+  1187→                onClick={handleSyncSimulators}
+  1188→                disabled={isSyncing}
+  1189→              >
+  1190→                {isSyncing ? (
+  1191→                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+  1192→                ) : (
+  1193→                  <TrendingUp className="h-3.5 w-3.5" />
+  1194→                )}
+  1195→                {isSyncing ? 'Synchronisation...' : 'Synchroniser les simulateurs'}
+  1196→              </Button>
+  1197→            </div>
+  1198→
+  1199→            {/* ── Pipeline Status Bar ── */}
+  1200→            <div className="flex flex-wrap items-center gap-2">
+  1201→              <span className="text-xs text-muted-foreground font-medium">Vue Pipeline :</span>
+  1202→              {([
+  1203→                { key: 'parcours' as const, label: 'Parcours', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
+  1204→                { key: 'marche' as const, label: 'Marché', color: 'bg-teal-500/20 text-teal-400 border-teal-500/30' },
+  1205→                { key: 'financier' as const, label: 'Financier', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
+  1206→                { key: 'juridique' as const, label: 'Juridique', color: 'bg-teal-500/20 text-teal-400 border-teal-500/30' },
+  1207→                { key: 'creasim' as const, label: 'CreaSim', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
+  1208→              ]).map(item => (
+  1209→                <Badge
+  1210→                  key={item.key}
+  1211→                  variant="outline"
+  1212→                  className={cn(
+  1213→                    'text-[10px] px-1.5 py-0 h-5 font-medium gap-0.5',
+  1214→                    pipelineStatus[item.key] ? item.color : 'bg-white/5 text-neutral-500 border-white/10'
+  1215→                  )}
+  1216→                >
+  1217→                  {pipelineStatus[item.key] ? (
+  1218→                    <Check className="h-2.5 w-2.5" />
+  1219→                  ) : (
+  1220→                    <Circle className="h-2.5 w-2.5" />
+  1221→                  )}
+  1222→                  {item.label}
+  1223→                </Badge>
+  1224→              ))}
+  1225→            </div>
+  1226→          </div>
+  1227→
+  1228→          {/* Desktop Tabs + Content */}
+  1229→          <div className="flex-1 overflow-y-auto">
+  1230→            <div className="p-4 md:p-6 space-y-4">
+  1231→              {/* Tab bar (desktop) */}
+  1232→              <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+  1233→                <TabsList className="bg-muted/80 hidden lg:flex">
+  1234→                  {TAB_GROUPS.map((g) => {
+  1235→                    const Icon = g.icon
+  1236→                    const filled = g.sections.filter((s) => isSectionFilled(s.id, sections[s.id])).length
+  1237→                    return (
+  1238→                      <TabsTrigger
+  1239→                        key={g.id}
+  1240→                        value={g.id}
+  1241→                        className="gap-1.5 data-[state=active]:bg-[#00838F] data-[state=active]:text-white"
+  1242→                      >
+  1243→                        <Icon className="h-4 w-4" />
+  1244→                        {g.label}
+  1245→                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
+  1246→                          {filled}/{g.sections.length}
+  1247→                        </Badge>
+  1248→                      </TabsTrigger>
+  1249→                    )
+  1250→                  })}
+  1251→                </TabsList>
+  1252→
+  1253→                {TAB_GROUPS.map((group) => (
+  1254→                  <TabsContent key={group.id} value={group.id} className="mt-0 space-y-4">
+  1255→                    {/* Active section content */}
+  1256→                    {activeSection && renderSectionContent(findSectionDef(activeSection) as SectionDef)}
+  1257→
+  1258→                    {/* Quick navigation to other sections in group */}
+  1259→                    <Separator />
+  1260→                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+  1261→                      {group.sections.map((s) => {
+  1262→                        const filled = isSectionFilled(s.id, sections[s.id])
+  1263→                        const isActive = activeSection === s.id
+  1264→                        const Icon = s.icon
+  1265→                        return (
+  1266→                          <button
+  1267→                            key={s.id}
+  1268→                            onClick={() => setActiveSection(s.id)}
+  1269→                            className={cn(
+  1270→                              'flex items-center gap-2 rounded-lg border p-3 text-left transition-all',
+  1271→                              isActive ? 'border-[#00838F]/40 bg-[#00838F]/5' : 'hover:border-muted-foreground/20',
+  1272→                            )}
+  1273→                          >
+  1274→                            <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', s.color)}>
+  1275→                              <Icon className="h-4 w-4" />
+  1276→                            </div>
+  1277→                            <div className="flex-1 min-w-0">
+  1278→                              <p className="text-sm font-medium text-foreground truncate">{s.title}</p>
+  1279→                              <p className="text-[10px] text-muted-foreground truncate">{s.description}</p>
+  1280→                            </div>
+  1281→                            {filled ? (
+  1282→                              <Check className="h-4 w-4 text-green-500 shrink-0" />
+  1283→                            ) : (
+  1284→                              <Circle className="h-4 w-4 text-muted-foreground/30 shrink-0" />
+  1285→                            )}
+  1286→                          </button>
+  1287→                        )
+  1288→                      })}
+  1289→                    </div>
+  1290→                  </TabsContent>
+  1291→                ))}
+  1292→              </Tabs>
+  1293→            </div>
+  1294→          </div>
+  1295→        </div>
+  1296→
+  1297→        {/* ═══ Preview Dialog ═══ */}
+  1298→        <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+  1299→          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+  1300→            <DialogHeader>
+  1301→              <DialogTitle className="flex items-center gap-2">
+  1302→                <FileText className="h-5 w-5 text-[#00838F]" />
+  1303→                Aperçu du Business Plan
+  1304→              </DialogTitle>
+  1305→              <DialogDescription>
+  1306→                Prévisualisation de votre business plan avec {completionInfo.filled} sections remplies sur {completionInfo.total}
+  1307→              </DialogDescription>
+  1308→            </DialogHeader>
+  1309→            <ScrollArea className="flex-1 pr-4">
+  1310→              <div className="space-y-8 pb-8">
+  1311→                {projectContext?.projectTitle && (
+  1312→                  <div className="text-center">
+  1313→                    <h1 className="text-3xl font-bold text-foreground">{projectContext.projectTitle}</h1>
+  1314→                    {projectContext.projectSector && (
+  1315→                      <p className="mt-2 text-muted-foreground">Secteur : {projectContext.projectSector}</p>
+  1316→                    )}
+  1317→                  </div>
+  1318→                )}
+  1319→                {TAB_GROUPS.map((group) => (
+  1320→                  <section key={group.id}>
+  1321→                    <h2 className="text-xl font-bold text-[#00838F] border-b-2 border-[#00838F]/20 pb-2 mb-4">
+  1322→                      {group.label}
+  1323→                    </h2>
+  1324→                    <div className="space-y-6">
+  1325→                      {group.sections.map((s) => {
+  1326→                        const val = sections[s.id]
+  1327→                        const filled = isSectionFilled(s.id, val)
+  1328→                        if (!filled) return null
+  1329→                        return (
+  1330→                          <div key={s.id}>
+  1331→                            <h3 className="text-base font-semibold text-foreground mb-2">{s.title}</h3>
+  1332→                            {s.type === 'textarea' && typeof val === 'string' && (
+  1333→                              <div className="prose prose-sm dark:prose-invert max-w-none">
+  1334→                                <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{val}</ReactMarkdown>
+  1335→                              </div>
+  1336→                            )}
+  1337→                            {s.type === 'swot' && val && typeof val === 'object' ? (
+  1338→                              <div className="grid grid-cols-2 gap-3">
+  1339→                                {[
+  1340→                                  { key: 'strengths', label: 'Forces', bg: 'bg-green-50 dark:bg-green-900/10' },
+  1341→                                  { key: 'weaknesses', label: 'Faiblesses', bg: 'bg-red-50 dark:bg-red-900/10' },
+  1342→                                  { key: 'opportunities', label: 'Opportunités', bg: 'bg-blue-50 dark:bg-blue-900/10' },
+  1343→                                  { key: 'threats', label: 'Menaces', bg: 'bg-amber-50 dark:bg-amber-900/10' },
+  1344→                                ].map((q) => (
+  1345→                                  <div key={q.key} className={cn('rounded-lg p-3', q.bg)}>
+  1346→                                    <p className="text-sm font-semibold mb-1">{q.label}</p>
+  1347→                                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+  1348→                                      {(val as SwotData)[q.key as keyof SwotData] || 'Non rempli'}
+  1349→                                    </p>
+  1350→                                  </div>
+  1351→                                ))}
+  1352→                              </div>
+  1353→                            ) : null}
+  1354→                            {s.type === 'select' && (
+  1355→                              <p className="text-sm text-muted-foreground">
+  1356→                                {STATUT_JURIDIQUE_OPTIONS.find((o) => o.value === val)?.label || String(val)}
+  1357→                              </p>
+  1358→                            )}
+  1359→                            {s.type === 'financing-table' && Array.isArray(val) && (
+  1360→                              <div className="overflow-x-auto">
+  1361→                              <table className="w-full text-sm" aria-label="Plan de financement">
+  1362→                                <thead>
+  1363→                                  <tr className="border-b">
+  1364→                                    <th scope="col" className="text-left py-1 font-medium">Source</th>
+  1365→                                    <th scope="col" className="text-right py-1 font-medium">Montant</th>
+  1366→                                  </tr>
+  1367→                                </thead>
+  1368→                                <tbody>
+  1369→                                  {(val as FinancingRow[]).map((row) => (
+  1370→                                    <tr key={row.id} className="border-b last:border-0">
+  1371→                                      <td className="py-1">{row.source}</td>
+  1372→                                      <td className="py-1 text-right">{formatCurrency(row.montant)}</td>
+  1373→                                    </tr>
+  1374→                                  ))}
+  1375→                                  <tr className="font-semibold">
+  1376→                                    <td className="py-1">Total</td>
+  1377→                                    <td className="py-1 text-right">
+  1378→                                      {formatCurrency((val as FinancingRow[]).reduce((sum, r) => sum + r.montant, 0))}
+  1379→                                    </td>
+  1380→                                  </tr>
+  1381→                                </tbody>
+  1382→                              </table>
+  1383→                              </div>
+  1384→                            )}
+  1385→                            {s.type === 'investments-list' && Array.isArray(val) && val.length > 0 && (
+  1386→                              <ul className="text-sm space-y-1">
+  1387→                                {(val as Investment[]).map((inv) => (
+  1388→                                  <li key={inv.id} className="flex justify-between">
+  1389→                                    <span>{inv.name}</span>
+  1390→                                    <span className="font-medium">{formatCurrency(inv.amount)}</span>
+  1391→                                  </li>
+  1392→                                ))}
+  1393→                              </ul>
+  1394→                            )}
+  1395→                            {s.type === 'timeline' && Array.isArray(val) && val.length > 0 && (
+  1396→                              <div className="space-y-2">
+  1397→                                {(val as Milestone[]).map((m) => (
+  1398→                                  <div key={m.id} className="flex items-center gap-2 text-sm">
+  1399→                                    {m.completed ? <Check className="h-4 w-4 text-green-500" /> : <Circle className="h-4 w-4 text-muted-foreground/40" />}
+  1400→                                    <span className="font-medium">{m.date}</span>
+  1401→                                    <span className="text-muted-foreground">{m.title}</span>
+  1402→                                  </div>
+  1403→                                ))}
+  1404→                              </div>
+  1405→                            )}
+  1406→                            {(s.type === 'result-table' || s.type === 'bilan-table') && typeof val === 'object' && val !== null && !Array.isArray(val) && (
+  1407→                              <pre className="text-xs bg-muted rounded-lg p-3 overflow-x-auto">
+  1408→                                {JSON.stringify(val, null, 2)}
+  1409→                              </pre>
+  1410→                            )}
+  1411→                            {s.type === 'treasury-table' && Array.isArray(val) && (
+  1412→                              <pre className="text-xs bg-muted rounded-lg p-3 overflow-x-auto max-h-48">
+  1413→                                {JSON.stringify(val, null, 2)}
+  1414→                              </pre>
+  1415→                            )}
+  1416→                          </div>
+  1417→                        )
+  1418→                      })}
+  1419→                    </div>
+  1420→                  </section>
+  1421→                ))}
+  1422→              </div>
+  1423→            </ScrollArea>
+  1424→          </DialogContent>
+  1425→        </Dialog>
+  1426→
+  1427→        {/* ═══ Export PDF Dialog ═══ */}
+  1428→        <Dialog open={exportPdfOpen} onOpenChange={setExportPdfOpen}>
+  1429→          <DialogContent className="max-w-5xl max-h-[95vh] overflow-hidden flex flex-col p-0">
+  1430→            <BusinessPlanPdf onClose={() => setExportPdfOpen(false)} />
+  1431→          </DialogContent>
+  1432→        </Dialog>
+  1433→
+  1434→        {/* ═══ P9: Version History Dialog ═══ */}
+  1435→        <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+  1436→          <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+  1437→            <DialogHeader>
+  1438→              <DialogTitle className="flex items-center gap-2">
+  1439→                <History className="h-5 w-5 text-[#00838F]" />
+  1440→                Historique des versions
+  1441→              </DialogTitle>
+  1442→              <DialogDescription>
+  1443→                Restaurez une version antérieure de votre business plan
+  1444→              </DialogDescription>
+  1445→            </DialogHeader>
+  1446→            <ScrollArea className="flex-1 pr-4">
+  1447→              {snapshotsLoading ? (
+  1448→                <div className="flex items-center justify-center py-8">
+  1449→                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+  1450→                </div>
+  1451→              ) : snapshots.length === 0 ? (
+  1452→                <div className="text-center py-8 text-muted-foreground">
+  1453→                  <History className="h-8 w-8 mx-auto mb-2 opacity-40" />
+  1454→                  <p className="text-sm">Aucune version sauvegardée</p>
+  1455→                  <p className="text-xs mt-1">Cliquez sur "Sauvegarder" pour créer un point de restauration</p>
+  1456→                </div>
+  1457→              ) : (
+  1458→                <div className="space-y-2 pb-4">
+  1459→                  {snapshots.map((snap) => (
+  1460→                    <div
+  1461→                      key={snap.id}
+  1462→                      className="flex items-center gap-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+  1463→                    >
+  1464→                      <div className="flex-1 min-w-0">
+  1465→                        <div className="flex items-center gap-2">
+  1466→                          <span className="text-sm font-semibold truncate">{snap.version}</span>
+  1467→                          <Badge
+  1468→                            variant="outline"
+  1469→                            className={cn(
+  1470→                              'text-[10px] px-1.5 py-0 h-5',
+  1471→                              snap.trigger === 'manual'
+  1472→                                ? 'bg-blue-500/10 text-blue-600 border-blue-500/30'
+  1473→                                : snap.trigger === 'sync'
+  1474→                                  ? 'bg-purple-500/10 text-purple-600 border-purple-500/30'
+  1475→                                  : 'bg-muted text-muted-foreground',
+  1476→                            )}
+  1477→                          >
+  1478→                            {snap.trigger === 'manual' ? 'Manuel' : snap.trigger === 'sync' ? 'Sync' : 'Auto'}
+  1479→                          </Badge>
+  1480→                        </div>
+  1481→                        <div className="flex items-center gap-3 mt-1">
+  1482→                          <span className="text-xs text-muted-foreground">
+  1483→                            {new Date(snap.createdAt).toLocaleString('fr-FR', {
+  1484→                              day: 'numeric',
+  1485→                              month: 'short',
+  1486→                              year: 'numeric',
+  1487→                              hour: '2-digit',
+  1488→                              minute: '2-digit',
+  1489→                            })}
+  1490→                          </span>
+  1491→                          <span className="text-xs text-muted-foreground">
+  1492→                            {snap.sectionsCount} sections · {snap.wordCount} mots
+  1493→                          </span>
+  1494→                        </div>
+  1495→                      </div>
+  1496→                      <Button
+  1497→                        variant="outline"
+  1498→                        size="sm"
+  1499→                        className="shrink-0"
+  1500→                        onClick={() => setRestoreTarget(snap)}
+  1501→                      >
+  1502→                        Restaurer
+  1503→                      </Button>
+  1504→                    </div>
+  1505→                  ))}
+  1506→                </div>
+  1507→              )}
+  1508→            </ScrollArea>
+  1509→          </DialogContent>
+  1510→        </Dialog>
+  1511→
+  1512→        {/* ═══ P9: Restore Confirmation AlertDialog ═══ */}
+  1513→        <AlertDialog open={!!restoreTarget} onOpenChange={(open) => { if (!open) setRestoreTarget(null) }}>
+  1514→          <AlertDialogContent>
+  1515→            <AlertDialogHeader>
+  1516→              <AlertDialogTitle>Restaurer cette version ?</AlertDialogTitle>
+  1517→              <AlertDialogDescription>
+  1518→                Vous allez restaurer la version <span className="font-semibold">{restoreTarget?.version}</span> du{' '}
+  1519→                {restoreTarget ? new Date(restoreTarget.createdAt).toLocaleString('fr-FR') : ''}.
+  1520→                Le contenu actuel sera remplacé. Cette action est irréversible.
+  1521→              </AlertDialogDescription>
+  1522→            </AlertDialogHeader>
+  1523→            <AlertDialogFooter>
+  1524→              <AlertDialogCancel disabled={isRestoring}>Annuler</AlertDialogCancel>
+  1525→              <AlertDialogAction
+  1526→                onClick={(e) => {
+  1527→                  e.preventDefault()
+  1528→                  if (restoreTarget) handleRestoreSnapshot(restoreTarget)
+  1529→                }}
+  1530→                disabled={isRestoring || !restoreTarget}
+  1531→                className="bg-[#00838F] hover:bg-[#00838F]/90 text-white"
+  1532→              >
+  1533→                {isRestoring ? (
+  1534→                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+  1535→                ) : null}
+  1536→                Restaurer
+  1537→              </AlertDialogAction>
+  1538→            </AlertDialogFooter>
+  1539→          </AlertDialogContent>
+  1540→        </AlertDialog>
+  1541→      </motion.div>
+  1542→    </TooltipProvider>
+  1543→  )
+  1544→}
+  1545→
+  1546→// ═══════════════════════════════════════════════
+  1547→// Sub-components for complex section types
+  1548→// ═══════════════════════════════════════════════
+  1549→
+  1550→// ─── Products List (Catalogue produits) ───────
+  1551→
+  1552→function ProductsList({ value, onChange }: { value: BpProduct[]; onChange: (v: BpProduct[]) => void }) {
+  1553→  const [showForm, setShowForm] = useState(false)
+  1554→  const [form, setForm] = useState({ nom: '', description: '', prixVente: '', coutUnitaire: '', quantiteMensuelle: '' })
+  1555→
+  1556→  const resetForm = () => setForm({ nom: '', description: '', prixVente: '', coutUnitaire: '', quantiteMensuelle: '' })
+  1557→
+  1558→  const add = () => {
+  1559→    if (!form.nom.trim() || !form.prixVente) return
+  1560→    const prixVente = parseFloat(form.prixVente) || 0
+  1561→    const coutUnitaire = parseFloat(form.coutUnitaire) || 0
+  1562→    const quantiteMensuelle = parseInt(form.quantiteMensuelle) || 0
+  1563→    const marge = prixVente > 0 ? Math.round(((prixVente - coutUnitaire) / prixVente) * 100) : 0
+  1564→    onChange([...value, {
+  1565→      id: genId(),
+  1566→      nom: form.nom.trim(),
+  1567→      description: form.description.trim(),
+  1568→      prixVente,
+  1569→      coutUnitaire,
+  1570→      quantiteMensuelle,
+  1571→      marge,
+  1572→    }])
+  1573→    resetForm()
+  1574→    setShowForm(false)
+  1575→  }
+  1576→
+  1577→  const remove = (id: string) => onChange(value.filter((p) => p.id !== id))
+  1578→  const update = (id: string, field: keyof BpProduct, val: string | number) => {
+  1579→    onChange(value.map((p) => {
+  1580→      if (p.id !== id) return p
+  1581→      const updated = { ...p, [field]: val }
+  1582→      if (field === 'prixVente' || field === 'coutUnitaire') {
+  1583→        const pv = typeof val === 'number' && field === 'prixVente' ? val : updated.prixVente
+  1584→        const cu = typeof val === 'number' && field === 'coutUnitaire' ? val : updated.coutUnitaire
+  1585→        updated.marge = pv > 0 ? Math.round(((pv - cu) / pv) * 100) : 0
+  1586→      }
+  1587→      return updated
+  1588→    }))
+  1589→  }
+  1590→
+  1591→  const caMensuel = value.reduce((s, p) => s + (p.prixVente * p.quantiteMensuelle), 0)
+  1592→  const margeMoyenne = value.length > 0 ? Math.round(value.reduce((s, p) => s + p.marge, 0) / value.length) : 0
+  1593→
+  1594→  return (
+  1595→    <div className="space-y-4">
+  1596→      {/* Summary cards */}
+  1597→      {value.length > 0 && (
+  1598→        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+  1599→          <div className="rounded-lg border bg-muted/30 p-3">
+  1600→            <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Produits</p>
+  1601→            <p className="text-xl font-bold text-foreground">{value.length}</p>
+  1602→          </div>
+  1603→          <div className="rounded-lg border bg-muted/30 p-3">
+  1604→            <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">CA mensuel</p>
+  1605→            <p className="text-xl font-bold text-[#00838F]">{formatCurrency(caMensuel)}</p>
+  1606→          </div>
+  1607→          <div className="rounded-lg border bg-muted/30 p-3 col-span-2 md:col-span-1">
+  1608→            <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Marge moyenne</p>
+  1609→            <p className={cn('text-xl font-bold', margeMoyenne >= 50 ? 'text-green-600' : margeMoyenne >= 30 ? 'text-amber-600' : 'text-red-600')}>
+  1610→              {margeMoyenne}%
+  1611→            </p>
+  1612→          </div>
+  1613→        </div>
+  1614→      )}
+  1615→
+  1616→      {/* Products list */}
+  1617→      {value.length > 0 && (
+  1618→        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+  1619→          {value.map((prod) => (
+  1620→            <div key={prod.id} className="rounded-lg border p-4 space-y-3 group">
+  1621→              <div className="flex items-start justify-between gap-2">
+  1622→                <div className="flex-1 min-w-0">
+  1623→                  <Input
+  1624→                    value={prod.nom}
+  1625→                    onChange={(e) => update(prod.id, 'nom', e.target.value)}
+  1626→                    className="h-8 text-sm font-semibold border-0 shadow-none focus-visible:ring-0 p-0"
+  1627→                    placeholder="Nom du produit..."
+  1628→                  />
+  1629→                  <Input
+  1630→                    value={prod.description}
+  1631→                    onChange={(e) => update(prod.id, 'description', e.target.value)}
+  1632→                    className="h-6 text-xs text-muted-foreground border-0 shadow-none focus-visible:ring-0 p-0 mt-0.5"
+  1633→                    placeholder="Description courte..."
+  1634→                  />
+  1635→                </div>
+  1636→                <div className="flex items-center gap-1 shrink-0">
+  1637→                  <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0 h-5', prod.marge >= 50 ? 'border-green-500/30 text-green-600 bg-green-50/50' : prod.marge >= 30 ? 'border-amber-500/30 text-amber-600 bg-amber-50/50' : 'border-red-500/30 text-red-600 bg-red-50/50')}>
+  1638→                    Marge {prod.marge}%
+  1639→                  </Badge>
+  1640→                  <Button
+  1641→                    variant="ghost"
+  1642→                    size="sm"
+  1643→                    className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500"
+  1644→                    onClick={() => remove(prod.id)}
+  1645→                  >
+  1646→                    <Trash2 className="h-3.5 w-3.5" />
+  1647→                  </Button>
+  1648→                </div>
+  1649→              </div>
+  1650→              <div className="grid grid-cols-3 gap-3">
+  1651→                <div>
+  1652→                  <Label className="text-[10px] text-muted-foreground">Prix de vente unitaire</Label>
+  1653→                  <div className="relative">
+  1654→                    <Input
+  1655→                      type="number"
+  1656→                      value={prod.prixVente || ''}
+  1657→                      onChange={(e) => update(prod.id, 'prixVente', parseFloat(e.target.value) || 0)}
+  1658→                      className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0 text-right pr-7"
+  1659→                      placeholder="0"
+  1660→                    />
+  1661→                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+  1662→                  </div>
+  1663→                </div>
+  1664→                <div>
+  1665→                  <Label className="text-[10px] text-muted-foreground">Coût unitaire</Label>
+  1666→                  <div className="relative">
+  1667→                    <Input
+  1668→                      type="number"
+  1669→                      value={prod.coutUnitaire || ''}
+  1670→                      onChange={(e) => update(prod.id, 'coutUnitaire', parseFloat(e.target.value) || 0)}
+  1671→                      className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0 text-right pr-7"
+  1672→                      placeholder="0"
+  1673→                    />
+  1674→                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+  1675→                  </div>
+  1676→                </div>
+  1677→                <div>
+  1678→                  <Label className="text-[10px] text-muted-foreground">Qté mensuelle</Label>
+  1679→                  <Input
+  1680→                    type="number"
+  1681→                    value={prod.quantiteMensuelle || ''}
+  1682→                    onChange={(e) => update(prod.id, 'quantiteMensuelle', parseInt(e.target.value) || 0)}
+  1683→                    className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0 text-right"
+  1684→                    placeholder="0"
+  1685→                  />
+  1686→                </div>
+  1687→              </div>
+  1688→              <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t">
+  1689→                <span>CA produit : <span className="font-medium text-foreground">{formatCurrency(prod.prixVente * prod.quantiteMensuelle)}/mois</span></span>
+  1690→                <span>Bénéfice unitaire : <span className="font-medium text-green-600">{formatCurrency(prod.prixVente - prod.coutUnitaire)}</span></span>
+  1691→              </div>
+  1692→            </div>
+  1693→          ))}
+  1694→        </div>
+  1695→      )}
+  1696→
+  1697→      {/* Add product button / form */}
+  1698→      {!showForm ? (
+  1699→        <Button variant="outline" size="sm" className="gap-1.5 w-full border-dashed" onClick={() => setShowForm(true)}>
+  1700→          <Plus className="h-3.5 w-3.5" />
+  1701→          Ajouter un produit ou service
+  1702→        </Button>
+  1703→      ) : (
+  1704→        <div className="rounded-lg border border-[#00838F]/30 bg-[#00838F]/5 p-4 space-y-3">
+  1705→          <p className="text-sm font-semibold text-foreground">Nouveau produit / service</p>
+  1706→          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+  1707→            <div>
+  1708→              <Label className="text-xs">Nom du produit *</Label>
+  1709→              <Input
+  1710→                value={form.nom}
+  1711→                onChange={(e) => setForm(f => ({ ...f, nom: e.target.value }))}
+  1712→                placeholder="Ex: Formation en ligne..."
+  1713→                className="h-9 text-sm"
+  1714→                autoFocus
+  1715→              />
+  1716→            </div>
+  1717→            <div>
+  1718→              <Label className="text-xs">Description</Label>
+  1719→              <Input
+  1720→                value={form.description}
+  1721→                onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
+  1722→                placeholder="Description courte..."
+  1723→                className="h-9 text-sm"
+  1724→              />
+  1725→            </div>
+  1726→            <div>
+  1727→              <Label className="text-xs">Prix de vente unitaire (€) *</Label>
+  1728→              <Input
+  1729→                type="number"
+  1730→                value={form.prixVente}
+  1731→                onChange={(e) => setForm(f => ({ ...f, prixVente: e.target.value }))}
+  1732→                placeholder="0"
+  1733→                className="h-9 text-sm"
+  1734→              />
+  1735→            </div>
+  1736→            <div>
+  1737→              <Label className="text-xs">Coût unitaire (€)</Label>
+  1738→              <Input
+  1739→                type="number"
+  1740→                value={form.coutUnitaire}
+  1741→                onChange={(e) => setForm(f => ({ ...f, coutUnitaire: e.target.value }))}
+  1742→                placeholder="0"
+  1743→                className="h-9 text-sm"
+  1744→              />
+  1745→            </div>
+  1746→            <div className="md:col-span-2">
+  1747→              <Label className="text-xs">Quantité vendue par mois</Label>
+  1748→              <Input
+  1749→                type="number"
+  1750→                value={form.quantiteMensuelle}
+  1751→                onChange={(e) => setForm(f => ({ ...f, quantiteMensuelle: e.target.value }))}
+  1752→                placeholder="0"
+  1753→                className="h-9 text-sm"
+  1754→              />
+  1755→            </div>
+  1756→          </div>
+  1757→          {form.prixVente && form.coutUnitaire && parseFloat(form.prixVente) > 0 && (
+  1758→            <p className="text-xs text-muted-foreground">
+  1759→              Marge estimée : <span className="font-semibold text-foreground">{Math.round(((parseFloat(form.prixVente) - parseFloat(form.coutUnitaire)) / parseFloat(form.prixVente)) * 100)}%</span>
+  1760→              {' '}&mdash; Bénéfice unitaire : <span className="font-semibold text-green-600">{formatCurrency(parseFloat(form.prixVente) - parseFloat(form.coutUnitaire))}</span>
+  1761→            </p>
+  1762→          )}
+  1763→          <div className="flex items-center gap-2">
+  1764→            <Button size="sm" className="bg-[#00838F] hover:bg-[#00838F]/90 text-white" onClick={add} disabled={!form.nom.trim() || !form.prixVente}>
+  1765→              <Plus className="h-3.5 w-3.5 mr-1" />
+  1766→              Ajouter
+  1767→            </Button>
+  1768→            <Button variant="ghost" size="sm" onClick={() => { setShowForm(false); resetForm() }}>
+  1769→              Annuler
+  1770→            </Button>
+  1771→          </div>
+  1772→        </div>
+  1773→      )}
+  1774→    </div>
+  1775→  )
+  1776→}
+  1777→
+  1778→// ─── Associates List (Répartition du capital) ──
+  1779→
+  1780→function AssociatesList({ value, onChange }: { value: Associate[]; onChange: (v: Associate[]) => void }) {
+  1781→  const [showForm, setShowForm] = useState(false)
+  1782→  const [form, setForm] = useState({ nom: '', prenom: '', role: '', nombreParts: '', pourcentage: '', apportCapital: '' })
+  1783→
+  1784→  const resetForm = () => setForm({ nom: '', prenom: '', role: '', nombreParts: '', pourcentage: '', apportCapital: '' })
+  1785→
+  1786→  const totalParts = value.reduce((s, a) => s + a.nombreParts, 0)
+  1787→  const totalCapital = value.reduce((s, a) => s + a.apportCapital, 0)
+  1788→  const totalPourcentage = value.reduce((s, a) => s + a.pourcentage, 0)
+  1789→
+  1790→  const add = () => {
+  1791→    if (!form.nom.trim() || !form.prenom.trim()) return
+  1792→    onChange([...value, {
+  1793→      id: genId(),
+  1794→      nom: form.nom.trim(),
+  1795→      prenom: form.prenom.trim(),
+  1796→      role: form.role.trim(),
+  1797→      nombreParts: parseInt(form.nombreParts) || 0,
+  1798→      pourcentage: parseFloat(form.pourcentage) || 0,
+  1799→      apportCapital: parseFloat(form.apportCapital) || 0,
+  1800→    }])
+  1801→    resetForm()
+  1802→    setShowForm(false)
+  1803→  }
+  1804→
+  1805→  const remove = (id: string) => onChange(value.filter((a) => a.id !== id))
+  1806→  const update = (id: string, field: keyof Associate, val: string | number) => {
+  1807→    onChange(value.map((a) => (a.id === id ? { ...a, [field]: val } : a)))
+  1808→  }
+  1809→
+  1810→  return (
+  1811→    <div className="space-y-4">
+  1812→      {/* Summary */}
+  1813→      {value.length > 0 && (
+  1814→        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+  1815→          <div className="rounded-lg border bg-muted/30 p-3">
+  1816→            <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Associés</p>
+  1817→            <p className="text-xl font-bold text-foreground">{value.length}</p>
+  1818→          </div>
+  1819→          <div className="rounded-lg border bg-muted/30 p-3">
+  1820→            <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Total parts</p>
+  1821→            <p className="text-xl font-bold text-[#00838F]">{totalParts.toLocaleString('fr-FR')}</p>
+  1822→          </div>
+  1823→          <div className="rounded-lg border bg-muted/30 p-3 col-span-2 md:col-span-1">
+  1824→            <p className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Capital total</p>
+  1825→            <p className="text-xl font-bold text-[#00838F]">{formatCurrency(totalCapital)}</p>
+  1826→          </div>
+  1827→        </div>
+  1828→      )}
+  1829→
+  1830→      {/* Percentage warning */}
+  1831→      {value.length > 0 && (totalPourcentage !== 100) && (
+  1832→        <p className={cn('text-xs px-3 py-1.5 rounded-md', totalPourcentage > 100 ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-amber-50 text-amber-600 border border-amber-200')}>
+  1833→          {totalPourcentage > 100
+  1834→            ? `Attention : le total des pourcentages dépasse 100% (${totalPourcentage}%)`
+  1835→            : `Répartition incomplète : ${totalPourcentage}% attribué sur 100%`}
+  1836→        </p>
+  1837→      )}
+  1838→
+  1839→      {/* Associates list */}
+  1840→      {value.length > 0 && (
+  1841→        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+  1842→          {value.map((assoc, idx) => (
+  1843→            <div key={assoc.id} className="rounded-lg border p-4 space-y-3 group">
+  1844→              <div className="flex items-start justify-between gap-2">
+  1845→                <div className="flex items-center gap-2">
+  1846→                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#00838F]/10 text-[#00838F] text-sm font-bold">
+  1847→                    {idx + 1}
+  1848→                  </div>
+  1849→                  <div className="flex-1 min-w-0">
+  1850→                    <div className="flex items-center gap-1.5">
+  1851→                      <Input
+  1852→                        value={assoc.prenom}
+  1853→                        onChange={(e) => update(assoc.id, 'prenom', e.target.value)}
+  1854→                        className="h-7 text-sm font-semibold border-0 shadow-none focus-visible:ring-0 p-0 w-24"
+  1855→                        placeholder="Prénom..."
+  1856→                      />
+  1857→                      <Input
+  1858→                        value={assoc.nom}
+  1859→                        onChange={(e) => update(assoc.id, 'nom', e.target.value)}
+  1860→                        className="h-7 text-sm font-semibold border-0 shadow-none focus-visible:ring-0 p-0 w-32"
+  1861→                        placeholder="Nom..."
+  1862→                      />
+  1863→                    </div>
+  1864→                    <Input
+  1865→                      value={assoc.role}
+  1866→                      onChange={(e) => update(assoc.id, 'role', e.target.value)}
+  1867→                      className="h-6 text-xs text-muted-foreground border-0 shadow-none focus-visible:ring-0 p-0 mt-0.5"
+  1868→                      placeholder="Rôle (ex: Gérant, Président...)"
+  1869→                    />
+  1870→                  </div>
+  1871→                </div>
+  1872→                <div className="flex items-center gap-1 shrink-0">
+  1873→                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-semibold">
+  1874→                    {assoc.pourcentage}%
+  1875→                  </Badge>
+  1876→                  <Button
+  1877→                    variant="ghost"
+  1878→                    size="sm"
+  1879→                    className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500"
+  1880→                    onClick={() => remove(assoc.id)}
+  1881→                  >
+  1882→                    <Trash2 className="h-3.5 w-3.5" />
+  1883→                  </Button>
+  1884→                </div>
+  1885→              </div>
+  1886→              <div className="grid grid-cols-3 gap-3">
+  1887→                <div>
+  1888→                  <Label className="text-[10px] text-muted-foreground">Nombre de parts</Label>
+  1889→                  <Input
+  1890→                    type="number"
+  1891→                    value={assoc.nombreParts || ''}
+  1892→                    onChange={(e) => update(assoc.id, 'nombreParts', parseInt(e.target.value) || 0)}
+  1893→                    className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0"
+  1894→                    placeholder="0"
+  1895→                  />
+  1896→                </div>
+  1897→                <div>
+  1898→                  <Label className="text-[10px] text-muted-foreground">Pourcentage (%)</Label>
+  1899→                  <Input
+  1900→                    type="number"
+  1901→                    value={assoc.pourcentage || ''}
+  1902→                    onChange={(e) => update(assoc.id, 'pourcentage', parseFloat(e.target.value) || 0)}
+  1903→                    className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0"
+  1904→                    placeholder="0"
+  1905→                  />
+  1906→                </div>
+  1907→                <div>
+  1908→                  <Label className="text-[10px] text-muted-foreground">Apport en capital</Label>
+  1909→                  <div className="relative">
+  1910→                    <Input
+  1911→                      type="number"
+  1912→                      value={assoc.apportCapital || ''}
+  1913→                      onChange={(e) => update(assoc.id, 'apportCapital', parseFloat(e.target.value) || 0)}
+  1914→                      className="h-8 text-sm border-0 shadow-none focus-visible:ring-0 p-0 text-right pr-7"
+  1915→                      placeholder="0"
+  1916→                    />
+  1917→                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">€</span>
+  1918→                  </div>
+  1919→                </div>
+  1920→              </div>
+  1921→            </div>
+  1922→          ))}
+  1923→        </div>
+  1924→      )}
+  1925→
+  1926→      {/* Add associate button / form */}
+  1927→      {!showForm ? (
+  1928→        <Button variant="outline" size="sm" className="gap-1.5 w-full border-dashed" onClick={() => setShowForm(true)}>
+  1929→          <Plus className="h-3.5 w-3.5" />
+  1930→          Ajouter un associé
+  1931→        </Button>
+  1932→      ) : (
+  1933→        <div className="rounded-lg border border-[#00838F]/30 bg-[#00838F]/5 p-4 space-y-3">
+  1934→          <p className="text-sm font-semibold text-foreground">Nouvel associé</p>
+  1935→          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+  1936→            <div>
+  1937→              <Label className="text-xs">Prénom *</Label>
+  1938→              <Input
+  1939→                value={form.prenom}
+  1940→                onChange={(e) => setForm(f => ({ ...f, prenom: e.target.value }))}
+  1941→                placeholder="Prénom..."
+  1942→                className="h-9 text-sm"
+  1943→                autoFocus
+  1944→              />
+  1945→            </div>
+  1946→            <div>
+  1947→              <Label className="text-xs">Nom *</Label>
+  1948→              <Input
+  1949→                value={form.nom}
+  1950→                onChange={(e) => setForm(f => ({ ...f, nom: e.target.value }))}
+  1951→                placeholder="Nom..."
+  1952→                className="h-9 text-sm"
+  1953→              />
+  1954→            </div>
+  1955→            <div>
+  1956→              <Label className="text-xs">Rôle / Fonction</Label>
+  1957→              <Input
+  1958→                value={form.role}
+  1959→                onChange={(e) => setForm(f => ({ ...f, role: e.target.value }))}
+  1960→                placeholder="Ex: Gérant, Président..."
+  1961→                className="h-9 text-sm"
+  1962→              />
+  1963→            </div>
+  1964→            <div>
+  1965→              <Label className="text-xs">Nombre de parts</Label>
+  1966→              <Input
+  1967→                type="number"
+  1968→                value={form.nombreParts}
+  1969→                onChange={(e) => setForm(f => ({ ...f, nombreParts: e.target.value }))}
+  1970→                placeholder="0"
+  1971→                className="h-9 text-sm"
+  1972→              />
+  1973→            </div>
+  1974→            <div>
+  1975→              <Label className="text-xs">Pourcentage (%)</Label>
+  1976→              <Input
+  1977→                type="number"
+  1978→                value={form.pourcentage}
+  1979→                onChange={(e) => setForm(f => ({ ...f, pourcentage: e.target.value }))}
+  1980→                placeholder="0"
+  1981→                className="h-9 text-sm"
+  1982→              />
+  1983→            </div>
+  1984→            <div>
+  1985→              <Label className="text-xs">Apport en capital (€)</Label>
+  1986→              <Input
+  1987→                type="number"
+  1988→                value={form.apportCapital}
+  1989→                onChange={(e) => setForm(f => ({ ...f, apportCapital: e.target.value }))}
+  1990→                placeholder="0"
+  1991→                className="h-9 text-sm"
+  1992→              />
+  1993→            </div>
+  1994→          </div>
+  1995→          <div className="flex items-center gap-2">
+  1996→            <Button size="sm" className="bg-[#00838F] hover:bg-[#00838F]/90 text-white" onClick={add} disabled={!form.nom.trim() || !form.prenom.trim()}>
+  1997→              <Plus className="h-3.5 w-3.5 mr-1" />
+  1998→              Ajouter
+  1999→            </Button>
+  2000→            <Button variant="ghost" size="sm" onClick={() => { setShowForm(false); resetForm() }}>
+
+[showing lines 1-2000 of 2682; use offset=2001 with limit to continue reading]

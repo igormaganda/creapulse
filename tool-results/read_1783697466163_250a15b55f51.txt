@@ -1,0 +1,796 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Input } from '@/components/ui/input'
+     8→import { Textarea } from '@/components/ui/textarea'
+     9→import { Label } from '@/components/ui/label'
+    10→import { Badge } from '@/components/ui/badge'
+    11→import { Progress } from '@/components/ui/progress'
+    12→import { Separator } from '@/components/ui/separator'
+    13→import {
+    14→  Presentation,
+    15→  Save,
+    16→  ChevronLeft,
+    17→  ChevronRight,
+    18→  Download,
+    19→  FileDown,
+    20→  Loader2,
+    21→  Plus,
+    22→  Trash2,
+    23→  User,
+    24→  AlertTriangle,
+    25→  Lightbulb,
+    26→  TrendingUp,
+    27→  DollarSign,
+    28→  Target,
+    29→  Users,
+    30→  Check,
+    31→  Circle,
+    32→  Sparkles,
+    33→} from 'lucide-react'
+    34→import { toast } from 'sonner'
+    35→import { cn } from '@/lib/utils'
+    36→
+    37→// ─── Types ──────────────────────────────────
+    38→
+    39→interface TeamMember {
+    40→  id: string
+    41→  name: string
+    42→  role: string
+    43→  bio: string
+    44→}
+    45→
+    46→interface SlideData {
+    47→  id: string
+    48→  title: string
+    49→  content: string
+    50→  teamMembers?: TeamMember[]
+    51→  fundingAmount?: string
+    52→  useOfFunds?: string
+    53→}
+    54→
+    55→const SLIDE_DEFINITIONS = [
+    56→  { id: 'problem', title: 'Problème', icon: AlertTriangle, color: 'bg-red-500', placeholder: 'Décrivez le problème que vous résolvez. Quel est le point de douleur de votre client cible ? Pourquoi ce problème existe-t-il ?' },
+    57→  { id: 'solution', title: 'Solution', icon: Lightbulb, color: 'bg-amber-500', placeholder: 'Présentez votre solution. Comment résout-elle le problème identifié ? En quoi est-elle unique ou supérieure aux alternatives existantes ?' },
+    58→  { id: 'market', title: 'Marché', icon: TrendingUp, color: 'bg-[#00838F]', placeholder: 'Décrivez votre marché : taille, croissance, segments. Quelle est votre opportunité de marché ?' },
+    59→  { id: 'business-model', title: 'Business Model', icon: DollarSign, color: 'bg-green-500', placeholder: 'Expliquez comment vous gagnez de l\'argent. Quelles sont vos sources de revenus ? Votre modèle de tarification ?' },
+    60→  { id: 'traction', title: 'Traction', icon: Target, color: 'bg-purple-500', placeholder: 'Partagez vos accomplissements actuels : clients, CA, partenariats, utilisateurs, indicateurs clés...' },
+    61→  { id: 'team', title: 'Équipe', icon: Users, color: 'bg-sky-500', placeholder: '' },
+    62→  { id: 'financial', title: 'Financier', icon: DollarSign, color: 'bg-[#FF6B35]', placeholder: 'Résumez vos projections financières : CA, résultat net, marges sur 3 ans.' },
+    63→  { id: 'ask', title: 'Ask', icon: Sparkles, color: 'bg-pink-500', placeholder: 'Combien cherchez-vous à lever ? À quoi serviront les fonds ? Quel est votre plan d\'utilisation ?' },
+    64→]
+    65→
+    66→// ─── Helpers ────────────────────────────────
+    67→
+    68→// ─── Mapping: frontend slide IDs → backend slide keys ───
+    69→
+    70→const SLIDE_ID_TO_KEY: Record<string, string> = {
+    71→  'problem': 'probleme',
+    72→  'solution': 'solution',
+    73→  'market': 'marche',
+    74→  'business-model': 'businessModel',
+    75→  'traction': 'traction',
+    76→  'team': 'equipe',
+    77→  'financial': 'financier',
+    78→  'ask': 'ask',
+    79→}
+    80→
+    81→function genId(): string {
+    82→  return Math.random().toString(36).slice(2, 9)
+    83→}
+    84→
+    85→// ─── Main Component ─────────────────────────
+    86→
+    87→export function PitchDeckModule() {
+    88→  const [isLoading, setIsLoading] = useState(true)
+    89→  const [isSaving, setIsSaving] = useState(false)
+    90→  const [isGenerating, setIsGenerating] = useState(false)
+    91→  const [isExportingPptx, setIsExportingPptx] = useState(false)
+    92→  const [aiLoadingSlide, setAiLoadingSlide] = useState<string | null>(null)
+    93→  const [currentSlide, setCurrentSlide] = useState(0)
+    94→  const [projectTitle, setProjectTitle] = useState('Mon Pitch Deck')
+    95→  const [slides, setSlides] = useState<SlideData[]>([])
+    96→
+    97→  // ─── Initialize slides ──────────────────
+    98→  useEffect(() => {
+    99→    const defaultSlides = SLIDE_DEFINITIONS.map(def => ({
+   100→      id: def.id,
+   101→      title: def.title,
+   102→      content: '',
+   103→      teamMembers: def.id === 'team' ? [] : undefined,
+   104→      fundingAmount: def.id === 'ask' ? '' : undefined,
+   105→      useOfFunds: def.id === 'ask' ? '' : undefined,
+   106→    }))
+   107→    setSlides(defaultSlides)
+   108→  }, [])
+   109→
+   110→  // ─── Load saved data ───────────────────
+   111→  useEffect(() => {
+   112→    async function load() {
+   113→      const saved = localStorage.getItem('creapulse-pitch-deck')
+   114→      if (saved) {
+   115→        try {
+   116→          const parsed = JSON.parse(saved)
+   117→          if (parsed.slides?.length) setSlides(parsed.slides)
+   118→          if (parsed.projectTitle) setProjectTitle(parsed.projectTitle)
+   119→        } catch { /* ignore */ }
+   120→      }
+   121→
+   122→      try {
+   123→        const res = await fetch('/api/pitch-deck', { credentials: 'include' })
+   124→        if (res.ok) {
+   125→          const json = await res.json()
+   126→          if (json.success && json.data?.content) {
+   127→            try {
+   128→              const parsed = JSON.parse(json.data.content)
+   129→              if (parsed.slides?.length) setSlides(parsed.slides)
+   130→              if (json.data.projectTitle) setProjectTitle(json.data.projectTitle)
+   131→            } catch { /* ignore */ }
+   132→          }
+   133→        }
+   134→      } catch { /* ignore */ }
+   135→
+   136→      setIsLoading(false)
+   137→    }
+   138→    load()
+   139→  }, [])
+   140→
+   141→  // ─── Auto-save to localStorage ──────────
+   142→  useEffect(() => {
+   143→    if (!isLoading && slides.length > 0) {
+   144→      localStorage.setItem('creapulse-pitch-deck', JSON.stringify({
+   145→        slides, projectTitle,
+   146→      }))
+   147→    }
+   148→  }, [isLoading, slides, projectTitle])
+   149→
+   150→  // ─── Update slide content ──────────────
+   151→  const updateSlideContent = useCallback((slideId: string, content: string) => {
+   152→    setSlides(prev => prev.map(s => s.id === slideId ? { ...s, content } : s))
+   153→  }, [])
+   154→
+   155→  // ─── Team CRUD ─────────────────────────
+   156→  const addTeamMember = useCallback(() => {
+   157→    setSlides(prev => prev.map(s =>
+   158→      s.id === 'team'
+   159→        ? { ...s, teamMembers: [...(s.teamMembers || []), { id: genId(), name: '', role: '', bio: '' }] }
+   160→        : s
+   161→    ))
+   162→  }, [])
+   163→
+   164→  const updateTeamMember = useCallback((memberId: string, field: keyof TeamMember, value: string) => {
+   165→    setSlides(prev => prev.map(s =>
+   166→      s.id === 'team'
+   167→        ? {
+   168→            ...s,
+   169→            teamMembers: (s.teamMembers || []).map(m =>
+   170→              m.id === memberId ? { ...m, [field]: value } : m
+   171→            ),
+   172→          }
+   173→        : s
+   174→    ))
+   175→  }, [])
+   176→
+   177→  const removeTeamMember = useCallback((memberId: string) => {
+   178→    setSlides(prev => prev.map(s =>
+   179→      s.id === 'team'
+   180→        ? { ...s, teamMembers: (s.teamMembers || []).filter(m => m.id !== memberId) }
+   181→        : s
+   182→    ))
+   183→  }, [])
+   184→
+   185→  // ─── Ask fields ────────────────────────
+   186→  const updateAskField = useCallback((field: 'fundingAmount' | 'useOfFunds', value: string) => {
+   187→    setSlides(prev => prev.map(s =>
+   188→      s.id === 'ask' ? { ...s, [field]: value } : s
+   189→    ))
+   190→  }, [])
+   191→
+   192→  // ─── Completion tracking ────────────────
+   193→  const completion = useMemo(() => {
+   194→    let filled = 0
+   195→    slides.forEach(slide => {
+   196→      const def = SLIDE_DEFINITIONS.find(d => d.id === slide.id)
+   197→      if (!def) return
+   198→
+   199→      if (slide.id === 'team') {
+   200→        if (slide.teamMembers && slide.teamMembers.length > 0 && slide.teamMembers.some(m => m.name)) filled++
+   201→      } else if (slide.id === 'ask') {
+   202→        if (slide.fundingAmount || slide.content) filled++
+   203→      } else {
+   204→        if (slide.content && slide.content.trim().length > 0) filled++
+   205→      }
+   206→    })
+   207→    return { filled, total: slides.length, percent: Math.round((filled / slides.length) * 100) }
+   208→  }, [slides])
+   209→
+   210→  // ─── Navigation ─────────────────────────
+   211→  const goNext = useCallback(() => {
+   212→    if (currentSlide < slides.length - 1) setCurrentSlide(prev => prev + 1)
+   213→  }, [currentSlide, slides.length])
+   214→
+   215→  const goPrev = useCallback(() => {
+   216→    if (currentSlide > 0) setCurrentSlide(prev => prev - 1)
+   217→  }, [currentSlide])
+   218→
+   219→  // ─── Save to API ────────────────────────
+   220→  const handleSave = useCallback(async () => {
+   221→    setIsSaving(true)
+   222→    try {
+   223→      const res = await fetch('/api/pitch-deck', {
+   224→        method: 'PUT',
+   225→        headers: { 'Content-Type': 'application/json' },
+   226→        credentials: 'include',
+   227→        body: JSON.stringify({ slides, projectTitle }),
+   228→      })
+   229→      const json = await res.json()
+   230→      if (json.success) {
+   231→        toast.success(`Pitch deck sauvegardé — ${completion.filled}/${completion.total} slides remplies`)
+   232→      } else {
+   233→        toast.error(json.error?.message || 'Erreur')
+   234→      }
+   235→    } catch {
+   236→      toast.error('Erreur de connexion')
+   237→    } finally {
+   238→      setIsSaving(false)
+   239→    }
+   240→  }, [slides, projectTitle, completion])
+   241→
+   242→  // ─── Generate from BP (full pitch deck) ─
+   243→  const handleGenerateFromBp = useCallback(async () => {
+   244→    setIsGenerating(true)
+   245→    try {
+   246→      const res = await fetch('/api/pitch-deck', {
+   247→        method: 'POST',
+   248→        headers: { 'Content-Type': 'application/json' },
+   249→        credentials: 'include',
+   250→        body: JSON.stringify({ action: 'generate-from-bp' }),
+   251→      })
+   252→      const json = await res.json()
+   253→      if (json.success && json.data?.slides) {
+   254→        setSlides(prev => prev.map(s => {
+   255→          const genSlide = json.data.slides.find((gs: { id: string; content: string }) => gs.id === s.id)
+   256→          return genSlide ? { ...s, content: genSlide.content || s.content } : s
+   257→        }))
+   258→        toast.success('Pitch deck généré par l\'IA depuis votre Business Plan')
+   259→      } else {
+   260→        toast.error(json.error?.message || 'Erreur lors de la génération IA')
+   261→      }
+   262→    } catch {
+   263→      toast.error('Erreur de connexion au serveur')
+   264→    } finally {
+   265→      setIsGenerating(false)
+   266→    }
+   267→  }, [])
+   268→
+   269→  // ─── AI suggest for a single slide ──────
+   270→  const handleAiSuggestSlide = useCallback(async (slideId: string) => {
+   271→    setAiLoadingSlide(slideId)
+   272→    try {
+   273→      const slide = slides.find(s => s.id === slideId)
+   274→      const def = SLIDE_DEFINITIONS.find(d => d.id === slideId)
+   275→      const res = await fetch('/api/pitch-deck', {
+   276→        method: 'POST',
+   277→        headers: { 'Content-Type': 'application/json' },
+   278→        credentials: 'include',
+   279→        body: JSON.stringify({
+   280→          action: 'ai-suggest-slide',
+   281→          slideKey: SLIDE_ID_TO_KEY[slideId],
+   282→          existingContent: slide?.content || undefined,
+   283→        }),
+   284→      })
+   285→      const json = await res.json()
+   286→      if (json.success && json.data?.suggestion) {
+   287→        setSlides(prev => prev.map(s => s.id === slideId ? { ...s, content: json.data.suggestion } : s))
+   288→        toast.success(`Slide "${def?.title}" mise à jour par l'IA`)
+   289→      } else {
+   290→        toast.error(json.error?.message || 'Erreur lors de la suggestion IA')
+   291→      }
+   292→    } catch {
+   293→      toast.error('Erreur de connexion au serveur')
+   294→    } finally {
+   295→      setAiLoadingSlide(null)
+   296→    }
+   297→  }, [slides])
+   298→
+   299→  // ─── Export PPTX ──────────────────────
+   300→  const handleExportPptx = useCallback(async () => {
+   301→    if (completion.filled === 0) {
+   302→      toast.error('Renseignez au moins une slide avant d\'exporter')
+   303→      return
+   304→    }
+   305→
+   306→    setIsExportingPptx(true)
+   307→    try {
+   308→      const res = await fetch('/api/export/pitch-deck', { credentials: 'include' })
+   309→      if (!res.ok) {
+   310→        const json = await res.json().catch(() => null)
+   311→        throw new Error(json?.error?.message || 'Erreur lors de l\'export PPTX')
+   312→      }
+   313→
+   314→      const blob = await res.blob()
+   315→      const url = URL.createObjectURL(blob)
+   316→      const a = document.createElement('a')
+   317→      a.href = url
+   318→      a.download = `${projectTitle.replace(/\s+/g, '_')}_pitch_deck.pptx`
+   319→      document.body.appendChild(a)
+   320→      a.click()
+   321→      document.body.removeChild(a)
+   322→      URL.revokeObjectURL(url)
+   323→
+   324→      toast.success('Pitch deck exporté en PowerPoint')
+   325→    } catch (err) {
+   326→      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'export PPTX')
+   327→    } finally {
+   328→      setIsExportingPptx(false)
+   329→    }
+   330→  }, [completion.filled, projectTitle])
+   331→
+   332→  // ─── Export (text summary) ─────────────
+   333→  const handleExport = useCallback(() => {
+   334→    if (completion.filled === 0) {
+   335→      toast.error('Renseignez au moins une slide avant d\'exporter')
+   336→      return
+   337→    }
+   338→
+   339→    let text = `# ${projectTitle}\n\n`
+   340→
+   341→    slides.forEach(slide => {
+   342→      const def = SLIDE_DEFINITIONS.find(d => d.id === slide.id)
+   343→      if (!def) return
+   344→
+   345→      if (slide.id === 'team' && slide.teamMembers?.length) {
+   346→        text += `## ${def.title}\n\n`
+   347→        slide.teamMembers.forEach(m => {
+   348→          if (m.name) {
+   349→            text += `**${m.name}**${m.role ? ` — ${m.role}` : ''}\n`
+   350→            if (m.bio) text += `${m.bio}\n\n`
+   351→          }
+   352→        })
+   353→      } else if (slide.id === 'ask') {
+   354→        text += `## ${def.title}\n\n`
+   355→        if (slide.fundingAmount) text += `**Montant recherché :** ${slide.fundingAmount}\n\n`
+   356→        if (slide.useOfFunds) text += `**Utilisation des fonds :**\n${slide.useOfFunds}\n\n`
+   357→        if (slide.content) text += `${slide.content}\n\n`
+   358→      } else if (slide.content) {
+   359→        text += `## ${def.title}\n\n${slide.content}\n\n`
+   360→      }
+   361→    })
+   362→
+   363→    // Download as text file
+   364→    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+   365→    const url = URL.createObjectURL(blob)
+   366→    const a = document.createElement('a')
+   367→    a.href = url
+   368→    a.download = `${projectTitle.replace(/\s+/g, '_')}_pitch_deck.txt`
+   369→    a.click()
+   370→    URL.revokeObjectURL(url)
+   371→    toast.success('Pitch deck exporté en fichier texte')
+   372→  }, [slides, projectTitle, completion.filled])
+   373→
+   374→  const activeSlide = slides[currentSlide]
+   375→  const activeDef = SLIDE_DEFINITIONS[currentSlide]
+   376→
+   377→  // ─── Loading ────────────────────────────
+   378→  if (isLoading) {
+   379→    return (
+   380→      <div className="p-4 md:p-6 lg:p-8 space-y-6">
+   381→        <div className="h-8 w-64 bg-muted animate-pulse rounded" />
+   382→        <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+   383→        <div className="h-80 bg-muted animate-pulse rounded-xl" />
+   384→      </div>
+   385→    )
+   386→  }
+   387→
+   388→  // ─── Main Render ────────────────────────
+   389→  return (
+   390→    <motion.div
+   391→      initial={{ opacity: 0, y: 20 }}
+   392→      animate={{ opacity: 1, y: 0 }}
+   393→      transition={{ duration: 0.4 }}
+   394→      className="flex-1 overflow-y-auto"
+   395→    >
+   396→      {/* Header */}
+   397→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 md:px-6 border-b bg-background">
+   398→        <div className="flex items-center gap-3">
+   399→          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00838F]/10">
+   400→            <Presentation className="h-5 w-5 text-[#00838F]" />
+   401→          </div>
+   402→          <div>
+   403→            <Input
+   404→              value={projectTitle}
+   405→              onChange={e => setProjectTitle(e.target.value)}
+   406→              className="text-xl font-bold border-0 shadow-none p-0 h-auto focus-visible:ring-0 max-w-xs"
+   407→            />
+   408→            <p className="text-xs text-muted-foreground">
+   409→              {completion.filled}/{completion.total} slides remplies — {completion.percent}%
+   410→            </p>
+   411→          </div>
+   412→        </div>
+   413→        <div className="flex items-center gap-2">
+   414→          <Button
+   415→            variant="outline"
+   416→            size="sm"
+   417→            className="gap-1.5 border-[#FFB74D]/40 text-[#FFB74D] hover:bg-[#FFB74D]/10 hover:text-[#FFB74D]"
+   418→            onClick={handleGenerateFromBp}
+   419→            disabled={isGenerating}
+   420→          >
+   421→            {isGenerating ? (
+   422→              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+   423→            ) : (
+   424→              <Sparkles className="h-3.5 w-3.5" />
+   425→            )}
+   426→            <span className="hidden sm:inline">{isGenerating ? 'Génération en cours...' : 'Générer avec l\'IA'}</span>
+   427→          </Button>
+   428→          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExport} disabled={completion.filled === 0}>
+   429→            <Download className="h-3.5 w-3.5" />
+   430→            <span className="hidden sm:inline">Exporter TXT</span>
+   431→          </Button>
+   432→          <Button
+   433→            variant="outline"
+   434→            size="sm"
+   435→            className="gap-1.5 border-[#00838F]/40 text-[#00838F] hover:bg-[#00838F]/10 hover:text-[#00838F]"
+   436→            onClick={handleExportPptx}
+   437→            disabled={completion.filled === 0 || isExportingPptx}
+   438→          >
+   439→            {isExportingPptx ? (
+   440→              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+   441→            ) : (
+   442→              <FileDown className="h-3.5 w-3.5" />
+   443→            )}
+   444→            <span className="hidden sm:inline">{isExportingPptx ? 'Export en cours...' : 'Exporter PPTX'}</span>
+   445→          </Button>
+   446→          <Button
+   447→            size="sm"
+   448→            className="gap-1.5 bg-[#00838F] hover:bg-[#00838F]/90 text-white"
+   449→            onClick={handleSave}
+   450→            disabled={isSaving}
+   451→          >
+   452→            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+   453→            Sauvegarder
+   454→          </Button>
+   455→        </div>
+   456→      </div>
+   457→
+   458→      {/* Progress bar */}
+   459→      <div className="px-4 md:px-6 pt-3">
+   460→        <div className="flex items-center gap-3">
+   461→          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+   462→            <div
+   463→              className="h-full bg-[#00838F] rounded-full transition-all duration-500"
+   464→              style={{ width: `${completion.percent}%` }}
+   465→            />
+   466→          </div>
+   467→          <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{completion.percent}%</span>
+   468→        </div>
+   469→      </div>
+   470→
+   471→      {/* Content */}
+   472→      <div className="p-4 md:p-6 space-y-6">
+   473→        {/* ── Slide Preview ── */}
+   474→        <AnimatePresence mode="wait">
+   475→          <motion.div
+   476→            key={currentSlide}
+   477→            initial={{ opacity: 0, x: 30 }}
+   478→            animate={{ opacity: 1, x: 0 }}
+   479→            exit={{ opacity: 0, x: -30 }}
+   480→            transition={{ duration: 0.2 }}
+   481→          >
+   482→            <Card className="overflow-hidden">
+   483→              {/* Slide header bar */}
+   484→              <div className={cn('h-2', activeDef?.color)} />
+   485→
+   486→              <CardHeader className="pb-3">
+   487→                <div className="flex items-center gap-3">
+   488→                  {activeDef && (
+   489→                    <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', activeDef.color, 'text-white')}>
+   490→                      <activeDef.icon className="h-5 w-5" />
+   491→                    </div>
+   492→                  )}
+   493→                  <div>
+   494→                    <Badge variant="outline" className="text-[10px] mb-1">Slide {currentSlide + 1}/{slides.length}</Badge>
+   495→                    <CardTitle className="text-lg">{activeSlide?.title}</CardTitle>
+   496→                  </div>
+   497→                  <div className="ml-auto flex items-center gap-2">
+   498→                    {activeSlide?.id !== 'team' && activeSlide?.id !== 'ask' && (
+   499→                      <Button
+   500→                        variant="outline"
+   501→                        size="sm"
+   502→                        className="gap-1 h-7 text-xs border-[#FFB74D]/40 text-[#FFB74D] hover:bg-[#FFB74D]/10 hover:text-[#FFB74D]"
+   503→                        onClick={() => handleAiSuggestSlide(activeSlide.id)}
+   504→                        disabled={aiLoadingSlide === activeSlide.id || isGenerating}
+   505→                      >
+   506→                        {aiLoadingSlide === activeSlide.id ? (
+   507→                          <Loader2 className="h-3 w-3 animate-spin" />
+   508→                        ) : (
+   509→                          <Sparkles className="h-3 w-3" />
+   510→                        )}
+   511→                        IA
+   512→                      </Button>
+   513→                    )}
+   514→                    {activeSlide?.content || (activeSlide?.id === 'team' && activeSlide.teamMembers?.length) || (activeSlide?.id === 'ask' && activeSlide.fundingAmount) ? (
+   515→                      <Badge className="bg-green-500 hover:bg-green-600 gap-1">
+   516→                        <Check className="h-3 w-3" /> Rempli
+   517→                      </Badge>
+   518→                    ) : (
+   519→                      <Badge variant="secondary" className="gap-1">
+   520→                        <Circle className="h-3 w-3" /> Vide
+   521→                      </Badge>
+   522→                    )}
+   523→                  </div>
+   524→                </div>
+   525→              </CardHeader>
+   526→
+   527→              <CardContent className="space-y-4">
+   528→                {/* Team slide: member cards */}
+   529→                {activeSlide?.id === 'team' ? (
+   530→                  <div className="space-y-4">
+   531→                    {activeSlide.teamMembers && activeSlide.teamMembers.length > 0 ? (
+   532→                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   533→                        {activeSlide.teamMembers.map(member => (
+   534→                          <Card key={member.id} className="relative">
+   535→                            <CardContent className="pt-3 space-y-2">
+   536→                              <div className="flex items-start justify-between">
+   537→                                <div className="flex items-center gap-2">
+   538→                                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-100 dark:bg-sky-900/20">
+   539→                                    <User className="h-4 w-4 text-sky-600" />
+   540→                                  </div>
+   541→                                  <div>
+   542→                                    <Input
+   543→                                      value={member.name}
+   544→                                      onChange={e => updateTeamMember(member.id, 'name', e.target.value)}
+   545→                                      placeholder="Nom"
+   546→                                      className="font-medium text-sm border-0 shadow-none p-0 h-auto focus-visible:ring-0"
+   547→                                    />
+   548→                                    <Input
+   549→                                      value={member.role}
+   550→                                      onChange={e => updateTeamMember(member.id, 'role', e.target.value)}
+   551→                                      placeholder="Rôle (ex: CEO, CTO)"
+   552→                                      className="text-xs text-muted-foreground border-0 shadow-none p-0 h-auto focus-visible:ring-0"
+   553→                                    />
+   554→                                  </div>
+   555→                                </div>
+   556→                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-400 hover:text-red-600 shrink-0" onClick={() => removeTeamMember(member.id)}>
+   557→                                  <Trash2 className="h-3.5 w-3.5" />
+   558→                                </Button>
+   559→                              </div>
+   560→                              <Textarea
+   561→                                value={member.bio}
+   562→                                onChange={e => updateTeamMember(member.id, 'bio', e.target.value)}
+   563→                                placeholder="Parcours, compétences, expérience..."
+   564→                                className="min-h-[60px] text-xs"
+   565→                              />
+   566→                            </CardContent>
+   567→                          </Card>
+   568→                        ))}
+   569→                      </div>
+   570→                    ) : (
+   571→                      <div className="text-center py-8 text-muted-foreground">
+   572→                        <Users className="h-10 w-10 mx-auto mb-2 opacity-40" />
+   573→                        <p className="text-sm">Aucun membre d&apos;équipe ajouté</p>
+   574→                      </div>
+   575→                    )}
+   576→                    <Button variant="outline" size="sm" className="gap-1.5" onClick={addTeamMember}>
+   577→                      <Plus className="h-3.5 w-3.5" />
+   578→                      Ajouter un membre
+   579→                    </Button>
+   580→                  </div>
+   581→                ) : activeSlide?.id === 'ask' ? (
+   582→                  /* Ask slide: funding amount + use of funds */
+   583→                  <div className="space-y-4">
+   584→                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   585→                      <div className="space-y-2">
+   586→                        <Label className="flex items-center gap-1.5">
+   587→                          <DollarSign className="h-3.5 w-3.5" /> Montant recherché
+   588→                        </Label>
+   589→                        <Input
+   590→                          value={activeSlide.fundingAmount || ''}
+   591→                          onChange={e => updateAskField('fundingAmount', e.target.value)}
+   592→                          placeholder="Ex : 50 000 €, 100 000 €..."
+   593→                          className="text-lg font-semibold"
+   594→                        />
+   595→                      </div>
+   596→                      <div className="space-y-2">
+   597→                        <Label className="flex items-center gap-1.5">
+   598→                          <Target className="h-3.5 w-3.5" /> Horizon
+   599→                        </Label>
+   600→                        <Input
+   601→                          value={activeSlide.content || ''}
+   602→                          onChange={e => updateSlideContent('ask', e.target.value)}
+   603→                          placeholder="Ex : 18 mois de trésorerie"
+   604→                          className="text-lg font-semibold"
+   605→                        />
+   606→                      </div>
+   607→                    </div>
+   608→                    <div className="space-y-2">
+   609→                      <Label>Utilisation des fonds</Label>
+   610→                      <Textarea
+   611→                        value={activeSlide.useOfFunds || ''}
+   612→                        onChange={e => updateAskField('useOfFunds', e.target.value)}
+   613→                        placeholder="Décrivez comment vous utiliserez les fonds levés : développement produit, marketing, recrutement..."
+   614→                        className="min-h-[120px]"
+   615→                      />
+   616→                    </div>
+   617→                  </div>
+   618→                ) : (
+   619→                  /* Standard text slide */
+   620→                  <div className="space-y-2">
+   621→                    <Textarea
+   622→                      value={activeSlide?.content || ''}
+   623→                      onChange={e => activeSlide && updateSlideContent(activeSlide.id, e.target.value)}
+   624→                      placeholder={activeDef?.placeholder || 'Contenu de la slide...'}
+   625→                      className="min-h-[200px] text-sm leading-relaxed"
+   626→                    />
+   627→                    <div className="flex items-center justify-between">
+   628→                      <span className="text-xs text-muted-foreground">
+   629→                        {(activeSlide?.content || '').length} caractères
+   630→                      </span>
+   631→                      {(activeSlide?.content || '').length > 0 && (
+   632→                        <Badge variant="secondary" className="text-xs">
+   633→                          ~{Math.ceil((activeSlide?.content || '').length / 40)} lignes
+   634→                        </Badge>
+   635→                      )}
+   636→                    </div>
+   637→                  </div>
+   638→                )}
+   639→              </CardContent>
+   640→            </Card>
+   641→          </motion.div>
+   642→        </AnimatePresence>
+   643→
+   644→        {/* ── Slide Navigation ── */}
+   645→        <div className="flex items-center justify-between">
+   646→          <Button variant="outline" size="sm" onClick={goPrev} disabled={currentSlide === 0} className="gap-1.5">
+   647→            <ChevronLeft className="h-4 w-4" />
+   648→            Précédent
+   649→          </Button>
+   650→
+   651→          {/* Slide selector dots */}
+   652→          <div className="flex items-center gap-2">
+   653→            {slides.map((_, i) => {
+   654→              const isFilled = (() => {
+   655→                const s = slides[i]
+   656→                if (!s) return false
+   657→                if (s.id === 'team') return s.teamMembers?.some(m => m.name) || false
+   658→                if (s.id === 'ask') return !!(s.fundingAmount || s.content)
+   659→                return s.content.trim().length > 0
+   660→              })()
+   661→              return (
+   662→                <button
+   663→                  key={i}
+   664→                  onClick={() => setCurrentSlide(i)}
+   665→                  className={cn(
+   666→                    'h-3 rounded-full transition-all',
+   667→                    i === currentSlide
+   668→                      ? 'w-8 bg-[#00838F]'
+   669→                      : isFilled
+   670→                        ? 'w-3 bg-[#00838F]/40'
+   671→                        : 'w-3 bg-muted',
+   672→                  )}
+   673→                />
+   674→              )
+   675→            })}
+   676→          </div>
+   677→
+   678→          <Button variant="outline" size="sm" onClick={goNext} disabled={currentSlide === slides.length - 1} className="gap-1.5">
+   679→            Suivant
+   680→            <ChevronRight className="h-4 w-4" />
+   681→          </Button>
+   682→        </div>
+   683→
+   684→        {/* ── Slide Thumbnails ── */}
+   685→        <Separator />
+   686→
+   687→        <div>
+   688→          <h3 className="text-sm font-semibold mb-3">Toutes les slides</h3>
+   689→          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+   690→            {slides.map((slide, i) => {
+   691→              const def = SLIDE_DEFINITIONS[i]
+   692→              if (!def) return null
+   693→
+   694→              const isFilled = (() => {
+   695→                if (slide.id === 'team') return slide.teamMembers?.some(m => m.name) || false
+   696→                if (slide.id === 'ask') return !!(slide.fundingAmount || slide.content)
+   697→                return slide.content.trim().length > 0
+   698→              })()
+   699→
+   700→              const isActive = i === currentSlide
+   701→              const Icon = def.icon
+   702→
+   703→              return (
+   704→                <motion.button
+   705→                  key={slide.id}
+   706→                  whileHover={{ scale: 1.05 }}
+   707→                  whileTap={{ scale: 0.95 }}
+   708→                  onClick={() => setCurrentSlide(i)}
+   709→                  className={cn(
+   710→                    'flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all text-center',
+   711→                    isActive ? 'border-[#00838F] bg-[#00838F]/5 ring-1 ring-[#00838F]/20' : 'border-border hover:border-muted-foreground/30',
+   712→                  )}
+   713→                >
+   714→                  <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg', def.color, 'text-white')}>
+   715→                    <Icon className="h-4 w-4" />
+   716→                  </div>
+   717→                  <span className="text-[10px] font-medium leading-tight line-clamp-2">{def.title}</span>
+   718→                  {isFilled ? (
+   719→                    <Check className="h-3 w-3 text-green-500" />
+   720→                  ) : (
+   721→                    <Circle className="h-3 w-3 text-muted-foreground/30" />
+   722→                  )}
+   723→                </motion.button>
+   724→              )
+   725→            })}
+   726→          </div>
+   727→        </div>
+   728→
+   729→        {/* ── Preview Summary ── */}
+   730→        {completion.filled > 0 && (
+   731→          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+   732→            <Card>
+   733→              <CardHeader className="pb-3">
+   734→                <CardTitle className="text-base flex items-center gap-2">
+   735→                  <Presentation className="h-4 w-4 text-[#00838F]" />
+   736→                  Aperçu du pitch deck
+   737→                </CardTitle>
+   738→                <CardDescription>{projectTitle} — {completion.filled} slides remplies</CardDescription>
+   739→              </CardHeader>
+   740→              <CardContent className="space-y-4 max-h-96 overflow-y-auto">
+   741→                {slides.map((slide) => {
+   742→                  const def = SLIDE_DEFINITIONS.find(d => d.id === slide.id)
+   743→                  if (!def) return null
+   744→
+   745→                  const hasContent = (() => {
+   746→                    if (slide.id === 'team') return slide.teamMembers?.some(m => m.name) || false
+   747→                    if (slide.id === 'ask') return !!(slide.fundingAmount || slide.content)
+   748→                    return slide.content.trim().length > 0
+   749→                  })()
+   750→
+   751→                  if (!hasContent) return null
+   752→
+   753→                  const Icon = def.icon
+   754→
+   755→                  return (
+   756→                    <div key={slide.id} className="space-y-1.5">
+   757→                      <div className="flex items-center gap-2">
+   758→                        <div className={cn('flex h-6 w-6 items-center justify-center rounded-md', def.color, 'text-white')}>
+   759→                          <Icon className="h-3 w-3" />
+   760→                        </div>
+   761→                        <h4 className="text-sm font-semibold">{def.title}</h4>
+   762→                      </div>
+   763→
+   764→                      {slide.id === 'team' && slide.teamMembers ? (
+   765→                        <div className="ml-8 space-y-1">
+   766→                          {slide.teamMembers.filter(m => m.name).map(m => (
+   767→                            <div key={m.id}>
+   768→                              <span className="text-sm font-medium">{m.name}</span>
+   769→                              {m.role && <span className="text-xs text-muted-foreground ml-2">— {m.role}</span>}
+   770→                              {m.bio && <p className="text-xs text-muted-foreground">{m.bio}</p>}
+   771→                            </div>
+   772→                          ))}
+   773→                        </div>
+   774→                      ) : slide.id === 'ask' ? (
+   775→                        <div className="ml-8">
+   776→                          {slide.fundingAmount && <p className="text-sm"><strong>Montant :</strong> {slide.fundingAmount}</p>}
+   777→                          {slide.content && <p className="text-sm">{slide.content}</p>}
+   778→                          {slide.useOfFunds && <p className="text-xs text-muted-foreground mt-1">{slide.useOfFunds}</p>}
+   779→                        </div>
+   780→                      ) : (
+   781→                        <p className="text-sm text-muted-foreground ml-8 line-clamp-3">{slide.content}</p>
+   782→                      )}
+   783→
+   784→                      <Separator className="ml-8" />
+   785→                    </div>
+   786→                  )
+   787→                })}
+   788→              </CardContent>
+   789→            </Card>
+   790→          </motion.div>
+   791→        )}
+   792→      </div>
+   793→    </motion.div>
+   794→  )
+   795→}
+   796→

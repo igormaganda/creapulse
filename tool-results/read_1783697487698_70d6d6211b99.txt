@@ -1,0 +1,1711 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Textarea } from '@/components/ui/textarea'
+     9→import { Separator } from '@/components/ui/separator'
+    10→import { Input } from '@/components/ui/input'
+    11→import { Slider } from '@/components/ui/slider'
+    12→import { Switch } from '@/components/ui/switch'
+    13→import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+    14→import {
+    15→  Popover,
+    16→  PopoverContent,
+    17→  PopoverTrigger,
+    18→} from '@/components/ui/popover'
+    19→import {
+    20→  Collapsible,
+    21→  CollapsibleTrigger,
+    22→  CollapsibleContent,
+    23→} from '@/components/ui/collapsible'
+    24→import {
+    25→  Clock,
+    26→  Save,
+    27→  Sparkles,
+    28→  Loader2,
+    29→  Check,
+    30→  Info,
+    31→  Plus,
+    32→  X,
+    33→  Timer,
+    34→  CalendarDays,
+    35→  Wrench,
+    36→  ListTodo,
+    37→  Play,
+    38→  Pause,
+    39→  RotateCcw,
+    40→  SkipForward,
+    41→  Settings2,
+    42→  ChevronDown,
+    43→  Target,
+    44→  Flame,
+    45→  BarChart3,
+    46→  CircleDot,
+    47→} from 'lucide-react'
+    48→import { toast } from 'sonner'
+    49→import { cn } from '@/lib/utils'
+    50→import { authFetch } from '@/lib/auth-fetch'
+    51→
+    52→// ═══════════════════════════════════════════════════════════════
+    53→// Types
+    54→// ═══════════════════════════════════════════════════════════════
+    55→
+    56→interface TaskItem {
+    57→  id: string
+    58→  text: string
+    59→}
+    60→
+    61→interface EisenhowerMatrix {
+    62→  urgentImportant: TaskItem[]
+    63→  urgentNotImportant: TaskItem[]
+    64→  notUrgentImportant: TaskItem[]
+    65→  notUrgentNotImportant: TaskItem[]
+    66→}
+    67→
+    68→interface WeekSchedule {
+    69→  [day: string]: string
+    70→}
+    71→
+    72→interface GestionTempsData {
+    73→  diagnostic: string
+    74→  eisenhower: EisenhowerMatrix
+    75→  weekSchedule: WeekSchedule
+    76→}
+    77→
+    78→type SessionType = 'work' | 'break' | 'longBreak'
+    79→
+    80→interface PomodoroSettings {
+    81→  workDuration: number
+    82→  shortBreakDuration: number
+    83→  longBreakDuration: number
+    84→  sessionsBeforeLongBreak: number
+    85→  soundEnabled: boolean
+    86→  autoStartNext: boolean
+    87→}
+    88→
+    89→interface CompletedPomodoro {
+    90→  id: string
+    91→  taskName: string
+    92→  category: string
+    93→  duration: number
+    94→  completedAt: string // ISO date
+    95→}
+    96→
+    97→interface PomodoroState {
+    98→  settings: PomodoroSettings
+    99→  isRunning: boolean
+   100→  sessionType: SessionType
+   101→  remainingSeconds: number
+   102→  completedSessionsInCycle: number
+   103→  currentTaskName: string
+   104→  currentCategory: string
+   105→  completedPomodoros: CompletedPomodoro[]
+   106→  streakDays: number
+   107→  lastPomodoroDate: string
+   108→  dailyStats: Record<string, { totalMinutes: number; count: number }> // key: YYYY-MM-DD
+   109→}
+   110→
+   111→const DAYS_FR = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
+   112→const DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+   113→
+   114→const TASK_CATEGORIES = [
+   115→  { value: 'Production', label: 'Production', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
+   116→  { value: 'Prospection', label: 'Prospection', color: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300' },
+   117→  { value: 'Admin', label: 'Admin', color: 'bg-gray-100 text-gray-600 dark:bg-gray-800/30 dark:text-gray-300' },
+   118→  { value: 'Formation', label: 'Formation', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
+   119→  { value: 'Réseaux', label: 'Réseaux', color: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300' },
+   120→]
+   121→
+   122→const OUTILS_PRODUCTIVITE = [
+   123→  { name: 'Pomodoro (25/5)', description: 'Travail par cycles de 25 min, pause 5 min. Idéal pour les tâches concentrées.' },
+   124→  { name: 'Trello / Notion', description: 'Gestion de projets visuelle. Tableaux Kanban pour organiser vos tâches.' },
+   125→  { name: 'Google Agenda', description: 'Planification et rappels. Bloquez des créneaux pour chaque activité.' },
+   126→  { name: 'RescueTime / Toggl', description: 'Suivi du temps réel. Mesurez où passez réellement votre temps.' },
+   127→  { name: 'Time Blocking', description: 'Allocation de créneaux fixes pour chaque type d\'activité. Réduit la fragmentation.' },
+   128→  { name: 'Eat the Frog', description: 'Commencez par la tâche la plus difficile en priorité. Maximise la productivité matinale.' },
+   129→  { name: '2-Minute Rule', description: 'Si une tâche prend moins de 2 min, faites-la immédiatement. Évite l\'accumulation.' },
+   130→]
+   131→
+   132→const DEFAULT_DATA: GestionTempsData = {
+   133→  diagnostic: '',
+   134→  eisenhower: {
+   135→    urgentImportant: [],
+   136→    urgentNotImportant: [],
+   137→    notUrgentImportant: [],
+   138→    notUrgentNotImportant: [],
+   139→  },
+   140→  weekSchedule: {
+   141→    Lundi: '',
+   142→    Mardi: '',
+   143→    Mercredi: '',
+   144→    Jeudi: '',
+   145→    Vendredi: '',
+   146→    Samedi: '',
+   147→    Dimanche: '',
+   148→  },
+   149→}
+   150→
+   151→const DEFAULT_POMODORO_SETTINGS: PomodoroSettings = {
+   152→  workDuration: 25,
+   153→  shortBreakDuration: 5,
+   154→  longBreakDuration: 15,
+   155→  sessionsBeforeLongBreak: 4,
+   156→  soundEnabled: true,
+   157→  autoStartNext: false,
+   158→}
+   159→
+   160→function getDefaultPomodoroState(): PomodoroState {
+   161→  return {
+   162→    settings: { ...DEFAULT_POMODORO_SETTINGS },
+   163→    isRunning: false,
+   164→    sessionType: 'work',
+   165→    remainingSeconds: DEFAULT_POMODORO_SETTINGS.workDuration * 60,
+   166→    completedSessionsInCycle: 0,
+   167→    currentTaskName: '',
+   168→    currentCategory: 'Production',
+   169→    completedPomodoros: [],
+   170→    streakDays: 0,
+   171→    lastPomodoroDate: '',
+   172→    dailyStats: {},
+   173→  }
+   174→}
+   175→
+   176→function getTodayKey(): string {
+   177→  const now = new Date()
+   178→  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+   179→}
+   180→
+   181→function getWeekDays(): string[] {
+   182→  const days: string[] = []
+   183→  const now = new Date()
+   184→  const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1 // Monday = 0
+   185→  for (let i = dayOfWeek; i >= 0; i--) {
+   186→    const d = new Date(now)
+   187→    d.setDate(d.getDate() - i)
+   188→    days.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)
+   189→  }
+   190→  return days
+   191→}
+   192→
+   193→// ═══════════════════════════════════════════════════════════════
+   194→// Helpers
+   195→// ═══════════════════════════════════════════════════════════════
+   196→
+   197→function createTask(text: string): TaskItem {
+   198→  return { id: crypto.randomUUID(), text: text.trim() }
+   199→}
+   200→
+   201→function InfoPopover({ text }: { text: string }) {
+   202→  return (
+   203→    <Popover>
+   204→      <PopoverTrigger asChild>
+   205→        <button type="button" className="inline-flex items-center justify-center h-5 w-5 rounded-full text-muted-foreground hover:text-sky-600 hover:bg-sky-600/10 transition-colors shrink-0">
+   206→          <Info className="h-3.5 w-3.5" />
+   207→          <span className="sr-only">Aide</span>
+   208→        </button>
+   209→      </PopoverTrigger>
+   210→      <PopoverContent side="top" className="max-w-sm text-sm bg-popover border-border shadow-lg">
+   211→        <p className="text-muted-foreground leading-relaxed">{text}</p>
+   212→      </PopoverContent>
+   213→    </Popover>
+   214→  )
+   215→}
+   216→
+   217→function playBeep() {
+   218→  try {
+   219→    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+   220→    const oscillator = ctx.createOscillator()
+   221→    const gainNode = ctx.createGain()
+   222→    oscillator.connect(gainNode)
+   223→    gainNode.connect(ctx.destination)
+   224→    oscillator.type = 'sine'
+   225→    oscillator.frequency.setValueAtTime(880, ctx.currentTime)
+   226→    oscillator.frequency.setValueAtTime(1100, ctx.currentTime + 0.1)
+   227→    oscillator.frequency.setValueAtTime(880, ctx.currentTime + 0.2)
+   228→    gainNode.gain.setValueAtTime(0.3, ctx.currentTime)
+   229→    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5)
+   230→    oscillator.start(ctx.currentTime)
+   231→    oscillator.stop(ctx.currentTime + 0.5)
+   232→  } catch {
+   233→    // Audio not supported
+   234→  }
+   235→}
+   236→
+   237→function formatTime(seconds: number): string {
+   238→  const m = Math.floor(seconds / 60)
+   239→  const s = seconds % 60
+   240→  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+   241→}
+   242→
+   243→function formatMinutes(totalMinutes: number): string {
+   244→  const h = Math.floor(totalMinutes / 60)
+   245→  const m = totalMinutes % 60
+   246→  if (h === 0) return `${m}min`
+   247→  if (m === 0) return `${h}h`
+   248→  return `${h}h${m > 0 ? m + 'min' : ''}`
+   249→}
+   250→
+   251→// ═══════════════════════════════════════════════════════════════
+   252→// Eisenhower Quadrant Sub-component
+   253→// ═══════════════════════════════════════════════════════════════
+   254→
+   255→function EisenhowerQuadrant({
+   256→  title,
+   257→  description,
+   258→  color,
+   259→  bgColor,
+   260→  borderColor,
+   261→  icon,
+   262→  tasks,
+   263→  onAdd,
+   264→  onRemove,
+   265→  placeholder,
+   266→}: {
+   267→  title: string
+   268→  description: string
+   269→  color: string
+   270→  bgColor: string
+   271→  borderColor: string
+   272→  icon: typeof Clock
+   273→  tasks: TaskItem[]
+   274→  onAdd: (text: string) => void
+   275→  onRemove: (id: string) => void
+   276→  placeholder: string
+   277→}) {
+   278→  const [input, setInput] = useState('')
+   279→  const Icon = icon
+   280→
+   281→  const handleAdd = () => {
+   282→    if (input.trim()) {
+   283→      onAdd(input.trim())
+   284→      setInput('')
+   285→    }
+   286→  }
+   287→
+   288→  return (
+   289→    <div className={cn('rounded-xl border-2 p-4 space-y-3', bgColor, borderColor)}>
+   290→      <div className="flex items-center gap-2">
+   291→        <div className={cn('flex h-7 w-7 items-center justify-center rounded-lg', color)}>
+   292→          <Icon className="h-3.5 w-3.5" />
+   293→        </div>
+   294→        <div>
+   295→          <p className={cn('text-sm font-semibold', color.replace('bg-', 'text-'))}>{title}</p>
+   296→          <p className="text-[11px] text-muted-foreground">{description}</p>
+   297→        </div>
+   298→      </div>
+   299→      <ul className="space-y-1.5 min-h-[40px]">
+   300→        {tasks.map((task) => (
+   301→          <li key={task.id} className="flex items-center justify-between gap-2 bg-background/60 rounded-lg px-3 py-2">
+   302→            <span className="text-sm">{task.text}</span>
+   303→            <button
+   304→              type="button"
+   305→              onClick={() => onRemove(task.id)}
+   306→              className="shrink-0 text-muted-foreground hover:text-red-500 transition-colors"
+   307→            >
+   308→              <X className="h-3.5 w-3.5" />
+   309→            </button>
+   310→          </li>
+   311→        ))}
+   312→      </ul>
+   313→      <div className="flex gap-2">
+   314→        <input
+   315→          type="text"
+   316→          value={input}
+   317→          onChange={(e) => setInput(e.target.value)}
+   318→          onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+   319→          placeholder={placeholder}
+   320→          className="flex-1 text-sm rounded-lg border border-border bg-background/60 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+   321→        />
+   322→        <Button size="sm" variant="outline" onClick={handleAdd} disabled={!input.trim()} className="shrink-0 h-8 w-8 p-0">
+   323→          <Plus className="h-3.5 w-3.5" />
+   324→        </Button>
+   325→      </div>
+   326→    </div>
+   327→  )
+   328→}
+   329→
+   330→// ═══════════════════════════════════════════════════════════════
+   331→// Circular Timer SVG Component
+   332→// ═══════════════════════════════════════════════════════════════
+   333→
+   334→function CircularTimer({
+   335→  remainingSeconds,
+   336→  totalSeconds,
+   337→  sessionType,
+   338→  isRunning,
+   339→}: {
+   340→  remainingSeconds: number
+   341→  totalSeconds: number
+   342→  sessionType: SessionType
+   343→  isRunning: boolean
+   344→}) {
+   345→  const radius = 90
+   346→  const stroke = 8
+   347→  const normalizedRadius = radius - stroke / 2
+   348→  const circumference = normalizedRadius * 2 * Math.PI
+   349→  const progress = totalSeconds > 0 ? (totalSeconds - remainingSeconds) / totalSeconds : 0
+   350→  const strokeDashoffset = circumference * (1 - progress)
+   351→
+   352→  const colorMap: Record<SessionType, { stroke: string; bg: string; text: string; label: string }> = {
+   353→    work: { stroke: '#f97316', bg: 'bg-orange-500/10', text: 'text-orange-600 dark:text-orange-400', label: 'Travail' },
+   354→    break: { stroke: '#22c55e', bg: 'bg-green-500/10', text: 'text-green-600 dark:text-green-400', label: 'Pause' },
+   355→    longBreak: { stroke: '#14b8a6', bg: 'bg-teal-500/10', text: 'text-teal-600 dark:text-teal-400', label: 'Pause longue' },
+   356→  }
+   357→
+   358→  const { stroke: strokeColor, text: textColor, label } = colorMap[sessionType]
+   359→
+   360→  return (
+   361→    <div className="relative flex items-center justify-center">
+   362→      <motion.div
+   363→        className="relative"
+   364→        animate={isRunning ? { scale: [1, 1.02, 1] } : { scale: 1 }}
+   365→        transition={isRunning ? { duration: 2, repeat: Infinity, ease: 'easeInOut' } : { duration: 0 }}
+   366→      >
+   367→        <svg height={radius * 2} width={radius * 2} className="transform -rotate-90" role="img" aria-label={`Minuteur : ${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, '0')} restant${sessionType === 'work' ? ' (travail)' : ' (pause)'}`}>
+   368→          {/* Background circle */}
+   369→          <circle
+   370→            stroke="currentColor"
+   371→            fill="transparent"
+   372→            strokeWidth={stroke}
+   373→            r={normalizedRadius}
+   374→            cx={radius}
+   375→            cy={radius}
+   376→            className="text-muted/30"
+   377→          />
+   378→          {/* Progress circle */}
+   379→          <motion.circle
+   380→            stroke={strokeColor}
+   381→            fill="transparent"
+   382→            strokeWidth={stroke}
+   383→            strokeLinecap="round"
+   384→            strokeDasharray={`${circumference} ${circumference}`}
+   385→            initial={false}
+   386→            animate={{ strokeDashoffset }}
+   387→            transition={{ duration: 0.5, ease: 'easeOut' }}
+   388→            r={normalizedRadius}
+   389→            cx={radius}
+   390→            cy={radius}
+   391→          />
+   392→        </svg>
+   393→        {/* Center content */}
+   394→        <div className="absolute inset-0 flex flex-col items-center justify-center">
+   395→          <span className={cn('text-4xl font-bold tabular-nums tracking-tight', textColor)}>
+   396→            {formatTime(remainingSeconds)}
+   397→          </span>
+   398→          <Badge
+   399→            variant="secondary"
+   400→            className={cn('mt-2 text-[10px] font-medium px-2', colorMap[sessionType].bg, textColor)}
+   401→          >
+   402→            {label}
+   403→          </Badge>
+   404→        </div>
+   405→      </motion.div>
+   406→    </div>
+   407→  )
+   408→}
+   409→
+   410→// ═══════════════════════════════════════════════════════════════
+   411→// Pomodoro Timer Hook
+   412→// ═══════════════════════════════════════════════════════════════
+   413→
+   414→function usePomodoroTimer() {
+   415→  const [pomodoroState, setPomodoroState] = useState<PomodoroState>(() => {
+   416→    try {
+   417→      const saved = localStorage.getItem('creapulse-pomodoro')
+   418→      if (saved) {
+   419→        const parsed = JSON.parse(saved) as PomodoroState
+   420→        return { ...getDefaultPomodoroState(), ...parsed, isRunning: false }
+   421→      }
+   422→    } catch {
+   423→      // ignore
+   424→    }
+   425→    return getDefaultPomodoroState()
+   426→  })
+   427→  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+   428→  const stateRef = useRef(pomodoroState)
+   429→
+   430→  // Keep ref in sync with state
+   431→  useEffect(() => {
+   432→    stateRef.current = pomodoroState
+   433→  })
+   434→
+   435→  // Clear completed pomodoros older than 30 days
+   436→  useEffect(() => {
+   437→    const cleanup = setInterval(() => {
+   438→      setPomodoroState(prev => {
+   439→        const thirtyDaysAgo = new Date()
+   440→        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+   441→        const filtered = prev.completedPomodoros.filter(
+   442→          p => new Date(p.completedAt) >= thirtyDaysAgo
+   443→        )
+   444→        if (filtered.length === prev.completedPomodoros.length) return prev
+   445→        return { ...prev, completedPomodoros: filtered }
+   446→      })
+   447→    }, 60000)
+   448→    return () => clearInterval(cleanup)
+   449→  }, [])
+   450→
+   451→  // Persist to localStorage
+   452→  useEffect(() => {
+   453→    if (pomodoroState) {
+   454→      const toSave = { ...pomodoroState, isRunning: false }
+   455→      localStorage.setItem('creapulse-pomodoro', JSON.stringify(toSave))
+   456→    }
+   457→  }, [
+   458→    pomodoroState.settings,
+   459→    pomodoroState.sessionType,
+   460→    pomodoroState.remainingSeconds,
+   461→    pomodoroState.completedSessionsInCycle,
+   462→    pomodoroState.currentTaskName,
+   463→    pomodoroState.currentCategory,
+   464→    pomodoroState.completedPomodoros,
+   465→    pomodoroState.streakDays,
+   466→    pomodoroState.lastPomodoroDate,
+   467→    pomodoroState.dailyStats,
+   468→  ])
+   469→
+   470→  // Cleanup on unmount
+   471→  useEffect(() => {
+   472→    return () => {
+   473→      if (intervalRef.current) clearInterval(intervalRef.current)
+   474→    }
+   475→  }, [])
+   476→
+   477→  const getSessionDuration = useCallback((type: SessionType, settings: PomodoroSettings) => {
+   478→    switch (type) {
+   479→      case 'work': return settings.workDuration * 60
+   480→      case 'break': return settings.shortBreakDuration * 60
+   481→      case 'longBreak': return settings.longBreakDuration * 60
+   482→    }
+   483→  }, [])
+   484→
+   485→  const handleSessionComplete = useCallback(() => {
+   486→    const state = stateRef.current
+   487→    if (state.sessionType === 'work') {
+   488→      // Completed a work session
+   489→      const today = getTodayKey()
+   490→      const newPomodoro: CompletedPomodoro = {
+   491→        id: crypto.randomUUID(),
+   492→        taskName: state.currentTaskName || 'Sans titre',
+   493→        category: state.currentCategory,
+   494→        duration: state.settings.workDuration,
+   495→        completedAt: new Date().toISOString(),
+   496→      }
+   497→
+   498→      // Calculate streak
+   499→      let newStreak = state.streakDays
+   500→      const todayDate = getTodayKey()
+   501→      if (state.lastPomodoroDate !== todayDate) {
+   502→        const yesterday = new Date()
+   503→        yesterday.setDate(yesterday.getDate() - 1)
+   504→        const yesterdayKey = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`
+   505→        if (state.lastPomodoroDate === yesterdayKey || state.lastPomodoroDate === '') {
+   506→          newStreak += 1
+   507→        } else if (state.lastPomodoroDate !== todayDate) {
+   508→          newStreak = 1
+   509→        }
+   510→      }
+   511→
+   512→      const newCompletedInCycle = state.completedSessionsInCycle + 1
+   513→      const isLongBreak = newCompletedInCycle >= state.settings.sessionsBeforeLongBreak
+   514→
+   515→      if (state.settings.soundEnabled) playBeep()
+   516→
+   517→      const nextSessionType: SessionType = isLongBreak ? 'longBreak' : 'break'
+   518→      const nextDuration = getSessionDuration(nextSessionType, state.settings)
+   519→
+   520→      setPomodoroState(prev => ({
+   521→        ...prev,
+   522→        isRunning: prev.settings.autoStartNext,
+   523→        sessionType: nextSessionType,
+   524→        remainingSeconds: nextDuration,
+   525→        completedSessionsInCycle: isLongBreak ? 0 : newCompletedInCycle,
+   526→        completedPomodoros: [...prev.completedPomodoros, newPomodoro],
+   527→        streakDays: newStreak,
+   528→        lastPomodoroDate: todayDate,
+   529→        dailyStats: {
+   530→          ...prev.dailyStats,
+   531→          [today]: {
+   532→            totalMinutes: (prev.dailyStats[today]?.totalMinutes || 0) + state.settings.workDuration,
+   533→            count: (prev.dailyStats[today]?.count || 0) + 1,
+   534→          },
+   535→        },
+   536→      }))
+   537→    } else {
+   538→      // Completed a break session
+   539→      if (state.settings.soundEnabled) playBeep()
+   540→
+   541→      const nextDuration = getSessionDuration('work', state.settings)
+   542→      setPomodoroState(prev => ({
+   543→        ...prev,
+   544→        isRunning: prev.settings.autoStartNext,
+   545→        sessionType: 'work',
+   546→        remainingSeconds: nextDuration,
+   547→      }))
+   548→    }
+   549→  }, [getSessionDuration])
+   550→
+   551→  // Timer tick
+   552→  useEffect(() => {
+   553→    if (intervalRef.current) {
+   554→      clearInterval(intervalRef.current)
+   555→      intervalRef.current = null
+   556→    }
+   557→
+   558→    if (pomodoroState.isRunning) {
+   559→      intervalRef.current = setInterval(() => {
+   560→        setPomodoroState(prev => {
+   561→          if (prev.remainingSeconds <= 1) {
+   562→            if (intervalRef.current) clearInterval(intervalRef.current)
+   563→            intervalRef.current = null
+   564→            return { ...prev, remainingSeconds: 0, isRunning: false }
+   565→          }
+   566→          return { ...prev, remainingSeconds: prev.remainingSeconds - 1 }
+   567→        })
+   568→      }, 1000)
+   569→    }
+   570→
+   571→    return () => {
+   572→      if (intervalRef.current) clearInterval(intervalRef.current)
+   573→    }
+   574→  }, [pomodoroState.isRunning])
+   575→
+   576→  // Watch for session complete (remainingSeconds === 0 and not running)
+   577→  useEffect(() => {
+   578→    if (pomodoroState.remainingSeconds === 0 && !pomodoroState.isRunning) {
+   579→      // Check if we just completed (not initial state)
+   580→      const totalDuration = getSessionDuration(pomodoroState.sessionType, pomodoroState.settings)
+   581→      if (totalDuration > 0) {
+   582→        handleSessionComplete()
+   583→      }
+   584→    }
+   585→  }, [pomodoroState.remainingSeconds, pomodoroState.isRunning, handleSessionComplete, getSessionDuration])
+   586→
+   587→  const start = useCallback(() => {
+   588→    setPomodoroState(prev => ({ ...prev, isRunning: true }))
+   589→  }, [])
+   590→
+   591→  const pause = useCallback(() => {
+   592→    setPomodoroState(prev => ({ ...prev, isRunning: false }))
+   593→  }, [])
+   594→
+   595→  const reset = useCallback(() => {
+   596→    setPomodoroState(prev => ({
+   597→      ...prev,
+   598→      isRunning: false,
+   599→      sessionType: 'work',
+   600→      remainingSeconds: prev.settings.workDuration * 60,
+   601→      completedSessionsInCycle: 0,
+   602→    }))
+   603→  }, [])
+   604→
+   605→  const skip = useCallback(() => {
+   606→    setPomodoroState(prev => {
+   607→      if (prev.sessionType === 'work') {
+   608→        // Skip work -> go to break
+   609→        const newCompletedInCycle = prev.completedSessionsInCycle + 1
+   610→        const isLongBreak = newCompletedInCycle >= prev.settings.sessionsBeforeLongBreak
+   611→        const nextSessionType: SessionType = isLongBreak ? 'longBreak' : 'break'
+   612→        return {
+   613→          ...prev,
+   614→          isRunning: false,
+   615→          sessionType: nextSessionType,
+   616→          remainingSeconds: getSessionDuration(nextSessionType, prev.settings),
+   617→          completedSessionsInCycle: isLongBreak ? 0 : newCompletedInCycle,
+   618→        }
+   619→      } else {
+   620→        // Skip break -> go to work
+   621→        return {
+   622→          ...prev,
+   623→          isRunning: false,
+   624→          sessionType: 'work',
+   625→          remainingSeconds: prev.settings.workDuration * 60,
+   626→        }
+   627→      }
+   628→    })
+   629→  }, [getSessionDuration])
+   630→
+   631→  const updateSettings = useCallback((updates: Partial<PomodoroSettings>) => {
+   632→    setPomodoroState(prev => {
+   633→      const newSettings = { ...prev.settings, ...updates }
+   634→      // Update remaining seconds if timer hasn't started
+   635→      const newRemaining = prev.isRunning
+   636→        ? prev.remainingSeconds
+   637→        : getSessionDuration(prev.sessionType, newSettings)
+   638→      return {
+   639→        ...prev,
+   640→        settings: newSettings,
+   641→        remainingSeconds: newRemaining,
+   642→      }
+   643→    })
+   644→  }, [getSessionDuration])
+   645→
+   646→  const setTaskName = useCallback((name: string) => {
+   647→    setPomodoroState(prev => ({ ...prev, currentTaskName: name }))
+   648→  }, [])
+   649→
+   650→  const setCategory = useCallback((category: string) => {
+   651→    setPomodoroState(prev => ({ ...prev, currentCategory: category }))
+   652→  }, [])
+   653→
+   654→  return {
+   655→    pomodoroState,
+   656→    start,
+   657→    pause,
+   658→    reset,
+   659→    skip,
+   660→    updateSettings,
+   661→    setTaskName,
+   662→    setCategory,
+   663→  }
+   664→}
+   665→
+   666→// ═══════════════════════════════════════════════════════════════
+   667→// Pomodoro Tab Content
+   668→// ═══════════════════════════════════════════════════════════════
+   669→
+   670→function PomodoroTab({
+   671→  pomodoroState,
+   672→  onStart,
+   673→  onPause,
+   674→  onReset,
+   675→  onSkip,
+   676→  onUpdateSettings,
+   677→  onSetTaskName,
+   678→  onSetCategory,
+   679→}: {
+   680→  pomodoroState: PomodoroState
+   681→  onStart: () => void
+   682→  onPause: () => void
+   683→  onReset: () => void
+   684→  onSkip: () => void
+   685→  onUpdateSettings: (updates: Partial<PomodoroSettings>) => void
+   686→  onSetTaskName: (name: string) => void
+   687→  onSetCategory: (category: string) => void
+   688→}) {
+   689→  const [settingsOpen, setSettingsOpen] = useState(false)
+   690→  const [taskInput, setTaskInput] = useState(pomodoroState.currentTaskName)
+   691→
+   692→  const todayKey = getTodayKey()
+   693→  const todayStats = pomodoroState.dailyStats[todayKey]
+   694→  const todayPomodoros = pomodoroState.completedPomodoros.filter(
+   695→    p => p.completedAt.startsWith(todayKey)
+   696→  )
+   697→  const totalDuration = useMemo(() => {
+   698→    switch (pomodoroState.sessionType) {
+   699→      case 'work': return pomodoroState.settings.workDuration * 60
+   700→      case 'break': return pomodoroState.settings.shortBreakDuration * 60
+   701→      case 'longBreak': return pomodoroState.settings.longBreakDuration * 60
+   702→    }
+   703→  }, [pomodoroState.sessionType, pomodoroState.settings])
+   704→
+   705→  const handleTaskSubmit = (e: React.FormEvent) => {
+   706→    e.preventDefault()
+   707→    if (taskInput.trim()) {
+   708→      onSetTaskName(taskInput.trim())
+   709→      toast.success('Tâche mise à jour')
+   710→    }
+   711→  }
+   712→
+   713→  return (
+   714→    <div className="space-y-6">
+   715→      {/* Timer + Controls */}
+   716→      <Card className="border-sky-200 dark:border-sky-800 overflow-hidden">
+   717→        <CardContent className="pt-6">
+   718→          <div className="flex flex-col items-center gap-6">
+   719→            {/* Circular Timer */}
+   720→            <CircularTimer
+   721→              remainingSeconds={pomodoroState.remainingSeconds}
+   722→              totalSeconds={totalDuration}
+   723→              sessionType={pomodoroState.sessionType}
+   724→              isRunning={pomodoroState.isRunning}
+   725→            />
+   726→
+   727→            {/* Controls */}
+   728→            <div className="flex items-center gap-3">
+   729→              <Button
+   730→                variant="outline"
+   731→                size="icon"
+   732→                onClick={onReset}
+   733→                className="h-10 w-10 rounded-full"
+   734→                title="Réinitialiser"
+   735→              >
+   736→                <RotateCcw className="h-4 w-4" />
+   737→              </Button>
+   738→
+   739→              <Button
+   740→                size="lg"
+   741→                onClick={pomodoroState.isRunning ? onPause : onStart}
+   742→                className={cn(
+   743→                  'h-14 w-14 rounded-full text-white shadow-lg transition-all',
+   744→                  pomodoroState.sessionType === 'work'
+   745→                    ? 'bg-orange-500 hover:bg-orange-600 shadow-orange-500/25'
+   746→                    : pomodoroState.sessionType === 'break'
+   747→                      ? 'bg-green-500 hover:bg-green-600 shadow-green-500/25'
+   748→                      : 'bg-teal-500 hover:bg-teal-600 shadow-teal-500/25',
+   749→                )}
+   750→              >
+   751→                {pomodoroState.isRunning
+   752→                  ? <Pause className="h-6 w-6" />
+   753→                  : <Play className="h-6 w-6 ml-0.5" />
+   754→                }
+   755→              </Button>
+   756→
+   757→              <Button
+   758→                variant="outline"
+   759→                size="icon"
+   760→                onClick={onSkip}
+   761→                className="h-10 w-10 rounded-full"
+   762→                title="Passer"
+   763→              >
+   764→                <SkipForward className="h-4 w-4" />
+   765→              </Button>
+   766→            </div>
+   767→
+   768→            {/* Session Progress Dots */}
+   769→            <div className="flex items-center gap-2">
+   770→              {Array.from({ length: pomodoroState.settings.sessionsBeforeLongBreak }).map((_, i) => (
+   771→                <div
+   772→                  key={i}
+   773→                  className={cn(
+   774→                    'h-3 w-3 rounded-full transition-all',
+   775→                    i < pomodoroState.completedSessionsInCycle
+   776→                      ? 'bg-orange-500 shadow-sm shadow-orange-500/50'
+   777→                      : 'bg-muted border border-muted-foreground/20',
+   778→                  )}
+   779→                />
+   780→              ))}
+   781→              <span className="text-xs text-muted-foreground ml-2">
+   782→                Cycle {pomodoroState.completedSessionsInCycle}/{pomodoroState.settings.sessionsBeforeLongBreak}
+   783→              </span>
+   784→            </div>
+   785→          </div>
+   786→        </CardContent>
+   787→      </Card>
+   788→
+   789→      {/* Task Input + Category */}
+   790→      <Card>
+   791→        <CardHeader className="pb-3">
+   792→          <CardTitle className="text-base flex items-center gap-2">
+   793→            <Target className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+   794→            Tâche de focus
+   795→          </CardTitle>
+   796→        </CardHeader>
+   797→        <CardContent>
+   798→          <div className="space-y-3">
+   799→            <form onSubmit={handleTaskSubmit} className="flex gap-2">
+   800→              <Input
+   801→                value={taskInput}
+   802→                onChange={(e) => setTaskInput(e.target.value)}
+   803→                placeholder="Que travaillez-vous en ce moment ?"
+   804→                className="flex-1"
+   805→              />
+   806→              <Button type="submit" size="sm" className="bg-sky-600 hover:bg-sky-700 text-white shrink-0">
+   807→                <Check className="h-4 w-4" />
+   808→              </Button>
+   809→            </form>
+   810→            <div className="flex flex-wrap gap-2">
+   811→              {TASK_CATEGORIES.map((cat) => (
+   812→                <button
+   813→                  key={cat.value}
+   814→                  type="button"
+   815→                  onClick={() => onSetCategory(cat.value)}
+   816→                  className={cn(
+   817→                    'px-3 py-1 rounded-full text-xs font-medium transition-all border',
+   818→                    pomodoroState.currentCategory === cat.value
+   819→                      ? cn(cat.color, 'border-current shadow-sm')
+   820→                      : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted',
+   821→                  )}
+   822→                >
+   823→                  {cat.label}
+   824→                </button>
+   825→              ))}
+   826→            </div>
+   827→          </div>
+   828→        </CardContent>
+   829→      </Card>
+   830→
+   831→      {/* Today's Summary */}
+   832→      <div className="grid grid-cols-3 gap-3">
+   833→        <Card className="text-center">
+   834→          <CardContent className="pt-4 pb-3 px-3">
+   835→            <div className="flex items-center justify-center gap-1 mb-1">
+   836→              <Flame className="h-3.5 w-3.5 text-amber-500" />
+   837→            </div>
+   838→            <p className="text-xl font-bold text-foreground">{pomodoroState.streakDays}</p>
+   839→            <p className="text-[10px] text-muted-foreground">jours d&apos;affilé</p>
+   840→          </CardContent>
+   841→        </Card>
+   842→        <Card className="text-center">
+   843→          <CardContent className="pt-4 pb-3 px-3">
+   844→            <div className="flex items-center justify-center gap-1 mb-1">
+   845→              <CircleDot className="h-3.5 w-3.5 text-orange-500" />
+   846→            </div>
+   847→            <p className="text-xl font-bold text-foreground">{todayStats?.count ?? 0}</p>
+   848→            <p className="text-[10px] text-muted-foreground">pomodoros aujourd&apos;hui</p>
+   849→          </CardContent>
+   850→        </Card>
+   851→        <Card className="text-center">
+   852→          <CardContent className="pt-4 pb-3 px-3">
+   853→            <div className="flex items-center justify-center gap-1 mb-1">
+   854→              <Clock className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
+   855→            </div>
+   856→            <p className="text-xl font-bold text-foreground">
+   857→              {formatMinutes(todayStats?.totalMinutes ?? 0)}
+   858→            </p>
+   859→            <p className="text-[10px] text-muted-foreground">focus aujourd&apos;hui</p>
+   860→          </CardContent>
+   861→        </Card>
+   862→      </div>
+   863→
+   864→      {/* Settings (Collapsible) */}
+   865→      <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
+   866→        <Card>
+   867→          <CollapsibleTrigger asChild>
+   868→            <button type="button" className="w-full">
+   869→              <CardHeader className="pb-3 cursor-pointer hover:bg-muted/30 transition-colors rounded-t-lg">
+   870→                <div className="flex items-center justify-between">
+   871→                  <CardTitle className="text-base flex items-center gap-2">
+   872→                    <Settings2 className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+   873→                    Paramètres du timer
+   874→                  </CardTitle>
+   875→                  <motion.div
+   876→                    animate={{ rotate: settingsOpen ? 180 : 0 }}
+   877→                    transition={{ duration: 0.2 }}
+   878→                  >
+   879→                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+   880→                  </motion.div>
+   881→                </div>
+   882→              </CardHeader>
+   883→            </button>
+   884→          </CollapsibleTrigger>
+   885→          <CollapsibleContent>
+   886→            <CardContent className="space-y-6 border-t pt-4">
+   887→              {/* Work Duration */}
+   888→              <div className="space-y-2">
+   889→                <div className="flex items-center justify-between">
+   890→                  <label className="text-sm font-medium">Durée de travail</label>
+   891→                  <span className="text-sm text-muted-foreground tabular-nums">{pomodoroState.settings.workDuration} min</span>
+   892→                </div>
+   893→                <Slider
+   894→                  value={[pomodoroState.settings.workDuration]}
+   895→                  onValueChange={([v]) => onUpdateSettings({ workDuration: v })}
+   896→                  min={15}
+   897→                  max={60}
+   898→                  step={5}
+   899→                />
+   900→              </div>
+   901→
+   902→              {/* Short Break */}
+   903→              <div className="space-y-2">
+   904→                <div className="flex items-center justify-between">
+   905→                  <label className="text-sm font-medium">Pause courte</label>
+   906→                  <span className="text-sm text-muted-foreground tabular-nums">{pomodoroState.settings.shortBreakDuration} min</span>
+   907→                </div>
+   908→                <Slider
+   909→                  value={[pomodoroState.settings.shortBreakDuration]}
+   910→                  onValueChange={([v]) => onUpdateSettings({ shortBreakDuration: v })}
+   911→                  min={3}
+   912→                  max={15}
+   913→                  step={1}
+   914→                />
+   915→              </div>
+   916→
+   917→              {/* Long Break */}
+   918→              <div className="space-y-2">
+   919→                <div className="flex items-center justify-between">
+   920→                  <label className="text-sm font-medium">Pause longue</label>
+   921→                  <span className="text-sm text-muted-foreground tabular-nums">{pomodoroState.settings.longBreakDuration} min</span>
+   922→                </div>
+   923→                <Slider
+   924→                  value={[pomodoroState.settings.longBreakDuration]}
+   925→                  onValueChange={([v]) => onUpdateSettings({ longBreakDuration: v })}
+   926→                  min={10}
+   927→                  max={30}
+   928→                  step={5}
+   929→                />
+   930→              </div>
+   931→
+   932→              {/* Sessions before long break */}
+   933→              <div className="space-y-2">
+   934→                <div className="flex items-center justify-between">
+   935→                  <label className="text-sm font-medium">Pomodoros avant pause longue</label>
+   936→                  <span className="text-sm text-muted-foreground tabular-nums">{pomodoroState.settings.sessionsBeforeLongBreak}</span>
+   937→                </div>
+   938→                <Slider
+   939→                  value={[pomodoroState.settings.sessionsBeforeLongBreak]}
+   940→                  onValueChange={([v]) => onUpdateSettings({ sessionsBeforeLongBreak: v })}
+   941→                  min={2}
+   942→                  max={6}
+   943→                  step={1}
+   944→                />
+   945→              </div>
+   946→
+   947→              <Separator />
+   948→
+   949→              {/* Toggles */}
+   950→              <div className="flex items-center justify-between">
+   951→                <label className="text-sm font-medium">Son de notification</label>
+   952→                <Switch
+   953→                  checked={pomodoroState.settings.soundEnabled}
+   954→                  onCheckedChange={(v) => onUpdateSettings({ soundEnabled: v })}
+   955→                />
+   956→              </div>
+   957→              <div className="flex items-center justify-between">
+   958→                <label className="text-sm font-medium">Démarrage automatique</label>
+   959→                <Switch
+   960→                  checked={pomodoroState.settings.autoStartNext}
+   961→                  onCheckedChange={(v) => onUpdateSettings({ autoStartNext: v })}
+   962→                />
+   963→              </div>
+   964→            </CardContent>
+   965→          </CollapsibleContent>
+   966→        </Card>
+   967→      </Collapsible>
+   968→
+   969→      {/* Today's Completed Pomodoros */}
+   970→      <Card>
+   971→        <CardHeader className="pb-3">
+   972→          <CardTitle className="text-base flex items-center gap-2">
+   973→            <Check className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+   974→            Pomodoros terminés aujourd&apos;hui
+   975→          </CardTitle>
+   976→        </CardHeader>
+   977→        <CardContent>
+   978→          {todayPomodoros.length === 0 ? (
+   979→            <p className="text-sm text-muted-foreground text-center py-6">
+   980→              Aucun pomodoro terminé aujourd&apos;hui. Lancez votre premier cycle !
+   981→            </p>
+   982→          ) : (
+   983→            <div className="space-y-2 max-h-64 overflow-y-auto">
+   984→              {todayPomodoros.map((p) => (
+   985→                <div
+   986→                  key={p.id}
+   987→                  className="flex items-center justify-between gap-3 rounded-lg border border-border p-3 bg-muted/20"
+   988→                >
+   989→                  <div className="flex items-center gap-3 min-w-0">
+   990→                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/30">
+   991→                      <CircleDot className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+   992→                    </div>
+   993→                    <div className="min-w-0">
+   994→                      <p className="text-sm font-medium truncate">{p.taskName}</p>
+   995→                      <div className="flex items-center gap-2">
+   996→                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+   997→                          {p.category}
+   998→                        </Badge>
+   999→                        <span className="text-[10px] text-muted-foreground">
+  1000→                          {p.duration} min
+  1001→                        </span>
+  1002→                      </div>
+  1003→                    </div>
+  1004→                  </div>
+  1005→                  <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
+  1006→                    {new Date(p.completedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+  1007→                  </span>
+  1008→                </div>
+  1009→              ))}
+  1010→            </div>
+  1011→          )}
+  1012→        </CardContent>
+  1013→      </Card>
+  1014→    </div>
+  1015→  )
+  1016→}
+  1017→
+  1018→// ═══════════════════════════════════════════════════════════════
+  1019→// Stats Tab Content
+  1020→// ═══════════════════════════════════════════════════════════════
+  1021→
+  1022→function StatsTab({ pomodoroData }: { pomodoroData: PomodoroState }) {
+  1023→  const weekDays = getWeekDays()
+  1024→  const weekData = weekDays.map(dayKey => {
+  1025→    const stats = pomodoroData.dailyStats[dayKey]
+  1026→    return {
+  1027→      dayKey,
+  1028→      dayLabel: DAYS_SHORT[weekDays.indexOf(dayKey)],
+  1029→      totalMinutes: stats?.totalMinutes || 0,
+  1030→      count: stats?.count || 0,
+  1031→    }
+  1032→  })
+  1033→
+  1034→  const totalWeekMinutes = weekData.reduce((s, d) => s + d.totalMinutes, 0)
+  1035→  const totalWeekPomodoros = weekData.reduce((s, d) => s + d.count, 0)
+  1036→  const activeDays = weekData.filter(d => d.count > 0).length
+  1037→  const avgDailyMinutes = activeDays > 0 ? Math.round(totalWeekMinutes / activeDays) : 0
+  1038→  const maxDay = weekData.reduce((best, d) => d.totalMinutes > best.totalMinutes ? d : best, weekData[0])
+  1039→  const maxBarHeight = Math.max(...weekData.map(d => d.totalMinutes), 1)
+  1040→
+  1041→  // Category stats from this week
+  1042→  const weekStart = weekDays[0]
+  1043→  const weekPomodoros = pomodoroData.completedPomodoros.filter(
+  1044→    p => p.completedAt >= weekStart
+  1045→  )
+  1046→  const categoryMap: Record<string, { minutes: number; count: number }> = {}
+  1047→  for (const p of weekPomodoros) {
+  1048→    if (!categoryMap[p.category]) categoryMap[p.category] = { minutes: 0, count: 0 }
+  1049→    categoryMap[p.category].minutes += p.duration
+  1050→    categoryMap[p.category].count += 1
+  1051→  }
+  1052→  const topCategories = Object.entries(categoryMap)
+  1053→    .sort((a, b) => b[1].minutes - a[1].minutes)
+  1054→
+  1055→  return (
+  1056→    <div className="space-y-6">
+  1057→      {/* Weekly Bar Chart */}
+  1058→      <Card className="border-sky-200 dark:border-sky-800">
+  1059→        <CardHeader className="pb-3">
+  1060→          <CardTitle className="text-base flex items-center gap-2">
+  1061→            <BarChart3 className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+  1062→            Focus hebdomadaire
+  1063→          </CardTitle>
+  1064→          <CardDescription>Heures de concentration par jour cette semaine</CardDescription>
+  1065→        </CardHeader>
+  1066→        <CardContent>
+  1067→          <div className="flex items-end justify-between gap-2 h-48 px-2">
+  1068→            {weekData.map((d) => {
+  1069→              const barHeight = maxBarHeight > 0 ? (d.totalMinutes / maxBarHeight) * 100 : 0
+  1070→              return (
+  1071→                <div key={d.dayKey} className="flex flex-col items-center flex-1 gap-2">
+  1072→                  <span className="text-[10px] text-muted-foreground tabular-nums font-medium">
+  1073→                    {d.totalMinutes > 0 ? formatMinutes(d.totalMinutes) : '—'}
+  1074→                  </span>
+  1075→                  <div className="w-full flex justify-center" style={{ height: '140px', alignItems: 'flex-end' }}>
+  1076→                    <motion.div
+  1077→                      initial={{ height: 0 }}
+  1078→                      animate={{ height: `${Math.max(barHeight, 4)}%` }}
+  1079→                      transition={{ duration: 0.6, ease: 'easeOut' }}
+  1080→                      className={cn(
+  1081→                        'w-8 sm:w-10 rounded-t-md transition-colors',
+  1082→                        d.totalMinutes > 0
+  1083→                          ? 'bg-gradient-to-t from-sky-600 to-sky-400'
+  1084→                          : 'bg-muted',
+  1085→                      )}
+  1086→                    />
+  1087→                  </div>
+  1088→                  <span className="text-xs font-medium text-muted-foreground">{d.dayLabel}</span>
+  1089→                </div>
+  1090→              )
+  1091→            })}
+  1092→          </div>
+  1093→        </CardContent>
+  1094→      </Card>
+  1095→
+  1096→      {/* Summary Cards */}
+  1097→      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+  1098→        <Card className="text-center">
+  1099→          <CardContent className="pt-4 pb-3 px-3">
+  1100→            <p className="text-2xl font-bold text-sky-600 dark:text-sky-400">{totalWeekPomodoros}</p>
+  1101→            <p className="text-[10px] text-muted-foreground mt-1">pomodoros cette semaine</p>
+  1102→          </CardContent>
+  1103→        </Card>
+  1104→        <Card className="text-center">
+  1105→          <CardContent className="pt-4 pb-3 px-3">
+  1106→            <p className="text-2xl font-bold text-sky-600 dark:text-sky-400">{formatMinutes(totalWeekMinutes)}</p>
+  1107→            <p className="text-[10px] text-muted-foreground mt-1">focus total</p>
+  1108→          </CardContent>
+  1109→        </Card>
+  1110→        <Card className="text-center">
+  1111→          <CardContent className="pt-4 pb-3 px-3">
+  1112→            <p className="text-2xl font-bold text-sky-600 dark:text-sky-400">{formatMinutes(avgDailyMinutes)}</p>
+  1113→            <p className="text-[10px] text-muted-foreground mt-1">moyenne/jour actif</p>
+  1114→          </CardContent>
+  1115→        </Card>
+  1116→        <Card className="text-center">
+  1117→          <CardContent className="pt-4 pb-3 px-3">
+  1118→            <p className="text-2xl font-bold text-amber-500">{maxDay?.dayLabel || '—'}</p>
+  1119→            <p className="text-[10px] text-muted-foreground mt-1">jour le plus productif</p>
+  1120→          </CardContent>
+  1121→        </Card>
+  1122→      </div>
+  1123→
+  1124→      {/* Category Breakdown */}
+  1125→      <Card>
+  1126→        <CardHeader className="pb-3">
+  1127→          <CardTitle className="text-base flex items-center gap-2">
+  1128→            <Target className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+  1129→            Temps par catégorie
+  1130→          </CardTitle>
+  1131→        </CardHeader>
+  1132→        <CardContent>
+  1133→          {topCategories.length === 0 ? (
+  1134→            <p className="text-sm text-muted-foreground text-center py-6">
+  1135→              Aucune donnée cette semaine. Complétez des pomodoros pour voir vos statistiques !
+  1136→            </p>
+  1137→          ) : (
+  1138→            <div className="space-y-3">
+  1139→              {topCategories.map(([category, data]) => {
+  1140→                const catInfo = TASK_CATEGORIES.find(c => c.value === category)
+  1141→                const maxMinutes = topCategories[0]?.[1].minutes || 1
+  1142→                const barWidth = (data.minutes / maxMinutes) * 100
+  1143→                return (
+  1144→                  <div key={category} className="space-y-1.5">
+  1145→                    <div className="flex items-center justify-between">
+  1146→                      <div className="flex items-center gap-2">
+  1147→                        <Badge className={cn('text-[10px] px-1.5', catInfo?.color)}>
+  1148→                          {category}
+  1149→                        </Badge>
+  1150→                        <span className="text-xs text-muted-foreground">{data.count} pomodoro{data.count > 1 ? 's' : ''}</span>
+  1151→                      </div>
+  1152→                      <span className="text-xs font-medium tabular-nums">{formatMinutes(data.minutes)}</span>
+  1153→                    </div>
+  1154→                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+  1155→                      <motion.div
+  1156→                        initial={{ width: 0 }}
+  1157→                        animate={{ width: `${barWidth}%` }}
+  1158→                        transition={{ duration: 0.5, ease: 'easeOut' }}
+  1159→                        className={cn(
+  1160→                          'h-full rounded-full',
+  1161→                          category === 'Production' ? 'bg-orange-500' :
+  1162→                          category === 'Prospection' ? 'bg-sky-500' :
+  1163→                          category === 'Admin' ? 'bg-gray-500' :
+  1164→                          category === 'Formation' ? 'bg-emerald-500' :
+  1165→                          'bg-violet-500',
+  1166→                        )}
+  1167→                      />
+  1168→                    </div>
+  1169→                  </div>
+  1170→                )
+  1171→              })}
+  1172→            </div>
+  1173→          )}
+  1174→        </CardContent>
+  1175→      </Card>
+  1176→
+  1177→      {/* Streak Card */}
+  1178→      <Card className="bg-gradient-to-r from-amber-500/5 to-amber-300/5 border-amber-200 dark:border-amber-800">
+  1179→        <CardContent className="py-4">
+  1180→          <div className="flex items-center gap-3">
+  1181→            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-900/30">
+  1182→              <Flame className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+  1183→            </div>
+  1184→            <div>
+  1185→              <p className="text-sm font-semibold">
+  1186→                {pomodoroData.streakDays > 0
+  1187→                  ? `${pomodoroData.streakDays} jour${pomodoroData.streakDays > 1 ? 's' : ''} d'affilé avec ≥ 1 pomodoro !`
+  1188→                  : 'Commencez votre série de productivité !'
+  1189→                }
+  1190→              </p>
+  1191→              <p className="text-xs text-muted-foreground">
+  1192→                Complétez au moins un pomodoro chaque jour pour maintenir votre streak.
+  1193→              </p>
+  1194→            </div>
+  1195→          </div>
+  1196→        </CardContent>
+  1197→      </Card>
+  1198→    </div>
+  1199→  )
+  1200→}
+  1201→
+  1202→// ═══════════════════════════════════════════════════════════════
+  1203→// Atelier Tab Content (existing)
+  1204→// ═══════════════════════════════════════════════════════════════
+  1205→
+  1206→function AtelierTab({
+  1207→  data,
+  1208→  setData,
+  1209→  isLoading,
+  1210→  isSaving,
+  1211→  aiLoading,
+  1212→  handleSave,
+  1213→  handleAiAnalysis,
+  1214→}: {
+  1215→  data: GestionTempsData
+  1216→  setData: React.Dispatch<React.SetStateAction<GestionTempsData>>
+  1217→  isLoading: boolean
+  1218→  isSaving: boolean
+  1219→  aiLoading: boolean
+  1220→  handleSave: () => Promise<void>
+  1221→  handleAiAnalysis: () => Promise<void>
+  1222→}) {
+  1223→  const addToQuadrant = useCallback((quadrant: keyof EisenhowerMatrix, text: string) => {
+  1224→    setData(prev => ({
+  1225→      ...prev,
+  1226→      eisenhower: {
+  1227→        ...prev.eisenhower,
+  1228→        [quadrant]: [...prev.eisenhower[quadrant], createTask(text)],
+  1229→      },
+  1230→    }))
+  1231→  }, [setData])
+  1232→
+  1233→  const removeFromQuadrant = useCallback((quadrant: keyof EisenhowerMatrix, id: string) => {
+  1234→    setData(prev => ({
+  1235→      ...prev,
+  1236→      eisenhower: {
+  1237→        ...prev.eisenhower,
+  1238→        [quadrant]: prev.eisenhower[quadrant].filter(t => t.id !== id),
+  1239→      },
+  1240→    }))
+  1241→  }, [setData])
+  1242→
+  1243→  const updateWeekDay = useCallback((day: string, value: string) => {
+  1244→    setData(prev => ({
+  1245→      ...prev,
+  1246→      weekSchedule: { ...prev.weekSchedule, [day]: value },
+  1247→    }))
+  1248→  }, [setData])
+  1249→
+  1250→  const completion = useMemo(() => {
+  1251→    let filled = 0
+  1252→    const total = 4
+  1253→    if (data.diagnostic.trim()) filled++
+  1254→    const totalTasks = Object.values(data.eisenhower).reduce((s, q) => s + q.length, 0)
+  1255→    if (totalTasks > 0) filled++
+  1256→    const filledDays = Object.values(data.weekSchedule).filter(v => v.trim()).length
+  1257→    if (filledDays >= 3) filled++
+  1258→    if (filledDays >= 5) filled++
+  1259→    return { filled, total, percent: Math.round((filled / total) * 100) }
+  1260→  }, [data])
+  1261→
+  1262→  if (isLoading) {
+  1263→    return (
+  1264→      <div className="p-4 md:p-6 lg:p-8 space-y-6">
+  1265→        <div className="h-8 w-64 bg-muted animate-pulse rounded" />
+  1266→        <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+  1267→        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  1268→          {[...Array(4)].map((_, i) => (
+  1269→            <div key={i} className="h-48 bg-muted animate-pulse rounded-xl" />
+  1270→          ))}
+  1271→        </div>
+  1272→      </div>
+  1273→    )
+  1274→  }
+  1275→
+  1276→  return (
+  1277→    <div className="space-y-6">
+  1278→      {/* AI + Save buttons */}
+  1279→      <div className="flex items-center gap-2 flex-wrap">
+  1280→        <Button
+  1281→          variant="outline"
+  1282→          size="sm"
+  1283→          className="gap-1.5 border-amber-400/40 text-amber-500 hover:bg-amber-400/10"
+  1284→          onClick={handleAiAnalysis}
+  1285→          disabled={aiLoading}
+  1286→        >
+  1287→          {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+  1288→          Aide IA
+  1289→        </Button>
+  1290→        <Button
+  1291→          size="sm"
+  1292→          className="gap-1.5 bg-sky-600 hover:bg-sky-700 text-white"
+  1293→          onClick={handleSave}
+  1294→          disabled={isSaving}
+  1295→        >
+  1296→          {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+  1297→          Enregistrer
+  1298→        </Button>
+  1299→      </div>
+  1300→
+  1301→      {/* ── Diagnostic temps ── */}
+  1302→      <Card className="border-sky-200 dark:border-sky-800">
+  1303→        <CardHeader className="pb-3">
+  1304→          <div className="flex items-center gap-2">
+  1305→            <CardTitle className="text-base flex items-center gap-2">
+  1306→              <Timer className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+  1307→              Où passez-vous votre temps ?
+  1308→            </CardTitle>
+  1309→            <InfoPopover text="Listez vos activités quotidiennes avec le temps approximatif passé sur chacune. Cela vous aidera à identifier les pertes de temps et à mieux prioriser." />
+  1310→          </div>
+  1311→          <CardDescription>Atelier 5 — Diagnostic de votre emploi du temps</CardDescription>
+  1312→        </CardHeader>
+  1313→        <CardContent>
+  1314→          <Textarea
+  1315→            value={data.diagnostic}
+  1316→            onChange={(e) => setData(prev => ({ ...prev, diagnostic: e.target.value }))}
+  1317→            placeholder={"- Prospection clients : 3h\n- Réalisation prestation : 4h\n- Comptabilité : 1h\n- Réseaux sociaux : 1.5h\n- Emails & admin : 1h\n- Formation : 30min"}
+  1318→            className="min-h-[160px] text-sm resize-none"
+  1319→          />
+  1320→        </CardContent>
+  1321→      </Card>
+  1322→
+  1323→      {/* ── Matrice Eisenhower ── */}
+  1324→      <div className="space-y-4">
+  1325→        <h3 className="text-base font-semibold flex items-center gap-2">
+  1326→          <ListTodo className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+  1327→          Matrice d&apos;Eisenhower
+  1328→          <InfoPopover text="Classez vos tâches selon leur urgence et importance. Agissez sur les Urgent+Important, planifiez les Non-Urgent+Important, déléguez les Urgent+Non-Important, et éliminez les Non-Urgent+Non-Important." />
+  1329→        </h3>
+  1330→        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  1331→          <EisenhowerQuadrant
+  1332→            title="Urgent & Important"
+  1333→            description="FAIRE — Actions immédiates"
+  1334→            color="bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+  1335→            bgColor="bg-red-50/50 dark:bg-red-950/20"
+  1336→            borderColor="border-red-300 dark:border-red-800"
+  1337→            icon={Timer}
+  1338→            tasks={data.eisenhower.urgentImportant}
+  1339→            onAdd={(text) => addToQuadrant('urgentImportant', text)}
+  1340→            onRemove={(id) => removeFromQuadrant('urgentImportant', id)}
+  1341→            placeholder="Ex: Livraison client urgente"
+  1342→          />
+  1343→          <EisenhowerQuadrant
+  1344→            title="Urgent & Non-important"
+  1345→            description="DÉLÉGUER — Confier à d'autres"
+  1346→            color="bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400"
+  1347→            bgColor="bg-amber-50/50 dark:bg-amber-950/20"
+  1348→            borderColor="border-amber-300 dark:border-amber-800"
+  1349→            icon={Clock}
+  1350→            tasks={data.eisenhower.urgentNotImportant}
+  1351→            onAdd={(text) => addToQuadrant('urgentNotImportant', text)}
+  1352→            onRemove={(id) => removeFromQuadrant('urgentNotImportant', id)}
+  1353→            placeholder="Ex: Répondre aux emails non-critiques"
+  1354→          />
+  1355→          <EisenhowerQuadrant
+  1356→            title="Non-urgent & Important"
+  1357→            description="PLANIFIER — Bloquer des créneaux"
+  1358→            color="bg-sky-100 text-sky-700 dark:bg-sky-900/20 dark:text-sky-400"
+  1359→            bgColor="bg-sky-50/50 dark:bg-sky-950/20"
+  1360→            borderColor="border-sky-300 dark:border-sky-800"
+  1361→            icon={CalendarDays}
+  1362→            tasks={data.eisenhower.notUrgentImportant}
+  1363→            onAdd={(text) => addToQuadrant('notUrgentImportant', text)}
+  1364→            onRemove={(id) => removeFromQuadrant('notUrgentImportant', id)}
+  1365→            placeholder="Ex: Stratégie, formation"
+  1366→          />
+  1367→          <EisenhowerQuadrant
+  1368→            title="Non-urgent & Non-important"
+  1369→            description="ÉLIMINER — Tâches à supprimer"
+  1370→            color="bg-gray-100 text-gray-600 dark:bg-gray-800/20 dark:text-gray-400"
+  1371→            bgColor="bg-gray-50/50 dark:bg-gray-950/20"
+  1372→            borderColor="border-gray-300 dark:border-gray-700"
+  1373→            icon={X}
+  1374→            tasks={data.eisenhower.notUrgentNotImportant}
+  1375→            onAdd={(text) => addToQuadrant('notUrgentNotImportant', text)}
+  1376→            onRemove={(id) => removeFromQuadrant('notUrgentNotImportant', id)}
+  1377→            placeholder="Ex: Scrolling réseaux sociaux"
+  1378→          />
+  1379→        </div>
+  1380→      </div>
+  1381→
+  1382→      <Separator />
+  1383→
+  1384→      {/* ── Outils recommandés ── */}
+  1385→      <Card>
+  1386→        <CardHeader className="pb-3">
+  1387→          <CardTitle className="text-base flex items-center gap-2">
+  1388→            <Wrench className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+  1389→            Outils de productivité recommandés
+  1390→          </CardTitle>
+  1391→        </CardHeader>
+  1392→        <CardContent>
+  1393→          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+  1394→            {OUTILS_PRODUCTIVITE.map((outil, i) => (
+  1395→              <div
+  1396→                key={i}
+  1397→                className="flex items-start gap-3 rounded-lg border border-border p-3 bg-muted/20 hover:bg-muted/40 transition-colors"
+  1398→              >
+  1399→                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-900/20">
+  1400→                  <Wrench className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+  1401→                </div>
+  1402→                <div>
+  1403→                  <p className="text-sm font-semibold">{outil.name}</p>
+  1404→                  <p className="text-xs text-muted-foreground mt-0.5">{outil.description}</p>
+  1405→                </div>
+  1406→              </div>
+  1407→            ))}
+  1408→          </div>
+  1409→        </CardContent>
+  1410→      </Card>
+  1411→
+  1412→      {/* ── Plan semaine type ── */}
+  1413→      <Card className="border-sky-200 dark:border-sky-800">
+  1414→        <CardHeader className="pb-3">
+  1415→          <div className="flex items-center gap-2">
+  1416→            <CardTitle className="text-base flex items-center gap-2">
+  1417→              <CalendarDays className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+  1418→              Plan de semaine type
+  1419→            </CardTitle>
+  1420→            <InfoPopover text="Organisez votre semaine idéale en allotant des créneaux pour chaque type d'activité. Bloquez les créneaux stratégiques en priorité le matin." />
+  1421→          </div>
+  1422→        </CardHeader>
+  1423→        <CardContent>
+  1424→          <div className="space-y-3">
+  1425→            {DAYS_FR.map((day) => (
+  1426→              <div key={day} className="flex flex-col sm:flex-row gap-2">
+  1427→                <div className="flex items-center gap-2 sm:w-32 shrink-0">
+  1428→                  <Badge variant="outline" className="text-xs justify-center w-16">
+  1429→                    {day.slice(0, 3)}
+  1430→                  </Badge>
+  1431→                </div>
+  1432→                <input
+  1433→                  type="text"
+  1434→                  value={data.weekSchedule[day] || ''}
+  1435→                  onChange={(e) => updateWeekDay(day, e.target.value)}
+  1436→                  placeholder="8h-10h : Prospection | 10h-12h : Production | ..."
+  1437→                  className="flex-1 text-sm rounded-lg border border-border bg-background/60 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+  1438→                />
+  1439→              </div>
+  1440→            ))}
+  1441→          </div>
+  1442→        </CardContent>
+  1443→      </Card>
+  1444→
+  1445→      {/* ── Bottom Save Bar ── */}
+  1446→      <Card className="bg-gradient-to-r from-sky-500/5 to-sky-300/5 border-sky-200 dark:border-sky-800">
+  1447→        <CardContent className="py-4">
+  1448→          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+  1449→            <div className="flex items-center gap-3">
+  1450→              <div className="flex items-center gap-1">
+  1451→                {Array.from({ length: completion.total }).map((_, i) => (
+  1452→                  <div key={i} className={cn(
+  1453→                    'h-2 w-2 rounded-full transition-colors',
+  1454→                    i < completion.filled ? 'bg-sky-500' : 'bg-muted',
+  1455→                  )} />
+  1456→                ))}
+  1457→              </div>
+  1458→              <span className="text-sm text-muted-foreground">
+  1459→                {completion.percent}% complété
+  1460→              </span>
+  1461→            </div>
+  1462→            <Button
+  1463→              size="sm"
+  1464→              className="gap-1.5 bg-sky-600 hover:bg-sky-700 text-white"
+  1465→              onClick={handleSave}
+  1466→              disabled={isSaving}
+  1467→            >
+  1468→              {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+  1469→              Enregistrer
+  1470→            </Button>
+  1471→          </div>
+  1472→        </CardContent>
+  1473→      </Card>
+  1474→    </div>
+  1475→  )
+  1476→}
+  1477→
+  1478→// ═══════════════════════════════════════════════════════════════
+  1479→// Main Component
+  1480→// ═══════════════════════════════════════════════════════════════
+  1481→
+  1482→export function GestionTempsModule() {
+  1483→  const [isLoading, setIsLoading] = useState(true)
+  1484→  const [isSaving, setIsSaving] = useState(false)
+  1485→  const [aiLoading, setAiLoading] = useState(false)
+  1486→  const [data, setData] = useState<GestionTempsData>(DEFAULT_DATA)
+  1487→  const [activeTab, setActiveTab] = useState('atelier')
+  1488→
+  1489→  // ─── Pomodoro Timer (persists across tab switches) ───
+  1490→  const {
+  1491→    pomodoroState,
+  1492→    start: pomodoroStart,
+  1493→    pause: pomodoroPause,
+  1494→    reset: pomodoroReset,
+  1495→    skip: pomodoroSkip,
+  1496→    updateSettings: pomodoroUpdateSettings,
+  1497→    setTaskName: pomodoroSetTaskName,
+  1498→    setCategory: pomodoroSetCategory,
+  1499→  } = usePomodoroTimer()
+  1500→
+  1501→  // ─── Load data on mount ──────────────────
+  1502→  useEffect(() => {
+  1503→    async function load() {
+  1504→      const saved = localStorage.getItem('creapulse-gestion-temps')
+  1505→      if (saved) {
+  1506→        try {
+  1507→          const parsed = JSON.parse(saved)
+  1508→          if (parsed.diagnostic) setData(prev => ({ ...prev, diagnostic: parsed.diagnostic }))
+  1509→          if (parsed.eisenhower) setData(prev => ({ ...prev, eisenhower: { ...prev.eisenhower, ...parsed.eisenhower } }))
+  1510→          if (parsed.weekSchedule) setData(prev => ({ ...prev, weekSchedule: { ...prev.weekSchedule, ...parsed.weekSchedule } }))
+  1511→        } catch { /* ignore */ }
+  1512→      }
+  1513→
+  1514→      try {
+  1515→        const res = await authFetch('/api/paa/ateliers', {
+  1516→          method: 'POST',
+  1517→          body: JSON.stringify({ action: 'get', atelierCode: 'gestion-temps' }),
+  1518→        })
+  1519→        if (res.ok) {
+  1520→          const json = await res.json()
+  1521→          if (json.success && json.data) {
+  1522→            const d = json.data
+  1523→            if (d.diagnostic) setData(prev => ({ ...prev, diagnostic: d.diagnostic }))
+  1524→            if (d.eisenhower) setData(prev => ({ ...prev, eisenhower: { ...prev.eisenhower, ...d.eisenhower } }))
+  1525→            if (d.weekSchedule) setData(prev => ({ ...prev, weekSchedule: { ...prev.weekSchedule, ...d.weekSchedule } }))
+  1526→          }
+  1527→        }
+  1528→      } catch { /* ignore */ }
+  1529→
+  1530→      setIsLoading(false)
+  1531→    }
+  1532→    load()
+  1533→  }, [])
+  1534→
+  1535→  // ─── Auto-save to localStorage ──────────
+  1536→  useEffect(() => {
+  1537→    if (!isLoading) {
+  1538→      localStorage.setItem('creapulse-gestion-temps', JSON.stringify(data))
+  1539→    }
+  1540→  }, [isLoading, data])
+  1541→
+  1542→  // ─── Completion ─────────────────────────
+  1543→  const completion = useMemo(() => {
+  1544→    let filled = 0
+  1545→    const total = 4
+  1546→    if (data.diagnostic.trim()) filled++
+  1547→    const totalTasks = Object.values(data.eisenhower).reduce((s, q) => s + q.length, 0)
+  1548→    if (totalTasks > 0) filled++
+  1549→    const filledDays = Object.values(data.weekSchedule).filter(v => v.trim()).length
+  1550→    if (filledDays >= 3) filled++
+  1551→    if (filledDays >= 5) filled++
+  1552→    return { filled, total, percent: Math.round((filled / total) * 100) }
+  1553→  }, [data])
+  1554→
+  1555→  // ─── Save to API ────────────────────────
+  1556→  const handleSave = useCallback(async () => {
+  1557→    setIsSaving(true)
+  1558→    try {
+  1559→      const res = await authFetch('/api/paa/ateliers', {
+  1560→        method: 'PUT',
+  1561→        body: JSON.stringify({
+  1562→          atelierCode: 'gestion-temps',
+  1563→          diagnostic: data.diagnostic,
+  1564→          eisenhower: data.eisenhower,
+  1565→          weekSchedule: data.weekSchedule,
+  1566→        }),
+  1567→      })
+  1568→      const json = await res.json()
+  1569→      if (!json.success) {
+  1570→        toast.error(json.error?.message || 'Erreur lors de la sauvegarde')
+  1571→        return
+  1572→      }
+  1573→      toast.success('Atelier Gestion du Temps sauvegardé')
+  1574→    } catch {
+  1575→      toast.error('Erreur de connexion au serveur')
+  1576→    } finally {
+  1577→      setIsSaving(false)
+  1578→    }
+  1579→  }, [data])
+  1580→
+  1581→  // ─── AI Analysis ────────────────────────
+  1582→  const handleAiAnalysis = useCallback(async () => {
+  1583→    setAiLoading(true)
+  1584→    try {
+  1585→      const res = await authFetch('/api/paa/ateliers', {
+  1586→        method: 'POST',
+  1587→        body: JSON.stringify({
+  1588→          action: 'ai-analyze',
+  1589→          atelierCode: 'gestion-temps',
+  1590→          diagnostic: data.diagnostic,
+  1591→          eisenhower: data.eisenhower,
+  1592→        }),
+  1593→      })
+  1594→      const json = await res.json()
+  1595→      if (json.success && json.data?.suggestion) {
+  1596→        const suggestion = json.data.suggestion
+  1597→        if (typeof suggestion === 'string') {
+  1598→          setData(prev => ({ ...prev, diagnostic: prev.diagnostic ? prev.diagnostic + '\n\n💡 ' + suggestion : '💡 ' + suggestion }))
+  1599→        } else if (suggestion.eisenhower) {
+  1600→          setData(prev => ({ ...prev, eisenhower: { ...prev.eisenhower, ...suggestion.eisenhower } }))
+  1601→        }
+  1602→        toast.success('Analyse IA générée !')
+  1603→      } else {
+  1604→        toast.error(json.error?.message || 'Erreur lors de la génération IA')
+  1605→      }
+  1606→    } catch {
+  1607→      toast.error('Erreur de connexion au serveur')
+  1608→    } finally {
+  1609→      setAiLoading(false)
+  1610→    }
+  1611→  }, [data])
+  1612→
+  1613→  // ─── Loading skeleton ───────────────────
+  1614→  if (isLoading) {
+  1615→    return (
+  1616→      <div className="p-4 md:p-6 lg:p-8 space-y-6">
+  1617→        <div className="h-8 w-64 bg-muted animate-pulse rounded" />
+  1618→        <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+  1619→        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  1620→          {[...Array(4)].map((_, i) => (
+  1621→            <div key={i} className="h-48 bg-muted animate-pulse rounded-xl" />
+  1622→          ))}
+  1623→        </div>
+  1624→      </div>
+  1625→    )
+  1626→  }
+  1627→
+  1628→  // ─── Main Render ─────────────────────────
+  1629→  return (
+  1630→    <motion.div
+  1631→      initial={{ opacity: 0, y: 20 }}
+  1632→      animate={{ opacity: 1, y: 0 }}
+  1633→      transition={{ duration: 0.4 }}
+  1634→      className="flex-1 overflow-y-auto"
+  1635→    >
+  1636→      {/* Header */}
+  1637→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 md:px-6 border-b bg-background">
+  1638→        <div className="flex items-center gap-3">
+  1639→          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/10">
+  1640→            <Clock className="h-5 w-5 text-sky-600 dark:text-sky-400" />
+  1641→          </div>
+  1642→          <div>
+  1643→            <div className="flex items-center gap-2">
+  1644→              <h2 className="text-xl font-bold text-foreground">Gestion du Temps &amp; Productivité</h2>
+  1645→              <Badge className="bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300 text-[10px] px-1.5">Atelier 5</Badge>
+  1646→            </div>
+  1647→            <p className="text-xs text-muted-foreground">
+  1648→              {completion.filled}/{completion.total} sections — {completion.percent}%
+  1649→            </p>
+  1650→          </div>
+  1651→        </div>
+  1652→      </div>
+  1653→
+  1654→      {/* Tab Navigation */}
+  1655→      <div className="px-4 md:px-6 pt-4">
+  1656→        <Tabs value={activeTab} onValueChange={setActiveTab}>
+  1657→          <TabsList className="bg-muted/80">
+  1658→            <TabsTrigger value="atelier" className="gap-1.5 text-xs sm:text-sm">
+  1659→              <ListTodo className="h-3.5 w-3.5" />
+  1660→              <span className="hidden sm:inline">Atelier</span>
+  1661→              <span className="sm:hidden">Atelier</span>
+  1662→            </TabsTrigger>
+  1663→            <TabsTrigger value="pomodoro" className="gap-1.5 text-xs sm:text-sm">
+  1664→              <CircleDot className="h-3.5 w-3.5" />
+  1665→              <span className="hidden sm:inline">Pomodoro</span>
+  1666→              <span className="sm:hidden">Pomodoro</span>
+  1667→            </TabsTrigger>
+  1668→            <TabsTrigger value="stats" className="gap-1.5 text-xs sm:text-sm">
+  1669→              <BarChart3 className="h-3.5 w-3.5" />
+  1670→              <span className="hidden sm:inline">Statistiques</span>
+  1671→              <span className="sm:hidden">Stats</span>
+  1672→            </TabsTrigger>
+  1673→          </TabsList>
+  1674→
+  1675→          {/* Atelier Tab */}
+  1676→          <TabsContent value="atelier">
+  1677→            <AtelierTab
+  1678→              data={data}
+  1679→              setData={setData}
+  1680→              isLoading={isLoading}
+  1681→              isSaving={isSaving}
+  1682→              aiLoading={aiLoading}
+  1683→              handleSave={handleSave}
+  1684→              handleAiAnalysis={handleAiAnalysis}
+  1685→            />
+  1686→          </TabsContent>
+  1687→
+  1688→          {/* Pomodoro Tab */}
+  1689→          <TabsContent value="pomodoro">
+  1690→            <PomodoroTab
+  1691→              pomodoroState={pomodoroState}
+  1692→              onStart={pomodoroStart}
+  1693→              onPause={pomodoroPause}
+  1694→              onReset={pomodoroReset}
+  1695→              onSkip={pomodoroSkip}
+  1696→              onUpdateSettings={pomodoroUpdateSettings}
+  1697→              onSetTaskName={pomodoroSetTaskName}
+  1698→              onSetCategory={pomodoroSetCategory}
+  1699→            />
+  1700→          </TabsContent>
+  1701→
+  1702→          {/* Stats Tab */}
+  1703→          <TabsContent value="stats">
+  1704→            <StatsTab pomodoroData={pomodoroState} />
+  1705→          </TabsContent>
+  1706→        </Tabs>
+  1707→      </div>
+  1708→    </motion.div>
+  1709→  )
+  1710→}
+  1711→

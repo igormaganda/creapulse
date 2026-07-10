@@ -1,0 +1,559 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Input } from '@/components/ui/input'
+     9→import { Progress } from '@/components/ui/progress'
+    10→import { Separator } from '@/components/ui/separator'
+    11→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    12→import { Checkbox } from '@/components/ui/checkbox'
+    13→import {
+    14→  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+    15→} from '@/components/ui/dialog'
+    16→import {
+    17→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    18→} from '@/components/ui/select'
+    19→import { cn } from '@/lib/utils'
+    20→import { toast } from 'sonner'
+    21→import { authFetch } from '@/lib/auth-fetch'
+    22→import {
+    23→  BookOpen, Clock, Star, Trophy, Search, Filter, Sparkles,
+    24→  Loader2, CheckCircle2, Lock, Play, Award, Zap, ChevronRight,
+    25→  Target, GraduationCap, Flame, Rocket, ArrowRight, X,
+    26→} from 'lucide-react'
+    27→
+    28→// ─── Types ──────────────────────────────────
+    29→
+    30→type Difficulty = 'debutant' | 'intermediaire' | 'avance'
+    31→type Category = 'strategie' | 'finance' | 'marketing' | 'juridique' | 'gestion' | 'network'
+    32→
+    33→interface Lesson {
+    34→  id: string
+    35→  title: string
+    36→  content: string
+    37→  duration: string
+    38→  completed: boolean
+    39→}
+    40→
+    41→interface Formation {
+    42→  id: string
+    43→  code: string
+    44→  title: string
+    45→  description: string
+    46→  duration: string
+    47→  difficulty: Difficulty
+    48→  category: Category
+    49→  icon: string
+    50→  lessons: Lesson[]
+    51→  started: boolean
+    52→  completedAt: string | null
+    53→}
+    54→
+    55→interface BadgeItem {
+    56→  id: string
+    57→  name: string
+    58→  emoji: string
+    59→  description: string
+    60→  howToUnlock: string
+    61→  unlocked: boolean
+    62→  unlockedAt: string | null
+    63→}
+    64→
+    65→interface ELearningData {
+    66→  formations: Record<string, { lessonsCompleted: string[]; started: boolean; completedAt: string | null }>
+    67→  badges: Record<string, { unlocked: boolean; unlockedAt: string | null }>
+    68→  xp: number
+    69→  streak: number
+    70→  lastStudyDate: string | null
+    71→}
+    72→
+    73→// ─── Formation Catalog ──────────────────────
+    74→
+    75→const FORMATIONS_CATALOG: Formation[] = [
+    76→  {
+    77→    id: 'business-model', code: 'BM', title: 'Mettre en place son business model', description: 'Apprenez à structurer votre modèle économique avec la méthode BMC.',
+    78→    duration: '45 min', difficulty: 'debutant', category: 'strategie', icon: '🏗️',
+    79→    lessons: [
+    80→      { id: 'bm-1', title: 'Qu\'est-ce qu\'un business model ?', content: 'Un business model décrit comment votre entreprise crée, délivre et capture de la valeur. Il répond à la question : comment votre projet va-t-il gagner de l\'argent ?\n\nLes 9 blocs du Business Model Canvas couvrent : les segments de clientèle, la proposition de valeur, les canaux de distribution, les relations clients, les sources de revenus, les ressources clés, les activités clés, les partenaires clés et la structure de coûts.\n\nPrenez le temps de remplir chaque bloc en pensant spécifiquement à VOTRE projet. Ne restez pas théorique.', duration: '8 min', completed: false },
+    81→      { id: 'bm-2', title: 'Définir sa proposition de valeur', content: 'La proposition de valeur est le cœur de votre business model. Elle doit répondre à un problème ou un besoin non satisfait de votre client cible.\n\nUtilisez le framework "Jobs To Be Done" : quels "travaux" vos clients essaient-ils d\'accomplir ? Quelles frustrations rencontrent-ils ? Quels gains espèrent-ils ?\n\nFormulez votre proposition de valeur en une phrase claire : "Nous aidons [segment cible] à [bénéfice clé] grâce à [solution unique]."', duration: '10 min', completed: false },
+    82→      { id: 'bm-3', title: 'Les modèles de revenus', content: 'Il existe de nombreux modèles de revenus : vente directe, abonnement, freemium, marketplace, licence, franchise, publicité...\n\nChoisissez votre modèle en fonction de votre marché et de votre capacité à générer des revenus récurrents. Les investisseurs valorisent particulièrement les modèles récurrents (SaaS, abonnements) car ils assurent une visibilité sur les flux de trésorerie.\n\nCalculez votre "Average Revenue Per User" (ARPU) et votre taux de rétention pour valider la viabilité.', duration: '12 min', completed: false },
+    83→      { id: 'bm-4', title: 'Valider son business model', content: 'Un business model n\'est qu\'une hypothèse tant qu\'il n\'est pas testé sur le terrain. Voici comment le valider :\n\n1. Entretiens clients : parlez à au moins 20 prospects potentiels\n2. MVP (Minimum Viable Product) : créez une version simplifiée\n3. Pré-ventes : testez la volonté de payer réellement\n4. Itérez : ajustez en fonction des retours\n\nN\'hésitez pas à pivoter si les retours du marché vous le suggèrent.', duration: '15 min', completed: false },
+    84→    ],
+    85→    started: false, completedAt: null,
+    86→  },
+    87→  {
+    88→    id: 'marche', code: 'MA', title: 'Comprendre son marché', description: 'Maîtrisez l\'analyse de marché pour positionner votre offre.',
+    89→    duration: '50 min', difficulty: 'debutant', category: 'strategie', icon: '📊',
+    90→    lessons: [
+    91→      { id: 'ma-1', title: 'Segmenter son marché', content: 'La segmentation de marché consiste à diviser votre marché global en sous-groupes homogènes. Les critères courants sont : démographiques, géographiques, psychographiques et comportementaux.\n\nPour un créateur d\'entreprise, commencez par identifier votre "persona" client idéal : âge, revenus, habitudes, frustrations, aspirations. Plus votre persona est précis, plus votre stratégie sera efficace.', duration: '12 min', completed: false },
+    92→      { id: 'ma-2', title: 'Analyser la concurrence', content: 'Identifiez vos 3-5 concurrents principaux (directs et indirects). Pour chacun, analysez : leur positionnement, leurs forces, leurs faiblesses, leur part de marché estimée, et leur stratégie de prix.\n\nCréez une matrice de positionnement pour visualiser où se situe votre offre par rapport à la concurrence. Cherchez les "espaces vides" sur le marché.', duration: '15 min', completed: false },
+    93→      { id: 'ma-3', title: 'Évaluer la taille du marché', content: 'Calculez la taille de votre marché à 3 niveaux :\n- TAM (Total Addressable Market) : marché total si vous captiez 100%\n- SAM (Serviceable Addressable Market) : partie accessible\n- SOM (Serviceable Obtainable Market) : part réaliste à conquérir\n\nUtilisez les données publiques (INSEE, France Travail, fédérations professionnelles) et les études de marché disponibles gratuitement.', duration: '12 min', completed: false },
+    94→      { id: 'ma-4', title: 'Tester la demande', content: 'Avant de lancer, validez la demande réelle :\n1. Landing page avec formulaire d\'inscription\n2. Campagne publicitaire test (petit budget)\n3. Sondages et entretiens qualitatifs\n4. Pré-ventes ou réservations\n\nUn taux de conversion landing page > 5% est généralement un bon signal. Un taux de clic publicitaire > 2% indique un intérêt réel.', duration: '11 min', completed: false },
+    95→    ],
+    96→    started: false, completedAt: null,
+    97→  },
+    98→  {
+    99→    id: 'tresorerie', code: 'TR', title: 'Gérer sa trésorerie', description: 'Maîtrisez les fondamentaux de la gestion de trésorerie.',
+   100→    duration: '40 min', difficulty: 'intermediaire', category: 'finance', icon: '💰',
+   101→    lessons: [
+   102→      { id: 'tr-1', title: 'Comprendre la trésorerie', content: 'La trésorerie est différente du résultat comptable. Vous pouvez être bénéficiaire et faire face à une crise de trésorerie si vos clients paient en retard.\n\nLa règle d\'or : encaissez vite, décaissez tard. Négociez des acomptes avec vos clients et des délais de paiement longs avec vos fournisseurs.', duration: '10 min', completed: false },
+   103→      { id: 'tr-2', title: 'Construire un plan de trésorerie', content: 'Le plan de trésorerie prévisionnel sur 12 mois vous permet d\'anticiper les périodes de tension. Liste mois par mois : encaissements (ventes, subventions), décaissements (charges, investissements), et solde cumulé.\n\nMaintenez toujours un fonds de roulement suffisant pour couvrir 2 à 3 mois de charges fixes. C\'est votre filet de sécurité.', duration: '15 min', completed: false },
+   104→      { id: 'tr-3', title: 'Financer son besoin en fonds de roulement', content: 'Si votre BFR est positif (vous payez vos fournisseurs avant d\'encaisser vos clients), vous devez le financer. Solutions :\n- Fonds propres (apport personnel)\n- Dotation d\'équipement (ACRE, ARE)\n- Prêt d\'honneur (Initiative France, BPI)\n- Affacturage pour les créances clients', duration: '15 min', completed: false },
+   105→    ],
+   106→    started: false, completedAt: null,
+   107→  },
+   108→  {
+   109→    id: 'marketing-digital', code: 'MD', title: 'Maîtriser le marketing digital', description: 'Développez votre présence en ligne et attirez vos premiers clients.',
+   110→    duration: '55 min', difficulty: 'intermediaire', category: 'marketing', icon: '📣',
+   111→    lessons: [
+   112→      { id: 'md-1', title: 'Choisir ses canaux digitaux', content: 'Ne soyez pas partout. Choisissez 2-3 canaux pertinents pour votre cible :\n- Instagram/TikTok : visuel, B2C, 18-35 ans\n- LinkedIn : B2B, networking professionnel\n- Google My Business : présence locale\n- Site web + SEO : visibilité long terme\n\nConcentrez vos efforts là où votre client passe du temps.', duration: '12 min', completed: false },
+   113→      { id: 'md-2', title: 'Créer du contenu qui convertit', content: 'Le contenu est votre meilleur vendeur 24/7. Appliquez la règle 80/20 : 80% de contenu à valeur ajoutée, 20% de contenu promotionnel.\n\nFormats efficaces : tutoriels, études de cas, témoignages, avant/après. Utilisez les stories pour l\'urgence et les posts pour le référencement.', duration: '15 min', completed: false },
+   114→      { id: 'md-3', title: 'Mettre en place un tunnel de vente', content: 'Un tunnel de vente guide votre prospect de la découverte à l\'achat :\n1. Accroche (pub, post, réseau)\n2. Page de destination avec offre irrésistible\n3. Série d\'emails de nurturing (5-7 emails)\n4. Appel découverte ou démo\n5. Proposition commerciale\n\nAutomatisez le maximum pour scaler sans effort.', duration: '13 min', completed: false },
+   115→      { id: 'md-4', title: 'Mesurer et optimiser', content: 'Les KPIs essentiels du marketing digital :\n- Taux de conversion : visiteurs → leads → clients\n- Coût par acquisition (CPA) : budget / nouveaux clients\n- Retour sur investissement (ROI) : (revenus - coûts) / coûts\n- Taux d\'engagement : likes + commentaires / portée\n\nRévisez vos campagnes toutes les 2 semaines et doublez ce qui fonctionne.', duration: '15 min', completed: false },
+   116→    ],
+   117→    started: false, completedAt: null,
+   118→  },
+   119→  {
+   120→    id: 'juridique', code: 'JU', title: 'Choisir son statut juridique', description: 'Les clés pour choisir le statut adapté à votre projet.',
+   121→    duration: '35 min', difficulty: 'debutant', category: 'juridique', icon: '⚖️',
+   122→    lessons: [
+   123→      { id: 'ju-1', title: 'Les statuts individuels', content: 'Micro-entreprise : le plus simple. CA plafonné (77 700€ services, 188 700€ ventes). Pas de comptabilité complexe. Idéal pour tester.\n\nEIRL : protection du patrimoine personnel tout en restant indépendant. Choix de l\'impôt (IR ou IS).\n\nEURL : SASU à l\'IR. Un seul associé, statut plus prestigieux. Comptabilité plus lourde.', duration: '18 min', completed: false },
+   124→      { id: 'ju-2', title: 'Les sociétés', content: 'SARL : 2 associés minimum, statut classique, protection forte. Gestion souple.\n\nSAS : très flexible, statut prisé pour les startups. Rémunération via分红 aux conditions attractives.\n\nSASU : version mono-associé de la SAS. Parfait pour les projets solo ambitieux.\n\nChoisissez en fonction de : votre besoin de protection, le nombre d\'associés, votre ambition de croissance, et les charges sociales visées.', duration: '17 min', completed: false },
+   125→    ],
+   126→    started: false, completedAt: null,
+   127→  },
+   128→  {
+   129→    id: 'pitch', code: 'PI', title: 'Préparer son pitch', description: 'Convaincre en 3 minutes avec un pitch percutant.',
+   130→    duration: '30 min', difficulty: 'intermediaire', category: 'network', icon: '🎤',
+   131→    lessons: [
+   132→      { id: 'pi-1', title: 'La structure du pitch parfait', content: 'Un pitch efficace suit la structure : Problème → Solution → Marché → Business Model → Équipe → Demande.\n\nOuvrez par un "hook" : une question, une statistique choc ou une anecdote personnelle. Les 30 premières secondes déterminent l\'attention de votre auditoire.\n\nFermez par un "ask" clair : combien cherchez-vous ? Quel partenaire recherchez-vous ?', duration: '15 min', completed: false },
+   133→      { id: 'pi-2', title: 'S\'entraîner et maîtriser', content: 'Le pitch parfait est celui que vous pouvez répéter sans notes. Entraînez-vous :\n1. Devant un miroir (gestes, posture)\n2. En vidéo (auto-évaluation)\n3. Devant des proches (retours honnêtes)\n4. En conditions réelles (réseaux, événements)\n\nPréparez toujours 3 versions : 30 secondes (elevator pitch), 3 minutes (standard), 10 minutes (détaillé).', duration: '15 min', completed: false },
+   134→    ],
+   135→    started: false, completedAt: null,
+   136→  },
+   137→  {
+   138→    id: 'reseautage', code: 'RE', title: 'Réseauter efficacement', description: 'Construisez un réseau professionnel qui vous aide à grandir.',
+   139→    duration: '25 min', difficulty: 'debutant', category: 'network', icon: '🤝',
+   140→    lessons: [
+   141→      { id: 're-1', title: 'Les bases du réseautage', content: 'Le réseautage n\'est pas du "collecte de cartes de visite". C\'est créer des relations mutuellement bénéfiques.\n\nRègle du give-first : apportez de la valeur avant de demander. Partagez un contact, une information, un conseil. Les retours viendront naturellement.\n\nPréparez votre "elevator pitch" de 30 secondes pour toute rencontre imprévue.', duration: '12 min', completed: false },
+   142→      { id: 're-2', title: 'Réseautage en ligne et hors ligne', content: 'En ligne : optimisez votre profil LinkedIn, commentez les publications de vos cibles, participez aux groupes professionnels.\n\nHors ligne : participez aux événements de votre secteur, aux salons professionnels, aux meetups. Préparez 2-3 questions intelligentes à poser aux intervenants.\n\nEntretenez votre réseau : relancez un contact tous les 2-3 mois avec un article ou une information pertinente.', duration: '13 min', completed: false },
+   143→    ],
+   144→    started: false, completedAt: null,
+   145→  },
+   146→  {
+   147→    id: 'temps', code: 'TE', title: 'Gérer son temps', description: 'Optimisez votre temps pour être plus productif en tant qu\'entrepreneur.',
+   148→    duration: '20 min', difficulty: 'debutant', category: 'gestion', icon: '⏰',
+   149→    lessons: [
+   150→      { id: 'te-1', title: 'La matrice d\'Eisenhower', content: 'Classez vos tâches en 4 quadrants :\n1. Urgent + Important = FAIRE (livraisons, crises)\n2. Non-urgent + Important = PLANIFIER (stratégie, formation)\n3. Urgent + Non-important = DÉLÉGUER (emails, administratif)\n4. Non-urgent + Non-important = ÉLIMINER (scrolling, tâches inutiles)\n\nL\'erreur #1 des créateurs : passer 80% du temps dans le quadrant 3 au lieu du 2.', duration: '10 min', completed: false },
+   151→      { id: 'te-2', title: 'Techniques de productivité', content: 'Pomodoro (25/5) : travaillez en sprints concentrés de 25 min avec 5 min de pause.\n\nTime blocking : allouez des créneaux fixes dans votre agenda pour chaque type d\'activité.\n\nEat the frog : commencez votre journée par la tâche la plus difficile.\n\n2-minute rule : si une tâche prend moins de 2 min, faites-la immédiatement.', duration: '10 min', completed: false },
+   152→    ],
+   153→    started: false, completedAt: null,
+   154→  },
+   155→  {
+   156→    id: 'crise', code: 'CR', title: 'Gérer une crise', description: 'Préparez-vous aux difficultés et apprenez à rebondir.',
+   157→    duration: '30 min', difficulty: 'avance', category: 'gestion', icon: '🛡️',
+   158→    lessons: [
+   159→      { id: 'cr-1', title: 'Anticiper les risques', content: 'Identifiez les 5 risques majeurs pour votre activité : client unique, trésorerie tendue, dépendance fournisseur, problème juridique, santé du dirigeant.\n\nPour chaque risque, évaluez la probabilité (faible/moyenne/haute) et l\'impact (mineur/modéré/majeur). Priorisez les risques "haute probabilité + majeur impact".\n\nPréparez un plan d\'action pour chaque risque prioritaire.', duration: '15 min', completed: false },
+   160→      { id: 'cr-2', title: 'Rebondir après un échec', content: 'L\'échec fait partie du parcours entrepreneurial. Les statistiques montrent que les entrepreneurs qui ont déjà échoué ont plus de chances de réussir au deuxième essai.\n\nProcessus de rebond :\n1. Accepter la situation (pas de déni)\n2. Analyser objectivement les causes\n3. Capitaliser sur les compétences acquises\n4. Définir un nouveau plan d\'action\n5. S\'entourer d\'un réseau de soutien\n\nN\'oubliez pas : la clôture d\'une entreprise n\'est pas la fin de votre parcours entrepreneurial.', duration: '15 min', completed: false },
+   161→    ],
+   162→    started: false, completedAt: null,
+   163→  },
+   164→  {
+   165→    id: 'recrutement', code: 'RH', title: 'Recruter ses premiers talents', description: 'Les étapes clés pour bien recruter quand on est une petite structure.',
+   166→    duration: '35 min', difficulty: 'avance', category: 'gestion', icon: '👥',
+   167→    lessons: [
+   168→      { id: 'rh-1', title: 'Quand et qui recruter ?', content: 'Recrutez quand vous atteignez un point de saturation : vous refusez des missions, la qualité baisse, ou vous passez trop de temps sur des tâches non-stratégiques.\n\nPremier profil à recruter en général : un assistant polyvalent ou un profil commercial. Évitez de recruter un profil identique au vôtre (complémentarité > similarité).\n\nAlternatives au CDI : freelances, alternants, prestataires, mise en réseau de compétences.', duration: '18 min', completed: false },
+   169→      { id: 'rh-2', title: 'Le processus de recrutement', content: '1. Définir le besoin (fiche de poste détaillée)\n2. Sourcer (LinkedIn, Pôle Emploi, réseau, écoles)\n3. Sélectionner (CV + lettre de motivation)\n4. Entretien structuré (même questions pour tous)\n5. Mise en situation ou test pratique\n6. Vérification des références\n7. Proposition et intégration\n\nL\'intégration est cruciale : un bon onboarding réduit le turnover de 25%.', duration: '17 min', completed: false },
+   170→    ],
+   171→    started: false, completedAt: null,
+   172→  },
+   173→  {
+   174→    id: 'ventes', code: 'VE', title: 'Développer son chiffre d\'affaires', description: 'Stratégies concrètes pour augmenter vos revenus.',
+   175→    duration: '40 min', difficulty: 'intermediaire', category: 'marketing', icon: '📈',
+   176→    lessons: [
+   177→      { id: 've-1', title: 'Les 4 leviers de croissance', content: 'Pour doubler votre CA, améliorez chaque levier de 19% :\n1. Augmenter le nombre de prospects\n2. Augmenter le taux de conversion\n3. Augmenter la valeur moyenne du panier\n4. Augmenter la fréquence d\'achat\n\nIdentifiez votre levier le plus faible et concentrez vos efforts dessus. Souvent, c\'est la conversion qui a le plus gros potentiel d\'amélioration.', duration: '15 min', completed: false },
+   178→      { id: 've-2', title: 'Techniques de vente pour créateurs', content: 'La vente B2B : écoutez avant de parler. Posez des questions ouvertes pour comprendre le besoin réel. Ne vendez pas un produit, vendez une solution à un problème.\n\nLa méthode SPIN : Situation, Problème, Implication, Need-payoff. Guidez votre prospect pour qu\'il découvre lui-même la valeur de votre solution.\n\nSuivez vos prospects dans un CRM et relancez systématiquement. 80% des ventes se font après le 5ème contact.', duration: '13 min', completed: false },
+   179→      { id: 've-3', title: 'Pricing et marges', content: 'Ne vendez pas trop cher (vous perdez des clients) ni trop pas cher (vous dévalorisez votre offre et ne survivez pas).\n\nPricing basé sur la valeur : que gagne votre client grâce à votre produit ? Facturez 10-20% de cette valeur.\n\nTestez vos prix : augmentez de 10% et observez l\'impact. Souvent, la demande est beaucoup moins élastique que prévu.', duration: '12 min', completed: false },
+   180→    ],
+   181→    started: false, completedAt: null,
+   182→  },
+   183→]
+   184→
+   185→const BADGES_CATALOG: BadgeItem[] = [
+   186→  { id: 'explorateur', name: 'Explorateur', emoji: '🎯', description: 'Premiers pas dans l\'apprentissage', howToUnlock: 'Complétez votre première formation', unlocked: false, unlockedAt: null },
+   187→  { id: 'stratege', name: 'Stratège', emoji: '📊', description: 'Expert en stratégie d\'entreprise', howToUnlock: 'Complétez 3 formations Stratégie', unlocked: false, unlockedAt: null },
+   188→  { id: 'financier', name: 'Financier', emoji: '💰', description: 'Maître de la gestion financière', howToUnlock: 'Complétez toutes les formations Finance', unlocked: false, unlockedAt: null },
+   189→  { id: 'marketeur', name: 'Marketeur', emoji: '📣', description: 'Expert en marketing digital', howToUnlock: 'Complétez toutes les formations Marketing', unlocked: false, unlockedAt: null },
+   190→  { id: 'champion', name: 'Champion', emoji: '🏆', description: 'Apprentissage assidu', howToUnlock: 'Complétez 8 formations ou plus', unlocked: false, unlockedAt: null },
+   191→  { id: 'serieux', name: 'Sérieux', emoji: '🔥', description: 'Apprentissage régulier', howToUnlock: 'Connectez-vous et étudiez 7 jours consécutifs', unlocked: false, unlockedAt: null },
+   192→  { id: 'rapide', name: 'Rapide', emoji: '⚡', description: 'Apprentissage en profondeur', howToUnlock: 'Complétez une formation en une seule session', unlocked: false, unlockedAt: null },
+   193→  { id: 'expert', name: 'Expert', emoji: '🌟', description: 'Maîtrise complète du programme', howToUnlock: 'Complétez les 12 formations du catalogue', unlocked: false, unlockedAt: null },
+   194→]
+   195→
+   196→const DIFFICULTY_CONFIG: Record<Difficulty, { label: string; color: string }> = {
+   197→  debutant: { label: 'Débutant', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+   198→  intermediaire: { label: 'Intermédiaire', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
+   199→  avance: { label: 'Avancé', color: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400' },
+   200→}
+   201→
+   202→const CATEGORY_LABELS: Record<Category, string> = {
+   203→  strategie: 'Stratégie', finance: 'Finance', marketing: 'Marketing',
+   204→  juridique: 'Juridique', gestion: 'Gestion', network: 'Réseau',
+   205→}
+   206→
+   207→const STORAGE_KEY = 'creapulse-e-learning'
+   208→
+   209→const DEFAULT_DATA: ELearningData = { formations: {}, badges: {}, xp: 0, streak: 0, lastStudyDate: null }
+   210→
+   211→// ─── Main Component ─────────────────────────
+   212→
+   213→export function ELearningModule() {
+   214→  const [data, setData] = useState<ELearningData>(() => {
+   215→    try {
+   216→      const saved = localStorage.getItem(STORAGE_KEY)
+   217→      if (saved) return { ...DEFAULT_DATA, ...JSON.parse(saved) }
+   218→    } catch { /* ignore */ }
+   219→    return DEFAULT_DATA
+   220→  })
+   221→  const [searchQuery, setSearchQuery] = useState('')
+   222→  const [catFilter, setCatFilter] = useState<string>('all')
+   223→  const [diffFilter, setDiffFilter] = useState<string>('all')
+   224→  const [activeFormation, setActiveFormation] = useState<Formation | null>(null)
+   225→  const [selectedBadge, setSelectedBadge] = useState<BadgeItem | null>(null)
+   226→
+   227→  useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)) }, [data])
+   228→
+   229→  // ─── Helpers ───────────────────────────────
+   230→  const getFormationProgress = useCallback((f: Formation) => {
+   231→    const fd = data.formations[f.id]
+   232→    if (!fd) return { percent: 0, completed: 0, total: f.lessons.length }
+   233→    const completed = fd.lessonsCompleted.length
+   234→    return { percent: Math.round((completed / f.lessons.length) * 100), completed, total: f.lessons.length }
+   235→  }, [data.formations])
+   236→
+   237→  const isLessonCompleted = useCallback((formationId: string, lessonId: string) => {
+   238→    return data.formations[formationId]?.lessonsCompleted?.includes(lessonId) || false
+   239→  }, [data.formations])
+   240→
+   241→  const toggleLesson = useCallback((formationId: string, lessonId: string) => {
+   242→    setData(prev => {
+   243→      const fd = prev.formations[formationId] || { lessonsCompleted: [], started: false, completedAt: null }
+   244→      const completed = fd.lessonsCompleted.includes(lessonId)
+   245→        ? fd.lessonsCompleted.filter(id => id !== lessonId)
+   246→        : [...fd.lessonsCompleted, lessonId]
+   247→      const formation = FORMATIONS_CATALOG.find(f => f.id === formationId)
+   248→      const allDone = formation && completed.length === formation.lessons.length
+   249→      return {
+   250→        ...prev,
+   251→        formations: {
+   252→          ...prev.formations,
+   253→          [formationId]: {
+   254→            ...fd,
+   255→            lessonsCompleted: completed,
+   256→            started: true,
+   257→            completedAt: allDone ? new Date().toISOString() : null,
+   258→          },
+   259→        },
+   260→        xp: prev.xp + (completed.includes(lessonId) ? 0 : 25),
+   261→        lastStudyDate: new Date().toISOString().split('T')[0],
+   262→      }
+   263→    })
+   264→  }, [])
+   265→
+   266→  // ─── Badges logic ─────────────────────────
+   267→  const earnedBadges = useMemo(() => {
+   268→    const completedFormations = FORMATIONS_CATALOG.filter(f => {
+   269→      const fd = data.formations[f.id]
+   270→      return fd && fd.completedAt
+   271→    })
+   272→    const strategyCompleted = completedFormations.filter(f => f.category === 'strategie').length
+   273→    const financeCompleted = completedFormations.filter(f => f.category === 'finance').length
+   274→    const marketingCompleted = completedFormations.filter(f => f.category === 'marketing').length
+   275→
+   276→    const updates: Record<string, { unlocked: boolean; unlockedAt: string | null }> = {}
+   277→    const check = (id: string, condition: boolean) => {
+   278→      const current = data.badges[id]
+   279→      if (condition && !current?.unlocked) updates[id] = { unlocked: true, unlockedAt: new Date().toISOString() }
+   280→      else if (!condition) updates[id] = { unlocked: false, unlockedAt: null }
+   281→    }
+   282→    check('explorateur', completedFormations.length >= 1)
+   283→    check('stratege', strategyCompleted >= 3)
+   284→    check('financier', financeCompleted >= 1)
+   285→    check('marketeur', marketingCompleted >= 2)
+   286→    check('champion', completedFormations.length >= 8)
+   287→    check('expert', completedFormations.length >= 12)
+   288→
+   289→    const mergedBadges = { ...data.badges, ...updates }
+   290→    const list = BADGES_CATALOG.map(b => ({ ...b, ...(mergedBadges[b.id] || { unlocked: false, unlockedAt: null }) }))
+   291→    return { mergedBadges, list }
+   292→  }, [data])
+   293→
+   294→  // Sync badge updates via render-time adjustment (avoids setState-in-effect)
+   295→  const [prevBadges, setPrevBadges] = useState(data.badges)
+   296→  if (earnedBadges.mergedBadges !== prevBadges &&
+   297→      JSON.stringify(earnedBadges.mergedBadges) !== JSON.stringify(data.badges)) {
+   298→    setPrevBadges(earnedBadges.mergedBadges)
+   299→    setData(prev => ({ ...prev, badges: earnedBadges.mergedBadges }))
+   300→  }
+   301→
+   302→  const unlockedCount = earnedBadges.list.filter(b => b.unlocked).length
+   303→
+   304→  // ─── Filtered formations ──────────────────
+   305→  const filteredFormations = useMemo(() => {
+   306→    let result = FORMATIONS_CATALOG
+   307→    if (catFilter !== 'all') result = result.filter(f => f.category === catFilter)
+   308→    if (diffFilter !== 'all') result = result.filter(f => f.difficulty === diffFilter)
+   309→    if (searchQuery) {
+   310→      const q = searchQuery.toLowerCase()
+   311→      result = result.filter(f => f.title.toLowerCase().includes(q) || f.description.toLowerCase().includes(q))
+   312→    }
+   313→    return result
+   314→  }, [searchQuery, catFilter, diffFilter])
+   315→
+   316→  const totalCompleted = FORMATIONS_CATALOG.filter(f => data.formations[f.id]?.completedAt).length
+   317→
+   318→  // ─── Main render ───────────────────────
+   319→  return (
+   320→    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="flex-1 overflow-y-auto">
+   321→      {/* Header */}
+   322→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 md:px-6 border-b bg-background">
+   323→        <div className="flex items-center gap-3">
+   324→          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10">
+   325→            <BookOpen className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+   326→          </div>
+   327→          <div>
+   328→            <div className="flex items-center gap-2">
+   329→              <h2 className="text-xl font-bold text-foreground">Formation & E-Learning</h2>
+   330→              <Badge className="bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 text-[10px] px-1.5">Nouveau</Badge>
+   331→            </div>
+   332→            <p className="text-xs text-muted-foreground">{totalCompleted}/{FORMATIONS_CATALOG.length} formations · {data.xp} XP · {unlockedCount}/{BADGES_CATALOG.length} badges</p>
+   333→          </div>
+   334→        </div>
+   335→      </div>
+   336→
+   337→      <Tabs defaultValue="catalogue" className="flex-1">
+   338→        <div className="border-b px-4 md:px-6">
+   339→          <TabsList className="bg-transparent h-auto p-0 gap-6">
+   340→            <TabsTrigger value="catalogue" className="rounded-none border-b-2 border-transparent data-[state=active]:border-violet-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none pb-3 px-0">Catalogue</TabsTrigger>
+   341→            <TabsTrigger value="parcours" className="rounded-none border-b-2 border-transparent data-[state=active]:border-violet-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none pb-3 px-0">Mon Parcours</TabsTrigger>
+   342→            <TabsTrigger value="badges" className="rounded-none border-b-2 border-transparent data-[state=active]:border-violet-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none pb-3 px-0">Badges</TabsTrigger>
+   343→          </TabsList>
+   344→        </div>
+   345→
+   346→        {/* ── Tab: Catalogue ── */}
+   347→        <TabsContent value="catalogue" className="p-4 md:p-6 space-y-4">
+   348→          <div className="flex flex-col sm:flex-row gap-3">
+   349→            <div className="relative flex-1">
+   350→              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   351→              <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Rechercher une formation..." className="pl-9" />
+   352→            </div>
+   353→            <Select value={catFilter} onValueChange={setCatFilter}>
+   354→              <SelectTrigger className="w-full sm:w-36"><SelectValue placeholder="Catégorie" /></SelectTrigger>
+   355→              <SelectContent>
+   356→                <SelectItem value="all">Toutes</SelectItem>
+   357→                {Object.entries(CATEGORY_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+   358→              </SelectContent>
+   359→            </Select>
+   360→            <Select value={diffFilter} onValueChange={setDiffFilter}>
+   361→              <SelectTrigger className="w-full sm:w-36"><SelectValue placeholder="Niveau" /></SelectTrigger>
+   362→              <SelectContent>
+   363→                <SelectItem value="all">Tous</SelectItem>
+   364→                {Object.entries(DIFFICULTY_CONFIG).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
+   365→              </SelectContent>
+   366→            </Select>
+   367→          </div>
+   368→
+   369→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   370→            {filteredFormations.map(f => {
+   371→              const prog = getFormationProgress(f)
+   372→              const dc = DIFFICULTY_CONFIG[f.difficulty]
+   373→              return (
+   374→                <motion.div key={f.id} whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }}>
+   375→                  <Card className="h-full cursor-pointer hover:shadow-md transition-shadow" onClick={() => setActiveFormation(f)}>
+   376→                    <CardHeader className="pb-3">
+   377→                      <div className="flex items-start justify-between">
+   378→                        <span className="text-2xl">{f.icon}</span>
+   379→                        <Badge variant="outline" className={cn('text-[10px] shrink-0', dc.color)}>{dc.label}</Badge>
+   380→                      </div>
+   381→                      <CardTitle className="text-sm leading-tight mt-2">{f.title}</CardTitle>
+   382→                      <CardDescription className="text-xs line-clamp-2">{f.description}</CardDescription>
+   383→                    </CardHeader>
+   384→                    <CardContent className="pt-0 space-y-3">
+   385→                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+   386→                        <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{f.duration}</span>
+   387→                        <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" />{f.lessons.length} leçons</span>
+   388→                      </div>
+   389→                      <div className="space-y-1">
+   390→                        <div className="flex items-center justify-between text-xs">
+   391→                          <span>{prog.completed}/{prog.total}</span>
+   392→                          <span className={cn(prog.percent === 100 && 'text-emerald-600 font-medium')}>{prog.percent}%</span>
+   393→                        </div>
+   394→                        <Progress value={prog.percent} className="h-2" />
+   395→                      </div>
+   396→                      {prog.percent === 100 ? (
+   397→                        <Button size="sm" variant="outline" className="w-full gap-1 text-emerald-600 border-emerald-300" disabled>
+   398→                          <CheckCircle2 className="h-3.5 w-3.5" /> Terminée
+   399→                        </Button>
+   400→                      ) : prog.completed > 0 ? (
+   401→                        <Button size="sm" className="w-full gap-1 bg-violet-600 hover:bg-violet-700 text-white">
+   402→                          <Play className="h-3.5 w-3.5" /> Continuer
+   403→                        </Button>
+   404→                      ) : (
+   405→                        <Button size="sm" variant="outline" className="w-full gap-1">
+   406→                          <Play className="h-3.5 w-3.5" /> Commencer
+   407→                        </Button>
+   408→                      )}
+   409→                    </CardContent>
+   410→                  </Card>
+   411→                </motion.div>
+   412→              )
+   413→            })}
+   414→          </div>
+   415→        </TabsContent>
+   416→
+   417→        {/* ── Tab: Mon Parcours ── */}
+   418→        <TabsContent value="parcours" className="p-4 md:p-6 space-y-4">
+   419→          {activeFormation ? (
+   420→            <div>
+   421→              <Button variant="ghost" size="sm" className="gap-1 mb-4" onClick={() => setActiveFormation(null)}>
+   422→                <ArrowRight className="h-4 w-4 rotate-180" /> Retour au catalogue
+   423→              </Button>
+   424→              <Card>
+   425→                <CardHeader>
+   426→                  <div className="flex items-center gap-3">
+   427→                    <span className="text-3xl">{activeFormation.icon}</span>
+   428→                    <div>
+   429→                      <CardTitle>{activeFormation.title}</CardTitle>
+   430→                      <CardDescription>{activeFormation.description}</CardDescription>
+   431→                    </div>
+   432→                  </div>
+   433→                  <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+   434→                    <Badge variant="outline" className={cn(DIFFICULTY_CONFIG[activeFormation.difficulty].color)}>{DIFFICULTY_CONFIG[activeFormation.difficulty].label}</Badge>
+   435→                    <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{activeFormation.duration}</span>
+   436→                    <span>{getFormationProgress(activeFormation).percent}% complété</span>
+   437→                  </div>
+   438→                  <Progress value={getFormationProgress(activeFormation).percent} className="h-2 mt-2" />
+   439→                </CardHeader>
+   440→                <CardContent className="space-y-4">
+   441→                  {activeFormation.lessons.map((lesson, idx) => {
+   442→                    const done = isLessonCompleted(activeFormation.id, lesson.id)
+   443→                    return (
+   444→                      <motion.div key={lesson.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}>
+   445→                        <Card className={cn('transition-colors', done && 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20')}>
+   446→                          <CardContent className="p-4">
+   447→                            <div className="flex items-start gap-3">
+   448→                              <Checkbox checked={done} onCheckedChange={() => toggleLesson(activeFormation.id, lesson.id)} className="mt-0.5" />
+   449→                              <div className="flex-1">
+   450→                                <div className="flex items-center justify-between">
+   451→                                  <p className={cn('text-sm font-semibold', done && 'line-through text-muted-foreground')}>{lesson.title}</p>
+   452→                                  <span className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" />{lesson.duration}</span>
+   453→                                </div>
+   454→                                <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap leading-relaxed">{lesson.content}</p>
+   455→                              </div>
+   456→                            </div>
+   457→                          </CardContent>
+   458→                        </Card>
+   459→                      </motion.div>
+   460→                    )
+   461→                  })}
+   462→                </CardContent>
+   463→              </Card>
+   464→            </div>
+   465→          ) : (
+   466→            <>
+   467→              <div className="grid grid-cols-3 gap-4 mb-6">
+   468→                <Card><CardContent className="pt-4 pb-4 text-center"><p className="text-2xl font-bold text-violet-600">{totalCompleted}</p><p className="text-xs text-muted-foreground">Formations terminées</p></CardContent></Card>
+   469→                <Card><CardContent className="pt-4 pb-4 text-center"><p className="text-2xl font-bold text-violet-600">{data.xp}</p><p className="text-xs text-muted-foreground">Points XP</p></CardContent></Card>
+   470→                <Card><CardContent className="pt-4 pb-4 text-center"><p className="text-2xl font-bold text-violet-600">{unlockedCount}</p><p className="text-xs text-muted-foreground">Badges débloqués</p></CardContent></Card>
+   471→              </div>
+   472→              <p className="text-sm text-muted-foreground mb-4">Sélectionnez une formation dans le catalogue pour commencer votre apprentissage.</p>
+   473→              {FORMATIONS_CATALOG.filter(f => data.formations[f.id]?.started).map(f => (
+   474→                <Card key={f.id} className="mb-3 cursor-pointer hover:shadow-sm" onClick={() => setActiveFormation(f)}>
+   475→                  <CardContent className="flex items-center gap-4 p-4">
+   476→                    <span className="text-2xl">{f.icon}</span>
+   477→                    <div className="flex-1 min-w-0">
+   478→                      <p className="text-sm font-semibold">{f.title}</p>
+   479→                      <Progress value={getFormationProgress(f).percent} className="h-1.5 mt-2" />
+   480→                    </div>
+   481→                    <div className="text-right shrink-0">
+   482→                      <p className="text-sm font-bold text-violet-600">{getFormationProgress(f).percent}%</p>
+   483→                      {data.formations[f.id]?.completedAt && <CheckCircle2 className="h-4 w-4 text-emerald-500 mx-auto mt-1" />}
+   484→                    </div>
+   485→                  </CardContent>
+   486→                </Card>
+   487→              ))}
+   488→              {FORMATIONS_CATALOG.filter(f => data.formations[f.id]?.started).length === 0 && (
+   489→                <Card className="p-8 text-center">
+   490→                  <BookOpen className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+   491→                  <p className="text-sm font-medium">Aucune formation commencée</p>
+   492→                  <p className="text-xs text-muted-foreground mt-1">Explorez le catalogue pour commencer.</p>
+   493→                </Card>
+   494→              )}
+   495→            </>
+   496→          )}
+   497→        </TabsContent>
+   498→
+   499→        {/* ── Tab: Badges ── */}
+   500→        <TabsContent value="badges" className="p-4 md:p-6 space-y-6">
+   501→          <div className="flex items-center gap-3 mb-2">
+   502→            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-500/10">
+   503→              <Trophy className="h-6 w-6 text-violet-600 dark:text-violet-400" />
+   504→            </div>
+   505→            <div>
+   506→              <p className="text-2xl font-bold">{unlockedCount}/{BADGES_CATALOG.length}</p>
+   507→              <p className="text-xs text-muted-foreground">Badges débloqués</p>
+   508→            </div>
+   509→          </div>
+   510→          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+   511→            {earnedBadges.list.map(badge => (
+   512→              <motion.div key={badge.id} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+   513→                <Card className={cn('cursor-pointer hover:shadow-md transition-all h-full', badge.unlocked ? 'border-violet-300 dark:border-violet-800' : 'opacity-60')} onClick={() => setSelectedBadge(badge)}>
+   514→                  <CardContent className="flex flex-col items-center text-center p-4">
+   515→                    <div className={cn('flex h-16 w-16 items-center justify-center rounded-2xl text-3xl mb-3', badge.unlocked ? 'bg-violet-100 dark:bg-violet-900/30' : 'bg-muted')}>
+   516→                      {badge.unlocked ? badge.emoji : <Lock className="h-6 w-6 text-muted-foreground" />}
+   517→                    </div>
+   518→                    <p className="text-sm font-semibold">{badge.name}</p>
+   519→                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{badge.description}</p>
+   520→                    {badge.unlocked && badge.unlockedAt && (
+   521→                      <p className="text-[10px] text-violet-500 mt-2">{new Date(badge.unlockedAt).toLocaleDateString('fr-FR')}</p>
+   522→                    )}
+   523→                  </CardContent>
+   524→                </Card>
+   525→              </motion.div>
+   526→            ))}
+   527→          </div>
+   528→        </TabsContent>
+   529→      </Tabs>
+   530→
+   531→      {/* Badge Detail Dialog */}
+   532→      <Dialog open={!!selectedBadge} onOpenChange={() => setSelectedBadge(null)}>
+   533→        <DialogContent className="max-w-sm">
+   534→          <DialogHeader>
+   535→            <div className="flex flex-col items-center">
+   536→              <div className="flex h-20 w-20 items-center justify-center rounded-2xl text-5xl mb-3 bg-violet-100 dark:bg-violet-900/30">
+   537→                {selectedBadge?.unlocked ? selectedBadge.emoji : <Lock className="h-8 w-8 text-muted-foreground" />}
+   538→              </div>
+   539→              <DialogTitle className="text-center">{selectedBadge?.name}</DialogTitle>
+   540→            </div>
+   541→          </DialogHeader>
+   542→          <div className="text-center space-y-2">
+   543→            <p className="text-sm text-muted-foreground">{selectedBadge?.description}</p>
+   544→            <Separator />
+   545→            <div>
+   546→              <p className="text-xs font-medium text-muted-foreground">Comment le débloquer</p>
+   547→              <p className="text-sm mt-1">{selectedBadge?.howToUnlock}</p>
+   548→            </div>
+   549→            {selectedBadge?.unlocked && selectedBadge?.unlockedAt && (
+   550→              <Badge className="bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+   551→                <Award className="h-3 w-3 mr-1" />Débloqué le {new Date(selectedBadge.unlockedAt).toLocaleDateString('fr-FR')}
+   552→              </Badge>
+   553→            )}
+   554→          </div>
+   555→        </DialogContent>
+   556→      </Dialog>
+   557→    </motion.div>
+   558→  )
+   559→}
