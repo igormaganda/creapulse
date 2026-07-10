@@ -1216,3 +1216,24 @@ Stage Summary:
   - Conseiller: dupont.jean@gidef-idf.fr / Conseiller2026!
   - Bénéficiaire: marie.curie@example.fr / Beneficiaire2026!
 - **Note**: Turbopack crash lors de la compilation full-page dans le sandbox (pas un bug de code)
+---
+Task ID: 1
+Agent: Main
+Task: Fix DOMMatrix undefined error for PDF/CV parsing on Vercel
+
+Work Log:
+- Investigated the DOMMatrix error root cause: user's Vercel version uses `pdf-parse` → `pdfjs-dist` → `canvas` → `DOMMatrix` (browser API not available in Vercel serverless)
+- Confirmed current sandbox codebase does NOT have `/api/upload` endpoint at all — the CV upload in `profil-createur.tsx` was calling a non-existent route
+- Analyzed the project's `UserFile` model (stores files as base64 in DB) and `CvUpload` model (stores parsed CV data)
+- Checked VLM skill documentation — confirmed `file_url` type supports document analysis via pure HTTP (no native deps)
+- Created `/api/upload/route.ts` (POST): accepts file upload, stores as base64, uses VLM with `file_url` for CV PDF analysis — ZERO dependency on pdf-parse/pdfjs-dist/canvas/DOMMatrix
+- Created `/api/upload/[id]/route.ts` (GET): retrieves stored files from DB as base64
+- Updated `profil-createur.tsx`: sends `category: 'cv'` with upload, parses VLM response, auto-fills extracted skills into profile
+- All code passes lint with 0 errors
+
+Stage Summary:
+- Root cause: `pdf-parse` uses `pdfjs-dist` which needs browser APIs (DOMMatrix, canvas) not available in Vercel serverless
+- Solution: Replace `pdf-parse` entirely with VLM (`z-ai-web-dev-sdk` `createVision` with `file_url` type) — pure HTTP calls, no native dependencies
+- Files created: `src/app/api/upload/route.ts`, `src/app/api/upload/[id]/route.ts`
+- Files modified: `src/components/bureau/modules/profil-createur.tsx`
+- Vercel-compatible: ✅ No pdf-parse, no pdfjs-dist, no canvas, no DOMMatrix

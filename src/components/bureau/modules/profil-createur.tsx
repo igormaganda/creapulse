@@ -826,6 +826,7 @@ export function ProfilCreateur() {
                     try {
                       const formData = new FormData()
                       formData.append('file', file)
+                      formData.append('category', 'cv')
                       const uploadHeaders: Record<string, string> = {}
                       if (token) uploadHeaders['Authorization'] = `Bearer ${token}`
                       const res = await fetch('/api/upload', {
@@ -835,8 +836,28 @@ export function ProfilCreateur() {
                         credentials: 'include',
                       })
                       if (res.ok) {
+                        const result = await res.json().catch(() => ({}))
                         setCvFile({ name: file.name, size: file.size, uploadedAt: new Date().toLocaleString('fr-FR') })
-                        toast.success('CV importé avec succès', { description: `${file.name} a été téléchargé.` })
+
+                        // If VLM extracted skills from CV, merge them
+                        const cvSkills = result?.data?.cvAnalysis?.skills
+                        if (Array.isArray(cvSkills) && cvSkills.length > 0) {
+                          setData((prev) => {
+                            const existing = new Set(prev.competences.map(s => s.toLowerCase()))
+                            const newSkills = cvSkills.filter(s => !existing.has(s.toLowerCase()))
+                            if (newSkills.length === 0) return prev
+                            return {
+                              ...prev,
+                              competences: [...prev.competences, ...newSkills],
+                              hasChanges: true,
+                            }
+                          })
+                          toast.success('CV importé avec succès', {
+                            description: `${file.name} analysé — ${cvSkills.length} compétence${cvSkills.length > 1 ? 's' : ''} extraite${cvSkills.length > 1 ? 's' : ''}.`,
+                          })
+                        } else {
+                          toast.success('CV importé avec succès', { description: `${file.name} a été téléchargé.` })
+                        }
                       } else if (res.status === 401) {
                         toast.error('Vous devez être connecté(e)', { description: 'Votre session a expiré. Reconnectez-vous.' })
                       } else {

@@ -1,0 +1,1668 @@
+     1→// ============================================
+     2→// CreaPulse V2 — PDF Service (Standalone)
+     3→// Runs on plain Bun/Node.js (not Turbopack)
+     4→// Port 3099
+     5→// ============================================
+     6→
+     7→import { createServer, type IncomingMessage, type ServerResponse } from 'http'
+     8→import PDFDocument from 'pdfkit'
+     9→import { PassThrough } from 'stream'
+    10→import { PrismaClient } from '@prisma/client'
+    11→import { PrismaPg } from '@prisma/adapter-pg'
+    12→import pg from 'pg'
+    13→import { jwtVerify } from 'jose'
+    14→
+    15→// ─── Database Connection ─────────────────────
+    16→const DB_URL = 'postgresql://bureau_virtuelle_user:bureau_virtuelle_pass2026@213.199.38.41:5432/bureau_virtuelle'
+    17→
+    18→function createDbClient(): PrismaClient {
+    19→  const pool = new pg.Pool({ connectionString: DB_URL })
+    20→  const adapter = new PrismaPg(pool)
+    21→  return new PrismaClient({ adapter })
+    22→}
+    23→
+    24→// Lazy singleton
+    25→let _db: PrismaClient | null = null
+    26→async function getDb(): Promise<PrismaClient> {
+    27→  if (!_db) {
+    28→    _db = createDbClient()
+    29→    await _db.$connect()
+    30→  }
+    31→  return _db
+    32→}
+    33→
+    34→// ─── JWT Configuration ──────────────────────
+    35→const JWT_SECRET = new TextEncoder().encode('creapulse-v2-secret-key-2024-very-long-and-secure')
+    36→
+    37→// ─── JSON Helper (PrismaPg returns JSON as strings) ──
+    38→function parseJson<T>(val: unknown, fallback: T): T {
+    39→  if (val === null || val === undefined) return fallback
+    40→  if (typeof val === 'string') {
+    41→    try { return JSON.parse(val) as T } catch { return fallback }
+    42→  }
+    43→  return val as T
+    44→}
+    45→
+    46→async function verifyToken(token: string) {
+    47→  const { payload } = await jwtVerify(token, JWT_SECRET)
+    48→  return payload as { userId: string; email: string; role: string }
+    49→}
+    50→
+    51→// ─── Brand Colors ────────────────────────────
+    52→const COLORS = {
+    53→  primary: '#00838F',
+    54→  primaryDark: '#005662',
+    55→  primaryLight: '#4FB3BF',
+    56→  secondary: '#F59E0B',
+    57→  success: '#10B981',
+    58→  danger: '#EF4444',
+    59→  warning: '#F59E0B',
+    60→  info: '#3B82F6',
+    61→  text: '#1F2937',
+    62→  textLight: '#6B7280',
+    63→  textMuted: '#9CA3AF',
+    64→  border: '#E5E7EB',
+    65→  bg: '#F9FAFB',
+    66→  bgCard: '#FFFFFF',
+    67→  white: '#FFFFFF',
+    68→  black: '#000000',
+    69→}
+    70→
+    71→const FONT = 'Helvetica'
+    72→const FONT_BOLD = 'Helvetica-Bold'
+    73→const FONT_ITALIC = 'Helvetica-Oblique'
+    74→const FONT_BOLD_ITALIC = 'Helvetica-BoldOblique'
+    75→
+    76→// ─── PDF Helper Functions ─────────────────────
+    77→
+    78→function createPDFDoc(title: string): { doc: PDFDocument; stream: PassThrough } {
+    79→  const stream = new PassThrough()
+    80→  const doc = new PDFDocument({
+    81→    size: 'A4',
+    82→    margins: { top: 60, bottom: 60, left: 50, right: 50 },
+    83→    info: {
+    84→      Title: title,
+    85→      Author: 'Echo Entreprendre — CreaPulse',
+    86→      Subject: title,
+    87→      Creator: 'CreaPulse V2 — PDF Service',
+    88→    },
+    89→    bufferPages: true,
+    90→  })
+    91→  doc.pipe(stream)
+    92→  return { doc, stream }
+    93→}
+    94→
+    95→function drawHeader(doc: PDFDocument, title: string, subtitle?: string): void {
+    96→  doc.rect(0, 0, doc.page.width, 8).fill(COLORS.primary)
+    97→
+    98→  doc.fontSize(14).font(FONT_BOLD).fillColor(COLORS.primary)
+    99→    .text('CreaPulse', 50, 25, { continued: true })
+   100→    .font(FONT).fontSize(9).fillColor(COLORS.textLight)
+   101→    .text('  |  Echo Entreprendre', { align: 'left' })
+   102→
+   103→  doc.fontSize(20).font(FONT_BOLD).fillColor(COLORS.text)
+   104→    .text(title, 50, 55, { align: 'left' })
+   105→
+   106→  if (subtitle) {
+   107→    doc.fontSize(11).font(FONT).fillColor(COLORS.textLight)
+   108→      .text(subtitle, 50, 78)
+   109→  }
+   110→
+   111→  const sepY = subtitle ? 95 : 80
+   112→  doc.moveTo(50, sepY).lineTo(doc.page.width - 50, sepY)
+   113→    .strokeColor(COLORS.primaryLight).lineWidth(1.5).stroke()
+   114→
+   115→  doc.y = sepY + 15
+   116→  doc.x = 50
+   117→}
+   118→
+   119→function drawFooter(doc: PDFDocument, pageNum: number, totalPages: number): void {
+   120→  const bottom = doc.page.height - 40
+   121→  doc.moveTo(50, bottom - 5).lineTo(doc.page.width - 50, bottom - 5)
+   122→    .strokeColor(COLORS.border).lineWidth(0.5).stroke()
+   123→
+   124→  doc.fontSize(7).font(FONT).fillColor(COLORS.textMuted)
+   125→    .text('Document g\u00e9n\u00e9r\u00e9 par CreaPulse V2 \u2014 Echo Entreprendre', 50, bottom)
+   126→    .text(`Page ${pageNum} / ${totalPages}`, doc.page.width - 130, bottom, { width: 80, align: 'right' })
+   127→}
+   128→
+   129→function sectionHeader(doc: PDFDocument, title: string, icon?: string): void {
+   130→  checkPageSpace(doc, 50)
+   131→  const y = doc.y
+   132→
+   133→  doc.rect(50, y, doc.page.width - 100, 28).fill(COLORS.bg)
+   134→  doc.rect(50, y, 4, 28).fill(COLORS.primary)
+   135→
+   136→  doc.fontSize(12).font(FONT_BOLD).fillColor(COLORS.primary)
+   137→    .text(`${icon ? icon + '  ' : ''}${title}`, 62, y + 7)
+   138→
+   139→  doc.y = y + 38
+   140→  doc.x = 50
+   141→}
+   142→
+   143→function subHeader(doc: PDFDocument, title: string): void {
+   144→  checkPageSpace(doc, 35)
+   145→  doc.fontSize(10).font(FONT_BOLD).fillColor(COLORS.text)
+   146→    .text(`\u2022 ${title}`, 50, doc.y, { continued: false })
+   147→  doc.moveDown(0.2)
+   148→}
+   149→
+   150→function bodyText(doc: PDFDocument, text: string): void {
+   151→  checkPageSpace(doc, 25)
+   152→  doc.fontSize(9).font(FONT).fillColor(COLORS.text)
+   153→    .text(text, 50, doc.y, { width: doc.page.width - 100, lineGap: 3 })
+   154→  doc.moveDown(0.3)
+   155→}
+   156→
+   157→function bullet(doc: PDFDocument, text: string, indent: number = 70): void {
+   158→  checkPageSpace(doc, 22)
+   159→  const y = doc.y
+   160→  doc.fontSize(9).font(FONT).fillColor(COLORS.primary)
+   161→    .text('\u2022', indent - 12, y)
+   162→  doc.fillColor(COLORS.text)
+   163→    .text(text, indent, y, { width: doc.page.width - indent - 50, lineGap: 2 })
+   164→  doc.moveDown(0.15)
+   165→}
+   166→
+   167→function infoBox(doc: PDFDocument, text: string, type: 'info' | 'success' | 'warning' = 'info'): void {
+   168→  checkPageSpace(doc, 55)
+   169→  const color = type === 'success' ? COLORS.success : type === 'warning' ? COLORS.warning : COLORS.info
+   170→  const boxY = doc.y
+   171→  const boxWidth = doc.page.width - 100
+   172→
+   173→  const textHeight = doc.fontSize(9).font(FONT).heightOfString(text, { width: boxWidth - 30 })
+   174→  const boxHeight = textHeight + 20
+   175→
+   176→  doc.roundedRect(50, boxY, boxWidth, boxHeight, 4)
+   177→    .fillAndStroke(type === 'info' ? '#EFF6FF' : type === 'success' ? '#ECFDF5' : '#FFFBEB', color)
+   178→
+   179→  doc.rect(50, boxY, 4, boxHeight).fill(color)
+   180→
+   181→  doc.fontSize(9).font(FONT).fillColor(COLORS.text)
+   182→    .text(text, 68, boxY + 10, { width: boxWidth - 30 })
+   183→
+   184→  doc.y = boxY + boxHeight + 10
+   185→}
+   186→
+   187→function metricCard(doc: PDFDocument, label: string, value: string, x: number, y: number, width: number, height: number): void {
+   188→  doc.roundedRect(x, y, width, height, 6).fillAndStroke(COLORS.bgCard, COLORS.border)
+   189→  doc.rect(x, y, width, 3).fill(COLORS.primary)
+   190→
+   191→  doc.fontSize(18).font(FONT_BOLD).fillColor(COLORS.primary)
+   192→    .text(value, x + 10, y + 12, { width: width - 20, align: 'center' })
+   193→  doc.fontSize(7).font(FONT).fillColor(COLORS.textLight)
+   194→    .text(label, x + 10, y + 35, { width: width - 20, align: 'center' })
+   195→}
+   196→
+   197→function simpleTable(doc: PDFDocument, headers: string[], rows: (string | number)[][], colWidths?: number[]): void {
+   198→  const tableWidth = doc.page.width - 100
+   199→  const rowHeight = 22
+   200→  const colW = colWidths || headers.map(() => tableWidth / headers.length)
+   201→  let y = doc.y
+   202→
+   203→  checkPageSpace(doc, rowHeight * 3 + 10)
+   204→
+   205→  // Header
+   206→  doc.rect(50, y, tableWidth, rowHeight).fill(COLORS.primary)
+   207→  let x = 50
+   208→  for (let i = 0; i < headers.length; i++) {
+   209→    doc.fontSize(8).font(FONT_BOLD).fillColor(COLORS.white)
+   210→      .text(headers[i], x + 5, y + 6, { width: colW[i] - 10, height: rowHeight })
+   211→    x += colW[i]
+   212→  }
+   213→  y += rowHeight
+   214→
+   215→  // Rows
+   216→  for (let r = 0; r < rows.length; r++) {
+   217→    if (y + rowHeight > doc.page.height - 80) {
+   218→      doc.addPage()
+   219→      y = 60
+   220→    }
+   221→    const bgColor = r % 2 === 0 ? COLORS.bgCard : COLORS.bg
+   222→    doc.rect(50, y, tableWidth, rowHeight).fill(bgColor)
+   223→    doc.moveTo(50, y + rowHeight).lineTo(50 + tableWidth, y + rowHeight)
+   224→      .strokeColor(COLORS.border).lineWidth(0.5).stroke()
+   225→
+   226→    x = 50
+   227→    for (let c = 0; c < rows[r].length; c++) {
+   228→      doc.fontSize(8).font(FONT).fillColor(COLORS.text)
+   229→        .text(String(rows[r][c]), x + 5, y + 6, { width: colW[c] - 10, height: rowHeight })
+   230→      x += colW[c]
+   231→    }
+   232→    y += rowHeight
+   233→  }
+   234→
+   235→  doc.y = y + 10
+   236→  doc.x = 50
+   237→}
+   238→
+   239→function progressBar(doc: PDFDocument, label: string, value: number, max: number, x: number, y: number, width: number): void {
+   240→  const barHeight = 12
+   241→  const percentage = Math.min(value / max, 1)
+   242→  const filledWidth = width * percentage
+   243→
+   244→  doc.fontSize(8).font(FONT).fillColor(COLORS.textLight)
+   245→    .text(label, x, y - 12)
+   246→
+   247→  doc.roundedRect(x, y, width, barHeight, 3).fill('#E5E7EB')
+   248→  if (filledWidth > 0) {
+   249→    const color = percentage >= 0.7 ? COLORS.success : percentage >= 0.4 ? COLORS.warning : COLORS.danger
+   250→    doc.roundedRect(x, y, Math.max(filledWidth, 6), barHeight, 3).fill(color)
+   251→  }
+   252→  doc.fontSize(7).font(FONT_BOLD).fillColor(COLORS.white)
+   253→    .text(`${Math.round(percentage * 100)}%`, x + 4, y + 2, { width: Math.max(filledWidth - 8, 0) })
+   254→  if (filledWidth < 30) {
+   255→    doc.fontSize(7).font(FONT_BOLD).fillColor(COLORS.text)
+   256→      .text(`${Math.round(percentage * 100)}%`, x + filledWidth + 5, y + 2)
+   257→  }
+   258→}
+   259→
+   260→function drawRadarChart(
+   261→  doc: PDFDocument,
+   262→  categories: string[],
+   263→  scores: number[],
+   264→  maxScore: number,
+   265→  centerX: number,
+   266→  centerY: number,
+   267→  radius: number,
+   268→): void {
+   269→  const n = categories.length
+   270→  if (n < 3) return
+   271→
+   272→  // Grid rings
+   273→  for (let ring = 1; ring <= 5; ring++) {
+   274→    const r = (radius * ring) / 5
+   275→    doc.strokeColor(COLORS.border).lineWidth(0.3)
+   276→    for (let i = 0; i < n; i++) {
+   277→      const angle1 = (Math.PI * 2 * i) / n - Math.PI / 2
+   278→      const angle2 = (Math.PI * 2 * (i + 1)) / n - Math.PI / 2
+   279→      doc.moveTo(centerX + r * Math.cos(angle1), centerY + r * Math.sin(angle1))
+   280→        .lineTo(centerX + r * Math.cos(angle2), centerY + r * Math.sin(angle2))
+   281→        .stroke()
+   282→    }
+   283→  }
+   284→
+   285→  // Axes
+   286→  for (let i = 0; i < n; i++) {
+   287→    const angle = (Math.PI * 2 * i) / n - Math.PI / 2
+   288→    doc.moveTo(centerX, centerY)
+   289→      .lineTo(centerX + radius * Math.cos(angle), centerY + radius * Math.sin(angle))
+   290→      .strokeColor(COLORS.border).lineWidth(0.3).stroke()
+   291→  }
+   292→
+   293→  // Polygon
+   294→  doc.fillOpacity(0.25).strokeOpacity(1)
+   295→  doc.fillAndStroke(COLORS.primary, COLORS.primary)
+   296→  for (let i = 0; i <= n; i++) {
+   297→    const idx = i % n
+   298→    const angle = (Math.PI * 2 * idx) / n - Math.PI / 2
+   299→    const r = (scores[idx] / maxScore) * radius
+   300→    const px = centerX + r * Math.cos(angle)
+   301→    const py = centerY + r * Math.sin(angle)
+   302→    if (i === 0) doc.moveTo(px, py)
+   303→    else doc.lineTo(px, py)
+   304→  }
+   305→  doc.fillOpacity(1).strokeOpacity(1)
+   306→
+   307→  // Dots and labels
+   308→  for (let i = 0; i < n; i++) {
+   309→    const angle = (Math.PI * 2 * i) / n - Math.PI / 2
+   310→    const r = (scores[i] / maxScore) * radius
+   311→    const px = centerX + r * Math.cos(angle)
+   312→    const py = centerY + r * Math.sin(angle)
+   313→
+   314→    doc.circle(px, py, 4).fill(COLORS.primaryDark)
+   315→
+   316→    const labelR = radius + 20
+   317→    const lx = centerX + labelR * Math.cos(angle)
+   318→    const ly = centerY + labelR * Math.sin(angle)
+   319→    const isRight = angle > -Math.PI / 2 && angle < Math.PI / 2
+   320→    const isBottom = Math.abs(angle) < Math.PI / 4 || Math.abs(angle) > 3 * Math.PI / 4
+   321→
+   322→    doc.fontSize(7).font(FONT_BOLD).fillColor(COLORS.text)
+   323→    const labelWidth = doc.widthOfString(categories[i])
+   324→    const finalX = isRight ? lx : lx - labelWidth
+   325→    const finalY = isBottom ? ly + 2 : ly - 10
+   326→
+   327→    doc.text(categories[i], finalX, finalY)
+   328→
+   329→    doc.fontSize(6).font(FONT).fillColor(COLORS.primary)
+   330→    doc.text(`${scores[i].toFixed(1)}`, isRight ? lx : lx - 20, finalY + 10)
+   331→  }
+   332→}
+   333→
+   334→function checkPageSpace(doc: PDFDocument, needed: number): void {
+   335→  if (doc.y + needed > doc.page.height - 80) {
+   336→    doc.addPage()
+   337→  }
+   338→}
+   339→
+   340→function formatDate(date: Date | null | undefined): string {
+   341→  if (!date) return '\u2014'
+   342→  const d = new Date(date)
+   343→  return d.toLocaleDateString('fr-FR', {
+   344→    day: '2-digit',
+   345→    month: 'long',
+   346→    year: 'numeric',
+   347→  })
+   348→}
+   349→
+   350→function formatCurrency(amount: number | null | undefined): string {
+   351→  if (amount == null) return '\u2014'
+   352→  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount)
+   353→}
+   354→
+   355→function addPageNumbers(doc: PDFDocument): void {
+   356→  const range = doc.bufferedPageRange()
+   357→  for (let i = range.start; i < range.start + range.count; i++) {
+   358→    doc.switchToPage(i)
+   359→    drawFooter(doc, i + 1, range.count)
+   360→  }
+   361→}
+   362→
+   363→function decisionBadge(doc: PDFDocument, decision: string, x: number, y: number): void {
+   364→  const color = decision === 'GO' ? COLORS.success : decision === 'GO_CONDITIONNEL' || decision === 'GO_CONDITIONAL' ? COLORS.warning : COLORS.danger
+   365→  const label = decision === 'GO' ? 'GO' : decision === 'GO_CONDITIONNEL' || decision === 'GO_CONDITIONAL' ? 'GO CONDITIONNEL' : 'NO GO'
+   366→  const textWidth = doc.fontSize(10).font(FONT_BOLD).widthOfString(label)
+   367→
+   368→  doc.roundedRect(x, y, textWidth + 24, 24, 4).fill(color)
+   369→  doc.fontSize(10).font(FONT_BOLD).fillColor(COLORS.white)
+   370→    .text(label, x + 12, y + 7, { width: textWidth + 10, align: 'center' })
+   371→}
+   372→
+   373→// ─── HTTP Helpers ────────────────────────────
+   374→
+   375→function parseQuery(url: string): Record<string, string> {
+   376→  const query: Record<string, string> = {}
+   377→  const idx = url.indexOf('?')
+   378→  if (idx === -1) return query
+   379→  const params = url.slice(idx + 1).split('&')
+   380→  for (const param of params) {
+   381→    const [key, val] = param.split('=')
+   382→    if (key && val) {
+   383→      query[decodeURIComponent(key)] = decodeURIComponent(val.replace(/\+/g, ' '))
+   384→    }
+   385→  }
+   386→  return query
+   387→}
+   388→
+   389→function json(res: ServerResponse, data: unknown, status = 200): void {
+   390→  res.writeHead(status, { 'Content-Type': 'application/json' })
+   391→  res.end(JSON.stringify(data))
+   392→}
+   393→
+   394→function sendPDF(res: ServerResponse, doc: PDFDocument, stream: PassThrough, filename: string): Promise<void> {
+   395→  return new Promise((resolve, reject) => {
+   396→    const buffers: Buffer[] = []
+   397→    stream.on('data', (chunk: Buffer) => buffers.push(chunk))
+   398→    stream.on('end', () => {
+   399→      const pdfBuffer = Buffer.concat(buffers)
+   400→      res.writeHead(200, {
+   401→        'Content-Type': 'application/pdf',
+   402→        'Content-Disposition': `attachment; filename="${filename}"`,
+   403→        'Content-Length': pdfBuffer.length,
+   404→      })
+   405→      res.end(pdfBuffer)
+   406→      resolve()
+   407→    })
+   408→    stream.on('error', reject)
+   409→    doc.end()
+   410→  })
+   411→}
+   412→
+   413→function error(res: ServerResponse, message: string, status = 500): void {
+   414→  res.writeHead(status, { 'Content-Type': 'application/json' })
+   415→  res.end(JSON.stringify({ error: message }))
+   416→}
+   417→
+   418→// ─── Kiviat Dimension Labels ─────────────────
+   419→
+   420→const KIVIAT_DIMENSIONS = [
+   421→  'Leadership',
+   422→  'Gestion du stress',
+   423→  'Communication',
+   424→  'R\u00e9solution de probl\u00e8mes',
+   425→  'Cr\u00e9ativit\u00e9',
+   426→  'Adaptabilit\u00e9',
+   427→  'Autonomie',
+   428→  'Pers\u00e9v\u00e9rance',
+   429→]
+   430→
+   431→const KIVIAT_DIM_MAP: Record<string, string> = {
+   432→  leadership: 'Leadership',
+   433→  stress: 'Gestion du stress',
+   434→  communication: 'Communication',
+   435→  resolution: 'R\u00e9solution de probl\u00e8mes',
+   436→  creativity: 'Cr\u00e9ativit\u00e9',
+   437→  adaptability: 'Adaptabilit\u00e9',
+   438→  autonomie: 'Autonomie',
+   439→  autonomia: 'Autonomie',
+   440→  perseverance: 'Pers\u00e9v\u00e9rance',
+   441→}
+   442→
+   443→// ─── PDF: Cover Page ─────────────────────────
+   444→
+   445→function drawCoverPage(doc: PDFDocument, title: string, subtitle: string, beneficiaryName: string, date: string): void {
+   446→  doc.rect(0, 0, doc.page.width, doc.page.height).fill(COLORS.bg)
+   447→
+   448→  // Top accent bar
+   449→  doc.rect(0, 0, doc.page.width, 10).fill(COLORS.primary)
+   450→
+   451→  // Teal sidebar
+   452→  doc.rect(0, 0, 12, doc.page.height).fill(COLORS.primary)
+   453→
+   454→  // Logo area
+   455→  doc.fontSize(28).font(FONT_BOLD).fillColor(COLORS.primary)
+   456→    .text('CreaPulse', 50, 120)
+   457→  doc.fontSize(12).font(FONT).fillColor(COLORS.textLight)
+   458→    .text('Echo Entreprendre — GIDEF', 50, 155)
+   459→
+   460→  // Horizontal line
+   461→  doc.moveTo(50, 185).lineTo(doc.page.width - 50, 185)
+   462→    .strokeColor(COLORS.primaryLight).lineWidth(2).stroke()
+   463→
+   464→  // Document title
+   465→  doc.fontSize(26).font(FONT_BOLD).fillColor(COLORS.text)
+   466→    .text(title, 50, 220, { width: doc.page.width - 100, align: 'left' })
+   467→
+   468→  doc.moveDown(0.5)
+   469→  doc.fontSize(14).font(FONT_ITALIC).fillColor(COLORS.primary)
+   470→    .text(subtitle, 50, doc.y, { width: doc.page.width - 100 })
+   471→
+   472→  // Info cards
+   473→  const cardY = 380
+   474→  const cardW = 200
+   475→  const cardH = 70
+   476→
+   477→  // Beneficiary card
+   478→  doc.roundedRect(50, cardY, cardW, cardH, 8).fillAndStroke(COLORS.bgCard, COLORS.border)
+   479→  doc.rect(50, cardY, cardW, 4).fill(COLORS.primary)
+   480→  doc.fontSize(7).font(FONT).fillColor(COLORS.textMuted)
+   481→    .text('B\u00e9n\u00e9ficiaire', 60, cardY + 14)
+   482→  doc.fontSize(12).font(FONT_BOLD).fillColor(COLORS.text)
+   483→    .text(beneficiaryName || '\u2014', 60, cardY + 30, { width: cardW - 20 })
+   484→
+   485→  // Date card
+   486→  doc.roundedRect(50 + cardW + 20, cardY, cardW, cardH, 8).fillAndStroke(COLORS.bgCard, COLORS.border)
+   487→  doc.rect(50 + cardW + 20, cardY, cardW, 4).fill(COLORS.secondary)
+   488→  doc.fontSize(7).font(FONT).fillColor(COLORS.textMuted)
+   489→    .text('Date du rapport', 60 + cardW + 20, cardY + 14)
+   490→  doc.fontSize(12).font(FONT_BOLD).fillColor(COLORS.text)
+   491→    .text(date, 60 + cardW + 20, cardY + 30, { width: cardW - 20 })
+   492→
+   493→  // Confidentiality
+   494→  doc.fontSize(8).font(FONT_ITALIC).fillColor(COLORS.textMuted)
+   495→    .text('Document confidentiel — Usage interne uniquement', 50, doc.page.height - 100, {
+   496→      width: doc.page.width - 100,
+   497→      align: 'center'
+   498→    })
+   499→
+   500→  // Footer
+   501→  doc.fontSize(7).font(FONT).fillColor(COLORS.textMuted)
+   502→    .text('G\u00e9n\u00e9r\u00e9 par CreaPulse V2 — PDF Service', 50, doc.page.height - 60, {
+   503→      width: doc.page.width - 100,
+   504→      align: 'center'
+   505→    })
+   506→}
+   507→
+   508→// ─── PDF Generation: Bilan ───────────────────
+   509→
+   510→async function generateBilanPDF(beneficiaryId: string): Promise<{ doc: PDFDocument; stream: PassThrough }> {
+   511→  const { doc, stream } = createPDFDoc('Bilan Diagnostique Complet')
+   512→  const db = await getDb()
+   513→
+   514→  // Fetch all related data
+   515→  const user = await db.user.findUnique({
+   516→    where: { id: beneficiaryId },
+   517→    include: {
+   518→      beneficiaryProfile: true,
+   519→      creatorJourney: true,
+   520→      kiviatResults: true,
+   521→      riasecResults: true,
+   522→      moduleResults: true,
+   523→      motivations: true,
+   524→      tremplin: true,
+   525→      creasimSimulation: true,
+   526→      financialForecast: true,
+   527→      marketAnalysis: true,
+   528→      juridiqueAnalysis: true,
+   529→      businessModelCanvas: true,
+   530→    },
+   531→  })
+   532→
+   533→  if (!user) throw new Error('Beneficiary not found')
+   534→
+   535→  const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Non renseign\u00e9'
+   536→  const journey = user.creatorJourney
+   537→  const today = formatDate(new Date())
+   538→
+   539→  // ─── Page 1: Cover ─────────────────────
+   540→  drawCoverPage(doc, 'Bilan Diagnostique', 'Rapport complet du parcours cr\u00e9ateur', name, today)
+   541→
+   542→  // ─── Page 2: Scores Overview ───────────
+   543→  doc.addPage()
+   544→  drawHeader(doc, 'Vue d\'ensemble des scores', 'R\u00e9sultats par module et progression')
+   545→  doc.moveDown(0.5)
+   546→
+   547→  const modules = user.moduleResults || []
+   548→  if (modules.length > 0) {
+   549→    sectionHeader(doc, 'R\u00e9sultats des modules')
+   550→    const tableWidth = doc.page.width - 100
+   551→    simpleTable(
+   552→      doc,
+   553→      ['Module', 'Score', 'Maximum', 'Progression', 'Compl\u00e9t\u00e9 le'],
+   554→      modules.map((m) => [
+   555→        m.moduleCode,
+   556→        `${m.score}/${m.maxScore}`,
+   557→        `${m.maxScore}`,
+   558→        `${Math.round((m.score / m.maxScore) * 100)}%`,
+   559→        formatDate(m.completedAt),
+   560→      ]),
+   561→      [120, 80, 80, 80, tableWidth - 360],
+   562→    )
+   563→
+   564→    // Progress bars
+   565→    doc.moveDown(0.5)
+   566→    sectionHeader(doc, 'Barres de progression')
+   567→    let barY = doc.y + 5
+   568→    modules.forEach((m) => {
+   569→      if (barY > doc.page.height - 100) {
+   570→        doc.addPage()
+   571→        barY = 60
+   572→      }
+   573→      progressBar(doc, m.moduleCode, m.score, m.maxScore, 60, barY + 12, doc.page.width - 120)
+   574→      barY += 35
+   575→    })
+   576→    doc.y = barY + 10
+   577→  } else {
+   578→    infoBox(doc, 'Aucun r\u00e9sultat de module disponible pour le moment.', 'info')
+   579→  }
+   580→
+   581→  // Journey progress
+   582→  if (journey) {
+   583→    doc.moveDown(0.5)
+   584→    sectionHeader(doc, 'Progression du parcours')
+   585→    const journeyProgress = journey.progressPercent || 0
+   586→    progressBar(doc, 'Progression globale', journeyProgress, 100, 60, doc.y + 12, doc.page.width - 120)
+   587→    doc.y += 40
+   588→
+   589→    bodyText(doc, `Phase actuelle : ${journey.currentPhase}`)
+   590→    bodyText(doc, `Projet : ${journey.projectTitle || '\u2014'}`)
+   591→    if (journey.projectDescription) {
+   592→      bodyText(doc, `Description : ${journey.projectDescription}`)
+   593→    }
+   594→  }
+   595→
+   596→  // ─── Page 3: Kiviat Radar ────────────────
+   597→  doc.addPage()
+   598→  drawHeader(doc, 'Profil Kiviat', 'Radar des 8 dimensions entrepreneuriales')
+   599→  doc.moveDown(0.5)
+   600→
+   601→  const kiviatResults = user.kiviatResults || []
+   602→  const categories: string[] = []
+   603→  const scores: number[] = []
+   604→
+   605→  for (const dim of KIVIAT_DIMENSIONS) {
+   606→    const found = kiviatResults.find((kr) => KIVIAT_DIM_MAP[kr.category.toLowerCase()] === dim)
+   607→    categories.push(dim)
+   608→    scores.push(found ? found.score : 0)
+   609→  }
+   610→
+   611→  const centerX = (doc.page.width) / 2
+   612→  const centerY = 280
+   613→  drawRadarChart(doc, categories, scores, 10, centerX, centerY, 150)
+   614→
+   615→  // Score table
+   616→  doc.moveDown(2)
+   617→  sectionHeader(doc, 'D\u00e9tail des scores Kiviat')
+   618→  simpleTable(
+   619→    doc,
+   620→    ['Dimension', 'Score', 'Niveau'],
+   621→    categories.map((cat, i) => {
+   622→      const s = scores[i]
+   623→      let level = 'Besoin d\'accompagnement'
+   624→      if (s >= 8) level = 'Force majeure'
+   625→      else if (s >= 6) level = 'Comp\u00e9tence acquise'
+   626→      else if (s >= 4) level = 'Point d\'am\u00e9lioration'
+   627→      return [cat, s.toFixed(1), level]
+   628→    }),
+   629→    [200, 80, doc.page.width - 380],
+   630→  )
+   631→
+   632→  // Interpretation
+   633→  doc.moveDown(0.5)
+   634→  sectionHeader(doc, 'Interpr\u00e9tation')
+   635→  const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0
+   636→  if (avgScore >= 7) {
+   637→    infoBox(doc, 'Le profil entrepreneurial est solide. Le b\u00e9n\u00e9ficiaire poss\u00e8de des comp\u00e9tences entrepreneuriales bien d\u00e9velopp\u00e9es et une bonne maturit\u00e9 pour la cr\u00e9ation d\'entreprise.', 'success')
+   638→  } else if (avgScore >= 5) {
+   639→    infoBox(doc, 'Le profil est encourageant avec des points forts identifi\u00e9s. Un accompagnement cibl\u00e9 sur les dimensions en dessous de 5/10 est recommand\u00e9.', 'info')
+   640→  } else {
+   641→    infoBox(doc, 'Le profil n\u00e9cessite un accompagnement renforc\u00e9. Plusieurs dimensions sont en dessous du seuil de 5/10, indiquant un besoin de formation pr\u00e9alable.', 'warning')
+   642→  }
+   643→
+   644→  // ─── Page 4: RIASEC Profile ────────────
+   645→  doc.addPage()
+   646→  drawHeader(doc, 'Profil RIASEC', 'Int\u00e9r\u00eats et orientations professionnelles')
+   647→  doc.moveDown(0.5)
+   648→
+   649→  const riasecResults = user.riasecResults || []
+   650→  if (riasecResults.length > 0) {
+   651→    // Dominant types
+   652→    const dominant = riasecResults.filter((r) => r.isDominant).map((r) => r.profileType)
+   653→    if (dominant.length > 0) {
+   654→      sectionHeader(doc, 'Types dominants')
+   655→      dominant.forEach((d) => bullet(doc, `Profil ${d} (dominant)`))
+   656→    }
+   657→
+   658→    // All scores
+   659→    doc.moveDown(0.3)
+   660→    sectionHeader(doc, 'Scores RIASEC')
+   661→    simpleTable(
+   662→      doc,
+   663→      ['Type', 'Score', 'Dominant'],
+   664→      riasecResults.map((r) => [
+   665→        r.profileType,
+   666→        r.score.toFixed(1),
+   667→        r.isDominant ? 'Oui' : 'Non',
+   668→      ]),
+   669→      [120, 100, doc.page.width - 320],
+   670→    )
+   671→
+   672→    // Progress bars
+   673→    doc.moveDown(0.5)
+   674→    let rY = doc.y + 5
+   675→    riasecResults.forEach((r) => {
+   676→      if (rY > doc.page.height - 100) {
+   677→        doc.addPage()
+   678→        rY = 60
+   679→      }
+   680→      progressBar(doc, r.profileType, r.score, 10, 60, rY + 12, doc.page.width - 120)
+   681→      rY += 35
+   682→    })
+   683→    doc.y = rY + 10
+   684→  } else {
+   685→    infoBox(doc, 'Aucun r\u00e9sultat RIASEC disponible. Le test d\'orientation n\'a pas encore \u00e9t\u00e9 pass\u00e9.', 'info')
+   686→  }
+   687→
+   688→  // ─── Page 5: Tremplin ──────────────────
+   689→  doc.addPage()
+   690→  drawHeader(doc, 'Tremplin — D\u00e9cision GO / NO GO', 'Analyse de faisabilit\u00e9 du projet')
+   691→  doc.moveDown(0.5)
+   692→
+   693→  const tremplin = user.tremplin
+   694→  if (tremplin) {
+   695→    // Decision badge
+   696→    const decisionStr = tremplin.decision || 'PENDING'
+   697→    decisionBadge(doc, decisionStr, 50, doc.y)
+   698→    doc.y += 40
+   699→
+   700→    sectionHeader(doc, 'Score et progression')
+   701→    bodyText(doc, `Score global : ${tremplin.score ?? '\u2014'} / 100`)
+   702→    bodyText(doc, `\u00c9tape actuelle : ${tremplin.currentStep || 0}`)
+   703→    bodyText(doc, `Compl\u00e9t\u00e9 : ${tremplin.isCompleted ? 'Oui' : 'Non'}`)
+   704→    bodyText(doc, `Date de compl\u00e9tion : ${formatDate(tremplin.completedAt)}`)
+   705→
+   706→    if (tremplin.summary) {
+   707→      doc.moveDown(0.3)
+   708→      sectionHeader(doc, 'Synth\u00e8se')
+   709→      bodyText(doc, tremplin.summary)
+   710→    }
+   711→
+   712→    // Recommendations
+   713→    const recs = parseJson<string[]>(tremplin.recommendations, [])
+   714→    if (recs.length > 0) {
+   715→      doc.moveDown(0.3)
+   716→      sectionHeader(doc, 'Recommandations')
+   717→      recs.forEach((rec) => bullet(doc, String(rec)))
+   718→    }
+   719→  } else {
+   720→    infoBox(doc, 'Le questionnaire Tremplin n\'a pas encore \u00e9t\u00e9 compl\u00e9t\u00e9.', 'info')
+   721→  }
+   722→
+   723→  // ─── Page 6: Financial Summary ──────────
+   724→  doc.addPage()
+   725→  drawHeader(doc, 'Synth\u00e8se financi\u00e8re', 'Pr\u00e9visions sur 3 ans')
+   726→  doc.moveDown(0.5)
+   727→
+   728→  const financial = user.financialForecast
+   729→  if (financial) {
+   730→    // Metric cards
+   731→    const cardW = (doc.page.width - 100 - 20) / 3
+   732→    const cardH = 50
+   733→    metricCard(doc, 'Investissement initial', formatCurrency(financial.initialInvestment), 50, doc.y, cardW, cardH)
+   734→    metricCard(doc, 'Seuil de rentabilit\u00e9', financial.breakevenMonth ? `Mois ${financial.breakevenMonth}` : '\u2014', 50 + cardW + 10, doc.y, cardW, cardH)
+   735→    metricCard(doc, 'CA Ann\u00e9e 1', formatCurrency(financial.year1Revenue), 50 + (cardW + 10) * 2, doc.y, cardW, cardH)
+   736→    doc.y += cardH + 15
+   737→
+   738→    sectionHeader(doc, 'Pr\u00e9visions triennales')
+   739→    simpleTable(
+   740→      doc,
+   741→      ['', 'Ann\u00e9e 1', 'Ann\u00e9e 2', 'Ann\u00e9e 3'],
+   742→      [
+   743→        ['Chiffre d\'affaires', formatCurrency(financial.year1Revenue), formatCurrency(financial.year2Revenue), formatCurrency(financial.year3Revenue)],
+   744→        ['Charges', formatCurrency(financial.year1Expenses), formatCurrency(financial.year2Expenses), formatCurrency(financial.year3Expenses)],
+   745→      ],
+   746→      [130, (doc.page.width - 230) / 3, (doc.page.width - 230) / 3, (doc.page.width - 230) / 3],
+   747→    )
+   748→
+   749→    if (financial.aiSynthesis) {
+   750→      doc.moveDown(0.3)
+   751→      sectionHeader(doc, 'Analyse IA')
+   752→      bodyText(doc, financial.aiSynthesis)
+   753→    }
+   754→  } else {
+   755→    infoBox(doc, 'Aucune pr\u00e9vision financi\u00e8re disponible.', 'info')
+   756→  }
+   757→
+   758→  // ─── Page 7: Motivation Assessment ──────
+   759→  doc.addPage()
+   760→  drawHeader(doc, '\u00c9valuation de la motivation', 'Analyse des motivations \u00e0 la cr\u00e9ation')
+   761→  doc.moveDown(0.5)
+   762→
+   763→  const motivation = user.motivations
+   764→  if (motivation) {
+   765→    const scoresData = parseJson<Record<string, number>>(motivation.scores, {})
+   766→    const scoreEntries = Object.entries(scoresData)
+   767→
+   768→    if (scoreEntries.length > 0) {
+   769→      sectionHeader(doc, 'Scores de motivation')
+   770→      simpleTable(
+   771→        doc,
+   772→        ['Dimension', 'Score'],
+   773→        scoreEntries.map(([key, val]) => [key, `${val}/10`]),
+   774→        [250, doc.page.width - 350],
+   775→      )
+   776→
+   777→      let mY = doc.y + 5
+   778→      scoreEntries.forEach(([key, val]) => {
+   779→        if (mY > doc.page.height - 100) {
+   780→          doc.addPage()
+   781→          mY = 60
+   782→        }
+   783→        progressBar(doc, key, val, 10, 60, mY + 12, doc.page.width - 120)
+   784→        mY += 35
+   785→      })
+   786→      doc.y = mY + 10
+   787→    }
+   788→
+   789→    if (motivation.summary) {
+   790→      sectionHeader(doc, 'Synth\u00e8se')
+   791→      bodyText(doc, motivation.summary)
+   792→    }
+   793→  } else {
+   794→    infoBox(doc, 'L\'\u00e9valuation de la motivation n\'a pas encore \u00e9t\u00e9 effectu\u00e9e.', 'info')
+   795→  }
+   796→
+   797→  // ─── Page 8: CreaScope ─────────────────
+   798→  doc.addPage()
+   799→  drawHeader(doc, 'CreaScope', 'Notes de session et synth\u00e8ses')
+   800→  doc.moveDown(0.5)
+   801→
+   802→  const creascopeSessions = await db.creaScopeSession.findMany({
+   803→    where: { beneficiaryId },
+   804→    orderBy: { scheduledAt: 'desc' },
+   805→    take: 5,
+   806→  })
+   807→
+   808→  if (creascopeSessions.length > 0) {
+   809→    creascopeSessions.forEach((session, idx) => {
+   810→      sectionHeader(doc, `Session ${idx + 1} — ${formatDate(session.scheduledAt)}`)
+   811→      bodyText(doc, `Statut : ${session.status}`)
+   812→      bodyText(doc, `Phase : ${session.currentPhase || '\u2014'}`)
+   813→
+   814→      const phaseNotes = parseJson<Record<string, string>>(session.phaseNotes, {})
+   815→      const noteEntries = Object.entries(phaseNotes)
+   816→      if (noteEntries.length > 0) {
+   817→        subHeader(doc, 'Notes par phase')
+   818→        noteEntries.forEach(([phase, note]) => {
+   819→          if (note) bullet(doc, `${phase} : ${note}`)
+   820→        })
+   821→      }
+   822→
+   823→      if (session.counselorSynthesis) {
+   824→        subHeader(doc, 'Synth\u00e8se conseiller')
+   825→        bodyText(doc, session.counselorSynthesis)
+   826→      }
+   827→
+   828→      const actionPlan = parseJson<Array<{ action: string; deadline?: string; responsible?: string; status?: string }>>(session.actionPlan, [])
+   829→      if (actionPlan.length > 0) {
+   830→        subHeader(doc, 'Plan d\'action')
+   831→        actionPlan.forEach((item) => {
+   832→          bullet(doc, `${item.action}${item.deadline ? ` (\u00e9ch\u00e9ance: ${item.deadline})` : ''}`)
+   833→        })
+   834→      }
+   835→
+   836→      doc.moveDown(0.5)
+   837→    })
+   838→  } else {
+   839→    infoBox(doc, 'Aucune session CreaScope disponible pour ce b\u00e9n\u00e9ficiaire.', 'info')
+   840→  }
+   841→
+   842→  // ─── Page 9: Action Plan ────────────────
+   843→  doc.addPage()
+   844→  drawHeader(doc, 'Plan d\'action', 'Prochaines \u00e9tapes recommand\u00e9es')
+   845→  doc.moveDown(0.5)
+   846→
+   847→  // Gather action items from tremplin and creascope
+   848→  const allActions: string[] = []
+   849→
+   850→  if (tremplin) {
+   851→    const recs = parseJson<string[]>(tremplin.recommendations, [])
+   852→    recs.forEach((r) => allActions.push(String(r)))
+   853→  }
+   854→
+   855→  creascopeSessions.forEach((session) => {
+   856→    const plan = parseJson<Array<{ action: string }>>(session.actionPlan, [])
+   857→    plan.forEach((item) => allActions.push(item.action))
+   858→  })
+   859→
+   860→  if (allActions.length > 0) {
+   861→    sectionHeader(doc, 'Actions identifi\u00e9es')
+   862→    allActions.forEach((action, idx) => {
+   863→      bullet(doc, `${idx + 1}. ${action}`)
+   864→    })
+   865→  } else {
+   866→    infoBox(doc, 'Aucune action identifi\u00e9e pour le moment. Compl\u00e9tez les modules pour g\u00e9n\u00e9rer des recommandations.', 'info')
+   867→  }
+   868→
+   869→  // Next steps template
+   870→  doc.moveDown(1)
+   871→  sectionHeader(doc, '\u00c9tapes suivantes recommand\u00e9es')
+   872→  const nextSteps = [
+   873→    'Compl\u00e9ter les modules diagnostics en attente',
+   874→    'Passer le test Kiviat si pas encore fait',
+   875→    'Finaliser le questionnaire Tremplin',
+   876→    'R\u00e9aliser les pr\u00e9visions financi\u00e8res',
+   877→    'Planifier une session CreaScope avec le conseiller',
+   878→    'G\u00e9n\u00e9rer le Business Plan',
+   879→  ]
+   880→  nextSteps.forEach((step) => bullet(doc, step))
+   881→
+   882→  // Add page numbers and finalize
+   883→  addPageNumbers(doc)
+   884→
+   885→  return { doc, stream }
+   886→}
+   887→
+   888→// ─── PDF Generation: Kiviat ─────────────────
+   889→
+   890→async function generateKiviatPDF(beneficiaryId: string): Promise<{ doc: PDFDocument; stream: PassThrough }> {
+   891→  const { doc, stream } = createPDFDoc('Profil Kiviat')
+   892→  const db = await getDb()
+   893→
+   894→  const user = await db.user.findUnique({
+   895→    where: { id: beneficiaryId },
+   896→    include: {
+   897→      kiviatResults: true,
+   898→      swipeResults: true,
+   899→      swipeAnswers: true,
+   900→    },
+   901→  })
+   902→
+   903→  if (!user) throw new Error('Beneficiary not found')
+   904→
+   905→  const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Non renseign\u00e9'
+   906→  const today = formatDate(new Date())
+   907→
+   908→  // Cover
+   909→  drawCoverPage(doc, 'Profil Kiviat', 'Radar des comp\u00e9tences entrepreneuriales', name, today)
+   910→
+   911→  // Main radar page
+   912→  doc.addPage()
+   913→  drawHeader(doc, 'Radar Kiviat', '8 dimensions \u00e9valu\u00e9es sur 10')
+   914→  doc.moveDown(0.5)
+   915→
+   916→  const kiviatResults = user.kiviatResults || []
+   917→  const categories: string[] = []
+   918→  const scores: number[] = []
+   919→
+   920→  for (const dim of KIVIAT_DIMENSIONS) {
+   921→    const found = kiviatResults.find((kr) => KIVIAT_DIM_MAP[kr.category.toLowerCase()] === dim)
+   922→    categories.push(dim)
+   923→    scores.push(found ? found.score : 0)
+   924→  }
+   925→
+   926→  const centerX = doc.page.width / 2
+   927→  const centerY = 250
+   928→  drawRadarChart(doc, categories, scores, 10, centerX, centerY, 150)
+   929→
+   930→  doc.y = centerY + 180
+   931→
+   932→  // Score detail table
+   933→  sectionHeader(doc, 'D\u00e9tail des scores')
+   934→  simpleTable(
+   935→    doc,
+   936→    ['Dimension', 'Score / 10', 'Niveau', 'Interpr\u00e9tation'],
+   937→    categories.map((cat, i) => {
+   938→      const s = scores[i]
+   939→      let level = 'Besoin d\'accompagnement'
+   940→      let interp = 'Formation ou accompagnement intensif n\u00e9cessaire'
+   941→      if (s >= 8) {
+   942→        level = 'Force majeure'
+   943→        interp = 'Comp\u00e9tence tr\u00e8s d\u00e9velopp\u00e9e, atout majeur'
+   944→      } else if (s >= 6) {
+   945→        level = 'Comp\u00e9tence acquise'
+   946→        interp = 'Bon niveau, consolidation possible'
+   947→      } else if (s >= 4) {
+   948→        level = 'Point d\'am\u00e9lioration'
+   949→        interp = 'Formation ou pratique recommand\u00e9e'
+   950→      }
+   951→      return [cat, s.toFixed(1), level, interp]
+   952→    }),
+   953→    [110, 60, 120, doc.page.width - 390],
+   954→  )
+   955→
+   956→  // Global analysis
+   957→  doc.moveDown(0.5)
+   958→  const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0
+   959→
+   960→  sectionHeader(doc, 'Analyse globale')
+   961→  metricCard(doc, 'Score moyen', avgScore.toFixed(1) + ' / 10', 50, doc.y, 100, 50)
+   962→  const maxIdx = scores.indexOf(Math.max(...scores))
+   963→  const minIdx = scores.indexOf(Math.min(...scores))
+   964→  metricCard(doc, 'Point fort', categories[maxIdx] || '\u2014', 160, doc.y, 120, 50)
+   965→  metricCard(doc, 'Point faible', categories[minIdx] || '\u2014', 290, doc.y, 120, 50)
+   966→  doc.y += 65
+   967→
+   968→  // Detailed analysis per level
+   969→  doc.moveDown(0.5)
+   970→  sectionHeader(doc, 'R\u00e9partition par niveau')
+   971→  const levelCounts = { 'Force majeure': 0, 'Comp\u00e9tence acquise': 0, 'Point d\'am\u00e9lioration': 0, 'Besoin d\'accompagnement': 0 }
+   972→  categories.forEach((_, i) => {
+   973→    const s = scores[i]
+   974→    if (s >= 8) levelCounts['Force majeure']++
+   975→    else if (s >= 6) levelCounts['Comp\u00e9tence acquise']++
+   976→    else if (s >= 4) levelCounts['Point d\'am\u00e9lioration']++
+   977→    else levelCounts['Besoin d\'accompagnement']++
+   978→  })
+   979→
+   980→  simpleTable(
+   981→    doc,
+   982→    ['Niveau', 'Plage', 'Nombre de dimensions', 'Couleur'],
+   983→    [
+   984→      ['Force majeure', '8 — 10', String(levelCounts['Force majeure']), '\u2588 Vert'],
+   985→      ['Comp\u00e9tence acquise', '6 — 7.9', String(levelCounts['Comp\u00e9tence acquise']), '\u2588 Jaune'],
+   986→      ['Point d\'am\u00e9lioration', '4 — 5.9', String(levelCounts['Point d\'am\u00e9lioration']), '\u2588 Orange'],
+   987→      ['Besoin d\'accompagnement', '0 — 3.9', String(levelCounts['Besoin d\'accompagnement']), '\u2588 Rouge'],
+   988→    ],
+   989→    [130, 80, 150, doc.page.width - 460],
+   990→  )
+   991→
+   992→  // Swipe game data (if available)
+   993→  const swipeResults = user.swipeResults || []
+   994→  if (swipeResults.length > 0) {
+   995→    doc.addPage()
+   996→    drawHeader(doc, 'D\u00e9tails — Jeu de cartes', 'R\u00e9sultats du jeu de p\u00e9pites')
+   997→    doc.moveDown(0.5)
+   998→
+   999→    sectionHeader(doc, 'Cartes conserv\u00e9es (P\u00e9pites)')
+  1000→    const kept = swipeResults.filter((r) => r.kept)
+  1001→    const superPepites = kept.filter((r) => r.superPepite)
+  1002→
+  1003→    bodyText(doc, `Total : ${kept.length} cartes conserv\u00e9es sur ${swipeResults.length}`)
+  1004→    bodyText(doc, `Super-p\u00e9pites : ${superPepites.length}`)
+  1005→
+  1006→    if (kept.length > 0) {
+  1007→      sectionHeader(doc, 'Liste des p\u00e9pites')
+  1008→      const tableWidth = doc.page.width - 100
+  1009→      simpleTable(
+  1010→        doc,
+  1011→        ['Comp\u00e9tence', 'Cat\u00e9gorie', 'Confiance', 'Super'],
+  1012→        kept.slice(0, 20).map((r) => [
+  1013→          r.cardTitle,
+  1014→          r.cardCode.split('-')[0],
+  1015→          r.confidence ? `${r.confidence}/5` : '\u2014',
+  1016→          r.superPepite ? '\u2b50' : '',
+  1017→        ]),
+  1018→        [150, 100, 80, tableWidth - 330],
+  1019→      )
+  1020→    }
+  1021→  }
+  1022→
+  1023→  addPageNumbers(doc)
+  1024→  return { doc, stream }
+  1025→}
+  1026→
+  1027→// ─── PDF Generation: Tremplin ───────────────
+  1028→
+  1029→async function generateTremplinPDF(beneficiaryId: string): Promise<{ doc: PDFDocument; stream: PassThrough }> {
+  1030→  const { doc, stream } = createPDFDoc('Tremplin — GO / NO GO')
+  1031→  const db = await getDb()
+  1032→
+  1033→  const user = await db.user.findUnique({
+  1034→    where: { id: beneficiaryId },
+  1035→    include: {
+  1036→      tremplin: true,
+  1037→      creatorJourney: true,
+  1038→      kiviatResults: true,
+  1039→      financialForecast: true,
+  1040→    },
+  1041→  })
+  1042→
+  1043→  if (!user) throw new Error('Beneficiary not found')
+  1044→
+  1045→  const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Non renseign\u00e9'
+  1046→  const today = formatDate(new Date())
+  1047→
+  1048→  // Cover
+  1049→  drawCoverPage(doc, 'Tremplin', 'D\u00e9cision de faisabilit\u00e9 du projet', name, today)
+  1050→
+  1051→  // Decision page
+  1052→  doc.addPage()
+  1053→  drawHeader(doc, 'D\u00e9cision Tremplin', 'R\u00e9sultat de l\'analyse de faisabilit\u00e9')
+  1054→  doc.moveDown(1)
+  1055→
+  1056→  const tremplin = user.tremplin
+  1057→  if (!tremplin) {
+  1058→    infoBox(doc, 'Le questionnaire Tremplin n\'a pas encore \u00e9t\u00e9 compl\u00e9t\u00e9. Veuillez r\u00e9pondre aux 6 \u00e9tapes pour obtenir la d\u00e9cision.', 'warning')
+  1059→    addPageNumbers(doc)
+  1060→    return { doc, stream }
+  1061→  }
+  1062→
+  1063→  // Large decision badge
+  1064→  const decisionStr = tremplin.decision || 'PENDING'
+  1065→  const badgeX = (doc.page.width - 200) / 2
+  1066→  const badgeY = doc.y
+  1067→
+  1068→  // Big badge background
+  1069→  const badgeColor = decisionStr === 'GO' ? COLORS.success : decisionStr === 'GO_CONDITIONNEL' || decisionStr === 'GO_CONDITIONAL' ? COLORS.warning : COLORS.danger
+  1070→  doc.roundedRect(badgeX, badgeY, 200, 60, 10).fill(badgeColor)
+  1071→  doc.fontSize(22).font(FONT_BOLD).fillColor(COLORS.white)
+  1072→  const label = decisionStr === 'GO' ? 'GO' : decisionStr === 'GO_CONDITIONNEL' || decisionStr === 'GO_CONDITIONAL' ? 'GO CONDITIONNEL' : 'NO GO'
+  1073→  doc.text(label, badgeX, badgeY + 18, { width: 200, align: 'center' })
+  1074→  doc.y = badgeY + 80
+  1075→
+  1076→  // Score
+  1077→  sectionHeader(doc, 'Score global')
+  1078→  const score = tremplin.score || 0
+  1079→  progressBar(doc, 'Score Tremplin', score, 100, 60, doc.y + 12, doc.page.width - 120)
+  1080→  doc.y += 35
+  1081→  bodyText(doc, `Score : ${score} / 100 — \u00c9tape ${tremplin.currentStep || 0} / 6`)
+  1082→
+  1083→  // 6-step breakdown
+  1084→  doc.moveDown(0.5)
+  1085→  sectionHeader(doc, 'D\u00e9tail par \u00e9tape')
+  1086→  const responses = parseJson<Record<string, unknown>>(tremplin.responses, {})
+  1087→  const stepLabels = [
+  1088→    '1. Motivation et passion',
+  1089→    '2. Comp\u00e9tences et exp\u00e9rience',
+  1090→    '3. March\u00e9 et concurrence',
+  1091→    '4. Mod\u00e8le \u00e9conomique',
+  1092→    '5. Ressources financi\u00e8res',
+  1093→    '6. Soutien et r\u00e9seau',
+  1094→  ]
+  1095→
+  1096→  stepLabels.forEach((stepLabel, idx) => {
+  1097→    checkPageSpace(doc, 40)
+  1098→    const stepData = responses[`step${idx + 1}`]
+  1099→    const stepScore = typeof stepData === 'object' && stepData !== null
+  1100→      ? (stepData as Record<string, unknown>).score as number | undefined
+  1101→      : undefined
+  1102→    const stepY = doc.y
+  1103→
+  1104→    doc.roundedRect(50, stepY, doc.page.width - 100, 30, 4)
+  1105→      .fillAndStroke(COLORS.bgCard, COLORS.border)
+  1106→
+  1107→    doc.rect(50, stepY, 4, 30).fill(idx < tremplin.currentStep ? COLORS.success : COLORS.border)
+  1108→
+  1109→    doc.fontSize(9).font(FONT_BOLD).fillColor(COLORS.text)
+  1110→      .text(stepLabel, 62, stepY + 8)
+  1111→
+  1112→    if (stepScore !== undefined) {
+  1113→      doc.fontSize(9).font(FONT_BOLD).fillColor(COLORS.primary)
+  1114→        .text(`${stepScore}/20`, doc.page.width - 100, stepY + 8, { width: 40, align: 'right' })
+  1115→    }
+  1116→
+  1117→    doc.y = stepY + 38
+  1118→  })
+  1119→
+  1120→  // AI Synthesis
+  1121→  if (tremplin.summary) {
+  1122→    doc.moveDown(0.5)
+  1123→    sectionHeader(doc, 'Synth\u00e8se IA')
+  1124→    bodyText(doc, tremplin.summary)
+  1125→  }
+  1126→
+  1127→  // Recommendations
+  1128→  doc.moveDown(0.5)
+  1129→  sectionHeader(doc, 'Recommandations')
+  1130→  const recs = parseJson<string[]>(tremplin.recommendations, [])
+  1131→  if (recs.length > 0) {
+  1132→    recs.forEach((rec) => bullet(doc, String(rec)))
+  1133→  } else {
+  1134→    bodyText(doc, 'Aucune recommandation sp\u00e9cifique pour le moment.')
+  1135→  }
+  1136→
+  1137→  addPageNumbers(doc)
+  1138→  return { doc, stream }
+  1139→}
+  1140→
+  1141→// ─── PDF Generation: CreaScope ──────────────
+  1142→
+  1143→async function generateCreaScopePDF(sessionId: string): Promise<{ doc: PDFDocument; stream: PassThrough }> {
+  1144→  const { doc, stream } = createPDFDoc('Rapport CreaScope')
+  1145→  const db = await getDb()
+  1146→
+  1147→  const session = await db.creaScopeSession.findUnique({
+  1148→    where: { id: sessionId },
+  1149→  })
+  1150→
+  1151→  if (!session) throw new Error('Session not found')
+  1152→
+  1153→  // Fetch beneficiary and counselor names separately
+  1154→  const beneficiary = session.beneficiaryId ? await db.user.findUnique({ where: { id: session.beneficiaryId } }) : null
+  1155→  const counselor = session.counselorId ? await db.user.findUnique({ where: { id: session.counselorId } }) : null
+  1156→
+  1157→  const beneficiaryName = beneficiary
+  1158→    ? `${beneficiary.firstName || ''} ${beneficiary.lastName || ''}`.trim()
+  1159→    : 'Non renseign\u00e9'
+  1160→  const counselorName = counselor
+  1161→    ? `${counselor.firstName || ''} ${counselor.lastName || ''}`.trim()
+  1162→    : 'Non renseign\u00e9'
+  1163→
+  1164→  // Cover
+  1165→  drawCoverPage(doc, 'Rapport CreaScope', `Session du ${formatDate(session.scheduledAt)}`, beneficiaryName, formatDate(new Date()))
+  1166→
+  1167→  // Session timeline
+  1168→  doc.addPage()
+  1169→  drawHeader(doc, 'D\u00e9roulement de la session', `Conseiller : ${counselorName}`)
+  1170→  doc.moveDown(0.5)
+  1171→
+  1172→  sectionHeader(doc, 'Informations de la session')
+  1173→  bodyText(doc, `Date planifi\u00e9e : ${formatDate(session.scheduledAt)}`)
+  1174→  bodyText(doc, `Date de d\u00e9but : ${formatDate(session.startedAt)}`)
+  1175→  bodyText(doc, `Date de fin : ${formatDate(session.completedAt)}`)
+  1176→  bodyText(doc, `Statut : ${session.status}`)
+  1177→  bodyText(doc, `Phase actuelle : ${session.currentPhase || '\u2014'}`)
+  1178→  bodyText(doc, `Score de satisfaction : ${session.feedbackScore ? `${session.feedbackScore}/5` : '\u2014'}`)
+  1179→
+  1180→  // Phase durations
+  1181→  const phaseDurations = parseJson<Record<string, number>>(session.phaseDurations, {})
+  1182→  if (Object.keys(phaseDurations).length > 0) {
+  1183→    doc.moveDown(0.3)
+  1184→    sectionHeader(doc, 'Dur\u00e9e par phase')
+  1185→    simpleTable(
+  1186→      doc,
+  1187→      ['Phase', 'Dur\u00e9e (minutes)'],
+  1188→      Object.entries(phaseDurations).map(([phase, dur]) => [phase, `${dur} min`]),
+  1189→      [250, doc.page.width - 350],
+  1190→    )
+  1191→  }
+  1192→
+  1193→  // Per-phase notes
+  1194→  const phaseNotes = parseJson<Record<string, string>>(session.phaseNotes, {})
+  1195→  if (Object.keys(phaseNotes).length > 0) {
+  1196→    doc.moveDown(0.3)
+  1197→    sectionHeader(doc, 'Notes par phase')
+  1198→    Object.entries(phaseNotes).forEach(([phase, note]) => {
+  1199→      if (note) {
+  1200→        subHeader(doc, phase)
+  1201→        bodyText(doc, note)
+  1202→      }
+  1203→    })
+  1204→  }
+  1205→
+  1206→  // Kiviat scores from session
+  1207→  const kiviatScores = parseJson<Record<string, number>>(session.kiviatScores, {})
+  1208→  if (Object.keys(kiviatScores).length > 0) {
+  1209→    doc.addPage()
+  1210→    drawHeader(doc, 'Scores Kiviat de la session', '\u00c9valuation en temps r\u00e9el')
+  1211→    doc.moveDown(0.5)
+  1212→
+  1213→    const categories: string[] = []
+  1214→    const scores: number[] = []
+  1215→    for (const [key, val] of Object.entries(kiviatScores)) {
+  1216→      categories.push(key)
+  1217→      scores.push(val)
+  1218→    }
+  1219→
+  1220→    if (categories.length >= 3) {
+  1221→      const centerX = doc.page.width / 2
+  1222→      const centerY = 250
+  1223→      drawRadarChart(doc, categories, scores, 10, centerX, centerY, 130)
+  1224→      doc.y = centerY + 170
+  1225→    }
+  1226→
+  1227→    sectionHeader(doc, 'Tableau des scores')
+  1228→    simpleTable(
+  1229→      doc,
+  1230→      ['Dimension', 'Score'],
+  1231→      categories.map((cat, i) => [cat, scores[i].toFixed(1)]),
+  1232→      [250, doc.page.width - 350],
+  1233→    )
+  1234→  }
+  1235→
+  1236→  // Tremplin decision from session
+  1237→  if (session.tremplinDecision) {
+  1238→    doc.moveDown(0.5)
+  1239→    sectionHeader(doc, 'D\u00e9cision Tremplin')
+  1240→    decisionBadge(doc, session.tremplinDecision, 50, doc.y)
+  1241→    doc.y += 40
+  1242→  }
+  1243→
+  1244→  // Syntheses
+  1245→  doc.addPage()
+  1246→  drawHeader(doc, 'Synth\u00e8ses', 'Analyse et recommandations')
+  1247→  doc.moveDown(0.5)
+  1248→
+  1249→  if (session.bilanAiSynthesis) {
+  1250→    sectionHeader(doc, 'Synth\u00e8se IA')
+  1251→    bodyText(doc, session.bilanAiSynthesis)
+  1252→  }
+  1253→
+  1254→  if (session.counselorSynthesis) {
+  1255→    sectionHeader(doc, 'Synth\u00e8se du conseiller')
+  1256→    bodyText(doc, session.counselorSynthesis)
+  1257→  }
+  1258→
+  1259→  // Action plan
+  1260→  const actionPlan = parseJson<Array<{ action: string; deadline?: string; responsible?: string; status?: string }>>(session.actionPlan, [])
+  1261→  if (actionPlan.length > 0) {
+  1262→    doc.moveDown(0.5)
+  1263→    sectionHeader(doc, 'Plan d\'action')
+  1264→    const tableWidth = doc.page.width - 100
+  1265→    simpleTable(
+  1266→      doc,
+  1267→      ['Action', 'Responsable', '\u00c9ch\u00e9ance', 'Statut'],
+  1268→      actionPlan.map((item) => [
+  1269→        item.action,
+  1270→        item.responsible || '\u2014',
+  1271→        item.deadline || '\u2014',
+  1272→        item.status || '\u2014',
+  1273→      ]),
+  1274→      [tableWidth * 0.4, tableWidth * 0.2, tableWidth * 0.2, tableWidth * 0.2],
+  1275→    )
+  1276→  }
+  1277→
+  1278→  // Notes
+  1279→  const notes = parseJson<string[]>(session.notes, [])
+  1280→  if (notes.length > 0) {
+  1281→    doc.moveDown(0.5)
+  1282→    sectionHeader(doc, 'Notes libres')
+  1283→    notes.forEach((note) => bullet(doc, String(note)))
+  1284→  }
+  1285→
+  1286→  addPageNumbers(doc)
+  1287→  return { doc, stream }
+  1288→}
+  1289→
+  1290→// ─── PDF Generation: CreaSim ────────────────
+  1291→
+  1292→async function generateCreaSimPDF(beneficiaryId: string): Promise<{ doc: PDFDocument; stream: PassThrough }> {
+  1293→  const { doc, stream } = createPDFDoc('Simulation CreaSim')
+  1294→  const db = await getDb()
+  1295→
+  1296→  const user = await db.user.findUnique({
+  1297→    where: { id: beneficiaryId },
+  1298→    include: {
+  1299→      creasimSimulation: true,
+  1300→      creatorJourney: true,
+  1301→    },
+  1302→  })
+  1303→
+  1304→  if (!user) throw new Error('Beneficiary not found')
+  1305→
+  1306→  const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Non renseign\u00e9'
+  1307→  const today = formatDate(new Date())
+  1308→
+  1309→  // Cover
+  1310→  drawCoverPage(doc, 'Simulation CreaSim', 'Simulateur de rentabilit\u00e9', name, today)
+  1311→
+  1312→  // Inputs page
+  1313→  doc.addPage()
+  1314→  drawHeader(doc, 'Param\u00e8tres de la simulation', 'Donn\u00e9es d\'entr\u00e9e')
+  1315→  doc.moveDown(0.5)
+  1316→
+  1317→  const sim = user.creasimSimulation
+  1318→  if (!sim) {
+  1319→    infoBox(doc, 'Aucune simulation CreaSim disponible. Lancez une simulation pour g\u00e9n\u00e9rer ce rapport.', 'warning')
+  1320→    addPageNumbers(doc)
+  1321→    return { doc, stream }
+  1322→  }
+  1323→
+  1324→  sectionHeader(doc, 'Chiffre d\'affaires mensuel')
+  1325→  bodyText(doc, `Revenu mensuel estim\u00e9 : ${formatCurrency(sim.monthlyRevenue)}`)
+  1326→  bodyText(doc, `Prix de vente moyen : ${formatCurrency(sim.averageSellingPrice)}`)
+  1327→  bodyText(doc, `Co\u00fbt unitaire : ${formatCurrency(sim.unitCost)}`)
+  1328→
+  1329→  sectionHeader(doc, 'Charges')
+  1330→  bodyText(doc, `Taux de charges variables : ${sim.variableChargesRate ?? '\u2014'}%`)
+  1331→  const fixedCharges = parseJson<Array<{ name: string; amount: number }>>(sim.fixedCharges, [])
+  1332→  if (fixedCharges.length > 0) {
+  1333→    subHeader(doc, 'Charges fixes d\u00e9taill\u00e9es')
+  1334→    simpleTable(
+  1335→      doc,
+  1336→      ['Charge', 'Montant'],
+  1337→      fixedCharges.map((fc) => [fc.name, formatCurrency(fc.amount)]),
+  1338→      [250, doc.page.width - 350],
+  1339→    )
+  1340→  }
+  1341→  bodyText(doc, `Total charges fixes : ${formatCurrency(sim.fixedChargesTotal)}`)
+  1342→  bodyText(doc, `Objectif de marge : ${sim.targetMarginRate ?? '\u2014'}%`)
+  1343→
+  1344→  sectionHeader(doc, 'Investissement')
+  1345→  bodyText(doc, `Investissement initial : ${formatCurrency(sim.initialInvestment)}`)
+  1346→
+  1347→  // Results page
+  1348→  doc.addPage()
+  1349→  drawHeader(doc, 'R\u00e9sultats', 'Indicateurs cl\u00e9s de la simulation')
+  1350→  doc.moveDown(0.5)
+  1351→
+  1352→  const cardW = (doc.page.width - 100 - 30) / 4
+  1353→  const cardH = 50
+  1354→
+  1355→  metricCard(doc, 'Marge brute', formatCurrency(sim.grossMarginAmount), 50, doc.y, cardW, cardH)
+  1356→  metricCard(doc, 'Taux marge brute', `${sim.grossMarginRate?.toFixed(1) ?? '\u2014'}%`, 50 + cardW + 10, doc.y, cardW, cardH)
+  1357→  metricCard(doc, 'Marge nette', formatCurrency(sim.netMarginAmount), 50 + (cardW + 10) * 2, doc.y, cardW, cardH)
+  1358→  metricCard(doc, 'Seuil rentabilit\u00e9', `${sim.monthlyBreakeven ? formatCurrency(sim.monthlyBreakeven) : '\u2014'}`, 50 + (cardW + 10) * 3, doc.y, cardW, cardH)
+  1359→  doc.y += cardH + 15
+  1360→
+  1361→  // Second row of cards
+  1362→  metricCard(doc, 'Mois pour seuil', `${sim.breakevenMonths?.toFixed(1) ?? '\u2014'}`, 50, doc.y, cardW, cardH)
+  1363→  metricCard(doc, 'Rentabilit\u00e9 A1', `${sim.profitability1Y?.toFixed(1) ?? '\u2014'}%`, 50 + cardW + 10, doc.y, cardW, cardH)
+  1364→  metricCard(doc, 'Rentabilit\u00e9 A2', `${sim.profitability2Y?.toFixed(1) ?? '\u2014'}%`, 50 + (cardW + 10) * 2, doc.y, cardW, cardH)
+  1365→  metricCard(doc, 'Rentabilit\u00e9 A3', `${sim.profitability3Y?.toFixed(1) ?? '\u2014'}%`, 50 + (cardW + 10) * 3, doc.y, cardW, cardH)
+  1366→  doc.y += cardH + 15
+  1367→
+  1368→  // 3-year projections table
+  1369→  sectionHeader(doc, 'Pr\u00e9visions sur 3 ans')
+  1370→  const tableWidth = doc.page.width - 100
+  1371→  simpleTable(
+  1372→    doc,
+  1373→    ['', 'Ann\u00e9e 1', 'Ann\u00e9e 2', 'Ann\u00e9e 3'],
+  1374→    [
+  1375→      ['Chiffre d\'affaires', formatCurrency(sim.year1Revenue), formatCurrency(sim.year2Revenue), formatCurrency(sim.year3Revenue)],
+  1376→      ['Charges', formatCurrency(sim.year1Expenses), formatCurrency(sim.year2Expenses), formatCurrency(sim.year3Expenses)],
+  1377→      ['Total charges', formatCurrency(sim.totalCharges), '', ''],
+  1378→      ['Charges variables', formatCurrency(sim.variableChargesAmount), '', ''],
+  1379→    ],
+  1380→    [130, (tableWidth - 130) / 3, (tableWidth - 130) / 3, (tableWidth - 130) / 3],
+  1381→  )
+  1382→
+  1383→  // AI Analysis
+  1384→  if (sim.aiAnalysis) {
+  1385→    doc.addPage()
+  1386→    drawHeader(doc, 'Analyse IA', 'Interpr\u00e9tation intelligente des r\u00e9sultats')
+  1387→    doc.moveDown(0.5)
+  1388→    sectionHeader(doc, 'Synth\u00e8se IA')
+  1389→    bodyText(doc, sim.aiAnalysis)
+  1390→
+  1391→    // Verdict
+  1392→    doc.moveDown(0.5)
+  1393→    const netMargin = sim.netMarginRate || 0
+  1394→    if (netMargin >= 15) {
+  1395→      infoBox(doc, 'Verdict : Le projet est rentable. La marge nette est suffisante pour assurer la viabilit\u00e9 de l\'entreprise.', 'success')
+  1396→    } else if (netMargin >= 5) {
+  1397→      infoBox(doc, 'Verdict : Le projet est viable mais la marge est serr\u00e9e. Optimisation des charges recommand\u00e9e.', 'info')
+  1398→    } else {
+  1399→      infoBox(doc, 'Verdict : Le projet pr\u00e9sente un risque de non-rentabilit\u00e9. Revoyez votre mod\u00e8le \u00e9conomique.', 'warning')
+  1400→    }
+  1401→  }
+  1402→
+  1403→  addPageNumbers(doc)
+  1404→  return { doc, stream }
+  1405→}
+  1406→
+  1407→// ─── PDF Generation: Financial ──────────────
+  1408→
+  1409→async function generateFinancialPDF(beneficiaryId: string): Promise<{ doc: PDFDocument; stream: PassThrough }> {
+  1410→  const { doc, stream } = createPDFDoc('Pr\u00e9visions Financi\u00e8res')
+  1411→  const db = await getDb()
+  1412→
+  1413→  const user = await db.user.findUnique({
+  1414→    where: { id: beneficiaryId },
+  1415→    include: {
+  1416→      financialForecast: true,
+  1417→      creasimSimulation: true,
+  1418→      creatorJourney: true,
+  1419→      marketAnalysis: true,
+  1420→    },
+  1421→  })
+  1422→
+  1423→  if (!user) throw new Error('Beneficiary not found')
+  1424→
+  1425→  const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Non renseign\u00e9'
+  1426→  const today = formatDate(new Date())
+  1427→
+  1428→  // Cover
+  1429→  drawCoverPage(doc, 'Pr\u00e9visions Financi\u00e8res', 'Plan financier sur 3 ans', name, today)
+  1430→
+  1431→  // Key metrics page
+  1432→  doc.addPage()
+  1433→  drawHeader(doc, 'Indicateurs cl\u00e9s', 'M\u00e9triques financi\u00e8res principales')
+  1434→  doc.moveDown(0.5)
+  1435→
+  1436→  const fin = user.financialForecast
+  1437→  if (!fin) {
+  1438→    infoBox(doc, 'Aucune pr\u00e9vision financi\u00e8re disponible. Compl\u00e9tez le module financier pour g\u00e9n\u00e9rer ce rapport.', 'warning')
+  1439→    addPageNumbers(doc)
+  1440→    return { doc, stream }
+  1441→  }
+  1442→
+  1443→  // Metric cards
+  1444→  const cardW = (doc.page.width - 100 - 20) / 3
+  1445→  const cardH = 55
+  1446→
+  1447→  metricCard(doc, 'Investissement', formatCurrency(fin.initialInvestment), 50, doc.y, cardW, cardH)
+  1448→  metricCard(doc, 'Seuil rentabilit\u00e9', fin.breakevenMonth ? `Mois ${fin.breakevenMonth}` : '\u2014', 50 + cardW + 10, doc.y, cardW, cardH)
+  1449→  metricCard(doc, 'Secteur', fin.sector || '\u2014', 50 + (cardW + 10) * 2, doc.y, cardW, cardH)
+  1450→  doc.y += cardH + 15
+  1451→
+  1452→  // Revenue vs Expenses table
+  1453→  sectionHeader(doc, 'Revenus vs Charges')
+  1454→  const tableWidth = doc.page.width - 100
+  1455→  simpleTable(
+  1456→    doc,
+  1457→    ['', 'Ann\u00e9e 1', 'Ann\u00e9e 2', 'Ann\u00e9e 3'],
+  1458→    [
+  1459→      ['Chiffre d\'affaires', formatCurrency(fin.year1Revenue), formatCurrency(fin.year2Revenue), formatCurrency(fin.year3Revenue)],
+  1460→      ['Charges totales', formatCurrency(fin.year1Expenses), formatCurrency(fin.year2Expenses), formatCurrency(fin.year3Expenses)],
+  1461→      [
+  1462→        'R\u00e9sultat net',
+  1463→        formatCurrency((fin.year1Revenue || 0) - (fin.year1Expenses || 0)),
+  1464→        formatCurrency((fin.year2Revenue || 0) - (fin.year2Expenses || 0)),
+  1465→        formatCurrency((fin.year3Revenue || 0) - (fin.year3Expenses || 0)),
+  1466→      ],
+  1467→    ],
+  1468→    [140, (tableWidth - 140) / 3, (tableWidth - 140) / 3, (tableWidth - 140) / 3],
+  1469→  )
+  1470→
+  1471→  // Profitability bars
+  1472→  doc.moveDown(0.5)
+  1473→  sectionHeader(doc, 'Barres de rentabilit\u00e9')
+  1474→
+  1475→  const years = [
+  1476→    { label: 'Ann\u00e9e 1', rev: fin.year1Revenue || 0, exp: fin.year1Expenses || 0 },
+  1477→    { label: 'Ann\u00e9e 2', rev: fin.year2Revenue || 0, exp: fin.year2Expenses || 0 },
+  1478→    { label: 'Ann\u00e9e 3', rev: fin.year3Revenue || 0, exp: fin.year3Expenses || 0 },
+  1479→  ]
+  1480→
+  1481→  const maxVal = Math.max(...years.map((y) => Math.max(y.rev, y.exp)), 1)
+  1482→  let barY = doc.y + 5
+  1483→
+  1484→  years.forEach((year) => {
+  1485→    if (barY > doc.page.height - 100) {
+  1486→      doc.addPage()
+  1487→      barY = 60
+  1488→    }
+  1489→
+  1490→    const barW = (doc.page.width - 120) / 2
+  1491→    // Revenue bar
+  1492→    doc.fontSize(8).font(FONT).fillColor(COLORS.textLight)
+  1493→      .text(year.label, 50, barY - 12)
+  1494→
+  1495→    doc.roundedRect(60, barY, barW * (year.rev / maxVal), 14, 3).fill(COLORS.success)
+  1496→    doc.fontSize(7).font(FONT_BOLD).fillColor(COLORS.text)
+  1497→      .text(formatCurrency(year.rev), 60 + barW * (year.rev / maxVal) + 5, barY + 3)
+  1498→
+  1499→    // Expense bar
+  1500→    doc.roundedRect(60, barY + 20, barW * (year.exp / maxVal), 14, 3).fill(COLORS.danger)
+  1501→    doc.fontSize(7).font(FONT_BOLD).fillColor(COLORS.text)
+  1502→      .text(formatCurrency(year.exp), 60 + barW * (year.exp / maxVal) + 5, barY + 23)
+  1503→
+  1504→    // Legend
+  1505→    doc.fontSize(6).font(FONT).fillColor(COLORS.success)
+  1506→      .text('\u2588 Revenus', 60 + barW + 20, barY + 2)
+  1507→    doc.fillColor(COLORS.danger)
+  1508→      .text('\u2588 Charges', 60 + barW + 20, barY + 22)
+  1509→
+  1510→    barY += 55
+  1511→  })
+  1512→  doc.y = barY + 10
+  1513→
+  1514→  // AI Synthesis
+  1515→  if (fin.aiSynthesis) {
+  1516→    doc.moveDown(0.5)
+  1517→    sectionHeader(doc, 'Synth\u00e8se IA')
+  1518→    bodyText(doc, fin.aiSynthesis)
+  1519→  }
+  1520→
+  1521→  // Market Analysis cross-ref
+  1522→  const market = user.marketAnalysis
+  1523→  if (market) {
+  1524→    doc.addPage()
+  1525→    drawHeader(doc, 'Analyse de march\u00e9', 'Contexte concurrentiel')
+  1526→    doc.moveDown(0.5)
+  1527→
+  1528→    if (market.sector) bodyText(doc, `Secteur : ${market.sector}`)
+  1529→    if (market.marketSize) bodyText(doc, `Taille du march\u00e9 : ${market.marketSize}`)
+  1530→    if (market.targetAudience) bodyText(doc, `Cible : ${market.targetAudience}`)
+  1531→
+  1532→    if (market.opportunities) {
+  1533→      sectionHeader(doc, 'Opportunit\u00e9s')
+  1534→      bodyText(doc, market.opportunities)
+  1535→    }
+  1536→    if (market.threats) {
+  1537→      sectionHeader(doc, 'Menaces')
+  1538→      bodyText(doc, market.threats)
+  1539→    }
+  1540→    if (market.aiSynthesis) {
+  1541→      sectionHeader(doc, 'Synth\u00e8se IA March\u00e9')
+  1542→      bodyText(doc, market.aiSynthesis)
+  1543→    }
+  1544→  }
+  1545→
+  1546→  addPageNumbers(doc)
+  1547→  return { doc, stream }
+  1548→}
+  1549→
+  1550→// ─── HTTP Server ────────────────────────────
+  1551→
+  1552→const PORT = 3099
+  1553→
+  1554→const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
+  1555→  const url = req.url || '/'
+  1556→  const method = req.method || 'GET'
+  1557→  const query = parseQuery(url)
+  1558→
+  1559→  // CORS headers
+  1560→  res.setHeader('Access-Control-Allow-Origin', '*')
+  1561→  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  1562→  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  1563→
+  1564→  if (method === 'OPTIONS') {
+  1565→    res.writeHead(204)
+  1566→    res.end()
+  1567→    return
+  1568→  }
+  1569→
+  1570→  try {
+  1571→    // ─── Health Check ─────────────────────
+  1572→    if (url === '/health' || url === '/health/') {
+  1573→      json(res, { status: 'ok', service: 'pdf-service', timestamp: new Date().toISOString() })
+  1574→      return
+  1575→    }
+  1576→
+  1577→    // ─── JWT Verification for all PDF routes ──
+  1578→    const token = query.token
+  1579→    if (!token) {
+  1580→      error(res, 'Token JWT manquant. Ajoutez ?token=<votre_jwt> \u00e0 l\'URL.', 401)
+  1581→      return
+  1582→    }
+  1583→
+  1584→    let payload: { userId: string; email: string; role: string }
+  1585→    try {
+  1586→      payload = await verifyToken(token)
+  1587→    } catch {
+  1588→      error(res, 'Token JWT invalide ou expir\u00e9.', 401)
+  1589→      return
+  1590→    }
+  1591→
+  1592→    // ─── Bilan PDF ────────────────────────
+  1593→    if (url.startsWith('/pdf/bilan')) {
+  1594→      const beneficiaryId = query.beneficiaryId || payload.userId
+  1595→      const { doc, stream } = await generateBilanPDF(beneficiaryId)
+  1596→      await sendPDF(res, doc, stream, `bilan-${beneficiaryId}.pdf`)
+  1597→      return
+  1598→    }
+  1599→
+  1600→    // ─── Kiviat PDF ───────────────────────
+  1601→    if (url.startsWith('/pdf/kiviat')) {
+  1602→      const beneficiaryId = query.beneficiaryId || payload.userId
+  1603→      const { doc, stream } = await generateKiviatPDF(beneficiaryId)
+  1604→      await sendPDF(res, doc, stream, `kiviat-${beneficiaryId}.pdf`)
+  1605→      return
+  1606→    }
+  1607→
+  1608→    // ─── Tremplin PDF ─────────────────────
+  1609→    if (url.startsWith('/pdf/tremplin')) {
+  1610→      const beneficiaryId = query.beneficiaryId || payload.userId
+  1611→      const { doc, stream } = await generateTremplinPDF(beneficiaryId)
+  1612→      await sendPDF(res, doc, stream, `tremplin-${beneficiaryId}.pdf`)
+  1613→      return
+  1614→    }
+  1615→
+  1616→    // ─── CreaScope PDF ────────────────────
+  1617→    if (url.startsWith('/pdf/creascope')) {
+  1618→      const sessionId = query.sessionId
+  1619→      if (!sessionId) {
+  1620→        error(res, 'sessionId requis. Ajoutez ?sessionId=<id_session> \u00e0 l\'URL.', 400)
+  1621→        return
+  1622→      }
+  1623→      const { doc, stream } = await generateCreaScopePDF(sessionId)
+  1624→      await sendPDF(res, doc, stream, `creascope-${sessionId}.pdf`)
+  1625→      return
+  1626→    }
+  1627→
+  1628→    // ─── CreaSim PDF ─────────────────────
+  1629→    if (url.startsWith('/pdf/creasim')) {
+  1630→      const beneficiaryId = query.beneficiaryId || payload.userId
+  1631→      const { doc, stream } = await generateCreaSimPDF(beneficiaryId)
+  1632→      await sendPDF(res, doc, stream, `creasim-${beneficiaryId}.pdf`)
+  1633→      return
+  1634→    }
+  1635→
+  1636→    // ─── Financial PDF ───────────────────
+  1637→    if (url.startsWith('/pdf/financial')) {
+  1638→      const beneficiaryId = query.beneficiaryId || payload.userId
+  1639→      const { doc, stream } = await generateFinancialPDF(beneficiaryId)
+  1640→      await sendPDF(res, doc, stream, `financial-${beneficiaryId}.pdf`)
+  1641→      return
+  1642→    }
+  1643→
+  1644→    // ─── 404 ──────────────────────────────
+  1645→    error(res, `Route non trouv\u00e9e: ${url}`, 404)
+  1646→  } catch (err) {
+  1647→    const message = err instanceof Error ? err.message : 'Erreur interne du serveur'
+  1648→    console.error(`[PDF Service] Error: ${message}`)
+  1649→    if (message.includes('not found')) {
+  1650→      error(res, message, 404)
+  1651→    } else {
+  1652→      error(res, message, 500)
+  1653→    }
+  1654→  }
+  1655→})
+  1656→
+  1657→server.listen(PORT, () => {
+  1658→  console.log(`[PDF Service] Running on port ${PORT}`)
+  1659→  console.log(`[PDF Service] Endpoints:`)
+  1660→  console.log(`  GET /health`)
+  1661→  console.log(`  GET /pdf/bilan?token=<jwt>&beneficiaryId=<id>`)
+  1662→  console.log(`  GET /pdf/kiviat?token=<jwt>&beneficiaryId=<id>`)
+  1663→  console.log(`  GET /pdf/tremplin?token=<jwt>&beneficiaryId=<id>`)
+  1664→  console.log(`  GET /pdf/creascope?token=<jwt>&sessionId=<id>`)
+  1665→  console.log(`  GET /pdf/creasim?token=<jwt>&beneficiaryId=<id>`)
+  1666→  console.log(`  GET /pdf/financial?token=<jwt>&beneficiaryId=<id>`)
+  1667→})
+  1668→
