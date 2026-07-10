@@ -9,7 +9,10 @@ import { db } from '@/lib/db'
 import { success, Errors, handleApiError } from '@/lib/api-response'
 import { getCounselor, AuthRequiredError, AuthForbiddenError, AuthNotFoundError } from '@/app/api/conseiller/_lib/auth'
 import { z } from 'zod'
-import { createId } from '@paralleldrive/cuid2'
+// No external dependency — use built-in crypto.randomUUID() (Node.js 19+)
+function createId(): string {
+  return crypto.randomUUID().replace(/-/g, '')
+}
 
 // ─── Zod schemas ─────────────────────────────
 

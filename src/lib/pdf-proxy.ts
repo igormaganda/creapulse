@@ -8,7 +8,10 @@ import { NextRequest } from 'next/server'
 import { getTokenFromHeader, Errors, handleApiError } from '@/lib/api-response'
 import { verifyToken, AuthError } from '@/lib/auth'
 
-const PDF_SERVICE = 'http://127.0.0.1:3099'
+// PDF service URL: configurable via env var for Vercel deployments
+// Self-hosted: http://127.0.0.1:3099 (default)
+// Vercel: set PDF_SERVICE_URL to your external service (Railway, Fly.io, etc.)
+const PDF_SERVICE = process.env.PDF_SERVICE_URL || 'http://127.0.0.1:3099'
 
 export async function proxyToPdfService(
   request: NextRequest,

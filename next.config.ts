@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // "standalone" for Docker/self-hosted, "serverless" (or omit) for Vercel
+  // Vercel automatically ignores this field, but being explicit avoids confusion
+  ...(process.env.DEPLOY_TARGET === 'docker' ? { output: 'standalone' as const } : {}),
   poweredByHeader: false,
   typescript: {
     // TODO: Fix 241 TypeScript errors across the codebase (bunx tsc --noEmit).

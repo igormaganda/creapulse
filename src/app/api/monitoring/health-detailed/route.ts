@@ -5,7 +5,6 @@
 // ============================================
 
 import { NextRequest } from 'next/server'
-import { accessSync, constants } from 'fs'
 import { db } from '@/lib/db'
 import { success, handleApiError } from '@/lib/api-response'
 import { withAdminAuth } from '@/lib/api-auth'
@@ -13,7 +12,7 @@ import { createLogger } from '@/lib/logger'
 
 const logger = createLogger('HealthDetailed')
 const startTime = Date.now()
-const UPLOAD_DIR = '/home/z/my-project/upload'
+const IS_SERVERLESS = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME
 
 export async function GET(request: NextRequest) {
   try {
@@ -36,15 +35,25 @@ export async function GET(request: NextRequest) {
       dbLatencyMs = Date.now() - dbStart
     }
 
-    // ─── File System Check ───────────────
-    let fsWritable: boolean = false
+    // ─── File System Check (skipped in serverless) ─
+    let fsWritable: boolean | null = null
     let fsError: string | null = null
 
-    try {
-      accessSync(UPLOAD_DIR, constants.W_OK)
-      fsWritable = true
-    } catch (err) {
-      fsError = err instanceof Error ? err.message : String(err)
+    if (!IS_SERVERLESS) {
+      try {
+        // Dynamic import to avoid bundling fs in serverless environments
+        const { accessSync, constants } = await import('fs')
+        const uploadDir = process.env.UPLOAD_DIR || '/home/z/my-project/upload'
+        accessSync(uploadDir, constants.W_OK)
+        fsWritable = true
+      } catch (err) {
+        fsWritable = false
+        fsError = err instanceof Error ? err.message : String(err)
+      }
+    } else {
+      // In serverless, filesystem is not persistent — report as N/A
+      fsWritable = null
+      fsError = 'Filesystem check skipped (serverless environment)'
     }
 
     // ─── Memory Usage ────────────────────
@@ -65,7 +74,7 @@ export async function GET(request: NextRequest) {
     const environment = process.env.NODE_ENV || 'development'
 
     // ─── Overall Status ──────────────────
-    const isHealthy = dbStatus === 'connected' && fsWritable
+    const isHealthy = dbStatus === 'connected' && (fsWritable === true || fsWritable === null)
     const overallStatus = isHealthy ? 'healthy' : 'degraded'
 
     logger.info('Detailed health check executed', {

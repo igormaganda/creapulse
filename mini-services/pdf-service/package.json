@@ -5,7 +5,10 @@
     "dev": "bun --verbose --hot index.ts"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^6.19.3",
+    "@prisma/client": "^6.19.3",
+    "jose": "^6.2.3",
     "pdfkit": "^0.18.0",
-    "jose": "^6.2.3"
+    "pg": "^8.22.0"
   }
 }

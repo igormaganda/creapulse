@@ -2,36 +2,52 @@
 // CreaPulse V2 — PDF Generation Utilities
 // Wraps PDFKit with branded templates and helpers
 // All labels in French
+//
+// ⚠️  VERCEL COMPATIBILITY NOTE:
+// PDFKit uses fs internally for font loading. Default fonts (Helvetica, Courier,
+// Times-Roman) are embedded in the library and work without filesystem.
+// If you add custom fonts, they MUST be loaded from a URL or embedded as base64.
+// For production Vercel deployments, consider moving PDF generation to an
+// external micro-service (Railway/Fly.io) and routing via pdf-proxy.ts.
 // ============================================
 
-import fs from 'fs'
-import path from 'path'
-
-// ─── Fix PDFKit font path resolution in Turbopack ──
-// Turbopack resolves pdfkit's __dirname to /ROOT/ (sandbox container)
-// On Vercel paths start with /var/task/ or /opt/ — patch won't trigger.
-// We guard against double-patching in case this module is re-evaluated.
-const _readFileSyncOriginal = fs.readFileSync.bind(fs)
-const _projectRoot = path.dirname(path.dirname(path.dirname(new URL(import.meta.url).pathname)))
-
-const _PDF_UTILS_PATCHED = Symbol.for('creapulse:fs-patch-applied')
-
-if (!(fs as unknown as Record<symbol, boolean>)[_PDF_UTILS_PATCHED]) {
-  (fs as unknown as Record<symbol, boolean>)[_PDF_UTILS_PATCHED] = true
-
-  function patchedReadFileSync(filePath: string, ...args: unknown[]): Buffer | string {
-    if (typeof filePath === 'string' && filePath.startsWith('/ROOT/')) {
-      const corrected = filePath.replace(/^\/ROOT/, _projectRoot)
-      return _readFileSyncOriginal(corrected, ...args) as Buffer
-    }
-    return _readFileSyncOriginal(filePath, ...args) as Buffer
-  }
-
-  fs.readFileSync = patchedReadFileSync as typeof fs.readFileSync
-  console.warn('[pdf-utils] Patched fs.readFileSync to redirect /ROOT/ paths to project root')
-}
-
 import PDFDocument from 'pdfkit'
+
+// ─── Fix PDFKit font path resolution in Turbopack (self-hosted only) ──
+// This patch is ONLY needed in the Turbopack sandbox where __dirname resolves
+// to /ROOT/. On Vercel serverless, paths are correct by default.
+const IS_SERVERLESS = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME
+
+if (!IS_SERVERLESS) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('fs')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const path = require('path')
+
+    const _readFileSyncOriginal = fs.readFileSync.bind(fs)
+    const _projectRoot = path.dirname(path.dirname(path.dirname(new URL(import.meta.url).pathname)))
+
+    const _PDF_UTILS_PATCHED = Symbol.for('creapulse:fs-patch-applied')
+
+    if (!(fs[_PDF_UTILS_PATCHED])) {
+      fs[_PDF_UTILS_PATCHED] = true
+
+      function patchedReadFileSync(filePath, ...args) {
+        if (typeof filePath === 'string' && filePath.startsWith('/ROOT/')) {
+          const corrected = filePath.replace(/^\/ROOT/, _projectRoot)
+          return _readFileSyncOriginal(corrected, ...args)
+        }
+        return _readFileSyncOriginal(filePath, ...args)
+      }
+
+      fs.readFileSync = patchedReadFileSync
+      console.warn('[pdf-utils] Patched fs.readFileSync to redirect /ROOT/ paths to project root')
+    }
+  } catch {
+    // fs not available — skip patch, PDFKit default fonts will work
+  }
+}
 
 // ─── Constants ─────────────────────────────────
 
