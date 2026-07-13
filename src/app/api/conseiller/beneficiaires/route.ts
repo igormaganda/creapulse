@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
               avatarUrl: true,
               isActive: true,
               createdAt: true,
-              creatorJourney: {
+              creatorJourneys: {
                 select: {
                   currentPhase: true,
                   progressPercent: true,
@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
     }
 
     const formattedBeneficiaires = beneficiaires.map((b) => {
-      const journey = b.user.creatorJourney
+      const journey = b.user.creatorJourneys?.[0]
       return {
         id: b.id,
         firstName: b.user.firstName || '',

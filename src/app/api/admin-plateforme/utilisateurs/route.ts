@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
               organization: { select: { id: true, name: true } },
             },
           },
-          creatorJourney: {
+          creatorJourneys: {
             select: {
               id: true,
               currentPhase: true,
@@ -135,11 +135,11 @@ export async function GET(request: NextRequest) {
       profilBeneficiaire: u.beneficiaryProfile
         ? { scoreProgression: u.beneficiaryProfile.progressScore }
         : null,
-      parcours: u.creatorJourney
+      parcours: u.creatorJourneys?.[0]
         ? {
-            phase: u.creatorJourney.currentPhase,
-            progression: u.creatorJourney.progressPercent,
-            statutBP: u.creatorJourney.bpStatus,
+            phase: u.creatorJourneys[0].currentPhase,
+            progression: u.creatorJourneys[0].progressPercent,
+            statutBP: u.creatorJourneys[0].bpStatus,
           }
         : null,
     }))
@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
         })
         // Créer le parcours créateur
         await tx.creatorJourney.create({
-          data: { userId: newUser.id },
+          data: { userId: newUser.id, enrollmentId: null },
         })
       }
 
@@ -318,7 +318,6 @@ export async function PUT(request: NextRequest) {
           if (existingUser.beneficiaryProfile) {
             await tx.beneficiary.delete({ where: { id: existingUser.beneficiaryProfile.id } })
           }
-          // Supprimer aussi le parcours créateur
           await tx.creatorJourney.deleteMany({ where: { userId: existingUser.id } })
         }
 
@@ -339,7 +338,7 @@ export async function PUT(request: NextRequest) {
             },
           })
           await tx.creatorJourney.create({
-            data: { userId: existingUser.id },
+            data: { userId: existingUser.id, enrollmentId: null },
           })
         }
       }

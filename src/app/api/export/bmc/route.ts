@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { Errors, handleApiError } from '@/lib/api-response'
 import { verifyToken } from '@/lib/auth'
+import { getEnrollmentIdFromRequest, buildCompositeKey } from '@/lib/enrollment-context'
 
 // ─── Auth helper ─────────────────────────────
 
@@ -71,15 +72,16 @@ export async function GET(request: NextRequest) {
     if (!payload) {
       return Errors.unauthorized()
     }
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     // Fetch BMC data
     const bmc = await db.businessModelCanvas.findUnique({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
     })
 
     // Fetch project info for header
     const journey = await db.creatorJourney.findUnique({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
       select: {
         projectTitle: true,
         user: {

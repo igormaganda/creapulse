@@ -43,6 +43,7 @@ import {
 } from 'recharts'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { useTradEmploi } from '@/components/trad-emploi/voice-context'
 
 // ─── Types ──────────────────────────────────
 
@@ -143,8 +144,7 @@ export function MarcheModule() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
-
-  // Sector (preserved from existing API)
+  const { setContext: setVoiceContext } = useTradEmploi()
   const [sector, setSector] = useState('')
 
   // Simulator sliders
@@ -208,6 +208,12 @@ export function MarcheModule() {
       }))
     }
   }, [isLoading, sector, sim, swot, aiSynthesis])
+
+  // ─── Voice context ──────────────────────
+  useEffect(() => {
+    setVoiceContext({ module: 'marche', section: 'analyse-marché' })
+    return () => setVoiceContext({ module: '' })
+  }, [setVoiceContext])
 
   // ─── Calculated KPIs ────────────────────
   const kpis = useMemo(() => {

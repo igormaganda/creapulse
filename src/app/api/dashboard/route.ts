@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { success, Errors, handleApiError } from '@/lib/api-response'
 import { withAuth } from '@/lib/api-auth'
+import { getEnrollmentIdFromRequest, buildCompositeKey } from '@/lib/enrollment-context'
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,6 +9,7 @@ export async function GET(request: NextRequest) {
     if (!auth) return
     const { payload } = auth
     const userId = payload.userId
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     // Try to fetch real data from DB; gracefully degrade if unavailable
     let user: { id: string; email: string; firstName: string | null; lastName: string | null; role: string; avatarUrl: string | null } | null = null
@@ -27,7 +29,7 @@ export async function GET(request: NextRequest) {
           where: { id: userId },
           select: { id: true, email: true, firstName: true, lastName: true, role: true, avatarUrl: true },
         }),
-        db.creatorJourney.findUnique({ where: { userId } }).catch(() => null),
+        db.creatorJourney.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } }).catch(() => null),
         db.moduleResult.count({ where: { userId, completedAt: { not: null } } }).catch(() => 0),
         db.notification.count({ where: { userId, isRead: false } }).catch(() => 0),
         db.appointment.findMany({

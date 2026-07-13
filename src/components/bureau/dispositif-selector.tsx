@@ -6,7 +6,7 @@
 // Shown in the topbar when user has multiple enrollments
 // ============================================
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import {
   Briefcase, Search, Rocket, ChevronDown, Layers,
 } from 'lucide-react'
@@ -37,10 +37,22 @@ function renderIcon(name: string, color: string, className: string) {
 // ─── Component ────────────────────────────
 
 export function DispositifSelector() {
-  const { enrollments, activeDispositifId, setActiveDispositif, setEnrollments, isLoading } = useDispositifStore()
+  const {
+    enrollments,
+    activeDispositifId,
+    setActiveEnrollment,
+    setEnrollments,
+    isLoading,
+    projectInitStatus,
+    setInitDialogOpen,
+  } = useDispositifStore()
   const token = useAuthStore((s) => s.token)
 
   const active = enrollments.find((e) => e.id === activeDispositifId)
+
+  // Track which enrollments have had their init status fetched
+  // to avoid showing the dialog for enrollments that haven't been checked yet
+  const statusFetchedRef = useRef<Set<string>>(new Set())
 
   // Fetch enrollments on mount
   useEffect(() => {
@@ -56,6 +68,18 @@ export function DispositifSelector() {
         const json = await res.json()
         if (json.success && json.data?.enrollments) {
           setEnrollments(json.data.enrollments)
+          // Pre-populate init status from hasProjectData if available
+          for (const e of json.data.enrollments) {
+            if (e.hasProjectData !== undefined) {
+              useDispositifStore.setState((s) => ({
+                projectInitStatus: {
+                  ...s.projectInitStatus,
+                  [e.id]: e.hasProjectData as boolean,
+                },
+              }))
+              statusFetchedRef.current.add(e.id)
+            }
+          }
         }
       } catch {
         // Silently fail — the selector will just not show
@@ -64,6 +88,42 @@ export function DispositifSelector() {
 
     fetchEnrollments()
   }, [token, enrollments.length, setEnrollments])
+
+  // Handle selecting an enrollment
+  const handleSelect = (enrollmentId: string) => {
+    setActiveEnrollment(enrollmentId)
+
+    // Check if this enrollment needs init (after a short delay for the fetch)
+    const enrollment = enrollments.find((e) => e.id === enrollmentId)
+
+    // If we already have hasProjectData from the enrollments list
+    if (enrollment?.hasProjectData === false) {
+      setInitDialogOpen(true, enrollmentId)
+      return
+    }
+
+    // If we already fetched init status
+    if (statusFetchedRef.current.has(enrollmentId)) {
+      if (!projectInitStatus[enrollmentId]) {
+        setInitDialogOpen(true, enrollmentId)
+      }
+      return
+    }
+
+    // Otherwise, the setActiveEnrollment will fetch and we need to react
+    // The dialog will be opened from the effect or on next render
+  }
+
+  // Watch for init status changes to open dialog for newly-fetched statuses
+  useEffect(() => {
+    if (!activeDispositifId) return
+    const status = projectInitStatus[activeDispositifId]
+    if (status === undefined) return
+    statusFetchedRef.current.add(activeDispositifId)
+    if (!status) {
+      setInitDialogOpen(true, activeDispositifId)
+    }
+  }, [activeDispositifId, projectInitStatus])
 
   // Don't render if only one enrollment or none
   if (enrollments.length <= 1 && !isLoading) return null
@@ -107,7 +167,7 @@ export function DispositifSelector() {
             !activeDispositifId && 'bg-accent',
           )}
           onClick={() => {
-            setActiveDispositif(null)
+            setActiveEnrollment(null)
             toast.info('Vue complète — tous les modules affichés')
           }}
         >
@@ -130,9 +190,7 @@ export function DispositifSelector() {
               'flex items-center gap-3 cursor-pointer',
               activeDispositifId === enrollment.id && 'bg-accent',
             )}
-            onClick={() => {
-              setActiveDispositif(enrollment.id)
-            }}
+            onClick={() => handleSelect(enrollment.id)}
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ backgroundColor: enrollment.color + '18' }}>
               {renderIcon(enrollment.icon, enrollment.color, 'h-4 w-4')}
@@ -142,6 +200,11 @@ export function DispositifSelector() {
                 <p className="text-sm font-medium truncate">{enrollment.name}</p>
                 {enrollment.type === 'BASE' && (
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal">Par défaut</Badge>
+                )}
+                {!enrollment.hasProjectData && projectInitStatus[enrollment.id] === false && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-normal text-amber-600 border-amber-300">
+                    Non initié
+                  </Badge>
                 )}
               </div>
               <p className="text-xs text-muted-foreground truncate">

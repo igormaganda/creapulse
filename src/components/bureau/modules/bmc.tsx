@@ -35,6 +35,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { useTradEmploi } from '@/components/trad-emploi/voice-context'
 
 // ─── Types ──────────────────────────────────
 
@@ -95,6 +96,7 @@ export function BusinessModelCanvasModule() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [aiLoadingBlock, setAiLoadingBlock] = useState<string | null>(null)
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { setContext: setVoiceContext } = useTradEmploi()
 
   // ─── Load data on mount ──────────────────
   useEffect(() => {
@@ -350,6 +352,7 @@ export function BusinessModelCanvasModule() {
             value={block.content}
             onChange={(e) => updateBlock(block.id, e.target.value)}
             onBlur={() => handleBlur(block.id)}
+            onFocus={() => setVoiceContext({ module: 'bmc', section: block.title, projectData: { blockId: block.id, content: block.content } })}
             placeholder={block.placeholder}
             className="min-h-[80px] lg:min-h-[100px] text-xs leading-relaxed resize-none bg-white/5 border-white/10 text-neutral-300 placeholder:text-neutral-500 focus-visible:ring-teal-500/30 focus-visible:border-teal-500/30"
           />

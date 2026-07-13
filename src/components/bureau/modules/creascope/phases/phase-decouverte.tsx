@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react'
 import { useCreaScopeStore } from '../creascope-store'
 import { useBureauStore } from '@/components/bureau/bureau-store'
+import { useTradEmploi } from '@/components/trad-emploi/voice-context'
 
 // ─── Kiviat dimensions ────────────────────────
 
@@ -39,6 +41,12 @@ export function PhaseDecouverte() {
   } = useCreaScopeStore()
   const setSection = useBureauStore((s) => s.setSection)
   const setModule = useBureauStore((s) => s.setModule)
+  const { setContext: setVoiceContext } = useTradEmploi()
+
+  // Set voice context for discovery phase
+  useEffect(() => {
+    setVoiceContext({ module: 'creascope', section: 'Découverte (Pépites)' })
+  }, [setVoiceContext])
 
   const hasScores = decouverte.kiviatScores.length > 0
   const maxScore = 10

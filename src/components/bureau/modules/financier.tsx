@@ -36,6 +36,7 @@ import {
   RadialBar,
 } from 'recharts'
 import { toast } from 'sonner'
+import { useTradEmploi } from '@/components/trad-emploi/voice-context'
 
 // ─── Helpers ──────────────────────────────────
 
@@ -162,6 +163,7 @@ export function FinancierModule() {
   const [isSaving, setIsSaving] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
+  const { setContext: setVoiceContext } = useTradEmploi()
 
   // ─── Simulator State ─────────────────────
   const [year1Revenue, setYear1Revenue] = useState(100000)
@@ -266,6 +268,12 @@ export function FinancierModule() {
       }))
     }
   }, [isLoading, year1Revenue, growthRate, year1Expenses, initialInvestment])
+
+  // ─── Voice context ──────────────────────
+  useEffect(() => {
+    setVoiceContext({ module: 'financier', section: 'prévisionnel' })
+    return () => setVoiceContext({ module: '' })
+  }, [setVoiceContext])
 
   // ─── Save & Sync ─────────────────────────
   const handleSaveAndSync = useCallback(async () => {

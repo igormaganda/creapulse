@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { success, handleApiError } from '@/lib/api-response'
 import { withAuth } from '@/lib/api-auth'
+import { getEnrollmentIdFromRequest, buildCompositeKey } from '@/lib/enrollment-context'
 
 // ─── Validation schemas ────────────────────
 
@@ -39,9 +40,10 @@ export async function GET(request: NextRequest) {
     const auth = await withAuth(request)
     if (!auth) return
     const { payload } = auth
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const journey = await db.creatorJourney.findUnique({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
       select: { id: true, visionAnswers: true, projectTitle: true },
     })
 
@@ -78,13 +80,14 @@ export async function PUT(request: NextRequest) {
     const auth = await withAuth(request)
     if (!auth) return
     const { payload } = auth
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const body = await request.json()
     const data = VisionBody.parse(body)
 
     // Merge with existing visionAnswers (preserve profile data)
     const existing = await db.creatorJourney.findUnique({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
       select: { visionAnswers: true },
     })
     const existingAnswers = (existing?.visionAnswers || {}) as Record<string, unknown>
@@ -112,9 +115,10 @@ export async function PUT(request: NextRequest) {
     const completionPercent = Math.round((filledCount / 6) * 100)
 
     await db.creatorJourney.upsert({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
       create: {
         userId: payload.userId,
+        enrollmentId,
         visionAnswers: updatedAnswers as Record<string, unknown>,
         progressPercent: completionPercent,
         currentPhase: 'DISCOVERY',

@@ -9,6 +9,7 @@ import { db } from '@/lib/db'
 import { success, Errors } from '@/lib/api-response'
 import { withAuth } from '@/lib/api-auth'
 import { callZAI, parseJSONFromAI, getZAIErrorMessage, aiUnavailableResponse } from '@/lib/zai-helper'
+import { getEnrollmentIdFromRequest, buildCompositeKey } from '@/lib/enrollment-context'
 
 // ─── Rate limiter (5 per hour per user) ──────
 
@@ -98,7 +99,7 @@ interface BilanAIGenerated {
 
 // ─── Helper: Build parcours data (resilient) ──
 
-async function collectParcoursData(userId: string, tenantId: string): Promise<ParcoursData> {
+async function collectParcoursData(userId: string, tenantId: string, enrollmentId: string | null): Promise<ParcoursData> {
   // Fetch all data using safe queries — individual failures won't crash the whole thing
   // Each query is wrapped in try/catch so partial data is always returned
   let user: Awaited<ReturnType<typeof db.user.findUnique>> = null
@@ -114,7 +115,7 @@ async function collectParcoursData(userId: string, tenantId: string): Promise<Pa
   await Promise.allSettled([
     db.user.findUnique({ where: { id: userId, tenantId: payload.tenantId } }).then(r => { user = r }).catch(() => {}),
     db.beneficiary.findUnique({ where: { userId } }).then(r => { beneficiary = r }).catch(() => {}),
-    db.creatorJourney.findUnique({ where: { userId } }).then(r => { journey = r }).catch(() => {}),
+    db.creatorJourney.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } }).then(r => { journey = r }).catch(() => {}),
     db.riasecResult.findMany({ where: { userId }, orderBy: { profileType: 'asc' } }).then(r => { riasecResults = r }).catch(() => {}),
     db.kiviatResult.findMany({ where: { userId }, orderBy: { category: 'asc' } }).then(r => { kiviatResults = r }).catch(() => {}),
     db.moduleResult.findUnique({ where: { userId_moduleCode: { userId, moduleCode: 'bilan-ia' } } }).then(r => { bilanModuleResult = r }).catch(() => {}),
@@ -439,7 +440,7 @@ export async function GET(request: NextRequest) {
     const { payload } = authResult
 
     // Collect parcours data (resilient — individual query failures won't crash)
-    const parcoursData = await collectParcoursData(payload.userId, payload.tenantId)
+    const parcoursData = await collectParcoursData(payload.userId, payload.tenantId, getEnrollmentIdFromRequest(request))
 
     // Check if a bilan already exists in ModuleResult
     let existingBilan: Awaited<ReturnType<typeof db.moduleResult.findUnique>> = null
@@ -517,7 +518,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Collect parcours data (resilient)
-    const parcoursData = await collectParcoursData(payload.userId, payload.tenantId)
+    const parcoursData = await collectParcoursData(payload.userId, payload.tenantId, getEnrollmentIdFromRequest(request))
 
     // Check minimum data available
     const hasSomeData =

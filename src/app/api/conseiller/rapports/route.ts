@@ -200,7 +200,7 @@ export async function GET(request: NextRequest) {
             select: {
               firstName: true,
               lastName: true,
-              creatorJourney: {
+              creatorJourneys: {
                 select: { currentPhase: true },
               },
             },
@@ -209,7 +209,7 @@ export async function GET(request: NextRequest) {
       })
 
       topBeneficiaires = topBeneficiariesData.map((b) => {
-        const journey = b.user.creatorJourney
+        const journey = b.user.creatorJourneys?.[0]
         return {
           id: b.id,
           name: `${b.user.firstName || ''} ${b.user.lastName || ''}`.trim(),

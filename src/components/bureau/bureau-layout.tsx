@@ -11,8 +11,16 @@ import { TopBar } from './topbar'
 import { Dashboard } from './dashboard'
 import { Welcome } from './welcome'
 import { ErrorBoundary } from './error-boundary'
+import { ProjectInitDialog } from './project-init-dialog'
+import { useDispositifStore } from '@/lib/stores/dispositif-store'
 import { cn } from '@/lib/utils'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Rocket } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { TradEmploiProvider } from '@/components/trad-emploi/voice-context'
+
+/* ─── TradEmploi Voice Widget (lazy loaded) ─── */
+const VoiceWidget = dynamic(() => import('@/components/trad-emploi/voice-widget').then(m => ({ default: m.VoiceWidget })), { ssr: false })
 
 /* ─── Dynamic imports for heavy modules (code splitting) ─── */
 function ModuleLoadingSkeleton() {
@@ -68,7 +76,6 @@ const ELearningModule = dynamic(() => import('./modules/e-learning').then(m => (
 const TresorerieModule = dynamic(() => import('./modules/tresorerie').then(m => ({ default: m.TresorerieModule })), { loading: () => <ModuleLoadingSkeleton />, ssr: false })
 
 /* ─── UI imports (used by SectionOverview and ModulePlaceholder) ─── */
-import { Card, CardContent } from '@/components/ui/card'
 import { ArrowRight, Construction } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -171,6 +178,78 @@ function SectionOverview({ sectionId }: { sectionId: string }) {
 
 /* ─── Module/Section label maps are now imported from module-registry ─── */
 // Use MODULE_LABELS and SECTION_LABELS from @/lib/module-registry
+
+/* ─── Uninitialized enrollment guard ─── */
+function UninitializedGuard({ children }: { children: React.ReactNode }) {
+  const { activeDispositifId, projectInitStatus } = useDispositifStore()
+  const [checked, setChecked] = useState(false)
+
+  useEffect(() => {
+    if (!activeDispositifId) {
+      setChecked(true)
+      return
+    }
+    const status = projectInitStatus[activeDispositifId]
+    if (status !== undefined) {
+      setChecked(true)
+    }
+  }, [activeDispositifId, projectInitStatus])
+
+  // If no active dispositif, show all content
+  if (!activeDispositifId) return <>{children}</>
+
+  // If not yet checked, show nothing (loading)
+  if (!checked) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh] p-8">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  // If initialized, show normal content
+  if (projectInitStatus[activeDispositifId]) return <>{children}</>
+
+  // Not initialized — show centered message
+  const enrollment = useDispositifStore.getState().enrollments.find(
+    (e) => e.id === activeDispositifId,
+  )
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="flex flex-col items-center justify-center min-h-[60vh] p-8"
+    >
+      <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-teal-500/10">
+        <Rocket className="h-10 w-10 text-teal-600" />
+      </div>
+      <h2 className="mt-6 text-xl font-bold text-foreground text-center">
+        Projet non initialisé
+      </h2>
+      <p className="mt-2 max-w-md text-center text-muted-foreground">
+        Veuillez initialiser votre projet pour ce dispositif afin de commencer à travailler sur vos modules.
+      </p>
+      <Button
+        className="mt-6 bg-teal-600 hover:bg-teal-700 text-white gap-2"
+        onClick={() => useDispositifStore.getState().setInitDialogOpen(true, activeDispositifId)}
+      >
+        <Rocket className="h-4 w-4" />
+        Initialiser le projet
+      </Button>
+      {enrollment && (
+        <div className="mt-4 inline-flex items-center gap-2 rounded-full border bg-muted/50 px-3 py-1.5 text-xs font-medium">
+          <span
+            className="inline-block h-2 w-2 rounded-full"
+            style={{ backgroundColor: enrollment.color }}
+          />
+          <span style={{ color: enrollment.color }}>{enrollment.name}</span>
+        </div>
+      )}
+    </motion.div>
+  )
+}
 
 /* ─── Main content router ─── */
 function BureauContent() {
@@ -303,33 +382,43 @@ export function BureauLayout() {
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
             className="relative z-10 flex h-screen w-screen flex-col overflow-hidden rounded-none md:my-3 md:mr-3 md:rounded-2xl border border-border bg-background shadow-2xl"
           >
-            {/* Onboarding check */}
-            {!hasCompletedOnboarding ? (
-              <Welcome />
-            ) : (
-              <>
-                {/* Top Bar */}
-                <TopBar onMenuClick={() => setMobileMenuOpen(true)} />
+            <TradEmploiProvider>
+              {/* Onboarding check */}
+              {!hasCompletedOnboarding ? (
+                <Welcome />
+              ) : (
+                <>
+                  {/* Top Bar */}
+                  <TopBar onMenuClick={() => setMobileMenuOpen(true)} />
 
-                {/* Body: Sidebar + Content */}
-                <div className="flex flex-1 overflow-hidden">
-                  {/* Desktop Sidebar */}
-                  <Sidebar />
+                  {/* Body: Sidebar + Content */}
+                  <div className="flex flex-1 overflow-hidden">
+                    {/* Desktop Sidebar */}
+                    <Sidebar />
 
-                  {/* Main content */}
-                  <main id="bureau-main-content" tabIndex={-1} className="flex-1 overflow-y-auto scrollbar-thin bg-muted/30" aria-label="Contenu du module">
-                    <div id="status-live-region" className="sr-only" aria-live="polite" aria-atomic="true" />
-                    <ErrorBoundary>
-                      <BureauContent />
-                    </ErrorBoundary>
-                  </main>
-                </div>
-              </>
-            )}
+                    {/* Main content */}
+                    <main id="bureau-main-content" tabIndex={-1} className="flex-1 overflow-y-auto scrollbar-thin bg-muted/30" aria-label="Contenu du module">
+                      <div id="status-live-region" className="sr-only" aria-live="polite" aria-atomic="true" />
+                      <ErrorBoundary>
+                        <UninitializedGuard>
+                          <BureauContent />
+                        </UninitializedGuard>
+                      </ErrorBoundary>
+                    </main>
+                  </div>
+                </>
+              )}
+
+              {/* TradEmploi Voice Widget — floating FAB */}
+              <VoiceWidget />
+            </TradEmploiProvider>
           </motion.div>
 
           {/* Mobile Sidebar */}
           <MobileSidebar open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} />
+
+          {/* Project Init Dialog */}
+          <ProjectInitDialog />
 
           {/* IA Assistant FAB + Chat Panel — rendered at page.tsx root, not here */}
         </motion.div>

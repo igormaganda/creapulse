@@ -8,6 +8,7 @@ import { db } from '@/lib/db'
 import { Errors, handleApiError } from '@/lib/api-response'
 import { verifyToken } from '@/lib/auth'
 import PptxGenJS from 'pptxgenjs'
+import { getEnrollmentIdFromRequest, buildCompositeKey } from '@/lib/enrollment-context'
 
 // ─── Auth helper ─────────────────────────────
 
@@ -69,15 +70,16 @@ export async function GET(request: NextRequest) {
     if (!payload) {
       return Errors.unauthorized()
     }
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     // Fetch pitch deck data from ZeroDraft
     const draft = await db.zeroDraft.findUnique({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
     })
 
     // Fetch project info
     const journey = await db.creatorJourney.findUnique({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
       select: {
         projectTitle: true,
         projectDescription: true,

@@ -27,6 +27,7 @@ import {
   type TableRow,
   COLORS,
 } from '@/lib/pdf-utils'
+import { getEnrollmentIdFromRequest, buildCompositeKey } from '@/lib/enrollment-context'
 
 // ─── Module code labels ──────────────────────
 
@@ -80,6 +81,7 @@ export async function GET(request: NextRequest) {
 
     const payload = await verifyToken(token)
     const userId = payload.userId
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     // Fetch user
     const user = await db.user.findUnique({
@@ -92,7 +94,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch journey
     const journey = await db.creatorJourney.findUnique({
-      where: { userId },
+      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
     })
 
     // Fetch Kiviat results
@@ -115,12 +117,12 @@ export async function GET(request: NextRequest) {
 
     // Fetch Tremplin
     const tremplin = await db.tremplin.findUnique({
-      where: { userId },
+      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
     })
 
     // Fetch CreaSim (brief info)
     const creasim = await db.creaSimSimulation.findUnique({
-      where: { userId },
+      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
       select: {
         monthlyRevenue: true,
         grossMarginRate: true,
@@ -132,7 +134,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch BMC (existence check)
     const bmc = await db.businessModelCanvas.findUnique({
-      where: { userId },
+      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
       select: { status: true, generatedAt: true },
     })
 

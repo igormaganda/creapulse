@@ -288,7 +288,7 @@ model User {
   tenant              Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   counselorProfile    Counselor?
   beneficiaryProfile  Beneficiary?
-  creatorJourney      CreatorJourney?
+  creatorJourneys     CreatorJourney[]
   bpSnapshots         BpSnapshot[]
   accounts            Account[]
   sessions            Session[]
@@ -298,13 +298,13 @@ model User {
   riasecResults       RiasecResult[]
   motivations         MotivationAssessment?
   cvUploads           CvUpload[]
-  creasimSimulation   CreaSimSimulation?
-  financialForecast   FinancialForecast?
-  juridiqueAnalysis   JuridiqueAnalysis?
-  businessModelCanvas BusinessModelCanvas?
-  marketAnalysis      MarketAnalysis?
-  tremplin            Tremplin?
-  zeroDraft           ZeroDraft?
+  creasimSimulations  CreaSimSimulation[]
+  financialForecasts FinancialForecast[]
+  juridiqueAnalyses  JuridiqueAnalysis[]
+  businessModelCanvases BusinessModelCanvas[]
+  marketAnalyses     MarketAnalysis[]
+  tremplins          Tremplin[]
+  zeroDrafts         ZeroDraft[]
   networks            Network[]
   discussions         Discussion[]
   replies             Reply[]

@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
+import { useTradEmploi } from '@/components/trad-emploi/voice-context'
 import { toast } from 'sonner'
 import {
   Rocket,
@@ -269,6 +270,7 @@ export function Tremplin() {
   const [finalScore, setFinalScore] = useState<{ score: number; decision: Decision; recommendations: string[]; stepScores: Record<number, { score: number; max: number }> } | null>(null)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
+  const { setContext: setVoiceContext } = useTradEmploi()
 
   // Load saved progress
   useEffect(() => {
@@ -302,6 +304,13 @@ export function Tremplin() {
       finalScore,
     }))
   }, [currentStep, responses, isCompleted, finalScore, loading])
+
+  // ─── Voice context ──────────────────────
+  useEffect(() => {
+    const stepConfig = STEPS[currentStep - 1]
+    setVoiceContext({ module: 'tremplin', section: stepConfig?.title || `étape ${currentStep}` })
+    return () => setVoiceContext({ module: '' })
+  }, [currentStep, setVoiceContext])
 
   const setAnswer = useCallback((questionId: string, value: string | number) => {
     setResponses((prev) => ({ ...prev, [questionId]: value }))

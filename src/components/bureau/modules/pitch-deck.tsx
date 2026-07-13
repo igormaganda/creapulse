@@ -33,6 +33,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { useTradEmploi } from '@/components/trad-emploi/voice-context'
 
 // ─── Types ──────────────────────────────────
 
@@ -93,6 +94,7 @@ export function PitchDeckModule() {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [projectTitle, setProjectTitle] = useState('Mon Pitch Deck')
   const [slides, setSlides] = useState<SlideData[]>([])
+  const { setContext: setVoiceContext } = useTradEmploi()
 
   // ─── Initialize slides ──────────────────
   useEffect(() => {
@@ -206,6 +208,13 @@ export function PitchDeckModule() {
     })
     return { filled, total: slides.length, percent: Math.round((filled / slides.length) * 100) }
   }, [slides])
+
+  // ─── Voice context ──────────────────────
+  useEffect(() => {
+    const slideDef = SLIDE_DEFINITIONS[currentSlide]
+    setVoiceContext({ module: 'pitch-deck', section: `pitch-deck: ${slideDef?.title || 'intro'}` })
+    return () => setVoiceContext({ module: '' })
+  }, [currentSlide, setVoiceContext])
 
   // ─── Navigation ─────────────────────────
   const goNext = useCallback(() => {

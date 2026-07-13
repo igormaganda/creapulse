@@ -1,0 +1,895 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Textarea } from '@/components/ui/textarea'
+     8→import { Label } from '@/components/ui/label'
+     9→import { Badge } from '@/components/ui/badge'
+    10→import { Slider } from '@/components/ui/slider'
+    11→import { Separator } from '@/components/ui/separator'
+    12→import {
+    13→  Popover,
+    14→  PopoverContent,
+    15→  PopoverTrigger,
+    16→} from '@/components/ui/popover'
+    17→import {
+    18→  Globe,
+    19→  Save,
+    20→  Sparkles,
+    21→  Loader2,
+    22→  TrendingUp,
+    23→  TrendingDown,
+    24→  Users,
+    25→  Target,
+    26→  DollarSign,
+    27→  BarChart3,
+    28→  Shield,
+    29→  Check,
+    30→  Circle,
+    31→  Info,
+    32→  Zap,
+    33→  ArrowRight,
+    34→  AlertTriangle,
+    35→  Megaphone,
+    36→} from 'lucide-react'
+    37→import {
+    38→  PieChart,
+    39→  Pie,
+    40→  Cell,
+    41→  ResponsiveContainer,
+    42→  Tooltip,
+    43→} from 'recharts'
+    44→import { toast } from 'sonner'
+    45→import { cn } from '@/lib/utils'
+    46→
+    47→// ─── Types ──────────────────────────────────
+    48→
+    49→interface SwotData {
+    50→  strengths: string
+    51→  weaknesses: string
+    52→  opportunities: string
+    53→  threats: string
+    54→}
+    55→
+    56→interface SimulateurData {
+    57→  tailleMarche: number
+    58→  partDeMarche: number
+    59→  concurrents: number
+    60→  budgetMarketing: number
+    61→  potentielCroissance: number
+    62→}
+    63→
+    64→// ─── Helpers ────────────────────────────────
+    65→
+    66→const DEFAULT_SWOT: SwotData = { strengths: '', weaknesses: '', opportunities: '', threats: '' }
+    67→
+    68→const DEFAULT_SIMULATEUR: SimulateurData = {
+    69→  tailleMarche: 1_000_000,
+    70→  partDeMarche: 5,
+    71→  concurrents: 10,
+    72→  budgetMarketing: 5_000,
+    73→  potentielCroissance: 50,
+    74→}
+    75→
+    76→const formatEur = (v: number) =>
+    77→  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 }).format(v)
+    78→
+    79→// ─── InfoPopover helper ─────────────────────
+    80→
+    81→function InfoPopover({ text }: { text: string }) {
+    82→  return (
+    83→    <Popover>
+    84→      <PopoverTrigger asChild>
+    85→        <button type="button" className="inline-flex items-center justify-center h-5 w-5 rounded-full text-muted-foreground hover:text-[#00838F] hover:bg-[#00838F]/10 transition-colors shrink-0">
+    86→          <Info className="h-3.5 w-3.5" />
+    87→          <span className="sr-only">Aide</span>
+    88→        </button>
+    89→      </PopoverTrigger>
+    90→      <PopoverContent side="top" className="max-w-sm text-sm bg-popover border-border shadow-lg">
+    91→        <p className="text-muted-foreground leading-relaxed">{text}</p>
+    92→      </PopoverContent>
+    93→    </Popover>
+    94→  )
+    95→}
+    96→
+    97→// ─── Traffic Light Component ────────────────
+    98→
+    99→function TrafficLight({ concurrents }: { concurrents: number }) {
+   100→  const level = concurrents < 10 ? 'green' : concurrents <= 30 ? 'yellow' : 'red'
+   101→  const label = concurrents < 10 ? 'Peu concurrentiel' : concurrents <= 30 ? 'Modéré' : 'Intense'
+   102→  const colors = {
+   103→    green: 'bg-green-500',
+   104→    yellow: 'bg-amber-400',
+   105→    red: 'bg-red-500',
+   106→  }
+   107→  const textColors = {
+   108→    green: 'text-green-600',
+   109→    yellow: 'text-amber-600',
+   110→    red: 'text-red-600',
+   111→  }
+   112→  return (
+   113→    <div className="flex items-center gap-2">
+   114→      <div className="flex gap-1">
+   115→        <div className={cn('h-3 w-3 rounded-full', level === 'green' ? 'bg-green-500' : 'bg-muted-foreground/20')} />
+   116→        <div className={cn('h-3 w-3 rounded-full', level === 'yellow' ? 'bg-amber-400' : 'bg-muted-foreground/20')} />
+   117→        <div className={cn('h-3 w-3 rounded-full', level === 'red' ? 'bg-red-500' : 'bg-muted-foreground/20')} />
+   118→      </div>
+   119→      <span className={cn('text-sm font-semibold', textColors[level])}>{label}</span>
+   120→    </div>
+   121→  )
+   122→}
+   123→
+   124→// ─── Animated Number ────────────────────────
+   125→
+   126→function AnimatedValue({ value, format }: { value: number; format: (v: number) => string }) {
+   127→  const formatted = useMemo(() => format(value), [value, format])
+   128→  return (
+   129→    <motion.span
+   130→      key={value}
+   131→      initial={{ opacity: 0, y: -5 }}
+   132→      animate={{ opacity: 1, y: 0 }}
+   133→      className="font-bold text-lg"
+   134→    >
+   135→      {formatted}
+   136→    </motion.span>
+   137→  )
+   138→}
+   139→
+   140→// ─── Main Component ─────────────────────────
+   141→
+   142→export function MarcheModule() {
+   143→  const [isLoading, setIsLoading] = useState(true)
+   144→  const [isSaving, setIsSaving] = useState(false)
+   145→  const [aiLoading, setAiLoading] = useState(false)
+   146→
+   147→  // Sector (preserved from existing API)
+   148→  const [sector, setSector] = useState('')
+   149→
+   150→  // Simulator sliders
+   151→  const [sim, setSim] = useState<SimulateurData>(DEFAULT_SIMULATEUR)
+   152→
+   153→  // SWOT
+   154→  const [swot, setSwot] = useState<SwotData>(DEFAULT_SWOT)
+   155→
+   156→  // AI Synthesis
+   157→  const [aiSynthesis, setAiSynthesis] = useState('')
+   158→
+   159→  // ─── Slider setter helper ────────────────
+   160→  const updateSim = useCallback((key: keyof SimulateurData, val: number) => {
+   161→    setSim(prev => ({ ...prev, [key]: val }))
+   162→  }, [])
+   163→
+   164→  // ─── Load data on mount ──────────────────
+   165→  useEffect(() => {
+   166→    async function load() {
+   167→      const saved = localStorage.getItem('creapulse-marche')
+   168→      if (saved) {
+   169→        try {
+   170→          const parsed = JSON.parse(saved)
+   171→          if (parsed.sector) setSector(parsed.sector)
+   172→          if (parsed.sim) setSim(prev => ({ ...prev, ...parsed.sim }))
+   173→          if (parsed.swot) setSwot(parsed.swot)
+   174→          if (parsed.aiSynthesis) setAiSynthesis(parsed.aiSynthesis)
+   175→        } catch { /* ignore */ }
+   176→      }
+   177→
+   178→      try {
+   179→        const res = await fetch('/api/marche', { credentials: 'include' })
+   180→        if (res.ok) {
+   181→          const json = await res.json()
+   182→          if (json.success && json.data) {
+   183→            const d = json.data
+   184→            if (d.sector) setSector(d.sector)
+   185→            if (d.marketSize && !isNaN(d.marketSize)) setSim(prev => ({ ...prev, tailleMarche: d.marketSize }))
+   186→            if (d.opportunities || d.threats) {
+   187→              setSwot(prev => ({
+   188→                ...prev,
+   189→                opportunities: d.opportunities || prev.opportunities,
+   190→                threats: d.threats || prev.threats,
+   191→              }))
+   192→            }
+   193→            if (d.aiSynthesis) setAiSynthesis(d.aiSynthesis)
+   194→          }
+   195→        }
+   196→      } catch { /* ignore */ }
+   197→
+   198→      setIsLoading(false)
+   199→    }
+   200→    load()
+   201→  }, [])
+   202→
+   203→  // ─── Auto-save to localStorage ──────────
+   204→  useEffect(() => {
+   205→    if (!isLoading) {
+   206→      localStorage.setItem('creapulse-marche', JSON.stringify({
+   207→        sector, sim, swot, aiSynthesis,
+   208→      }))
+   209→    }
+   210→  }, [isLoading, sector, sim, swot, aiSynthesis])
+   211→
+   212→  // ─── Calculated KPIs ────────────────────
+   213→  const kpis = useMemo(() => {
+   214→    const caPotentiel = (sim.tailleMarche * sim.partDeMarche) / 100
+   215→    const coutAcquisitionClient = sim.budgetMarketing > 0 && sim.tailleMarche > 0
+   216→      ? Math.round((sim.budgetMarketing * 12) / Math.max(1, (caPotentiel / Math.max(100, sim.tailleMarche * 0.01))))
+   217→      : 0
+   218→    const coutAcquisitionEstime = sim.budgetMarketing > 0
+   219→      ? Math.round((sim.budgetMarketing / Math.max(1, (caPotentiel / 200))) * 100) / 100
+   220→      : 0
+   221→    const margeConcurrentielle = sim.concurrents < 10 ? 'green' : sim.concurrents <= 30 ? 'yellow' : 'red'
+   222→    const scoreAttractivite = Math.round(
+   223→      (sim.potentielCroissance * 0.3) +
+   224→      ((100 - sim.concurrents * 2) * 0.2) +
+   225→      (Math.min(sim.budgetMarketing, 50000) / 50000 * 100 * 0.15) +
+   226→      (sim.partDeMarche > 0 ? 20 : 0) +
+   227→      (sim.tailleMarche > 5000000 ? 15 : sim.tailleMarche > 1000000 ? 10 : 5)
+   228→    )
+   229→    return { caPotentiel, coutAcquisitionEstime, margeConcurrentielle, scoreAttractivite }
+   230→  }, [sim])
+   231→
+   232→  // ─── Save to API + sync BP ──────────────
+   233→  const handleSaveAndSync = useCallback(async () => {
+   234→    setIsSaving(true)
+   235→    try {
+   236→      // Save to /api/marche
+   237→      const res = await fetch('/api/marche', {
+   238→        method: 'PUT',
+   239→        headers: { 'Content-Type': 'application/json' },
+   240→        credentials: 'include',
+   241→        body: JSON.stringify({
+   242→          sector,
+   243→          marketSize: sim.tailleMarche,
+   244→          growthRate: sim.potentielCroissance,
+   245→          swot,
+   246→          aiSynthesis,
+   247→        }),
+   248→      })
+   249→      const json = await res.json()
+   250→      if (!json.success) {
+   251→        toast.error(json.error?.message || 'Erreur lors de la sauvegarde')
+   252→        return
+   253→      }
+   254→
+   255→      // Sync Business Plan
+   256→      try {
+   257→        await fetch('/api/business-plan', {
+   258→          method: 'PUT',
+   259→          headers: { 'Content-Type': 'application/json' },
+   260→          credentials: 'include',
+   261→          body: JSON.stringify({ action: 'sync-simulators' }),
+   262→        })
+   263→      } catch { /* non-critical */ }
+   264→
+   265→      toast.success('Analyse de marché sauvegardée et BP synchronisé')
+   266→    } catch {
+   267→      toast.error('Erreur de connexion au serveur')
+   268→    } finally {
+   269→      setIsSaving(false)
+   270→    }
+   271→  }, [sector, sim, swot, aiSynthesis])
+   272→
+   273→  // ─── AI Analysis ────────────────────────
+   274→  const handleAiAnalysis = useCallback(async () => {
+   275→    setAiLoading(true)
+   276→    try {
+   277→      const res = await fetch('/api/marche', {
+   278→        method: 'POST',
+   279→        headers: { 'Content-Type': 'application/json' },
+   280→        credentials: 'include',
+   281→        body: JSON.stringify({
+   282→          sector,
+   283→          marketSize: String(sim.tailleMarche),
+   284→          swot,
+   285→          action: 'ai-analyze-market',
+   286→          simulatorData: sim,
+   287→        }),
+   288→      })
+   289→      const json = await res.json()
+   290→      if (json.success && json.data?.synthesis) {
+   291→        setAiSynthesis(json.data.synthesis)
+   292→        toast.success('Analyse IA du marché générée !')
+   293→      } else if (json.success && json.data?.suggestion) {
+   294→        setAiSynthesis(typeof json.data.suggestion === 'string' ? json.data.suggestion : JSON.stringify(json.data.suggestion))
+   295→        toast.success('Analyse IA du marché générée !')
+   296→      } else {
+   297→        toast.error(json.error?.message || 'Erreur lors de la génération IA')
+   298→      }
+   299→    } catch {
+   300→      toast.error('Erreur de connexion au serveur')
+   301→    } finally {
+   302→      setAiLoading(false)
+   303→    }
+   304→  }, [sector, sim, swot])
+   305→
+   306→  // ─── SWOT update ───────────────────────
+   307→  const updateSwot = useCallback((key: keyof SwotData, value: string) => {
+   308→    setSwot(prev => ({ ...prev, [key]: value }))
+   309→  }, [])
+   310→
+   311→  // ─── Pie chart data ────────────────────
+   312→  const pieData = useMemo(() => [
+   313→    { name: 'Votre CA', value: Math.round(kpis.caPotentiel), color: '#00838F' },
+   314→    { name: 'Reste du marché', value: Math.max(0, Math.round(sim.tailleMarche - kpis.caPotentiel)), color: '#E5E7EB' },
+   315→  ], [kpis.caPotentiel, sim.tailleMarche])
+   316→
+   317→  // ─── Completion ─────────────────────────
+   318→  const completion = useMemo(() => {
+   319→    let filled = 0
+   320→    const total = 5
+   321→    if (sim.tailleMarche > 0) filled++
+   322→    if (sim.partDeMarche > 0) filled++
+   323→    if (sim.concurrents > 0) filled++
+   324→    if (Object.values(swot).some(v => v.trim().length > 0)) filled++
+   325→    if (aiSynthesis) filled++
+   326→    return { filled, total, percent: Math.round((filled / total) * 100) }
+   327→  }, [sim, swot, aiSynthesis])
+   328→
+   329→  // ─── Loading skeleton ───────────────────
+   330→  if (isLoading) {
+   331→    return (
+   332→      <div className="p-4 md:p-6 lg:p-8 space-y-6">
+   333→        <div className="h-8 w-64 bg-muted animate-pulse rounded" />
+   334→        <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+   335→        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   336→          {[...Array(4)].map((_, i) => (
+   337→            <div key={i} className="h-48 bg-muted animate-pulse rounded-xl" />
+   338→          ))}
+   339→        </div>
+   340→      </div>
+   341→    )
+   342→  }
+   343→
+   344→  // ─── Main Render ─────────────────────────
+   345→  return (
+   346→    <motion.div
+   347→      initial={{ opacity: 0, y: 20 }}
+   348→      animate={{ opacity: 1, y: 0 }}
+   349→      transition={{ duration: 0.4 }}
+   350→      className="flex-1 overflow-y-auto"
+   351→    >
+   352→      {/* Header */}
+   353→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 md:px-6 border-b bg-background">
+   354→        <div className="flex items-center gap-3">
+   355→          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00838F]/10">
+   356→            <Globe className="h-5 w-5 text-[#00838F]" />
+   357→          </div>
+   358→          <div>
+   359→            <h2 className="text-xl font-bold text-foreground">Simulateur de Marché</h2>
+   360→            <p className="text-xs text-muted-foreground">
+   361→              {completion.filled}/{completion.total} paramètres — {completion.percent}%
+   362→            </p>
+   363→          </div>
+   364→        </div>
+   365→        <div className="flex items-center gap-2 flex-wrap">
+   366→          <Button
+   367→            variant="outline"
+   368→            size="sm"
+   369→            className="gap-1.5 border-[#FFB74D]/40 text-[#FFB74D] hover:bg-[#FFB74D]/10 hover:text-[#FFB74D]"
+   370→            onClick={handleAiAnalysis}
+   371→            disabled={aiLoading}
+   372→          >
+   373→            {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+   374→            Analyser avec l&apos;IA
+   375→          </Button>
+   376→          <Button
+   377→            size="sm"
+   378→            className="gap-1.5 bg-[#00838F] hover:bg-[#00838F]/90 text-white"
+   379→            onClick={handleSaveAndSync}
+   380→            disabled={isSaving}
+   381→          >
+   382→            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+   383→            Enregistrer &amp; synchroniser le BP
+   384→          </Button>
+   385→        </div>
+   386→      </div>
+   387→
+   388→      {/* Content */}
+   389→      <div className="p-4 md:p-6 space-y-6">
+   390→        {/* ── KPI Dashboard ── */}
+   391→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   392→          {/* CA Potentiel */}
+   393→          <Card className="border-[#00838F]/20">
+   394→            <CardContent className="pt-4 pb-4">
+   395→              <div className="flex items-center gap-2 mb-2">
+   396→                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#00838F]/10">
+   397→                  <TrendingUp className="h-4 w-4 text-[#00838F]" />
+   398→                </div>
+   399→                <span className="text-xs text-muted-foreground font-medium">CA potentiel</span>
+   400→              </div>
+   401→              <AnimatedValue value={kpis.caPotentiel} format={formatEur} />
+   402→              <p className="text-[11px] text-muted-foreground mt-1">Taille × Part visée</p>
+   403→            </CardContent>
+   404→          </Card>
+   405→
+   406→          {/* Marge concurrentielle */}
+   407→          <Card className="border-[#00838F]/20">
+   408→            <CardContent className="pt-4 pb-4">
+   409→              <div className="flex items-center gap-2 mb-2">
+   410→                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#00838F]/10">
+   411→                  <Shield className="h-4 w-4 text-[#00838F]" />
+   412→                </div>
+   413→                <span className="text-xs text-muted-foreground font-medium">Marge concurrentielle</span>
+   414→              </div>
+   415→              <TrafficLight concurrents={sim.concurrents} />
+   416→              <p className="text-[11px] text-muted-foreground mt-1">{sim.concurrents} concurrent(s)</p>
+   417→            </CardContent>
+   418→          </Card>
+   419→
+   420→          {/* Coût acquisition client */}
+   421→          <Card className="border-[#00838F]/20">
+   422→            <CardContent className="pt-4 pb-4">
+   423→              <div className="flex items-center gap-2 mb-2">
+   424→                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#FF6B35]/10">
+   425→                  <Target className="h-4 w-4 text-[#FF6B35]" />
+   426→                </div>
+   427→                <span className="text-xs text-muted-foreground font-medium">Coût acq. client estimé</span>
+   428→              </div>
+   429→              <AnimatedValue value={kpis.coutAcquisitionEstime} format={(v) => formatEur(v)} />
+   430→              <p className="text-[11px] text-muted-foreground mt-1">Basé sur budget marketing</p>
+   431→            </CardContent>
+   432→          </Card>
+   433→
+   434→          {/* Score attractivité */}
+   435→          <Card className="border-[#00838F]/20">
+   436→            <CardContent className="pt-4 pb-4">
+   437→              <div className="flex items-center gap-2 mb-2">
+   438→                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#FFB74D]/10">
+   439→                  <Zap className="h-4 w-4 text-[#FFB74D]" />
+   440→                </div>
+   441→                <span className="text-xs text-muted-foreground font-medium">Score d&apos;attractivité</span>
+   442→              </div>
+   443→              <AnimatedValue value={kpis.scoreAttractivite} format={(v) => `${v}/100`} />
+   444→              <div className="w-full h-1.5 bg-muted rounded-full mt-2 overflow-hidden">
+   445→                <motion.div
+   446→                  className={cn('h-full rounded-full', kpis.scoreAttractivite >= 70 ? 'bg-green-500' : kpis.scoreAttractivite >= 40 ? 'bg-amber-400' : 'bg-red-500')}
+   447→                  animate={{ width: `${kpis.scoreAttractivite}%` }}
+   448→                  transition={{ duration: 0.5 }}
+   449→                />
+   450→              </div>
+   451→            </CardContent>
+   452→          </Card>
+   453→        </div>
+   454→
+   455→        {/* ── Market Share Pie Chart ── */}
+   456→        <Card>
+   457→          <CardHeader className="pb-2">
+   458→            <CardTitle className="text-base flex items-center gap-2">
+   459→              <BarChart3 className="h-4 w-4 text-[#00838F]" />
+   460→              Répartition du marché
+   461→            </CardTitle>
+   462→          </CardHeader>
+   463→          <CardContent>
+   464→            <div className="flex flex-col sm:flex-row items-center gap-6">
+   465→              <div className="h-48 w-48 shrink-0" role="img" aria-label="Répartition du marché par segment">
+   466→                <ResponsiveContainer width="100%" height="100%">
+   467→                  <PieChart>
+   468→                    <Pie
+   469→                      data={pieData}
+   470→                      cx="50%"
+   471→                      cy="50%"
+   472→                      innerRadius={40}
+   473→                      outerRadius={70}
+   474→                      paddingAngle={2}
+   475→                      dataKey="value"
+   476→                      stroke="none"
+   477→                    >
+   478→                      {pieData.map((entry, i) => (
+   479→                        <Cell key={i} fill={entry.color} />
+   480→                      ))}
+   481→                    </Pie>
+   482→                    <Tooltip formatter={(value: number) => formatEur(value)} />
+   483→                  </PieChart>
+   484→                </ResponsiveContainer>
+   485→              </div>
+   486→              <div className="space-y-3 flex-1">
+   487→                <div className="flex items-center gap-3">
+   488→                  <div className="h-3 w-3 rounded-full bg-[#00838F]" />
+   489→                  <div>
+   490→                    <p className="text-sm font-medium">Votre part potentielle</p>
+   491→                    <p className="text-lg font-bold text-[#00838F]">{formatEur(kpis.caPotentiel)}</p>
+   492→                  </div>
+   493→                </div>
+   494→                <div className="flex items-center gap-3">
+   495→                  <div className="h-3 w-3 rounded-full bg-gray-200" />
+   496→                  <div>
+   497→                    <p className="text-sm font-medium">Reste du marché</p>
+   498→                    <p className="text-lg font-bold text-muted-foreground">{formatEur(Math.max(0, sim.tailleMarche - kpis.caPotentiel))}</p>
+   499→                  </div>
+   500→                </div>
+   501→              </div>
+   502→            </div>
+   503→          </CardContent>
+   504→        </Card>
+   505→
+   506→        {/* ── Simulator Sliders ── */}
+   507→        <div className="space-y-6">
+   508→          <h3 className="text-base font-semibold flex items-center gap-2">
+   509→            <Target className="h-4 w-4 text-[#FF6B35]" />
+   510→            Paramètres du simulateur
+   511→          </h3>
+   512→
+   513→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   514→            {/* Taille du marché */}
+   515→            <Card>
+   516→              <CardHeader className="pb-3">
+   517→                <div className="flex items-center justify-between">
+   518→                  <div className="flex items-center gap-2">
+   519→                    <CardTitle className="text-base flex items-center gap-2">
+   520→                      <Globe className="h-4 w-4 text-[#00838F]" />
+   521→                      Taille du marché
+   522→                    </CardTitle>
+   523→                    <InfoPopover text="Le marché total adressable (TAM) représente le chiffre d'affaires total généré par votre secteur en France ou dans votre zone cible." />
+   524→                  </div>
+   525→                </div>
+   526→              </CardHeader>
+   527→              <CardContent className="space-y-4">
+   528→                <div className="flex items-center justify-between">
+   529→                  <span className="text-xs text-muted-foreground">0 €</span>
+   530→                  <span className="text-xl font-bold text-[#00838F]">{formatEur(sim.tailleMarche)}</span>
+   531→                  <span className="text-xs text-muted-foreground">10 M€</span>
+   532→                </div>
+   533→                <Slider
+   534→                  value={[sim.tailleMarche]}
+   535→                  onValueChange={([v]) => updateSim('tailleMarche', v)}
+   536→                  min={0}
+   537→                  max={10_000_000}
+   538→                  step={50_000}
+   539→                  className="[&_[role=slider]]:bg-[#00838F] [&_[role=slider]]:border-[#00838F] [&_[data-orientation=horizontal]>.bg-primary]:bg-[#00838F]"
+   540→                />
+   541→                <div className="flex justify-between text-[11px] text-muted-foreground">
+   542→                  <span>50 k€</span>
+   543→                  <span>Pas : 50 000 €</span>
+   544→                  <span>10 M€</span>
+   545→                </div>
+   546→              </CardContent>
+   547→            </Card>
+   548→
+   549→            {/* Part de marché visée */}
+   550→            <Card>
+   551→              <CardHeader className="pb-3">
+   552→                <div className="flex items-center justify-between">
+   553→                  <div className="flex items-center gap-2">
+   554→                    <CardTitle className="text-base flex items-center gap-2">
+   555→                      <Target className="h-4 w-4 text-[#FF6B35]" />
+   556→                      Part de marché visée
+   557→                    </CardTitle>
+   558→                    <InfoPopover text="La part de marché que vous visez. Attention : viser trop haut sans les moyens est irréaliste. Démarrez petit, grandissez progressivement." />
+   559→                  </div>
+   560→                </div>
+   561→              </CardHeader>
+   562→              <CardContent className="space-y-4">
+   563→                <div className="flex items-center justify-between">
+   564→                  <span className="text-xs text-muted-foreground">0,1 %</span>
+   565→                  <span className="text-xl font-bold text-[#FF6B35]">{sim.partDeMarche.toFixed(1)} %</span>
+   566→                  <span className="text-xs text-muted-foreground">50 %</span>
+   567→                </div>
+   568→                <Slider
+   569→                  value={[sim.partDeMarche]}
+   570→                  onValueChange={([v]) => updateSim('partDeMarche', v)}
+   571→                  min={0.1}
+   572→                  max={50}
+   573→                  step={0.1}
+   574→                  className="[&_[role=slider]]:bg-[#FF6B35] [&_[role=slider]]:border-[#FF6B35] [&_[data-orientation=horizontal]>.bg-primary]:bg-[#FF6B35]"
+   575→                />
+   576→                <div className="flex justify-between text-[11px] text-muted-foreground">
+   577→                  <span>Niche</span>
+   578→                  <span>Leader</span>
+   579→                </div>
+   580→              </CardContent>
+   581→            </Card>
+   582→
+   583→            {/* Nombre de concurrents */}
+   584→            <Card>
+   585→              <CardHeader className="pb-3">
+   586→                <div className="flex items-center justify-between">
+   587→                  <div className="flex items-center gap-2">
+   588→                    <CardTitle className="text-base flex items-center gap-2">
+   589→                      <Users className="h-4 w-4 text-[#00838F]" />
+   590→                      Nombre de concurrents
+   591→                    </CardTitle>
+   592→                    <InfoPopover text="Le nombre de concurrents directs sur votre marché. Plus il y en a, plus la concurrence est intense et plus il sera difficile de se démarquer." />
+   593→                  </div>
+   594→                </div>
+   595→              </CardHeader>
+   596→              <CardContent className="space-y-4">
+   597→                <div className="flex items-center justify-between">
+   598→                  <Badge variant="outline" className={sim.concurrents < 10 ? 'border-green-500 text-green-600' : 'text-muted-foreground'}>Peu</Badge>
+   599→                  <span className="text-xl font-bold text-[#00838F]">{sim.concurrents}</span>
+   600→                  <Badge variant="outline" className={sim.concurrents > 30 ? 'border-red-500 text-red-600' : 'text-muted-foreground'}>Intense</Badge>
+   601→                </div>
+   602→                <Slider
+   603→                  value={[sim.concurrents]}
+   604→                  onValueChange={([v]) => updateSim('concurrents', v)}
+   605→                  min={1}
+   606→                  max={50}
+   607→                  step={1}
+   608→                  className="[&_[role=slider]]:bg-[#00838F] [&_[role=slider]]:border-[#00838F] [&_[data-orientation=horizontal]>.bg-primary]:bg-[#00838F]"
+   609→                />
+   610→                <div className="flex justify-between text-[11px] text-muted-foreground">
+   611→                  <span>Peu (1-10)</span>
+   612→                  <span className="text-amber-500 font-medium">Modéré (10-30)</span>
+   613→                  <span>Intense (30+)</span>
+   614→                </div>
+   615→              </CardContent>
+   616→            </Card>
+   617→
+   618→            {/* Budget marketing */}
+   619→            <Card>
+   620→              <CardHeader className="pb-3">
+   621→                <div className="flex items-center justify-between">
+   622→                  <div className="flex items-center gap-2">
+   623→                    <CardTitle className="text-base flex items-center gap-2">
+   624→                      <Megaphone className="h-4 w-4 text-[#FFB74D]" />
+   625→                      Budget marketing
+   626→                    </CardTitle>
+   627→                    <InfoPopover text="Le budget mensuel alloué au marketing et à l'acquisition client. Un budget plus élevé permet une croissance plus rapide mais impacte la rentabilité." />
+   628→                  </div>
+   629→                </div>
+   630→              </CardHeader>
+   631→              <CardContent className="space-y-4">
+   632→                <div className="flex items-center justify-between">
+   633→                  <span className="text-xs text-muted-foreground">0 €/mois</span>
+   634→                  <span className="text-xl font-bold text-[#FFB74D]">{formatEur(sim.budgetMarketing)}<span className="text-sm font-normal text-muted-foreground">/mois</span></span>
+   635→                  <span className="text-xs text-muted-foreground">50 000 €/mois</span>
+   636→                </div>
+   637→                <Slider
+   638→                  value={[sim.budgetMarketing]}
+   639→                  onValueChange={([v]) => updateSim('budgetMarketing', v)}
+   640→                  min={0}
+   641→                  max={50_000}
+   642→                  step={500}
+   643→                  className="[&_[role=slider]]:bg-[#FFB74D] [&_[role=slider]]:border-[#FFB74D] [&_[data-orientation=horizontal]>.bg-primary]:bg-[#FFB74D]"
+   644→                />
+   645→                <div className="flex justify-between text-[11px] text-muted-foreground">
+   646→                  <span>Bootstrapping</span>
+   647→                  <span>Aggressif</span>
+   648→                </div>
+   649→              </CardContent>
+   650→            </Card>
+   651→          </div>
+   652→
+   653→          {/* Potentiel de croissance (full width gauge) */}
+   654→          <Card>
+   655→            <CardHeader className="pb-3">
+   656→              <div className="flex items-center justify-between">
+   657→                <div className="flex items-center gap-2">
+   658→                  <CardTitle className="text-base flex items-center gap-2">
+   659→                    <TrendingUp className="h-4 w-4 text-green-500" />
+   660→                    Potentiel de croissance
+   661→                  </CardTitle>
+   662→                  <InfoPopover text="Le potentiel de croissance du marché estimé sur les 3 à 5 prochaines années. Prenez en compte les tendances, innovations et évolutions réglementaires." />
+   663→                </div>
+   664→                <Badge variant="outline" className={cn(
+   665→                  sim.potentielCroissance >= 70 ? 'border-green-500 text-green-600' :
+   666→                  sim.potentielCroissance >= 40 ? 'border-amber-500 text-amber-600' :
+   667→                  'border-red-500 text-red-600',
+   668→                )}>
+   669→                  {sim.potentielCroissance >= 70 ? 'Élevé' : sim.potentielCroissance >= 40 ? 'Modéré' : 'Faible'}
+   670→                </Badge>
+   671→              </div>
+   672→            </CardHeader>
+   673→            <CardContent className="space-y-4">
+   674→              <div className="flex items-center gap-4">
+   675→                <div className="flex-1">
+   676→                  <Slider
+   677→                    value={[sim.potentielCroissance]}
+   678→                    onValueChange={([v]) => updateSim('potentielCroissance', v)}
+   679→                    min={0}
+   680→                    max={100}
+   681→                    step={1}
+   682→                    className="[&_[role=slider]]:bg-green-500 [&_[role=slider]]:border-green-500 [&_[data-orientation=horizontal]>.bg-primary]:bg-green-500"
+   683→                  />
+   684→                </div>
+   685→                <div className="flex items-center justify-center h-20 w-20 shrink-0">
+   686→                  <svg viewBox="0 0 100 100" className="h-20 w-20 -rotate-90" role="img" aria-label={`Potentiel de croissance : ${Math.round(sim.potentielCroissance)}%`}>
+   687→                    {/* Background arc */}
+   688→                    <circle
+   689→                      cx="50" cy="50" r="40"
+   690→                      fill="none"
+   691→                      stroke="#E5E7EB"
+   692→                      strokeWidth="8"
+   693→                      strokeDasharray={`${2 * Math.PI * 40 * 0.75} ${2 * Math.PI * 40 * 0.25}`}
+   694→                      strokeDashoffset="0"
+   695→                      strokeLinecap="round"
+   696→                    />
+   697→                    {/* Value arc */}
+   698→                    <motion.circle
+   699→                      cx="50" cy="50" r="40"
+   700→                      fill="none"
+   701→                      stroke={sim.potentielCroissance >= 70 ? '#22C55E' : sim.potentielCroissance >= 40 ? '#F59E0B' : '#EF4444'}
+   702→                      strokeWidth="8"
+   703→                      strokeDasharray={`${2 * Math.PI * 40 * 0.75}`}
+   704→                      strokeDashoffset={2 * Math.PI * 40 * 0.75 * (1 - sim.potentielCroissance / 100)}
+   705→                      strokeLinecap="round"
+   706→                      initial={{ strokeDashoffset: 2 * Math.PI * 40 * 0.75 }}
+   707→                      animate={{ strokeDashoffset: 2 * Math.PI * 40 * 0.75 * (1 - sim.potentielCroissance / 100) }}
+   708→                      transition={{ duration: 0.5 }}
+   709→                    />
+   710→                    <text
+   711→                      x="50" y="50"
+   712→                      textAnchor="middle"
+   713→                      dominantBaseline="central"
+   714→                      className="fill-foreground text-xl font-bold"
+   715→                      transform="rotate(90, 50, 50)"
+   716→                    >
+   717→                      {sim.potentielCroissance}%
+   718→                    </text>
+   719→                  </svg>
+   720→                </div>
+   721→              </div>
+   722→              <div className="flex justify-between text-[11px] text-muted-foreground">
+   723→                <span className="text-red-400">0 % — Déclin</span>
+   724→                <span className="text-amber-400">50 % — Stable</span>
+   725→                <span className="text-green-500">100 % — Forte croissance</span>
+   726→              </div>
+   727→            </CardContent>
+   728→          </Card>
+   729→        </div>
+   730→
+   731→        <Separator />
+   732→
+   733→        {/* ── SWOT Analysis (Visual 4-quadrant) ── */}
+   734→        <div className="space-y-4">
+   735→          <h3 className="text-base font-semibold flex items-center gap-2">
+   736→            <Shield className="h-4 w-4 text-[#00838F]" />
+   737→            Analyse SWOT
+   738→            <InfoPopover text="L'analyse SWOT vous permet d'identifier vos Forces et Faiblesses internes, ainsi que les Opportunités et Menaces externes de votre marché." />
+   739→          </h3>
+   740→          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   741→            {/* Forces */}
+   742→            <div className="rounded-xl border-2 border-green-500/30 bg-green-50/50 dark:bg-green-900/10 p-4 space-y-3">
+   743→              <div className="flex items-center gap-2">
+   744→                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-green-500/10">
+   745→                  <TrendingUp className="h-3.5 w-3.5 text-green-600" />
+   746→                </div>
+   747→                <Label className="text-sm font-semibold text-green-700 dark:text-green-400">Forces</Label>
+   748→              </div>
+   749→              <Textarea
+   750→                value={swot.strengths}
+   751→                onChange={e => updateSwot('strengths', e.target.value)}
+   752→                placeholder="Vos avantages compétitifs, expertise, innovation..."
+   753→                className="min-h-[100px] text-sm bg-background/60 border-green-500/20 resize-none"
+   754→              />
+   755→              {swot.strengths && (
+   756→                <div className="flex items-center gap-1">
+   757→                  <Circle className="h-2 w-2 text-green-500" />
+   758→                  <span className="text-[11px] text-green-600">{swot.strengths.split('\n').filter(Boolean).length} élément(s)</span>
+   759→                </div>
+   760→              )}
+   761→            </div>
+   762→
+   763→            {/* Faiblesses */}
+   764→            <div className="rounded-xl border-2 border-red-500/30 bg-red-50/50 dark:bg-red-900/10 p-4 space-y-3">
+   765→              <div className="flex items-center gap-2">
+   766→                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-500/10">
+   767→                  <AlertTriangle className="h-3.5 w-3.5 text-red-600" />
+   768→                </div>
+   769→                <Label className="text-sm font-semibold text-red-700 dark:text-red-400">Faiblesses</Label>
+   770→              </div>
+   771→              <Textarea
+   772→                value={swot.weaknesses}
+   773→                onChange={e => updateSwot('weaknesses', e.target.value)}
+   774→                placeholder="Points à améliorer, manque de moyens, expérience limitée..."
+   775→                className="min-h-[100px] text-sm bg-background/60 border-red-500/20 resize-none"
+   776→              />
+   777→              {swot.weaknesses && (
+   778→                <div className="flex items-center gap-1">
+   779→                  <Circle className="h-2 w-2 text-red-500" />
+   780→                  <span className="text-[11px] text-red-600">{swot.weaknesses.split('\n').filter(Boolean).length} élément(s)</span>
+   781→                </div>
+   782→              )}
+   783→            </div>
+   784→
+   785→            {/* Opportunités */}
+   786→            <div className="rounded-xl border-2 border-sky-500/30 bg-sky-50/50 dark:bg-sky-900/10 p-4 space-y-3">
+   787→              <div className="flex items-center gap-2">
+   788→                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-500/10">
+   789→                  <ArrowRight className="h-3.5 w-3.5 text-sky-600" />
+   790→                </div>
+   791→                <Label className="text-sm font-semibold text-sky-700 dark:text-sky-400">Opportunités</Label>
+   792→              </div>
+   793→              <Textarea
+   794→                value={swot.opportunities}
+   795→                onChange={e => updateSwot('opportunities', e.target.value)}
+   796→                placeholder="Marché en croissance, besoins non satisfaits, aides..."
+   797→                className="min-h-[100px] text-sm bg-background/60 border-sky-500/20 resize-none"
+   798→              />
+   799→              {swot.opportunities && (
+   800→                <div className="flex items-center gap-1">
+   801→                  <Circle className="h-2 w-2 text-sky-500" />
+   802→                  <span className="text-[11px] text-sky-600">{swot.opportunities.split('\n').filter(Boolean).length} élément(s)</span>
+   803→                </div>
+   804→              )}
+   805→            </div>
+   806→
+   807→            {/* Menaces */}
+   808→            <div className="rounded-xl border-2 border-amber-500/30 bg-amber-50/50 dark:bg-amber-900/10 p-4 space-y-3">
+   809→              <div className="flex items-center gap-2">
+   810→                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10">
+   811→                  <Shield className="h-3.5 w-3.5 text-amber-600" />
+   812→                </div>
+   813→                <Label className="text-sm font-semibold text-amber-700 dark:text-amber-400">Menaces</Label>
+   814→              </div>
+   815→              <Textarea
+   816→                value={swot.threats}
+   817→                onChange={e => updateSwot('threats', e.target.value)}
+   818→                placeholder="Concurrence, réglementation, risques économiques..."
+   819→                className="min-h-[100px] text-sm bg-background/60 border-amber-500/20 resize-none"
+   820→              />
+   821→              {swot.threats && (
+   822→                <div className="flex items-center gap-1">
+   823→                  <Circle className="h-2 w-2 text-amber-500" />
+   824→                  <span className="text-[11px] text-amber-600">{swot.threats.split('\n').filter(Boolean).length} élément(s)</span>
+   825→                </div>
+   826→              )}
+   827→            </div>
+   828→          </div>
+   829→        </div>
+   830→
+   831→        {/* ── AI Synthesis ── */}
+   832→        {aiSynthesis && (
+   833→          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+   834→            <Card className="border-[#FFB74D]/30">
+   835→              <CardHeader className="pb-3">
+   836→                <CardTitle className="text-base flex items-center gap-2">
+   837→                  <Sparkles className="h-4 w-4 text-[#FFB74D]" />
+   838→                  Analyse IA du marché
+   839→                </CardTitle>
+   840→              </CardHeader>
+   841→              <CardContent>
+   842→                <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed">
+   843→                  {aiSynthesis}
+   844→                </div>
+   845→              </CardContent>
+   846→            </Card>
+   847→          </motion.div>
+   848→        )}
+   849→
+   850→        {/* ── Bottom Save Bar ── */}
+   851→        <Card className="bg-gradient-to-r from-[#00838F]/5 to-[#FF6B35]/5 border-[#00838F]/20">
+   852→          <CardContent className="py-4">
+   853→            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+   854→              <div className="flex items-center gap-3">
+   855→                <div className="flex items-center gap-1">
+   856→                  {Array.from({ length: 5 }).map((_, i) => (
+   857→                    <div key={i} className={cn(
+   858→                      'h-2 w-2 rounded-full transition-colors',
+   859→                      i < completion.filled ? 'bg-[#00838F]' : 'bg-muted',
+   860→                    )} />
+   861→                  ))}
+   862→                </div>
+   863→                <span className="text-sm text-muted-foreground">
+   864→                  {completion.percent}% complété
+   865→                </span>
+   866→              </div>
+   867→              <div className="flex items-center gap-2">
+   868→                <Button
+   869→                  variant="outline"
+   870→                  size="sm"
+   871→                  className="gap-1.5 border-[#FFB74D]/40 text-[#FFB74D] hover:bg-[#FFB74D]/10 hover:text-[#FFB74D]"
+   872→                  onClick={handleAiAnalysis}
+   873→                  disabled={aiLoading}
+   874→                >
+   875→                  {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+   876→                  Analyser avec l&apos;IA
+   877→                </Button>
+   878→                <Button
+   879→                  size="sm"
+   880→                  className="gap-1.5 bg-[#00838F] hover:bg-[#00838F]/90 text-white"
+   881→                  onClick={handleSaveAndSync}
+   882→                  disabled={isSaving}
+   883→                >
+   884→                  {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+   885→                  Enregistrer &amp; synchroniser le BP
+   886→                </Button>
+   887→              </div>
+   888→            </div>
+   889→          </CardContent>
+   890→        </Card>
+   891→      </div>
+   892→    </motion.div>
+   893→  )
+   894→}
+   895→

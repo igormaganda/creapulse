@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { success, Errors, handleApiError } from '@/lib/api-response'
 import { withAuth } from '@/lib/api-auth'
+import { hasProjectData } from '@/lib/enrollment-context'
 
 // ─── Validation ─────────────────────────────
 
@@ -49,7 +50,8 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    const mapped = enrollments.map((e) => ({
+    // Enrich with project data status
+    const enriched = await Promise.all(enrollments.map(async (e) => ({
       id: e.dispositif.id,
       code: e.dispositif.code,
       name: e.dispositif.name,
@@ -60,15 +62,16 @@ export async function GET(request: NextRequest) {
       progress: e.progress,
       status: e.status,
       projectTitle: e.projectTitle,
-    }))
+      hasProjectData: await hasProjectData(db, userId, e.id),
+    })))
 
     // Active ID: prefer BASE type, otherwise first enrollment
     const activeId =
-      mapped.find((e) => e.type === 'BASE')?.id
-      ?? mapped[0]?.id
+      enriched.find((e) => e.type === 'BASE')?.id
+      ?? enriched[0]?.id
       ?? null
 
-    return success({ enrollments: mapped, activeId })
+    return success({ enrollments: enriched, activeId })
   } catch (err) {
     return handleApiError(err)
   }

@@ -14,6 +14,7 @@ import { success, Errors, handleApiError } from '@/lib/api-response'
 import { verifyToken } from '@/lib/auth'
 import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
+import { getEnrollmentIdFromRequest, buildCompositeKey } from '@/lib/enrollment-context'
 import type {
   ModuleId,
   DataSource,
@@ -359,9 +360,9 @@ function computeHealth(
 
 // ─── Incremental sync: single module → BP ───
 
-async function syncSingleModule(userId: string, module: 'marche' | 'juridique' | 'financier' | 'creasim') {
+async function syncSingleModule(userId: string, enrollmentId: string | null, module: 'marche' | 'juridique' | 'financier' | 'creasim') {
   const journey = await db.creatorJourney.findUnique({
-    where: { userId },
+    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
     select: { bpSections: true, bpSectionMeta: true },
   })
   const existingSections = (journey?.bpSections as Record<string, unknown>) ?? {}
@@ -391,7 +392,7 @@ async function syncSingleModule(userId: string, module: 'marche' | 'juridique' |
 
   switch (module) {
     case 'marche': {
-      const market = await db.marketAnalysis.findUnique({ where: { userId } })
+      const market = await db.marketAnalysis.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } })
       if (market) {
         const parts: string[] = []
         if (market.sector) parts.push(`**Secteur** : ${market.sector}`)
@@ -416,7 +417,7 @@ async function syncSingleModule(userId: string, module: 'marche' | 'juridique' |
       break
     }
     case 'juridique': {
-      const jur = await db.juridiqueAnalysis.findUnique({ where: { userId } })
+      const jur = await db.juridiqueAnalysis.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } })
       if (jur) {
         const parts: string[] = []
         if (jur.recommendedStatus) parts.push(`**Statut recommandé** : ${jur.recommendedStatus}`)
@@ -435,7 +436,7 @@ async function syncSingleModule(userId: string, module: 'marche' | 'juridique' |
       break
     }
     case 'financier': {
-      const fin = await db.financialForecast.findUnique({ where: { userId } })
+      const fin = await db.financialForecast.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } })
       if (fin) {
         const fmtEur = (n: number) => n.toLocaleString('fr-FR')
         const parts: string[] = []
@@ -466,7 +467,7 @@ async function syncSingleModule(userId: string, module: 'marche' | 'juridique' |
       break
     }
     case 'creasim': {
-      const cs = await db.creaSimSimulation.findUnique({ where: { userId } })
+      const cs = await db.creaSimSimulation.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } })
       if (cs) {
         const fmtEur = (n: number) => n.toLocaleString('fr-FR')
         const fmtPct = (n: number) => `${n.toFixed(1)}%`
@@ -495,8 +496,8 @@ async function syncSingleModule(userId: string, module: 'marche' | 'juridique' |
     const bpScore = Math.min(100, Math.round((filledCount / 24) * 100))
 
     await db.creatorJourney.upsert({
-      where: { userId },
-      create: { userId, bpSections: merged as Prisma.InputJsonValue, bpSectionMeta: sectionMeta as Prisma.InputJsonValue, bpScore, bpGeneratedAt: new Date() },
+      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+      create: { userId, enrollmentId, bpSections: merged as Prisma.InputJsonValue, bpSectionMeta: sectionMeta as Prisma.InputJsonValue, bpScore, bpGeneratedAt: new Date() },
       update: { bpSections: merged as Prisma.InputJsonValue, bpSectionMeta: sectionMeta as Prisma.InputJsonValue, bpScore, bpGeneratedAt: new Date() },
     })
   }
@@ -617,7 +618,7 @@ async function computeCrossValidationWarnings(
 
 // ─── Build full pipeline response ───
 
-async function buildPipelineResponse(userId: string) {
+async function buildPipelineResponse(userId: string, enrollmentId: string | null) {
   // Fetch all data sources in parallel
   const [
     journey,
@@ -630,15 +631,15 @@ async function buildPipelineResponse(userId: string) {
     parcoursData,
   ] = await Promise.all([
     db.creatorJourney.findUnique({
-      where: { userId },
+      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
       select: { bpSections: true, bpSectionMeta: true, bpStatus: true, bpScore: true, projectTitle: true, projectSector: true, updatedAt: true },
     }),
-    db.marketAnalysis.findUnique({ where: { userId }, select: { sector: true, targetAudience: true, updatedAt: true } }),
-    db.juridiqueAnalysis.findUnique({ where: { userId }, select: { recommendedStatus: true, updatedAt: true } }),
-    db.financialForecast.findUnique({ where: { userId }, select: { year1Revenue: true, year1Expenses: true, updatedAt: true } }),
-    db.creaSimSimulation.findUnique({ where: { userId }, select: { monthlyRevenue: true, updatedAt: true } }),
+    db.marketAnalysis.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) }, select: { sector: true, targetAudience: true, updatedAt: true } }),
+    db.juridiqueAnalysis.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) }, select: { recommendedStatus: true, updatedAt: true } }),
+    db.financialForecast.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) }, select: { year1Revenue: true, year1Expenses: true, updatedAt: true } }),
+    db.creaSimSimulation.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) }, select: { monthlyRevenue: true, updatedAt: true } }),
     db.businessModelCanvas.findUnique({
-      where: { userId },
+      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
       select: {
         status: true, updatedAt: true,
         partenairesCles: true, activitesCles: true, ressourcesCles: true,
@@ -652,7 +653,7 @@ async function buildPipelineResponse(userId: string) {
       orderBy: { updatedAt: 'desc' },
     }),
     db.creatorJourney.findUnique({
-      where: { userId },
+      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
       select: { projectTitle: true, visionAnswers: true },
     }),
   ])
@@ -694,7 +695,8 @@ async function buildPipelineResponse(userId: string) {
 export async function GET(request: NextRequest) {
   try {
     const payload = await getAuth(request)
-    const data = await buildPipelineResponse(payload.userId)
+    const enrollmentId = getEnrollmentIdFromRequest(request)
+    const data = await buildPipelineResponse(payload.userId, enrollmentId)
     return success(data, 'Pipeline V3 chargé')
   } catch (err) {
     if (err && typeof err === 'object' && 'code' in err) {
@@ -722,20 +724,23 @@ export async function POST(request: NextRequest) {
 
     switch (parsed.data.action) {
       case 'sync-module': {
-        const result = await syncSingleModule(payload.userId, parsed.data.module)
-        const data = await buildPipelineResponse(payload.userId)
+        const enrollmentId = getEnrollmentIdFromRequest(request)
+        const result = await syncSingleModule(payload.userId, enrollmentId, parsed.data.module)
+        const data = await buildPipelineResponse(payload.userId, enrollmentId)
         return success({
           ...data,
           syncResult: result,
         }, `Module ${parsed.data.module} synchronisé : ${result.syncedSections.length} sections mises à jour`)
       }
       case 'refresh': {
-        const data = await buildPipelineResponse(payload.userId)
+        const enrollmentId = getEnrollmentIdFromRequest(request)
+        const data = await buildPipelineResponse(payload.userId, enrollmentId)
         return success(data, 'Pipeline V3 rafraîchi')
       }
       case 'get-timestamps': {
+        const enrollmentId = getEnrollmentIdFromRequest(request)
         const journey = await db.creatorJourney.findUnique({
-          where: { userId: payload.userId },
+          where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
           select: { bpSectionMeta: true },
         })
         const meta = (journey?.bpSectionMeta as BpSectionMeta) ?? {}
@@ -743,18 +748,19 @@ export async function POST(request: NextRequest) {
       }
       case 'cross-validate': {
         // Full cross-validation with fresh data
+        const enrollmentId = getEnrollmentIdFromRequest(request)
         const [
           journey, marketAnalysis, juridiqueAnalysis,
           financialForecast, creasimSimulation,
         ] = await Promise.all([
           db.creatorJourney.findUnique({
-            where: { userId: payload.userId },
+            where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
             select: { bpSections: true, bpSectionMeta: true },
           }),
-          db.marketAnalysis.findUnique({ where: { userId: payload.userId }, select: { updatedAt: true } }),
-          db.juridiqueAnalysis.findUnique({ where: { userId: payload.userId }, select: { recommendedStatus: true, updatedAt: true } }),
-          db.financialForecast.findUnique({ where: { userId: payload.userId }, select: { year1Revenue: true, year1Expenses: true, updatedAt: true } }),
-          db.creaSimSimulation.findUnique({ where: { userId: payload.userId }, select: { monthlyRevenue: true, updatedAt: true } }),
+          db.marketAnalysis.findUnique({ where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) }, select: { updatedAt: true } }),
+          db.juridiqueAnalysis.findUnique({ where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) }, select: { recommendedStatus: true, updatedAt: true } }),
+          db.financialForecast.findUnique({ where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) }, select: { year1Revenue: true, year1Expenses: true, updatedAt: true } }),
+          db.creaSimSimulation.findUnique({ where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) }, select: { monthlyRevenue: true, updatedAt: true } }),
         ])
 
         const bpSections = (journey?.bpSections as Record<string, unknown>) ?? {}

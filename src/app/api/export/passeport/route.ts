@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
 import { verifyToken } from '@/lib/auth'
+import { getEnrollmentIdFromRequest, buildCompositeKey } from '@/lib/enrollment-context'
 
 // ─── Module definitions for passport ─────────
 const PASSPORT_MODULES = [
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
 
     const payload = await verifyToken(token)
     const userId = payload.userId
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     // Fetch user
     const user = await db.user.findUnique({
@@ -53,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch CreatorJourney
     const journey = await db.creatorJourney.findUnique({
-      where: { userId },
+      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
     })
 
     // Fetch all ModuleResults

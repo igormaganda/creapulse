@@ -25,6 +25,7 @@ import {
   type TableColumn,
   type TableRow,
 } from '@/lib/pdf-utils'
+import { getEnrollmentIdFromRequest, buildCompositeKey } from '@/lib/enrollment-context'
 
 export async function GET(request: NextRequest) {
   try {
@@ -37,8 +38,7 @@ export async function GET(request: NextRequest) {
 
     const payload = await verifyToken(token)
     const userId = payload.userId
-
-    // Fetch user
+    const enrollmentId = getEnrollmentIdFromRequest(request)
     const user = await db.user.findUnique({
       where: { id: userId },
       select: { id: true, firstName: true, lastName: true, email: true },
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch journey
     const journey = await db.creatorJourney.findUnique({
-      where: { userId },
+      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
       select: { projectTitle: true, currentPhase: true },
     })
 

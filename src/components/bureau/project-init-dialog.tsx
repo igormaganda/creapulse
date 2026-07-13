@@ -2,57 +2,55 @@
 
 // ============================================
 // CreaPulse V2 — Project Init Dialog
-// Shown when a user switches to an enrollment
-// that has no project data yet.
-// Offers: New project / Import from legacy / Import from another enrollment
+// Shown when user selects a dispositif/enrollment with no project data yet.
+// Options: start fresh (new) or import/clone from another enrollment.
 // ============================================
 
 import { useState, useEffect, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { toast } from 'sonner'
 import {
-  Sparkles, Copy, FolderPlus, Check, AlertCircle,
-  Briefcase, Search, Rocket, Loader2, ArrowRight,
+  Rocket,
+  Copy,
+  FolderPlus,
+  Briefcase,
+  Search,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  ChevronRight,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { useDispositifStore, type DispositifInfo } from '@/lib/stores/dispositif-store'
-import { useAuthStore } from '@/lib/zustand/store'
+import {
+  useDispositifStore,
+  type AvailableProject,
+  type DispositifInfo,
+} from '@/lib/stores/dispositif-store'
 
 // ─── Types ───────────────────────────────────
 
-interface AvailableProject {
-  enrollmentId: string | null
-  dispositifCode: string
-  dispositifName: string
-  dispositifColor: string
-  dispositifIcon: string
-  projectTitle: string | null
-  hasData: boolean
-}
+type InitMode = 'new' | 'import' | null
 
 interface ProjectInitDialogProps {
-  enrollmentId: string | null
-  dispositifInfo: DispositifInfo | null
+  /** Optional enrollment info for display. Falls back to store data. */
+  enrollment?: DispositifInfo
 }
 
-// ─── Icon helper ─────────────────────────────
+// ─── Icon renderer (same pattern as selector, no component variables) ───
 
-function renderIcon(name: string, color: string, className: string) {
+function renderDispositifIcon(name: string, color: string, className: string) {
   switch (name) {
     case 'Search': return <Search className={className} style={{ color }} />
     case 'Rocket': return <Rocket className={className} style={{ color }} />
@@ -60,334 +58,417 @@ function renderIcon(name: string, color: string, className: string) {
   }
 }
 
-// ─── Component ───────────────────────────────
+// ─── Component ────────────────────────────────
 
-export function ProjectInitDialog({ enrollmentId, dispositifInfo }: ProjectInitDialogProps) {
-  const { markProjectInitialized, clearInitPending, enrollments } = useDispositifStore()
-  const token = useAuthStore((s) => s.token)
+export function ProjectInitDialog({ enrollment: enrollmentProp }: ProjectInitDialogProps) {
+  const {
+    initDialogOpen,
+    initDialogEnrollmentId,
+    enrollments,
+    setInitDialogOpen,
+    initProject,
+  } = useDispositifStore()
 
-  const [mode, setMode] = useState<'new' | 'import' | 'legacy'>('new')
+  const activeEnrollment = enrollmentProp
+    ?? enrollments.find((e) => e.id === initDialogEnrollmentId)
+
+  // Local state
+  const [selectedMode, setSelectedMode] = useState<InitMode>(null)
   const [projectTitle, setProjectTitle] = useState('')
-  const [sourceEnrollmentId, setSourceEnrollmentId] = useState<string>('')
   const [availableProjects, setAvailableProjects] = useState<AvailableProject[]>([])
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null)
   const [isLoadingProjects, setIsLoadingProjects] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const isOpen = !!enrollmentId
-  const dispositifName = dispositifInfo?.name ?? 'ce dispositif'
+  const enrollmentId = initDialogEnrollmentId ?? activeEnrollment?.id
 
-  // Fetch available projects when dialog opens in import mode
+  // Fetch available projects for import when dialog opens
   const fetchAvailableProjects = useCallback(async () => {
-    if (!enrollmentId || !token) return
-
+    if (!enrollmentId) return
     setIsLoadingProjects(true)
     try {
-      const res = await fetch(
-        `/api/enrollments/${enrollmentId}/init-project`,
-        {
-          credentials: 'include',
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        },
-      )
+      const res = await fetch(`/api/enrollments/${enrollmentId}/init-project`, {
+        credentials: 'include',
+      })
       if (res.ok) {
         const json = await res.json()
         if (json.success && json.data?.availableProjects) {
           setAvailableProjects(json.data.availableProjects)
-          // Auto-select first source if importing
-          if (json.data.availableProjects.length > 0) {
-            const first = json.data.availableProjects[0]
-            setSourceEnrollmentId(first.enrollmentId ?? 'legacy')
-          }
         }
       }
     } catch {
-      // Silent fail
+      // Silently fail — import option just won't show
     } finally {
       setIsLoadingProjects(false)
     }
-  }, [enrollmentId, token])
+  }, [enrollmentId])
 
   useEffect(() => {
-    if (isOpen && enrollmentId) {
-      setMode('new')
-      setProjectTitle(dispositifInfo?.name ?? '')
-      setSourceEnrollmentId('')
+    if (initDialogOpen && enrollmentId) {
       fetchAvailableProjects()
+    } else {
+      // Reset state on close
+      setSelectedMode(null)
+      setProjectTitle('')
+      setSelectedSourceId(null)
+      setAvailableProjects([])
     }
-  }, [isOpen, enrollmentId, dispositifInfo?.name, fetchAvailableProjects])
+  }, [initDialogOpen, enrollmentId, fetchAvailableProjects])
 
-  // Handle submission
+  // ─── Submit handler ───
+
   const handleSubmit = async () => {
-    if (!enrollmentId || !token) return
+    if (!selectedMode || !enrollmentId) return
 
     setIsSubmitting(true)
-    try {
-      const body: Record<string, string> = { mode }
-      if (mode === 'new') {
-        if (!projectTitle.trim()) {
-          toast.error('Veuillez saisir un nom de projet.')
-          setIsSubmitting(false)
-          return
-        }
-        body.projectTitle = projectTitle.trim()
-      } else if (mode === 'import') {
-        if (!sourceEnrollmentId) {
-          toast.error('Veuillez sélectionner un projet source.')
-          setIsSubmitting(false)
-          return
-        }
-        body.sourceEnrollmentId = sourceEnrollmentId
-      }
-      // mode === 'legacy' needs no extra params
+    let mode: 'new' | 'import' | 'legacy' = selectedMode
 
-      const res = await fetch(
-        `/api/enrollments/${enrollmentId}/init-project`,
-        {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify(body),
-        },
-      )
+    // If source is the legacy (null enrollmentId) project, use 'legacy' mode
+    if (selectedMode === 'import' && selectedSourceId === '__legacy__') {
+      mode = 'legacy'
+    }
 
-      const json = await res.json()
+    const result = await initProject(
+      enrollmentId,
+      mode,
+      selectedSourceId === '__legacy__' ? null : selectedSourceId,
+      projectTitle || undefined,
+    )
 
-      if (res.ok && json.success) {
-        const cloned = json.data?.cloned ?? 0
-        if (mode === 'new') {
-          toast.success('Nouveau projet créé !', {
-            description: `"${projectTitle}" est prêt pour ${dispositifName}.`,
-          })
-        } else {
-          toast.success('Projet importé !', {
-            description: `${cloned} élément(s) importé(s) dans ${dispositifName}.`,
-          })
-        }
-        markProjectInitialized(enrollmentId, true)
-      } else {
-        toast.error(json.message || 'Erreur lors de l\'initialisation.')
-      }
-    } catch {
-      toast.error('Erreur réseau. Veuillez réessayer.')
-    } finally {
-      setIsSubmitting(false)
+    setIsSubmitting(false)
+
+    if (result.success) {
+      toast.success(result.message || 'Projet initialisé avec succès')
+    } else {
+      toast.error(result.message || 'Erreur lors de l\'initialisation')
     }
   }
 
-  // Handle cancel — go back to previous dispositif
-  const handleCancel = () => {
-    clearInitPending()
-    // Don't close dialog via state — parent controls visibility
-  }
+  // ─── Determine if submit is disabled ───
+  const canSubmit =
+    selectedMode === 'new' ||
+    (selectedMode === 'import' && selectedSourceId !== null)
 
-  // Don't render if no enrollment specified
-  if (!isOpen || !enrollmentId) return null
-
-  const hasLegacyData = availableProjects.some((p) => p.enrollmentId === null)
-  const otherEnrollments = availableProjects.filter((p) => p.enrollmentId !== null)
+  const hasAvailableProjects = availableProjects.length > 0
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleCancel() }}>
-      <DialogContent className="sm:max-w-[520px] p-0 gap-0 overflow-hidden">
-        {/* Header with gradient */}
+    <Dialog
+      open={initDialogOpen}
+      onOpenChange={(open) => {
+        if (!open && !isSubmitting) {
+          setInitDialogOpen(false)
+        }
+      }}
+    >
+      <DialogContent
+        className="sm:max-w-[520px] p-0 overflow-hidden"
+        showCloseButton={!isSubmitting}
+      >
+        {/* Header with teal gradient accent */}
         <div className="px-6 pt-6 pb-4">
           <DialogHeader>
-            <div className="flex items-center gap-3 mb-2">
-              <div
-                className="flex h-10 w-10 items-center justify-center rounded-xl"
-                style={{ backgroundColor: (dispositifInfo?.color ?? '#6366f1') + '20' }}
-              >
-                {renderIcon(dispositifInfo?.icon ?? 'Briefcase', dispositifInfo?.color ?? '#6366f1', 'h-5 w-5')}
-              </div>
-              <div>
-                <DialogTitle className="text-lg">
-                  Initialiser le projet
-                </DialogTitle>
-                <DialogDescription className="text-sm">
-                  pour {dispositifName}
-                </DialogDescription>
-              </div>
-            </div>
+            <DialogTitle className="text-xl font-bold text-foreground">
+              Initialiser votre projet
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground mt-1.5">
+              {activeEnrollment
+                ? `Commencez votre parcours « ${activeEnrollment.name} » en créant ou important un projet.`
+                : 'Commencez votre parcours en créant ou important un projet.'}
+            </DialogDescription>
           </DialogHeader>
 
-          <p className="text-sm text-muted-foreground mt-3">
-            Ce dispositif n'a pas encore de données de projet. Comment souhaitez-vous procéder ?
-          </p>
+          {/* Dispositif badge */}
+          {activeEnrollment && (
+            <div className="mt-3 inline-flex items-center gap-2 rounded-full border bg-muted/50 px-3 py-1.5 text-xs font-medium">
+              <span
+                className="inline-block h-2 w-2 rounded-full"
+                style={{ backgroundColor: activeEnrollment.color }}
+              />
+              <span style={{ color: activeEnrollment.color }}>
+                {activeEnrollment.name}
+              </span>
+              {activeEnrollment.projectTitle && (
+                <>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="text-muted-foreground">
+                    {activeEnrollment.projectTitle}
+                  </span>
+                </>
+              )}
+            </div>
+          )}
         </div>
-
-        <Separator />
 
         {/* Mode selection */}
-        <div className="px-6 py-4">
-          <RadioGroup
-            value={mode}
-            onValueChange={(v) => setMode(v as typeof mode)}
-            className="space-y-3"
-          >
-            {/* Option 1: New project */}
-            <label
-              htmlFor="mode-new"
-              className={cn(
-                'flex items-start gap-3 rounded-xl border-2 p-4 cursor-pointer transition-all',
-                mode === 'new' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/30 hover:bg-muted/50',
-              )}
+        <AnimatePresence mode="wait">
+          {selectedMode === null ? (
+            <motion.div
+              key="mode-select"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="px-6 pb-6 space-y-3"
             >
-              <RadioGroupItem value="new" id="mode-new" className="mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-amber-500" />
-                  <span className="text-sm font-semibold">Nouveau projet</span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Commencer avec un projet vierge. Vous pourrez le remplir progressivement.
-                </p>
-                {mode === 'new' && (
-                  <div className="mt-3 ml-6">
-                    <Label htmlFor="project-title" className="text-xs text-muted-foreground">
-                      Nom du projet
-                    </Label>
+              {/* Option 1: New project */}
+              <Card
+                className="cursor-pointer border-dashed border-2 hover:border-teal-500/50 hover:bg-teal-500/[0.03] transition-all duration-200 group py-4"
+                onClick={() => setSelectedMode('new')}
+              >
+                <CardContent className="flex items-center gap-4 p-0 px-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-500/10 group-hover:bg-teal-500/20 transition-colors">
+                    <Rocket className="h-5 w-5 text-teal-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground">
+                      Nouveau projet
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Commencer à zéro avec un projet vide
+                    </p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0" />
+                </CardContent>
+              </Card>
+
+              {/* Option 2: Import project */}
+              <Card
+                className={cn(
+                  'cursor-pointer border-dashed border-2 transition-all duration-200 group py-4',
+                  isLoadingProjects
+                    ? 'opacity-60 pointer-events-none'
+                    : !hasAvailableProjects && !isLoadingProjects
+                      ? 'opacity-40 pointer-events-none'
+                      : 'hover:border-teal-500/50 hover:bg-teal-500/[0.03]',
+                )}
+                onClick={() => {
+                  if (hasAvailableProjects) setSelectedMode('import')
+                }}
+              >
+                <CardContent className="flex items-center gap-4 p-0 px-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-500/10 group-hover:bg-teal-500/20 transition-colors">
+                    <Copy className="h-5 w-5 text-teal-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground">
+                      Importer un projet existant
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {isLoadingProjects
+                        ? 'Chargement des projets disponibles…'
+                        : hasAvailableProjects
+                          ? `${availableProjects.length} projet(s) disponible(s) pour import`
+                          : 'Aucun projet existant à importer'}
+                    </p>
+                  </div>
+                  {isLoadingProjects ? (
+                    <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
+                  ) : hasAvailableProjects ? (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0" />
+                  ) : null}
+                </CardContent>
+              </Card>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="mode-detail"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="px-6 pb-6"
+            >
+              {/* Back button */}
+              <button
+                type="button"
+                className="mb-4 flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => {
+                  setSelectedMode(null)
+                  setSelectedSourceId(null)
+                }}
+              >
+                ← Retour aux options
+              </button>
+
+              {/* ── New Project Form ── */}
+              {selectedMode === 'new' && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-500/10">
+                      <Rocket className="h-4 w-4 text-teal-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">Nouveau projet</p>
+                      <p className="text-xs text-muted-foreground">
+                        Un projet vide sera créé pour ce dispositif
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="project-title"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Nom du projet <span className="text-muted-foreground font-normal">(optionnel)</span>
+                    </label>
                     <Input
                       id="project-title"
+                      placeholder="Mon projet entrepreneurial…"
                       value={projectTitle}
                       onChange={(e) => setProjectTitle(e.target.value)}
-                      placeholder="Mon projet de création..."
-                      className="mt-1 h-9 text-sm"
-                      autoFocus
+                      maxLength={200}
+                      disabled={isSubmitting}
+                      className="border-border/60 focus:border-teal-500/50"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      Vous pourrez le modifier plus tard
+                    </p>
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={isSubmitting}
+                      className="bg-teal-600 hover:bg-teal-700 text-white gap-2"
+                    >
+                      {isSubmitting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <FolderPlus className="h-4 w-4" />
+                      )}
+                      {isSubmitting ? 'Création…' : 'Créer le projet'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Import Project Form ── */}
+              {selectedMode === 'import' && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-500/10">
+                      <Copy className="h-4 w-4 text-teal-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">Importer un projet</p>
+                      <p className="text-xs text-muted-foreground">
+                        Sélectionnez un projet existant à cloner
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Optional project title for import */}
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="import-project-title"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      Nom du projet <span className="text-muted-foreground font-normal">(optionnel)</span>
+                    </label>
+                    <Input
+                      id="import-project-title"
+                      placeholder="Mon projet entrepreneurial…"
+                      value={projectTitle}
+                      onChange={(e) => setProjectTitle(e.target.value)}
+                      maxLength={200}
+                      disabled={isSubmitting}
+                      className="border-border/60 focus:border-teal-500/50"
                     />
                   </div>
-                )}
-              </div>
-            </label>
 
-            {/* Option 2: Import from legacy (null enrollmentId) */}
-            {hasLegacyData && (
-              <label
-                htmlFor="mode-legacy"
-                className={cn(
-                  'flex items-start gap-3 rounded-xl border-2 p-4 cursor-pointer transition-all',
-                  mode === 'legacy' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/30 hover:bg-muted/50',
-                )}
-              >
-                <RadioGroupItem value="legacy" id="mode-legacy" className="mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <FolderPlus className="h-4 w-4 text-emerald-500" />
-                    <span className="text-sm font-semibold">Importer mon projet principal</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Récupérer les données de votre projet existant (BMC, prévisionnel, analyse de marché...).
-                  </p>
-                </div>
-              </label>
-            )}
+                  {/* Available projects list */}
+                  <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
+                    {availableProjects.map((project) => {
+                      const isLegacy = project.enrollmentId === null
+                      const isSelected = isLegacy
+                        ? selectedSourceId === '__legacy__'
+                        : selectedSourceId === project.enrollmentId
 
-            {/* Option 3: Import from another enrollment */}
-            {otherEnrollments.length > 0 && (
-              <label
-                htmlFor="mode-import"
-                className={cn(
-                  'flex items-start gap-3 rounded-xl border-2 p-4 cursor-pointer transition-all',
-                  mode === 'import' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/30 hover:bg-muted/50',
-                )}
-              >
-                <RadioGroupItem value="import" id="mode-import" className="mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <Copy className="h-4 w-4 text-blue-500" />
-                    <span className="text-sm font-semibold">Cloner depuis un autre dispositif</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Copier les données d'un projet déjà initié dans un autre parcours.
-                  </p>
-                  {mode === 'import' && (
-                    <ScrollArea className="mt-3 ml-6 max-h-40">
-                      <div className="space-y-2 pr-2">
-                        {isLoadingProjects ? (
-                          <div className="space-y-2">
-                            <Skeleton className="h-12 w-full" />
-                            <Skeleton className="h-12 w-full" />
-                          </div>
-                        ) : (
-                          otherEnrollments.map((project) => (
-                            <button
-                              key={project.enrollmentId}
-                              type="button"
-                              className={cn(
-                                'flex items-center gap-3 w-full rounded-lg border p-3 text-left transition-all',
-                                sourceEnrollmentId === project.enrollmentId
-                                  ? 'border-primary bg-primary/5'
-                                  : 'border-border hover:border-primary/30',
-                              )}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setSourceEnrollmentId(project.enrollmentId!)
-                              }}
+                      return (
+                        <Card
+                          key={isLegacy ? '__legacy__' : project.enrollmentId}
+                          className={cn(
+                            'cursor-pointer transition-all duration-150 py-3',
+                            isSelected
+                              ? 'border-teal-500 bg-teal-500/[0.06]'
+                              : 'border-border/60 hover:border-teal-500/30 hover:bg-muted/50',
+                          )}
+                          onClick={() =>
+                            setSelectedSourceId(
+                              isLegacy ? '__legacy__' : project.enrollmentId,
+                            )
+                          }
+                        >
+                          <CardContent className="flex items-center gap-3 p-0 px-4">
+                            {/* Icon */}
+                            <div
+                              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                              style={{ backgroundColor: project.dispositifColor + '18' }}
                             >
-                              <div
-                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-                                style={{ backgroundColor: project.dispositifColor + '18' }}
-                              >
-                                {renderIcon(project.dispositifIcon, project.dispositifColor, 'h-4 w-4')}
-                              </div>
-                              <div className="flex-1 min-w-0">
+                              {renderDispositifIcon(
+                                project.dispositifIcon,
+                                project.dispositifColor,
+                                'h-4 w-4',
+                              )}
+                            </div>
+
+                            {/* Info */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
                                 <p className="text-sm font-medium truncate">
-                                  {project.projectTitle || project.dispositifName}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
                                   {project.dispositifName}
                                 </p>
+                                {isLegacy && (
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-[10px] px-1.5 py-0 h-4 font-normal"
+                                  >
+                                    Principal
+                                  </Badge>
+                                )}
                               </div>
-                              {sourceEnrollmentId === project.enrollmentId && (
-                                <Check className="h-4 w-4 text-primary shrink-0" />
-                              )}
-                            </button>
-                          ))
-                        )}
+                              <p className="text-xs text-muted-foreground truncate">
+                                {project.projectTitle || 'Sans titre'}
+                              </p>
+                            </div>
+
+                            {/* Check indicator */}
+                            {isSelected && (
+                              <CheckCircle2 className="h-5 w-5 text-teal-600 shrink-0" />
+                            )}
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
+
+                    {isLoadingProjects && (
+                      <div className="space-y-2">
+                        <Skeleton className="h-16 w-full rounded-xl" />
+                        <Skeleton className="h-16 w-full rounded-xl" />
                       </div>
-                    </ScrollArea>
-                  )}
+                    )}
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={!canSubmit || isSubmitting}
+                      className="bg-teal-600 hover:bg-teal-700 text-white gap-2"
+                    >
+                      {isSubmitting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                      {isSubmitting ? 'Import en cours…' : 'Importer le projet'}
+                    </Button>
+                  </div>
                 </div>
-              </label>
-            )}
-          </RadioGroup>
-        </div>
-
-        <Separator />
-
-        {/* Footer */}
-        <DialogFooter className="px-6 py-4 flex-row gap-3 sm:justify-end">
-          <Button
-            variant="outline"
-            onClick={handleCancel}
-            disabled={isSubmitting}
-          >
-            Annuler
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="min-w-[140px]"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Initialisation...
-              </>
-            ) : (
-              <>
-                {mode === 'new' ? (
-                  <><Sparkles className="h-4 w-4 mr-2" /> Créer</>
-                ) : (
-                  <><Copy className="h-4 w-4 mr-2" /> Importer</>
-                )}
-                <ArrowRight className="h-4 w-4 ml-1" />
-              </>
-            )}
-          </Button>
-        </DialogFooter>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </DialogContent>
     </Dialog>
   )

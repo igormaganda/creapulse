@@ -73,6 +73,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { authFetch } from '@/lib/auth-fetch'
 import { BusinessPlanPdf } from '@/components/bureau/export/business-plan-pdf'
+import { useTradEmploi } from '@/components/trad-emploi/voice-context'
 
 // ─── Section Definitions ─────────────────────
 
@@ -352,6 +353,7 @@ export function BusinessPlanModule() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [projectContext, setProjectContext] = useState<Record<string, string | null> | null>(null)
   const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus>(DEFAULT_PIPELINE)
+  const { setContext: setVoiceContext } = useTradEmploi()
 
   // ─── P9 state ─────────────────────────────
   const [sectionTimestamps, setSectionTimestamps] = useState<Record<string, { lastModified?: string }>>({})
@@ -704,16 +706,26 @@ export function BusinessPlanModule() {
   useEffect(() => {
     const group = TAB_GROUPS.find((g) => g.id === activeTab)
     if (group && !activeSection) {
-      setActiveSection(group.sections[0]?.id || null)
+      const firstId = group.sections[0]?.id || null
+      setActiveSection(firstId)
+      if (firstId) {
+        const def = group.sections[0]
+        setVoiceContext({ module: 'business-plan', section: def?.title || firstId, projectData: def ? { sectionId: firstId, content: (sections as Record<string, Record<string, string>>)[firstId]?.content } : undefined })
+      }
     }
     // Ensure activeSection is within the tab
     if (activeSection) {
       const group2 = TAB_GROUPS.find((g) => g.id === activeTab)
       if (group2 && !group2.sections.some((s) => s.id === activeSection)) {
-        setActiveSection(group2.sections[0]?.id || null)
+        const firstId = group2.sections[0]?.id || null
+        setActiveSection(firstId)
+        if (firstId) {
+          const def = group2.sections[0]
+          setVoiceContext({ module: 'business-plan', section: def?.title || firstId })
+        }
       }
     }
-  }, [activeTab, activeSection])
+  }, [activeTab, activeSection, sections, setVoiceContext])
 
   // ─── Loading skeleton ───────────────────
   if (isLoading) {
@@ -1024,7 +1036,7 @@ export function BusinessPlanModule() {
                       <Tooltip key={s.id}>
                         <TooltipTrigger asChild>
                           <button
-                            onClick={() => { setActiveSection(s.id); setActiveTab(group.id) }}
+                            onClick={() => { setActiveSection(s.id); setActiveTab(group.id); setVoiceContext({ module: 'business-plan', section: s.title, projectData: { sectionId: s.id, content: (sections as Record<string, Record<string, string>>)[s.id]?.content } }) }}
                             className={cn(
                               'w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
                               sidebarCollapsed ? 'justify-center px-1' : '',
@@ -1093,7 +1105,7 @@ export function BusinessPlanModule() {
                       'gap-1 h-8 shrink-0 text-xs',
                       isActive ? 'bg-[#00838F] text-white' : '',
                     )}
-                    onClick={() => setActiveSection(s.id)}
+                    onClick={() => { setActiveSection(s.id); setVoiceContext({ module: 'business-plan', section: s.title, projectData: { sectionId: s.id, content: (sections as Record<string, Record<string, string>>)[s.id]?.content } }) }}
                   >
                     {filled ? (
                       <Check className="h-3 w-3 text-green-400" />
@@ -1265,7 +1277,7 @@ export function BusinessPlanModule() {
                         return (
                           <button
                             key={s.id}
-                            onClick={() => setActiveSection(s.id)}
+                            onClick={() => { setActiveSection(s.id); setVoiceContext({ module: 'business-plan', section: s.title, projectData: { sectionId: s.id, content: (sections as Record<string, Record<string, string>>)[s.id]?.content } }) }}
                             className={cn(
                               'flex items-center gap-2 rounded-lg border p-3 text-left transition-all',
                               isActive ? 'border-[#00838F]/40 bg-[#00838F]/5' : 'hover:border-muted-foreground/20',

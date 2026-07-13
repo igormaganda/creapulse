@@ -25,6 +25,7 @@ import {
   formatDate,
   type TableColumn,
 } from '@/lib/pdf-utils'
+import { getEnrollmentIdFromRequest, buildCompositeKey } from '@/lib/enrollment-context'
 
 // ─── Validation ──────────────────────────────
 
@@ -64,6 +65,7 @@ export async function POST(request: NextRequest) {
 
     const payload = await verifyToken(token)
     const userId = payload.userId
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     // ── Parse body ──
     const body = await request.json()
@@ -114,7 +116,7 @@ export async function POST(request: NextRequest) {
         orderBy: { score: 'desc' },
       }),
       db.creatorJourney.findUnique({
-        where: { userId: beneficiaryUserId },
+        where: { userId_enrollmentId: buildCompositeKey(beneficiaryUserId, enrollmentId) },
       }),
       db.moduleResult.findMany({
         where: { userId: beneficiaryUserId, completedAt: { not: null } },

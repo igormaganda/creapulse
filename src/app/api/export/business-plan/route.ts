@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
 import { verifyToken } from '@/lib/auth'
+import { getEnrollmentIdFromRequest, buildCompositeKey } from '@/lib/enrollment-context'
 
 // ─── GET /api/export/business-plan ───────────
 // Fetch all data needed for Business Plan PDF generation
@@ -16,6 +17,7 @@ export async function GET(request: NextRequest) {
 
     const payload = await verifyToken(token)
     const userId = payload.userId
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     // Fetch user
     const user = await db.user.findUnique({
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch CreatorJourney with BP sections
     const journey = await db.creatorJourney.findUnique({
-      where: { userId },
+      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
     })
 
     // Fetch ModuleResults
@@ -48,7 +50,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch Financial Forecast
     const financialForecast = await db.financialForecast.findUnique({
-      where: { userId },
+      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
     })
 
     // Parse BP sections from journey

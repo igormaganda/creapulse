@@ -46,6 +46,7 @@ import {
 } from 'recharts'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { useTradEmploi } from '@/components/trad-emploi/voice-context'
 
 // ─── Types ──────────────────────────────────
 
@@ -199,6 +200,7 @@ function AnimatedValue({ value, format }: { value: number; format: (v: number) =
 export function JuridiqueModule() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const { setContext: setVoiceContext } = useTradEmploi()
 
   // Simulator state
   const [sim, setSim] = useState<SimulateurJuridique>(DEFAULT_SIM)
@@ -261,6 +263,12 @@ export function JuridiqueModule() {
       localStorage.setItem('creapulse-juridique', JSON.stringify({ sim }))
     }
   }, [isLoading, sim])
+
+  // ─── Voice context ──────────────────────
+  useEffect(() => {
+    setVoiceContext({ module: 'juridique', section: 'simulateur-juridique' })
+    return () => setVoiceContext({ module: '' })
+  }, [setVoiceContext])
 
   // ─── Computed legal outputs ─────────────
   const legalOutputs = useMemo(() => {
