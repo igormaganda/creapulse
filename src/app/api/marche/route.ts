@@ -12,6 +12,7 @@ import { verifyToken } from '@/lib/auth'
 import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
 import { callZAI as sharedCallZAI, getZAIErrorMessage, aiUnavailableResponse } from '@/lib/zai-helper'
+import { getEnrollmentIdFromRequest, buildCompositeKey } from '@/lib/enrollment-context'
 
 // ─── Validation Schemas ──────────────────────
 
@@ -72,9 +73,9 @@ async function getAuth(request: NextRequest) {
 
 // ─── Fetch project context from CreatorJourney ─
 
-async function getProjectContext(userId: string): Promise<string> {
+async function getProjectContext(userId: string, enrollmentId: string | null): Promise<string> {
   const journey = await db.creatorJourney.findUnique({
-    where: { userId },
+    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
     select: {
       projectTitle: true,
       projectSector: true,
@@ -131,8 +132,9 @@ async function callZAI(messages: Array<{ role: string; content: string }>, optio
 export async function GET(request: NextRequest) {
   try {
     const payload = await getAuth(request)
+    const enrollmentId = getEnrollmentIdFromRequest(request)
     const analysis = await db.marketAnalysis.findUnique({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
     })
 
     if (!analysis) return success(null, 'Aucune analyse de marché sauvegardée')
@@ -154,6 +156,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const payload = await getAuth(request)
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const body = await request.json()
     const parsed = marcheSchema.safeParse(body)
@@ -166,9 +169,10 @@ export async function PUT(request: NextRequest) {
     const data = parsed.data
 
     const analysis = await db.marketAnalysis.upsert({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
       create: {
         userId: payload.userId,
+        enrollmentId,
         sector: data.sector ?? null,
         marketSize: data.marketSize != null ? String(data.marketSize) : null,
         targetAudience: data.targetAudience ?? null,
@@ -207,6 +211,7 @@ export async function PUT(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const payload = await getAuth(request)
+    const enrollmentId = getEnrollmentIdFromRequest(request)
     const body = await request.json()
 
     const { action } = body
@@ -221,7 +226,7 @@ export async function POST(request: NextRequest) {
       }
 
       const { section, existingContent } = parsed.data
-      const context = await getProjectContext(payload.userId)
+      const context = await getProjectContext(payload.userId, enrollmentId)
       const sectionPrompt = SECTION_PROMPTS[section] || `Génère un contenu pour la section "${section}" d'une analyse de marché.`
 
       const systemPrompt = `Tu es un expert en analyse de marché et en création d'entreprise. Tu aides des entrepreneurs francophones à analyser leur marché.
@@ -267,7 +272,7 @@ ${context ? `CONTEXTE DU PROJET :\n${context}` : 'Aucun contexte de projet fourn
 
     // ── AI Autofill ──
     if (action === 'ai-autofill') {
-      const context = await getProjectContext(payload.userId)
+      const context = await getProjectContext(payload.userId, enrollmentId)
 
       const systemPrompt = `Tu es un expert en analyse de marché. Tu dois remplir TOUS les champs d'une analyse de marché complète pour un projet entrepreneurial français.
 
@@ -365,9 +370,10 @@ ${Array.isArray(competitors) && competitors.length > 0
 
     // Save synthesis
     await db.marketAnalysis.upsert({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
       create: {
         userId: payload.userId,
+        enrollmentId,
         aiSynthesis: synthesis,
       },
       update: {

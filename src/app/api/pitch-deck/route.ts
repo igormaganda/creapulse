@@ -11,6 +11,7 @@ import { success, Errors, handleApiError } from '@/lib/api-response'
 import { verifyToken } from '@/lib/auth'
 import { z } from 'zod'
 import { callZAI, parseJSONFromAI, getZAIErrorMessage, aiUnavailableResponse, aiErrorResponse } from '@/lib/zai-helper'
+import { getEnrollmentIdFromRequest, buildCompositeKey } from '@/lib/enrollment-context'
 
 // ─── Validation Schemas ───────────────────────
 
@@ -68,12 +69,12 @@ async function authenticate(request: NextRequest) {
 
 // ─── Helper: Fetch all pitch context data ───
 
-async function fetchPitchContext(userId: string): Promise<string> {
+async function fetchPitchContext(userId: string, enrollmentId: string | null): Promise<string> {
   const parts: string[] = []
 
   // 1. CreatorJourney (project info + BP sections)
   const journey = await db.creatorJourney.findUnique({
-    where: { userId },
+    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
     select: {
       projectTitle: true,
       projectDescription: true,
@@ -111,7 +112,7 @@ async function fetchPitchContext(userId: string): Promise<string> {
 
   // 2. BMC
   const bmc = await db.businessModelCanvas.findUnique({
-    where: { userId },
+    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
     select: {
       partenairesCles: true,
       activitesCles: true,
@@ -140,7 +141,7 @@ async function fetchPitchContext(userId: string): Promise<string> {
 
   // 3. Financial data (Financier + CreaSim)
   const forecast = await db.financialForecast.findUnique({
-    where: { userId },
+    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
     select: {
       year1Revenue: true,
       year1Expenses: true,
@@ -165,7 +166,7 @@ async function fetchPitchContext(userId: string): Promise<string> {
   }
 
   const creasim = await db.creaSimSimulation.findUnique({
-    where: { userId },
+    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
     select: {
       monthlyRevenue: true,
       grossMarginRate: true,
@@ -189,7 +190,7 @@ async function fetchPitchContext(userId: string): Promise<string> {
 
   // 4. Market Analysis
   const market = await db.marketAnalysis.findUnique({
-    where: { userId },
+    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
     select: {
       sector: true,
       marketSize: true,
@@ -209,7 +210,7 @@ async function fetchPitchContext(userId: string): Promise<string> {
 
   // 5. Juridique Analysis
   const juridique = await db.juridiqueAnalysis.findUnique({
-    where: { userId },
+    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
     select: {
       recommendedStatus: true,
       legalStructure: true,
@@ -233,10 +234,11 @@ export async function GET(request: NextRequest) {
   try {
     const payload = await authenticate(request)
     if (!payload) return Errors.unauthorized()
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     // Try to get from ZeroDraft (reused for pitch deck persistence)
     const draft = await db.zeroDraft.findUnique({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
     })
 
     if (!draft) return success(null, 'Aucun pitch deck')
@@ -253,6 +255,7 @@ export async function PUT(request: NextRequest) {
   try {
     const payload = await authenticate(request)
     if (!payload) return Errors.unauthorized()
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const body = await request.json()
     const parsed = pitchDeckSchema.safeParse(body)
@@ -269,9 +272,10 @@ export async function PUT(request: NextRequest) {
     const wordCount = content.split(/\s+/).filter(Boolean).length
 
     const draft = await db.zeroDraft.upsert({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
       create: {
         userId: payload.userId,
+        enrollmentId,
         projectTitle: projectTitle || 'Mon Pitch Deck',
         content,
         wordCount,
@@ -296,13 +300,14 @@ export async function POST(request: NextRequest) {
   try {
     const payload = await authenticate(request)
     if (!payload) return Errors.unauthorized()
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const body = await request.json()
     const { action } = body as { action: string }
 
     if (action === 'generate-from-bp') {
       // ── Full pitch deck generation from BP context ──
-      const context = await fetchPitchContext(payload.userId)
+      const context = await fetchPitchContext(payload.userId, enrollmentId)
 
       const systemPrompt = `Tu es un expert en pitch decks pour startups et entrepreneurs. Tu aides des entrepreneurs francophones à créer des pitch decks percutants pour lever des fonds ou convaincre des partenaires.
 
@@ -375,9 +380,10 @@ Réponds en JSON avec exactement ces 8 clés :
       const wordCount = content.split(/\s+/).filter(Boolean).length
 
       const draft = await db.zeroDraft.upsert({
-        where: { userId: payload.userId },
+        where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
         create: {
           userId: payload.userId,
+          enrollmentId,
           projectTitle: 'Mon Pitch Deck',
           content,
           wordCount,
@@ -414,11 +420,11 @@ Réponds en JSON avec exactement ces 8 clés :
       const label = slideLabels[slideKey]
 
       // Fetch context
-      const context = await fetchPitchContext(payload.userId)
+      const context = await fetchPitchContext(payload.userId, enrollmentId)
 
       // Fetch existing pitch deck for context on other slides
       const existingDraft = await db.zeroDraft.findUnique({
-        where: { userId: payload.userId },
+        where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
       })
 
       let existingSlidesText = ''

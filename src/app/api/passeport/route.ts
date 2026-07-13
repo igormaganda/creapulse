@@ -7,6 +7,7 @@ import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
 import { verifyToken, AuthError } from '@/lib/auth'
+import { getEnrollmentIdFromRequest, buildCompositeKey } from '@/lib/enrollment-context'
 
 // ─── Module codes tracked by passeport ────
 
@@ -32,10 +33,11 @@ export async function GET(request: NextRequest) {
     }
 
     const payload = await verifyToken(token)
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     // Fetch CreatorJourney
     const journey = await db.creatorJourney.findUnique({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
     })
 
     // Fetch all module results

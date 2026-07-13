@@ -11,6 +11,7 @@ import { success, Errors, handleApiError } from '@/lib/api-response'
 import { verifyToken } from '@/lib/auth'
 import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
+import { getEnrollmentIdFromRequest, buildCompositeKey } from '@/lib/enrollment-context'
 
 // ─── Validation Schema ───────────────────────
 
@@ -76,9 +77,10 @@ export async function GET(request: NextRequest) {
     if (!payload) {
       return Errors.unauthorized()
     }
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const simulation = await db.creaSimSimulation.findUnique({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
     })
 
     if (!simulation) {
@@ -105,6 +107,7 @@ export async function POST(request: NextRequest) {
     if (!payload) {
       return Errors.unauthorized()
     }
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const body = await request.json()
     const parsed = creasimSchema.safeParse(body)
@@ -123,6 +126,7 @@ export async function POST(request: NextRequest) {
     // Build the data object for upsert
     const simData = {
       userId: payload.userId,
+      enrollmentId,
       // Simulator inputs
       monthlyRevenue: data.monthlyRevenue ?? undefined,
       fixedCharges: data.fixedCharges != null
@@ -158,7 +162,7 @@ export async function POST(request: NextRequest) {
 
     // Upsert the CreaSimSimulation
     const simulation = await db.creaSimSimulation.upsert({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
       create: {
         ...simData,
         monthlyRevenue: simData.monthlyRevenue ?? null,

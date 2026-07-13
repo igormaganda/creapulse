@@ -10,6 +10,7 @@ import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-r
 import { verifyToken } from '@/lib/auth'
 import { z } from 'zod'
 import { callZAI, parseJSONFromAI, getZAIErrorMessage, aiUnavailableResponse } from '@/lib/zai-helper'
+import { getEnrollmentIdFromRequest, buildCompositeKey } from '@/lib/enrollment-context'
 
 // ─── Validation Schemas ──────────────────────
 
@@ -49,9 +50,9 @@ async function getAuth(request: NextRequest) {
 
 // ─── Fetch project context from CreatorJourney ─
 
-async function getProjectContext(userId: string): Promise<string> {
+async function getProjectContext(userId: string, enrollmentId: string | null): Promise<string> {
   const journey = await db.creatorJourney.findUnique({
-    where: { userId },
+    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
     select: {
       projectTitle: true,
       projectSector: true,
@@ -233,9 +234,10 @@ function getRecommendation(answers: QuestionAnswer) {
 export async function GET(request: NextRequest) {
   try {
     const payload = await getAuth(request)
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const analysis = await db.juridiqueAnalysis.findUnique({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
     })
 
     if (!analysis) return success(null, 'Aucune analyse juridique')
@@ -257,6 +259,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const payload = await getAuth(request)
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const body = await request.json()
     const { action } = body
@@ -271,7 +274,7 @@ export async function POST(request: NextRequest) {
       }
 
       const { questionId, questionTitle, answers: currentAnswers } = parsed.data
-      const context = await getProjectContext(payload.userId)
+      const context = await getProjectContext(payload.userId, enrollmentId)
 
       const systemPrompt = `Tu es un expert en droit des affaires et en création d'entreprise en France. Tu aides les entrepreneurs à choisir le bon statut juridique.
 
@@ -305,7 +308,7 @@ Quelle réponse lui recommandes-tu pour son projet ? Donne ta recommandation sou
 
     // ── AI Autofill all questions ──
     if (action === 'ai-autofill') {
-      const context = await getProjectContext(payload.userId)
+      const context = await getProjectContext(payload.userId, enrollmentId)
 
       const systemPrompt = `Tu es un expert en droit des affaires et en création d'entreprise en France. Tu dois recommander les meilleures réponses pour un questionnaire juridique.
 
@@ -368,9 +371,10 @@ Renvoie UNIQUEMENT le JSON, sans backticks ni texte autour.`
     })
 
     const analysis = await db.juridiqueAnalysis.upsert({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
       create: {
         userId: payload.userId,
+        enrollmentId,
         recommendedStatus: recommendation.recommended,
         fiscalRegime: recommendation.fiscalRegime,
         legalStructure,

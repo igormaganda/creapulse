@@ -1288,3 +1288,45 @@ Stage Summary:
 - Modifications: topbar.tsx (import + insertion), sidebar.tsx (filtrage par dispositif)
 - Rétro-compatible: activeDispositifId=null = vue complète (comportement actuel préservé)
 - Note: les données des modules (FinancialForecast, BMC etc.) sont encore en 1:1 avec User — le scope par enrollment sera la prochaine étape
+
+---
+Task ID: 2-3
+Agent: Main Orchestrator
+Task: Multi-parcours project initialization system + API route enrollmentId migration
+
+Work Log:
+- Completed Prisma schema verification: all 7 business data models have enrollmentId, @@unique([userId, enrollmentId]), UserEnrollment reverse relations
+- Created /src/lib/enrollment-context.ts — helper utilities: getEnrollmentIdFromRequest(), buildCompositeKey(), hasProjectData(), cloneProjectData(), getAvailableProjectsForClone()
+- Updated /src/app/api/enrollments/route.ts — GET now includes hasProjectData per enrollment, POST returns enrollmentId and hasProjectData
+- Created /src/app/api/enrollments/[id]/init-project/route.ts — GET (available projects for clone) + POST (mode: new/import/legacy)
+- Updated /src/lib/stores/dispositif-store.ts — added enrollmentId, hasProjectData, initPendingEnrollmentId, setInitPending, markProjectInitialized
+- Created /src/components/bureau/project-init-dialog.tsx — dialog with 3 options: new project, import legacy, clone from another enrollment
+- Updated /src/components/bureau/dispositif-selector.tsx — detects uninitialized enrollments, shows "À initier" badge, triggers ProjectInitDialog
+- Updated 22+ API route files to use composite unique key (userId_enrollmentId) instead of single userId
+- Updated .env with GLM_API_KEY
+
+Stage Summary:
+- Core multi-parcours project initialization feature is complete
+- All API routes now support enrollmentId scoping via query param or X-Enrollment-Id header
+- 0 lint errors
+
+---
+Task ID: 9
+Agent: Main Orchestrator
+Task: TradEmploi analysis — how to implement multi-parcours in France-Travail platform
+
+Work Log:
+- Fetched and analyzed TradEmploi README, technical docs, and backend README via web-reader
+- Identified TradEmploi as a stateless translation tool (6 microservices, Firestore, Firebase Auth, GCP)
+- Concluded direct multi-parcours pattern is NOT applicable to TradEmploi (ephemeral data, no project concept)
+- Identified the broader FT ecosystem as the real application target (ACE, Formation, CEJ, etc.)
+- Proposed 4 implementation scenarios: multi-organization, multi-context, FT parcours unification, TradEmploi-specific evolution
+- Designed Firestore schema adaptations (Organization, UserContext, Conversation scoping)
+- Designed backend service adaptations (Token Broker, Translation Service, Telemetry)
+- Provided strategic recommendations prioritizing multi-organization > multi-context > full parcours
+
+Stage Summary:
+- TradEmploi is a translation tool, not a multi-module platform — direct adaptation is inappropriate
+- The multi-parcours pattern applies to the FT ecosystem as a whole, not to TradEmploi specifically
+- Key reusable patterns: Organization Registry (from Dispositif Registry), UserContext (from UserEnrollment), contextId scoping (from enrollmentId)
+- Recommended: create a shared "FT Platform Core" layer with unified SSO, beneficiary registry, and event bus

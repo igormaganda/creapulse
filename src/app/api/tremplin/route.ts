@@ -11,6 +11,7 @@ import type { Prisma } from '@prisma/client'
 import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
 import { verifyToken, AuthError } from '@/lib/auth'
 import { createNotification } from '@/lib/notifications'
+import { getEnrollmentIdFromRequest, buildCompositeKey } from '@/lib/enrollment-context'
 
 // ─── Validation schemas ────────────────────
 
@@ -42,9 +43,10 @@ export async function GET(request: NextRequest) {
     }
 
     const payload = await verifyToken(token)
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const tremplin = await db.tremplin.findUnique({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
     })
 
     if (!tremplin) {
@@ -79,6 +81,7 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = await verifyToken(token)
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const body = await request.json()
 
@@ -104,9 +107,10 @@ export async function POST(request: NextRequest) {
 
     // Upsert tremplin data
     const tremplin = await db.tremplin.upsert({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
       create: {
         userId: payload.userId,
+        enrollmentId,
         currentStep: data.currentStep,
         responses: (data.responses ?? {}) as Prisma.InputJsonValue,
         isCompleted: data.isCompleted ?? false,
@@ -130,9 +134,10 @@ export async function POST(request: NextRequest) {
     // If completed with assessment, also update CreatorJourney tremplinStatus
     if (data.isCompleted && assessmentFields.score !== undefined && assessmentFields.decision) {
       await db.creatorJourney.upsert({
-        where: { userId: payload.userId },
+        where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
         create: {
           userId: payload.userId,
+          enrollmentId,
           tremplinStatus: assessmentFields.decision === 'GO' ? 'GO' : assessmentFields.decision === 'NO_GO' ? 'NO_GO' : 'COMPLETED',
           tremplinScore: assessmentFields.score,
         },

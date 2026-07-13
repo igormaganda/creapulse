@@ -21,6 +21,7 @@ import { callZAI, parseJSONFromAI, getZAIErrorMessage, aiUnavailableResponse, ai
 import type { DataSource } from '@/lib/pipeline-types'
 import { createNotification } from '@/lib/notifications'
 import { createLogger } from '@/lib/logger'
+import { getEnrollmentIdFromRequest, buildCompositeKey } from '@/lib/enrollment-context'
 
 const log = createLogger('api/business-plan')
 
@@ -204,9 +205,10 @@ function parseJsonFromLLM(text: string): Record<string, string> | null {
 export async function GET(request: NextRequest) {
   try {
     const payload = await getAuth(request)
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const journey = await db.creatorJourney.findUnique({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
       select: {
         bpSections: true,
         bpStatus: true,
@@ -267,6 +269,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const payload = await getAuth(request)
+    const enrollmentId = getEnrollmentIdFromRequest(request)
     const body = await request.json()
 
     // ── Single-section save: action=save-section ──
@@ -277,7 +280,7 @@ export async function PUT(request: NextRequest) {
       }
 
       const existingJourney = await db.creatorJourney.findUnique({
-        where: { userId: payload.userId },
+        where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
         select: {
           id: true, bpSections: true, bpSectionMeta: true,
           bpStatus: true, bpScore: true, userId: true,
@@ -304,9 +307,10 @@ export async function PUT(request: NextRequest) {
       else status = 'IN_PROGRESS'
 
       const journey = await db.creatorJourney.upsert({
-        where: { userId: payload.userId },
+        where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
         create: {
           userId: payload.userId,
+          enrollmentId,
           bpSections: existingSections as Prisma.InputJsonValue,
           bpSectionMeta: existingMeta as unknown as Prisma.InputJsonValue,
           bpStatus: status as 'NOT_STARTED' | 'IN_PROGRESS' | 'GENERATING' | 'DRAFT' | 'REVIEW' | 'VALIDATED' | 'EXPORTED',
@@ -355,7 +359,7 @@ export async function PUT(request: NextRequest) {
 
     // Read existing bpSectionMeta for metadata merge
     const previousJourney = await db.creatorJourney.findUnique({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
       select: {
         bpSectionMeta: true, bpStatus: true, bpSections: true, userId: true,
         user: { select: { tenantId: true, firstName: true, lastName: true } },
@@ -392,9 +396,10 @@ export async function PUT(request: NextRequest) {
 
     // Upsert CreatorJourney bp fields (now includes bpSectionMeta)
     const journey = await db.creatorJourney.upsert({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
       create: {
         userId: payload.userId,
+        enrollmentId,
         bpSections: (sections ?? {}) as Prisma.InputJsonValue,
         bpSectionMeta: updatedMeta as unknown as Prisma.InputJsonValue,
         bpStatus: status as 'NOT_STARTED' | 'IN_PROGRESS' | 'GENERATING' | 'DRAFT' | 'REVIEW' | 'VALIDATED' | 'EXPORTED',
@@ -498,6 +503,7 @@ export async function PUT(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const payload = await getAuth(request)
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const body = await request.json()
     const parsed = bpActionSchema.safeParse(body)
@@ -513,11 +519,11 @@ export async function POST(request: NextRequest) {
 
     switch (parsed.data.action) {
       case 'ai-suggest':
-        return handleAiSuggest(parsed.data, payload.userId)
+        return handleAiSuggest(parsed.data, payload.userId, enrollmentId)
       case 'generate-from-parcours':
-        return handleGenerateFromParcours(payload.userId)
+        return handleGenerateFromParcours(payload.userId, enrollmentId)
       case 'sync-simulators':
-        return handleSyncSimulators(payload.userId)
+        return handleSyncSimulators(payload.userId, enrollmentId)
     }
   } catch (err) {
     if (err && typeof err === 'object' && 'code' in err) {
@@ -535,6 +541,7 @@ export async function POST(request: NextRequest) {
 async function handleAiSuggest(
   data: z.infer<typeof aiSuggestSchema>,
   userId: string,
+  enrollmentId: string | null,
 ) {
   const { sectionId, sectionTitle, existingContent, projectContext } = data
 
@@ -542,7 +549,7 @@ async function handleAiSuggest(
   let context = projectContext || ''
   if (!context) {
     const journey = await db.creatorJourney.findUnique({
-      where: { userId },
+      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
       select: {
         projectTitle: true,
         projectSector: true,
@@ -612,7 +619,7 @@ ${context ? `CONTEXTE DU PROJET :\n${context}` : 'Aucun contexte de projet fourn
 
 // ─── POST action: Generate from Parcours (P1-1) ──
 
-async function handleGenerateFromParcours(userId: string) {
+async function handleGenerateFromParcours(userId: string, enrollmentId: string | null) {
   // 1. Fetch all Parcours data in parallel
   const [
     user,
@@ -631,7 +638,7 @@ async function handleGenerateFromParcours(userId: string) {
       select: { skills: true, educationLevel: true, employmentStatus: true },
     }),
     db.creatorJourney.findUnique({
-      where: { userId },
+      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
       select: {
         projectTitle: true,
         projectDescription: true,
@@ -810,9 +817,10 @@ Tu dois répondre UNIQUEMENT avec un objet JSON valide (pas de markdown, pas de 
 
   // 8. Update CreatorJourney (including bpSectionMeta)
   const savedJourney = await db.creatorJourney.upsert({
-    where: { userId },
+    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
     create: {
       userId,
+      enrollmentId,
       bpSections: mergedSections as Prisma.InputJsonValue,
       bpSectionMeta: updatedMeta as unknown as Prisma.InputJsonValue,
       bpStatus: 'DRAFT',
@@ -859,10 +867,10 @@ Tu dois répondre UNIQUEMENT avec un objet JSON valide (pas de markdown, pas de 
 
 // ─── POST action: Sync Simulators (P1-2) ────
 
-async function handleSyncSimulators(userId: string) {
+async function handleSyncSimulators(userId: string, enrollmentId: string | null) {
   // 1. Fetch existing BP sections and metadata
   const journey = await db.creatorJourney.findUnique({
-    where: { userId },
+    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
     select: { bpSections: true, bpSectionMeta: true },
   })
 
@@ -900,11 +908,11 @@ async function handleSyncSimulators(userId: string) {
     juridiqueAnalysis,
     businessModelCanvas,
   ] = await Promise.all([
-    db.marketAnalysis.findUnique({ where: { userId } }),
-    db.financialForecast.findUnique({ where: { userId } }),
-    db.creaSimSimulation.findUnique({ where: { userId } }),
-    db.juridiqueAnalysis.findUnique({ where: { userId } }),
-    db.businessModelCanvas.findUnique({ where: { userId } }),
+    db.marketAnalysis.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } }),
+    db.financialForecast.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } }),
+    db.creaSimSimulation.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } }),
+    db.juridiqueAnalysis.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } }),
+    db.businessModelCanvas.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } }),
   ])
 
   // 3. Map marketAnalysis → etudeMarche, concurrence, swot
@@ -1119,9 +1127,10 @@ async function handleSyncSimulators(userId: string) {
   const bpScore = Math.min(100, Math.round((filledCount / totalSections) * 100))
 
   await db.creatorJourney.upsert({
-    where: { userId },
+    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
     create: {
       userId,
+      enrollmentId,
       bpSections: mergedSections as Prisma.InputJsonValue,
       bpSectionMeta: sectionMeta as unknown as Prisma.InputJsonValue,
       bpScore,

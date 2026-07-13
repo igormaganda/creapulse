@@ -11,6 +11,7 @@ import { success, Errors, handleApiError } from '@/lib/api-response'
 import { verifyToken } from '@/lib/auth'
 import { z } from 'zod'
 import { callZAI, parseJSONFromAI, getZAIErrorMessage, aiUnavailableResponse, aiErrorResponse } from '@/lib/zai-helper'
+import { getEnrollmentIdFromRequest, buildCompositeKey } from '@/lib/enrollment-context'
 
 // ─── Validation Schemas ──────────────────────
 
@@ -63,12 +64,12 @@ async function authenticate(request: NextRequest) {
 
 // ─── Helper: Fetch all BP context data ───────
 
-async function fetchBpContext(userId: string): Promise<string> {
+async function fetchBpContext(userId: string, enrollmentId: string | null): Promise<string> {
   const parts: string[] = []
 
   // 1. CreatorJourney (project info + BP sections)
   const journey = await db.creatorJourney.findUnique({
-    where: { userId },
+    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
     select: {
       projectTitle: true,
       projectDescription: true,
@@ -108,7 +109,7 @@ async function fetchBpContext(userId: string): Promise<string> {
 
   // 2. Market Analysis
   const market = await db.marketAnalysis.findUnique({
-    where: { userId },
+    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
     select: {
       sector: true,
       marketSize: true,
@@ -131,7 +132,7 @@ async function fetchBpContext(userId: string): Promise<string> {
 
   // 3. Financial Forecast (Financier module)
   const forecast = await db.financialForecast.findUnique({
-    where: { userId },
+    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
     select: {
       year1Revenue: true,
       year1Expenses: true,
@@ -160,7 +161,7 @@ async function fetchBpContext(userId: string): Promise<string> {
 
   // 4. CreaSim Simulation
   const creasim = await db.creaSimSimulation.findUnique({
-    where: { userId },
+    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
     select: {
       monthlyRevenue: true,
       fixedCharges: true,
@@ -200,7 +201,7 @@ async function fetchBpContext(userId: string): Promise<string> {
 
   // 5. Juridique Analysis
   const juridique = await db.juridiqueAnalysis.findUnique({
-    where: { userId },
+    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
     select: {
       recommendedStatus: true,
       fiscalRegime: true,
@@ -260,9 +261,10 @@ export async function GET(request: NextRequest) {
     if (!payload) {
       return Errors.unauthorized()
     }
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const bmc = await db.businessModelCanvas.findUnique({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
     })
 
     if (!bmc) {
@@ -299,10 +301,9 @@ export async function PUT(request: NextRequest) {
     if (!payload) {
       return Errors.unauthorized()
     }
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const body = await request.json()
-
-    // ── Convert frontend blocks array → flat keys if present ──
     // Frontend sends: { blocks: [{ id: "partenaires-cles", content: "..." }, ...], status }
     // Backend schema expects flat camelCase keys for DB columns
     const rawBody = body as Record<string, unknown>
@@ -343,9 +344,10 @@ export async function PUT(request: NextRequest) {
     }
 
     const bmc = await db.businessModelCanvas.upsert({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
       create: {
         userId: payload.userId,
+        enrollmentId,
         partenairesCles: updateData.partenairesCles ?? '',
         activitesCles: updateData.activitesCles ?? '',
         ressourcesCles: updateData.ressourcesCles ?? '',
@@ -391,7 +393,7 @@ export async function POST(request: NextRequest) {
 
     if (action === 'generate-from-bp') {
       // ── Full BMC generation from BP context ──
-      const context = await fetchBpContext(payload.userId)
+      const context = await fetchBpContext(payload.userId, enrollmentId)
 
       const systemPrompt = `Tu es un expert en Business Model Canvas et en stratégie d'entreprise. Tu aides des entrepreneurs francophones à construire un BMC complet et cohérent.
 
@@ -456,9 +458,10 @@ Réponds en JSON avec exactement ces 9 clés :
 
       // Save to database
       const bmc = await db.businessModelCanvas.upsert({
-        where: { userId: payload.userId },
+        where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
         create: {
           userId: payload.userId,
+          enrollmentId,
           partenairesCles: generatedBlocks.partenairesCles || '',
           activitesCles: generatedBlocks.activitesCles || '',
           ressourcesCles: generatedBlocks.ressourcesCles || '',
@@ -525,11 +528,11 @@ Réponds en JSON avec exactement ces 9 clés :
       const blockLabel = bmcBlockLabels[blockKey]
 
       // Fetch context
-      const context = await fetchBpContext(payload.userId)
+      const context = await fetchBpContext(payload.userId, enrollmentId)
 
       // Fetch existing BMC to provide current state
       const existingBmc = await db.businessModelCanvas.findUnique({
-        where: { userId: payload.userId },
+        where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
         select: Object.fromEntries(bmcBlocks.map(k => [k, true])),
       })
 

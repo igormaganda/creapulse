@@ -9,6 +9,7 @@ import { db } from '@/lib/db'
 import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
 import { verifyToken } from '@/lib/auth'
 import { z } from 'zod'
+import { getEnrollmentIdFromRequest, buildCompositeKey } from '@/lib/enrollment-context'
 
 // ─── Validation Schema ────────────────────────
 
@@ -40,9 +41,10 @@ export async function GET(request: NextRequest) {
     }
 
     const payload = await verifyToken(token)
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const journey = await db.creatorJourney.findUnique({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
     })
 
     if (!journey) {
@@ -98,6 +100,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const payload = await verifyToken(token)
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const body = await request.json()
     const parsed = projetUpdateSchema.safeParse(body)
@@ -123,9 +126,10 @@ export async function PUT(request: NextRequest) {
 
     // Upsert the CreatorJourney
     const journey = await db.creatorJourney.upsert({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
       create: {
         userId: payload.userId,
+        enrollmentId,
         currentPhase: currentPhase as 'DISCOVERY' | 'PROFILING' | 'MODELING' | 'STRATEGY' | 'LAUNCH',
         progressPercent: progress,
         projectTitle: data.projectTitle || null,

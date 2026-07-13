@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
 import { verifyToken, AuthError } from '@/lib/auth'
+import { getEnrollmentIdFromRequest, buildCompositeKey } from '@/lib/enrollment-context'
 
 // ─── Validation schemas ────────────────────
 
@@ -40,6 +41,7 @@ export async function GET(request: NextRequest) {
     if (!token) throw new AuthError('Authentication required', 'UNAUTHORIZED', 401)
 
     const payload = await verifyToken(token)
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const [user, beneficiary, journey] = await Promise.all([
       db.user.findUnique({
@@ -53,7 +55,7 @@ export async function GET(request: NextRequest) {
         where: { userId: payload.userId },
       }),
       db.creatorJourney.findUnique({
-        where: { userId: payload.userId },
+        where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
         select: { id: true, visionAnswers: true, creationMotivation: true },
       }),
     ])
@@ -97,6 +99,7 @@ export async function PUT(request: NextRequest) {
     if (!token) throw new AuthError('Authentication required', 'UNAUTHORIZED', 401)
 
     const payload = await verifyToken(token)
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const body = await request.json()
     const data = ProfilBody.parse(body)
@@ -114,7 +117,7 @@ export async function PUT(request: NextRequest) {
 
     // Get existing visionAnswers to merge
     const existing = await db.creatorJourney.findUnique({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
       select: { visionAnswers: true },
     })
     const existingAnswers = (existing?.visionAnswers || {}) as Record<string, unknown>
@@ -157,9 +160,10 @@ export async function PUT(request: NextRequest) {
 
       // Update CreatorJourney
       db.creatorJourney.upsert({
-        where: { userId: payload.userId },
+        where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
         create: {
           userId: payload.userId,
+          enrollmentId,
           creationMotivation: data.creationMotivation || undefined,
           visionAnswers: mergedAnswers,
         },

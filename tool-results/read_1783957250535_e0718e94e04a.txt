@@ -1,0 +1,817 @@
+     1→// ============================================
+     2→// CreaPulse V2 — Business Plan IA API
+     3→// GET    /api/business-plan           — Retrieve saved BP sections
+     4→// PUT    /api/business-plan           — Save BP sections (bulk or single)
+     5→// POST   /api/business-plan           — AI actions:
+     6→//   action=ai-suggest                — Section-level AI suggestion
+     7→//   action=generate-from-parcours    — Generate full BP from Parcours data
+     8→//   action=sync-simulators           — Sync simulator data into BP sections
+     9→// ============================================
+    10→// Pipeline V4 additions: bpSectionMeta, per-section timestamps,
+    11→//   auto-snapshots, save-section action
+    12→// ============================================
+    13→
+    14→import { NextRequest } from 'next/server'
+    15→import { db } from '@/lib/db'
+    16→import { success, Errors, handleApiError, getTokenFromHeader } from '@/lib/api-response'
+    17→import { verifyToken } from '@/lib/auth'
+    18→import { z } from 'zod'
+    19→import type { Prisma } from '@prisma/client'
+    20→import { callZAI, parseJSONFromAI, getZAIErrorMessage, aiUnavailableResponse, aiErrorResponse } from '@/lib/zai-helper'
+    21→import type { DataSource } from '@/lib/pipeline-types'
+    22→import { createNotification } from '@/lib/notifications'
+    23→import { createLogger } from '@/lib/logger'
+    24→
+    25→const log = createLogger('api/business-plan')
+    26→
+    27→// ─── Validation Schemas ──────────────────────
+    28→
+    29→const aiSuggestSchema = z.object({
+    30→  action: z.literal('ai-suggest'),
+    31→  sectionId: z.string(),
+    32→  sectionTitle: z.string(),
+    33→  existingContent: z.string().optional(),
+    34→  projectContext: z.string().optional(),
+    35→})
+    36→
+    37→const generateFromParcoursSchema = z.object({
+    38→  action: z.literal('generate-from-parcours'),
+    39→})
+    40→
+    41→const syncSimulatorsSchema = z.object({
+    42→  action: z.literal('sync-simulators'),
+    43→})
+    44→
+    45→const bpActionSchema = z.discriminatedUnion('action', [
+    46→  aiSuggestSchema,
+    47→  generateFromParcoursSchema,
+    48→  syncSimulatorsSchema,
+    49→])
+    50→
+    51→const saveBpSchema = z.object({
+    52→  sections: z.record(z.string(), z.unknown()).optional(),
+    53→  bpStatus: z.enum(['NOT_STARTED', 'IN_PROGRESS', 'DRAFT', 'SUBMITTED']).optional(),
+    54→})
+    55→
+    56→// ─── bpSectionMeta Types (Pipeline V4) ───────
+    57→
+    58→export interface SectionMetaEntry {
+    59→  source: DataSource
+    60→  lastModified: string
+    61→  manuallyEditedAt: string | null
+    62→  syncedAt: string | null
+    63→  wordCount: number
+    64→  version: number
+    65→}
+    66→
+    67→export type BpSectionMeta = Record<string, SectionMetaEntry>
+    68→
+    69→// ─── Helpers ─────────────────────────────────
+    70→
+    71→function isFilled(value: unknown): boolean {
+    72→  if (value === null || value === undefined) return false
+    73→  if (typeof value === 'string') return value.trim().length > 0
+    74→  if (Array.isArray(value)) return value.length > 0
+    75→  if (typeof value === 'object') {
+    76→    return Object.values(value).some((v) =>
+    77→      typeof v === 'string' && v.trim().length > 0 ||
+    78→      typeof v === 'number' && v !== 0 ||
+    79→      Array.isArray(v) && v.length > 0
+    80→    )
+    81→  }
+    82→  return false
+    83→}
+    84→
+    85→function computeWordCount(value: unknown): number {
+    86→  if (typeof value === 'string') return value.trim().split(/\s+/).filter(Boolean).length
+    87→  return 0
+    88→}
+    89→
+    90→const SYNC_SOURCES: DataSource[] = ['marche', 'financier', 'juridique', 'creasim', 'parcours']
+    91→
+    92→function buildSectionMetaForManual(
+    93→  existingMeta: BpSectionMeta,
+    94→  sectionId: string,
+    95→  content: unknown,
+    96→): SectionMetaEntry {
+    97→  const prev = existingMeta[sectionId]
+    98→  return {
+    99→    source: 'manual' as DataSource,
+   100→    lastModified: new Date().toISOString(),
+   101→    manuallyEditedAt: new Date().toISOString(),
+   102→    syncedAt: prev?.syncedAt ?? null,
+   103→    wordCount: computeWordCount(content),
+   104→    version: (prev?.version ?? 0) + 1,
+   105→  }
+   106→}
+   107→
+   108→function buildSectionMetaForSync(
+   109→  existingMeta: BpSectionMeta,
+   110→  sectionId: string,
+   111→  content: unknown,
+   112→  source: 'marche' | 'financier' | 'juridique' | 'creasim' | 'parcours',
+   113→): SectionMetaEntry {
+   114→  const prev = existingMeta[sectionId]
+   115→  return {
+   116→    source,
+   117→    lastModified: new Date().toISOString(),
+   118→    manuallyEditedAt: prev?.manuallyEditedAt ?? null,
+   119→    syncedAt: new Date().toISOString(),
+   120→    wordCount: computeWordCount(content),
+   121→    version: (prev?.version ?? 0) + 1,
+   122→  }
+   123→}
+   124→
+   125→/** Auto-create a snapshot if last one is older than 5 minutes (debounce) */
+   126→async function maybeAutoSnapshot(
+   127→  userId: string,
+   128→  journeyId: string,
+   129→  tenantId: string,
+   130→  bpSections: Record<string, unknown>,
+   131→  bpProjectContext: Record<string, unknown> | null,
+   132→  trigger: 'auto' | 'ai-generate' = 'auto',
+   133→) {
+   134→  try {
+   135→    const lastSnapshot = await db.bpSnapshot.findFirst({
+   136→      where: { userId },
+   137→      orderBy: { createdAt: 'desc' },
+   138→      select: { createdAt: true, version: true },
+   139→    })
+   140→    const fiveMinAgo = new Date(Date.now() - 5 * 60_000)
+   141→    if (lastSnapshot && lastSnapshot.createdAt > fiveMinAgo) return
+   142→
+   143→    const sectionCount = Object.values(bpSections).filter(isFilled).length
+   144→    const wordCount = Object.values(bpSections).reduce(
+   145→      (sum: number, v) => sum + computeWordCount(v), 0,
+   146→    )
+   147→    const version: number = (lastSnapshot?.version ?? 0) + 1
+   148→    const now = new Date()
+   149→    const label = `V${version} — ${now.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })} ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+   150→
+   151→    await db.bpSnapshot.create({
+   152→      data: {
+   153→        userId,
+   154→        tenantId,
+   155→        creatorJourneyId: journeyId,
+   156→        bpSections: bpSections as Prisma.InputJsonValue,
+   157→        bpProjectContext: (bpProjectContext ?? {}) as Prisma.InputJsonValue,
+   158→        version,
+   159→        label,
+   160→        trigger,
+   161→        sectionCount,
+   162→        wordCount,
+   163→      },
+   164→    })
+   165→  } catch (err) {
+   166→    // Non-critical: log but don't fail the parent operation
+   167→    console.error('[AutoSnapshot] Failed to create auto-snapshot:', err)
+   168→  }
+   169→}
+   170→
+   171→// ─── Helper: Auth from request ───────────────
+   172→
+   173→async function getAuth(request: NextRequest) {
+   174→  const cookieToken = request.cookies.get('session')?.value
+   175→  const headerToken = getTokenFromHeader(request)
+   176→  const token = cookieToken || headerToken
+   177→  if (!token) throw Object.assign(new Error('No session token found'), { code: 'UNAUTHORIZED' })
+   178→  return verifyToken(token)
+   179→}
+   180→
+   181→// ─── Helper: Parse JSON from LLM response ───
+   182→
+   183→function parseJsonFromLLM(text: string): Record<string, string> | null {
+   184→  // Try direct JSON parse first
+   185→  try {
+   186→    const parsed = JSON.parse(text)
+   187→    if (typeof parsed === 'object' && parsed !== null) return parsed
+   188→  } catch {}
+   189→
+   190→  // Try matching JSON block
+   191→  const jsonMatch = text.match(/\{[\s\S]*\}/)
+   192→  if (jsonMatch) {
+   193→    try {
+   194→      const parsed = JSON.parse(jsonMatch[0])
+   195→      if (typeof parsed === 'object' && parsed !== null) return parsed
+   196→    } catch {}
+   197→  }
+   198→
+   199→  return null
+   200→}
+   201→
+   202→// ─── GET: Retrieve business plan ─────────────
+   203→
+   204→export async function GET(request: NextRequest) {
+   205→  try {
+   206→    const payload = await getAuth(request)
+   207→
+   208→    const journey = await db.creatorJourney.findFirst({ where: { userId: userId, enrollmentId: null }, select: {
+   209→        projectTitle: true,
+   210→        projectSector: true,
+   211→        projectStage: true,
+   212→        targetAudience: true,
+   213→        valueProposition: true,
+   214→        projectDescription: true,
+   215→      },
+   216→    })
+   217→    if (journey) {
+   218→      const parts: string[] = []
+   219→      if (journey.projectTitle) parts.push(`Projet: ${journey.projectTitle}`)
+   220→      if (journey.projectSector) parts.push(`Secteur: ${journey.projectSector}`)
+   221→      if (journey.projectStage) parts.push(`Stade: ${journey.projectStage}`)
+   222→      if (journey.targetAudience) parts.push(`Cible: ${journey.targetAudience}`)
+   223→      if (journey.valueProposition) parts.push(`Valeur: ${journey.valueProposition}`)
+   224→      if (journey.projectDescription) parts.push(`Description: ${journey.projectDescription}`)
+   225→      context = parts.join('\n')
+   226→    } }
+   227→
+   228→  // Build system prompt
+   229→  const systemPrompt = `Tu es un expert en création d'entreprise et en rédaction de business plans. Tu aides des entrepreneurs francophones à rédiger un business plan professionnel et convaincant.
+   230→
+   231→RÈGLES IMPORTANTES :
+   232→- Réponds TOUJOURS en français
+   233→- Sois concis mais professionnel (200-400 mots par section)
+   234→- Utilise un ton formel et encourageant
+   235→- Structure le contenu avec des paragraphes clairs
+   236→- Adapte les conseils au contexte du projet fourni
+   237→- Si du contenu existe déjà, améliore-le et complète-le plutôt que de le remplacer
+   238→- Utilise des données concrètes et des exemples quand c'est pertinent
+   239→
+   240→${context ? `CONTEXTE DU PROJET :\n${context}` : 'Aucun contexte de projet fourni. Génére un contenu générique adaptable.'}`
+   241→
+   242→  // Build user prompt
+   243→  let userPrompt = `Génère un contenu professionnel pour la section "${sectionTitle}" d'un business plan.`
+   244→
+   245→  if (existingContent && existingContent.trim()) {
+   246→    userPrompt += `\n\nContenu actuel de l'utilisateur :\n"${existingContent}"\n\nAméliore et complète ce contenu. Garde les informations importantes déjà présentes.`
+   247→  } else {
+   248→    userPrompt += `\n\nRédige un contenu complet et structuré pour cette section. L'utilisateur n'a encore rien écrit.`
+   249→  }
+   250→
+   251→  userPrompt += `\n\nSection ID: ${sectionId}`
+   252→
+   253→  // Call LLM via shared ZAI helper (never throws)
+   254→  const result = await callZAI([
+   255→    { role: 'system', content: systemPrompt },
+   256→    { role: 'user', content: userPrompt },
+   257→  ], { temperature: 0.7, max_tokens: 1200 })
+   258→
+   259→  if (!result.success) {
+   260→    return aiUnavailableResponse(getZAIErrorMessage(result))
+   261→  }
+   262→
+   263→  const suggestion = result.content || 'Désolé, une erreur est survenue lors de la génération. Veuillez réessayer.'
+   264→
+   265→  return success(
+   266→    {
+   267→      sectionId,
+   268→      suggestion,
+   269→    },
+   270→    'Suggestion IA générée avec succès',
+   271→  )
+   272→}
+   273→
+   274→// ─── POST action: Generate from Parcours (P1-1) ──
+   275→
+   276→async function handleGenerateFromParcours(userId: string) {
+   277→  // 1. Fetch all Parcours data in parallel
+   278→  const [
+   279→    user,
+   280→    beneficiary,
+   281→    journey,
+   282→    riasecResults,
+   283→    kiviatResults,
+   284→    moduleResults,
+   285→  ] = await Promise.all([
+   286→    db.user.findUnique({
+   287→      where: { id: userId },
+   288→      select: { firstName: true, lastName: true, email: true },
+   289→    }),
+   290→    db.beneficiary.findUnique({
+   291→      where: { userId },
+   292→      select: { skills: true, educationLevel: true, employmentStatus: true },
+   293→    }),
+   294→    db.creatorJourney.findFirst({ where: { userId: userId, enrollmentId: null }, select: {
+   295→        projectTitle: true,
+   296→        projectDescription: true,
+   297→        projectSector: true,
+   298→        projectStage: true,
+   299→        targetAudience: true,
+   300→        valueProposition: true,
+   301→        creationMotivation: true,
+   302→        visionAnswers: true,
+   303→        bpSections: true,
+   304→        bpSectionMeta: true,
+   305→      },
+   306→    }),
+   307→    db.riasecResult.findMany({
+   308→      where: { userId },
+   309→      select: { profileType: true, score: true, isDominant: true },
+   310→      orderBy: { score: 'desc' },
+   311→    }),
+   312→    db.kiviatResult.findMany({
+   313→      where: { userId },
+   314→      select: { category: true, score: true, maxScore: true },
+   315→      orderBy: { score: 'desc' },
+   316→    }),
+   317→    db.moduleResult.findMany({
+   318→      where: { userId },
+   319→      select: { moduleCode: true, score: true, maxScore: true, feedback: true },
+   320→    }),
+   321→  ])
+   322→
+   323→  if (!user) {
+   324→    return Errors.notFound('Utilisateur')
+   325→  }
+   326→
+   327→  // 2. Build comprehensive context for the LLM
+   328→  const contextParts: string[] = []
+   329→
+   330→  // User info
+   331→  contextParts.push(`## PORTEUR DE PROJET`)
+   332→  contextParts.push(`- Nom complet : ${user.firstName || ''} ${user.lastName || ''}`)
+   333→  contextParts.push(`- Email : ${user.email}`)
+   334→
+   335→  // Beneficiary profile
+   336→  if (beneficiary) {
+   337→    contextParts.push(`\n## PROFIL BÉNÉFICIAIRE`)
+   338→    if (beneficiary.educationLevel) contextParts.push(`- Niveau d'études : ${beneficiary.educationLevel}`)
+   339→    if (beneficiary.employmentStatus) contextParts.push(`- Statut professionnel : ${beneficiary.employmentStatus}`)
+   340→    const skills = Array.isArray(beneficiary.skills) ? beneficiary.skills : []
+   341→    if (skills.length > 0) contextParts.push(`- Compétences : ${skills.join(', ')}`)
+   342→  }
+   343→
+   344→  // Creator Journey project info
+   345→  if (journey) {
+   346→    contextParts.push(`\n## DESCRIPTION DU PROJET`)
+   347→    if (journey.projectTitle) contextParts.push(`- Titre : ${journey.projectTitle}`)
+   348→    if (journey.projectDescription) contextParts.push(`- Description : ${journey.projectDescription}`)
+   349→    if (journey.projectSector) contextParts.push(`- Secteur : ${journey.projectSector}`)
+   350→    if (journey.projectStage) contextParts.push(`- Stade : ${journey.projectStage}`)
+   351→    if (journey.targetAudience) contextParts.push(`- Clientèle cible : ${journey.targetAudience}`)
+   352→    if (journey.valueProposition) contextParts.push(`- Proposition de valeur : ${journey.valueProposition}`)
+   353→    if (journey.creationMotivation) contextParts.push(`- Motivation de création : ${journey.creationMotivation}`)
+   354→
+   355→    // Vision answers
+   356→    const visionAnswers = journey.visionAnswers as Record<string, string> | null
+   357→    if (visionAnswers && typeof visionAnswers === 'object' && Object.keys(visionAnswers).length > 0) {
+   358→      contextParts.push(`\n## VISION / RÉPONSES AUX QUESTIONS DE VISION`)
+   359→      for (const [key, value] of Object.entries(visionAnswers)) {
+   360→        contextParts.push(`- ${key} : ${value}`)
+   361→      } }
+   362→  }
+   363→
+   364→  // RIASEC results
+   365→  if (riasecResults.length > 0) {
+   366→    contextParts.push(`\n## RÉSULTATS RIASEC (Profil de personnalité)`)
+   367→    for (const r of riasecResults) {
+   368→      const dominant = r.isDominant ? ' ⭐ DOMINANT' : ''
+   369→      contextParts.push(`- ${r.profileType} : ${r.score}/100${dominant}`)
+   370→    }
+   371→  }
+   372→
+   373→  // Kiviat results
+   374→  if (kiviatResults.length > 0) {
+   375→    contextParts.push(`\n## RÉSULTATS KIVIAT (Compétences entrepreneuriales)`)
+   376→    for (const k of kiviatResults) {
+   377→      contextParts.push(`- ${k.category} : ${k.score}/${k.maxScore}`)
+   378→    }
+   379→  }
+   380→
+   381→  // Module results
+   382→  if (moduleResults.length > 0) {
+   383→    contextParts.push(`\n## MODULES COMPLÉTÉS`)
+   384→    for (const m of moduleResults) {
+   385→      contextParts.push(`- ${m.moduleCode} : ${m.score}/${m.maxScore}`)
+   386→    }
+   387→  }
+   388→
+   389→  const fullContext = contextParts.join('\n')
+   390→
+   391→  // 3. Build system prompt
+   392→  const systemPrompt = `Tu es un expert en création d'entreprise et en rédaction de business plans professionnels. Tu travailles pour CreaPulse, une plateforme d'accompagnement entrepreneurial GIDEF.
+   393→
+   394→MISSION : À partir des données du parcours entrepreneur d'un porteur de projet (profil, tests de personnalité, compétences, vision, description de projet), tu dois générer les premières sections de son Business Plan.
+   395→
+   396→RÈGLES IMPORTANTES :
+   397→- Réponds TOUJOURS en français
+   398→- Ton professionnel et encourageant
+   399→- Adapte le contenu aux données fournies (ne pas inventer des données qui ne sont pas dans le contexte)
+   400→- Chaque section doit faire entre 150 et 350 mots
+   401→- Structure chaque section avec des paragraphes clairs
+   402→- Pour les sections impliquant l'équipe, utilise les résultats RIASEC et Kiviat pour décrire les forces et compétences du porteur
+   403→- Les objectifs doivent être basés sur les réponses de vision si disponibles
+   404→
+   405→FORMAT DE RÉPONSE :
+   406→Tu dois répondre UNIQUEMENT avec un objet JSON valide (pas de markdown, pas de commentaires) contenant les clés suivantes :
+   407→{
+   408→  "resumeOperationnel": "...",
+   409→  "presentationPorteur": "...",
+   410→  "descriptionProjet": "...",
+   411→  "conceptProposition": "...",
+   412→  "clienteleCible": "...",
+   413→  "positionnement": "...",
+   414→  "equipeProjet": "...",
+   415→  "objectifs": "..."
+   416→}
+   417→
+   418→- resumeOperationnel : Résumé opérationnel du projet (vue d'ensemble)
+   419→- presentationPorteur : Présentation du porteur de projet (profil, compétences, motivations)
+   420→- descriptionProjet : Description détaillée du projet
+   421→- conceptProposition : Concept et proposition de valeur
+   422→- clienteleCible : Description de la clientèle cible
+   423→- positionnement : Positionnement sur le marché
+   424→- equipeProjet : Description de l'équipe et des compétences (basé sur RIASEC+Kiviat)
+   425→- objectifs : Objectifs à court, moyen et long terme (basé sur la vision)`
+   426→
+   427→  const userPrompt = `Voici les données complètes du parcours entrepreneur :\n\n${fullContext}\n\nGénère les 8 sections du business plan en JSON comme spécifié.`
+   428→
+   429→  // 4. Call LLM via shared ZAI helper (never throws)
+   430→  const result = await callZAI([
+   431→    { role: 'system', content: systemPrompt },
+   432→    { role: 'user', content: userPrompt },
+   433→  ], { temperature: 0.7, max_tokens: 3000 })
+   434→
+   435→  if (!result.success) {
+   436→    return aiUnavailableResponse(getZAIErrorMessage(result))
+   437→  }
+   438→
+   439→  // 5. Parse JSON response
+   440→  const generatedSections = parseJsonFromLLM(result.content)
+   441→
+   442→  if (!generatedSections) {
+   443→    return aiErrorResponse("La réponse IA n'a pas pu être interprétée. Veuillez réessayer.")
+   444→  }
+   445→
+   446→  // 6. Merge into existing bpSections (don't overwrite filled sections)
+   447→  const existingSections = (journey?.bpSections as Record<string, unknown>) ?? {}
+   448→  const existingMeta = (journey?.bpSectionMeta as unknown as BpSectionMeta) ?? {}
+   449→  const mergedSections = { ...existingSections }
+   450→  const updatedMeta = { ...existingMeta }
+   451→
+   452→  for (const [key, value] of Object.entries(generatedSections)) {
+   453→    const existing = mergedSections[key]
+   454→    const isEmpty = existing === null || existing === undefined ||
+   455→      (typeof existing === 'string' && existing.trim() === '') ||
+   456→      (typeof existing === 'object' && !Array.isArray(existing) && Object.keys(existing as object).length === 0)
+   457→
+   458→    if (isEmpty && typeof value === 'string' && value.trim()) {
+   459→      mergedSections[key] = value
+   460→      // Mark as generated from parcours
+   461→      updatedMeta[key] = buildSectionMetaForSync(existingMeta, key, value, 'parcours')
+   462→    }
+   463→  }
+   464→
+   465→  // 7. Recalculate bpScore
+   466→  const filledCount = Object.values(mergedSections).filter(isFilled).length
+   467→  const bpScore = Math.min(100, Math.round((filledCount / 24) * 100))
+   468→
+   469→  // 8. Update CreatorJourney (including bpSectionMeta)
+   470→  const savedJourney = await db.creatorJourney.upsert({
+   471→    where: { userId },
+   472→    create: {
+   473→      userId,
+   474→      bpSections: mergedSections as Prisma.InputJsonValue,
+   475→      bpSectionMeta: updatedMeta as unknown as Prisma.InputJsonValue,
+   476→      bpStatus: 'DRAFT',
+   477→      bpScore,
+   478→      bpGeneratedAt: new Date(),
+   479→    },
+   480→    update: {
+   481→      bpSections: mergedSections as Prisma.InputJsonValue,
+   482→      bpSectionMeta: updatedMeta as unknown as Prisma.InputJsonValue,
+   483→      bpStatus: 'DRAFT',
+   484→      bpScore,
+   485→      bpGeneratedAt: new Date(),
+   486→    },
+   487→  })
+   488→
+   489→  // Auto-snapshot after AI generation
+   490→  const userForTenant = await db.user.findUnique({ where: { id: userId }, select: { tenantId: true } })
+   491→  if (userForTenant?.tenantId) {
+   492→    maybeAutoSnapshot(userId, savedJourney.id, userForTenant.tenantId, mergedSections, {
+   493→      projectTitle: journey?.projectTitle,
+   494→      projectSector: journey?.projectSector,
+   495→    }, 'ai-generate')
+   496→  }
+   497→
+   498→  // 9. Count what was generated vs skipped
+   499→  const generatedKeys = Object.keys(generatedSections).filter(
+   500→    (k) => typeof generatedSections[k] === 'string' && generatedSections[k].trim(),
+   501→  )
+   502→  const skippedKeys = generatedKeys.filter(
+   503→    (k) => mergedSections[k] !== generatedSections[k],
+   504→  )
+   505→
+   506→  return success(
+   507→    {
+   508→      sections: mergedSections,
+   509→      generated: generatedKeys,
+   510→      skipped: skippedKeys,
+   511→      bpStatus: 'DRAFT',
+   512→      bpScore,
+   513→    },
+   514→    `Business plan généré à partir du parcours (${generatedKeys.length} sections)`,
+   515→  )
+   516→}
+   517→
+   518→// ─── POST action: Sync Simulators (P1-2) ────
+   519→
+   520→async function handleSyncSimulators(userId: string) {
+   521→  // 1. Fetch existing BP sections and metadata
+   522→  const journey = await db.creatorJourney.findFirst({ where: { userId: userId, enrollmentId: null }, select: { bpSections: true, bpSectionMeta: true },
+   523→  })
+   524→
+   525→  const existingSections = (journey?.bpSections as Record<string, unknown>) ?? {}
+   526→  const mergedSections = { ...existingSections }
+   527→  const sectionMeta = (journey?.bpSectionMeta as unknown as BpSectionMeta) ?? {}
+   528→
+   529→  // Track what was synced vs skipped (with source key for meta)
+   530→  const synced: { section: string; source: string; sourceKey?: DataSource }[] = []
+   531→  const skipped: { section: string; source: string; reason: string }[] = []
+   532→
+   533→  // Helper: only fill empty sections
+   534→  function fillSection(key: string, value: string, source: string, sourceKey?: DataSource) {
+   535→    const existing = mergedSections[key]
+   536→    const isEmpty = existing === null || existing === undefined ||
+   537→      (typeof existing === 'string' && existing.trim() === '')
+   538→
+   539→    if (isEmpty && value.trim()) {
+   540→      mergedSections[key] = value
+   541→      synced.push({ section: key, source, sourceKey })
+   542→      // Update section metadata with sync source
+   543→      if (sourceKey) {
+   544→        sectionMeta[key] = buildSectionMetaForSync(sectionMeta, key, value, sourceKey as 'marche' | 'juridique' | 'financier' | 'creasim' | 'parcours')
+   545→      } } else if (!isEmpty) {
+   546→      skipped.push({ section: key, source, reason: 'Déjà renseigné par l\'utilisateur' })
+   547→    }
+   548→  }
+   549→
+   550→  // 2. Fetch ALL simulator data in parallel
+   551→  const [
+   552→    marketAnalysis,
+   553→    financialForecast,
+   554→    creaSim,
+   555→    juridiqueAnalysis,
+   556→    businessModelCanvas,
+   557→  ] = await Promise.all([
+   558→    db.marketAnalysis.findFirst({ where: { userId: userId, enrollmentId: null } }),
+   559→    db.financialForecast.findFirst({ where: { userId: userId, enrollmentId: null } }),
+   560→    db.creaSimSimulation.findUnique({ where: { userId } }),
+   561→    db.juridiqueAnalysis.findFirst({ where: { userId: userId, enrollmentId: null } }),
+   562→    db.businessModelCanvas.findFirst({ where: { userId: userId, enrollmentId: null } }),
+   563→  ])
+   564→
+   565→  // 3. Map marketAnalysis → etudeMarche, concurrence, swot
+   566→  if (marketAnalysis) {
+   567→    const parts: string[] = []
+   568→    if (marketAnalysis.sector) parts.push(`**Secteur** : ${marketAnalysis.sector}`)
+   569→    if (marketAnalysis.marketSize) parts.push(`**Taille du marché** : ${marketAnalysis.marketSize}`)
+   570→    if (marketAnalysis.targetAudience) parts.push(`**Audience cible** : ${marketAnalysis.targetAudience}`)
+   571→    if (marketAnalysis.opportunities) parts.push(`**Opportunités** : ${marketAnalysis.opportunities}`)
+   572→    if (marketAnalysis.threats) parts.push(`**Menaces** : ${marketAnalysis.threats}`)
+   573→    if (marketAnalysis.aiSynthesis) parts.push(`**Synthèse IA** : ${marketAnalysis.aiSynthesis}`)
+   574→
+   575→    const trends = marketAnalysis.trends as unknown[]
+   576→    if (Array.isArray(trends) && trends.length > 0) {
+   577→      parts.push(`**Tendances** : ${trends.join(', ')}`)
+   578→    }
+   579→
+   580→    if (parts.length > 0) {
+   581→      fillSection('etude-marche', `## Étude de marché\n\n${parts.join('\n\n')}`, 'Analyse de marché', 'marche')
+   582→    } else {
+   583→      skipped.push({ section: 'etude-marche', source: 'Analyse de marché', reason: 'Données insuffisantes' })
+   584→    }
+   585→
+   586→    // Competition
+   587→    const competitors = marketAnalysis.competitors as unknown[]
+   588→    if (Array.isArray(competitors) && competitors.length > 0) {
+   589→      const compParts = competitors.map((c: unknown, i: number) => {
+   590→        const comp = c as Record<string, string>
+   591→        return `### Concurrent ${i + 1}\n${Object.entries(comp).map(([k, v]) => `- **${k}** : ${v}`).join('\n')}`
+   592→      })
+   593→      fillSection('concurrence', `## Analyse concurrentielle\n\n${compParts.join('\n\n')}`, 'Analyse de marché', 'marche')
+   594→    } else {
+   595→      skipped.push({ section: 'concurrence', source: 'Analyse de marché', reason: 'Aucun concurrent identifié' })
+   596→    }
+   597→
+   598→    // SWOT
+   599→    const swotParts: string[] = []
+   600→    if (marketAnalysis.opportunities) swotParts.push(`### Opportunités\n${marketAnalysis.opportunities}`)
+   601→    if (marketAnalysis.threats) swotParts.push(`### Menaces\n${marketAnalysis.threats}`)
+   602→    if (swotParts.length > 0) {
+   603→      fillSection('swot', `## Analyse SWOT\n\n${swotParts.join('\n\n')}`, 'Analyse de marché', 'marche')
+   604→    } else {
+   605→      skipped.push({ section: 'swot', source: 'Analyse de marché', reason: 'Données insuffisantes' })
+   606→    }
+   607→  } else {
+   608→    skipped.push({ section: 'etude-marche', source: 'Analyse de marché', reason: 'Simulation non complétée' })
+   609→    skipped.push({ section: 'concurrence', source: 'Analyse de marché', reason: 'Simulation non complétée' })
+   610→    skipped.push({ section: 'swot', source: 'Analyse de marché', reason: 'Simulation non complétée' })
+   611→  }
+   612→
+   613→  // 4. Map financialForecast → planFinancier, compteResultat, investissements
+   614→  if (financialForecast) {
+   615→    // Financial plan summary
+   616→    const finParts: string[] = []
+   617→    if (financialForecast.sector) finParts.push(`**Secteur** : ${financialForecast.sector}`)
+   618→    if (financialForecast.year1Revenue) finParts.push(`**CA Année 1** : ${financialForecast.year1Revenue.toLocaleString('fr-FR')} €`)
+   619→    if (financialForecast.year2Revenue) finParts.push(`**CA Année 2** : ${financialForecast.year2Revenue.toLocaleString('fr-FR')} €`)
+   620→    if (financialForecast.year3Revenue) finParts.push(`**CA Année 3** : ${financialForecast.year3Revenue.toLocaleString('fr-FR')} €`)
+   621→    if (financialForecast.year1Expenses) finParts.push(`**Charges Année 1** : ${financialForecast.year1Expenses.toLocaleString('fr-FR')} €`)
+   622→    if (financialForecast.year2Expenses) finParts.push(`**Charges Année 2** : ${financialForecast.year2Expenses.toLocaleString('fr-FR')} €`)
+   623→    if (financialForecast.year3Expenses) finParts.push(`**Charges Année 3** : ${financialForecast.year3Expenses.toLocaleString('fr-FR')} €`)
+   624→    if (financialForecast.breakevenMonth) finParts.push(`**Seuil de rentabilité** : Mois ${financialForecast.breakevenMonth}`)
+   625→    if (financialForecast.initialInvestment) finParts.push(`**Investissement initial** : ${financialForecast.initialInvestment.toLocaleString('fr-FR')} €`)
+   626→
+   627→    if (finParts.length > 0) {
+   628→      fillSection('financement', `## Plan financier (synthèse)\n\n${finParts.join('\n\n')}`, 'Prévisions financières', 'financier')
+   629→    } else {
+   630→      skipped.push({ section: 'financement', source: 'Prévisions financières', reason: 'Données insuffisantes' })
+   631→    }
+   632→
+   633→    // P&L summary
+   634→    const plParts: string[] = []
+   635→    const fmtEur = (n: number) => n.toLocaleString('fr-FR')
+   636→    const years = [
+   637→      { year: 1, rev: financialForecast.year1Revenue, exp: financialForecast.year1Expenses },
+   638→      { year: 2, rev: financialForecast.year2Revenue, exp: financialForecast.year2Expenses },
+   639→      { year: 3, rev: financialForecast.year3Revenue, exp: financialForecast.year3Expenses },
+   640→    ]
+   641→    for (const y of years) {
+   642→      if (y.rev != null || y.exp != null) {
+   643→        const rev = y.rev ?? 0
+   644→        const exp = y.exp ?? 0
+   645→        const result = rev - exp
+   646→        plParts.push(`### Année ${y.year}\n- Chiffre d'affaires : ${fmtEur(rev)} €\n- Charges : ${fmtEur(exp)} €\n- **Résultat net** : ${fmtEur(result)} € ${result >= 0 ? '✅' : '⚠️'}`)
+   647→      }
+   648→    }
+   649→    if (plParts.length > 0) {
+   650→      fillSection('compte-resultat', `## Compte de résultat prévisionnel (3 ans)\n\n${plParts.join('\n\n')}`, 'Prévisions financières', 'financier')
+   651→    } else {
+   652→      skipped.push({ section: 'compte-resultat', source: 'Prévisions financières', reason: 'Données insuffisantes' })
+   653→    }
+   654→
+   655→    // Investments
+   656→    if (financialForecast.initialInvestment) {
+   657→      fillSection(
+   658→        'investissements',
+   659→        `## Investissements\n\n**Investissement initial** : ${financialForecast.initialInvestment.toLocaleString('fr-FR')} €\n\n*Cette donnée provient du module Prévisions Financières. Détaillez les postes d'investissement (matériel, logiciel, caution, etc.) pour compléter cette section.*`,
+   660→        'Prévisions financières',
+   661→        'financier',
+   662→      )
+   663→    } else {
+   664→      skipped.push({ section: 'investissements', source: 'Prévisions financières', reason: 'Aucun investissement renseigné' })
+   665→    }
+   666→  } else {
+   667→    skipped.push({ section: 'financement', source: 'Prévisions financières', reason: 'Simulation non complétée' })
+   668→    skipped.push({ section: 'compte-resultat', source: 'Prévisions financières', reason: 'Simulation non complétée' })
+   669→    skipped.push({ section: 'investissements', source: 'Prévisions financières', reason: 'Simulation non complétée' })
+   670→  }
+   671→
+   672→  // 5. Map creaSim → rentabilite
+   673→  if (creaSim) {
+   674→    const rentParts: string[] = []
+   675→    const fmtEur = (n: number) => n.toLocaleString('fr-FR')
+   676→    const fmtPct = (n: number) => `${n.toFixed(1)}%`
+   677→
+   678→    if (creaSim.monthlyRevenue) rentParts.push(`**CA mensuel** : ${fmtEur(creaSim.monthlyRevenue)} €`)
+   679→    if (creaSim.grossMarginRate) rentParts.push(`**Marge brute** : ${fmtPct(creaSim.grossMarginRate)}`)
+   680→    if (creaSim.netMarginRate) rentParts.push(`**Marge nette** : ${fmtPct(creaSim.netMarginRate)}`)
+   681→    if (creaSim.monthlyBreakeven) rentParts.push(`**Seuil de rentabilité mensuel** : ${fmtEur(creaSim.monthlyBreakeven)} €`)
+   682→    if (creaSim.breakevenMonths) rentParts.push(`**Point mort** : ${creaSim.breakevenMonths.toFixed(1)} mois`)
+   683→
+   684→    if (creaSim.profitability1Y != null) {
+   685→      rentParts.push(`**Rentabilité Année 1** : ${fmtEur(creaSim.profitability1Y)} € ${creaSim.profitability1Y >= 0 ? '✅' : '⚠️'}`)
+   686→    }
+   687→    if (creaSim.profitability2Y != null) {
+   688→      rentParts.push(`**Rentabilité Année 2** : ${fmtEur(creaSim.profitability2Y)} € ${creaSim.profitability2Y >= 0 ? '✅' : '⚠️'}`)
+   689→    }
+   690→    if (creaSim.profitability3Y != null) {
+   691→      rentParts.push(`**Rentabilité Année 3** : ${fmtEur(creaSim.profitability3Y)} € ${creaSim.profitability3Y >= 0 ? '✅' : '⚠️'}`)
+   692→    }
+   693→
+   694→    // Margin analysis
+   695→    if (creaSim.averageSellingPrice && creaSim.unitCost) {
+   696→      const marginPerUnit = creaSim.averageSellingPrice - creaSim.unitCost
+   697→      rentParts.push(`**Marge unitaire** : ${fmtEur(marginPerUnit)} € (PV ${fmtEur(creaSim.averageSellingPrice)} € - Coût ${fmtEur(creaSim.unitCost)} €)`)
+   698→    }
+   699→    if (creaSim.targetMarginRate) {
+   700→      rentParts.push(`**Objectif de marge** : ${fmtPct(creaSim.targetMarginRate)}`)
+   701→      if (creaSim.grossMarginRate) {
+   702→        const gap = creaSim.grossMarginRate - creaSim.targetMarginRate
+   703→        rentParts.push(`**Écart par rapport à l'objectif** : ${gap >= 0 ? '+' : ''}${fmtPct(gap)} ${gap >= 0 ? '✅ Atteint' : '⚠️ Non atteint'}`)
+   704→      }
+   705→    }
+   706→
+   707→    if (rentParts.length > 0) {
+   708→      fillSection('seuil-rentabilite', `## Analyse de rentabilité (CreaSim)\n\n${rentParts.join('\n\n')}`, 'CreaSim', 'creasim')
+   709→    } else {
+   710→      skipped.push({ section: 'seuil-rentabilite', source: 'CreaSim', reason: 'Données insuffisantes' })
+   711→    }
+   712→  } else {
+   713→    skipped.push({ section: 'seuil-rentabilite', source: 'CreaSim', reason: 'Simulation non complétée' })
+   714→  }
+   715→
+   716→  // 6. Map juridiqueAnalysis → statutJuridique
+   717→  if (juridiqueAnalysis) {
+   718→    const jurParts: string[] = []
+   719→    if (juridiqueAnalysis.recommendedStatus) jurParts.push(`**Statut recommandé** : ${juridiqueAnalysis.recommendedStatus}`)
+   720→    if (juridiqueAnalysis.fiscalRegime) jurParts.push(`**Régime fiscal** : ${juridiqueAnalysis.fiscalRegime}`)
+   721→    if (juridiqueAnalysis.legalStructure) jurParts.push(`**Structure juridique** : ${juridiqueAnalysis.legalStructure}`)
+   722→
+   723→    const charges = juridiqueAnalysis.socialCharges as unknown[]
+   724→    if (Array.isArray(charges) && charges.length > 0) {
+   725→      const chargeItems = charges.map((c: unknown) => {
+   726→        const charge = c as Record<string, string>
+   727→        return `- ${charge.name || charge.type || 'Charge'} : ${charge.amount || charge.rate || ''}`
+   728→      })
+   729→      jurParts.push(`**Charges sociales** :\n${chargeItems.join('\n')}`)
+   730→    }
+   731→
+   732→    if (jurParts.length > 0) {
+   733→      fillSection('statut-juridique', `## Statut juridique\n\n${jurParts.join('\n\n')}`, 'Analyse juridique', 'juridique')
+   734→    } else {
+   735→      skipped.push({ section: 'statut-juridique', source: 'Analyse juridique', reason: 'Données insuffisantes' })
+   736→    }
+   737→  } else {
+   738→    skipped.push({ section: 'statut-juridique', source: 'Analyse juridique', reason: 'Simulation non complétée' })
+   739→  }
+   740→
+   741→  // 7. Map businessModelCanvas → businessModelCanvas
+   742→  if (businessModelCanvas) {
+   743→    const bmcParts: string[] = []
+   744→    const bmcLabels: Record<string, string> = {
+   745→      partenairesCles: 'Partenaires clés',
+   746→      activitesCles: 'Activités clés',
+   747→      ressourcesCles: 'Ressources clés',
+   748→      propositionValeur: 'Proposition de valeur',
+   749→      relationsClients: 'Relations clients',
+   750→      canaux: 'Canaux de distribution',
+   751→      segmentsClients: 'Segments de clientèle',
+   752→      structureCouts: 'Structure des coûts',
+   753→      sourcesRevenus: 'Sources de revenus',
+   754→    }
+   755→
+   756→    let hasContent = false
+   757→    for (const [field, label] of Object.entries(bmcLabels)) {
+   758→      const value = businessModelCanvas[field as keyof typeof businessModelCanvas]
+   759→      if (value && typeof value === 'string' && value.trim()) {
+   760→        bmcParts.push(`### ${label}\n${value}`)
+   761→        hasContent = true
+   762→      }
+   763→    }
+   764→
+   765→    // BMC has no matching section in the BP — data is available in the BMC module
+   766→    skipped.push({ section: 'businessModelCanvas', source: 'Business Model Canvas', reason: 'Aucune section correspondante dans le BP' })
+   767→  } else {
+   768→    skipped.push({ section: 'businessModelCanvas', source: 'Business Model Canvas', reason: 'Simulation non complétée' })
+   769→  }
+   770→
+   771→  // 8. Recalculate bpScore and save (including bpSectionMeta)
+   772→  const filledCount = Object.values(mergedSections).filter(isFilled).length
+   773→  const totalSections = 24
+   774→  const bpScore = Math.min(100, Math.round((filledCount / totalSections) * 100))
+   775→
+   776→  await db.creatorJourney.upsert({
+   777→    where: { userId },
+   778→    create: {
+   779→      userId,
+   780→      bpSections: mergedSections as Prisma.InputJsonValue,
+   781→      bpSectionMeta: sectionMeta as unknown as Prisma.InputJsonValue,
+   782→      bpScore,
+   783→      bpGeneratedAt: new Date(),
+   784→    },
+   785→    update: {
+   786→      bpSections: mergedSections as Prisma.InputJsonValue,
+   787→      bpSectionMeta: sectionMeta as unknown as Prisma.InputJsonValue,
+   788→      bpScore,
+   789→      bpGeneratedAt: new Date(),
+   790→    },
+   791→  })
+   792→
+   793→  // Derive syncedSources from synced array
+   794→  const syncedSources: Record<string, boolean> = {}
+   795→  for (const item of synced) {
+   796→    const source = item.source as string
+   797→    if (source === 'Analyse de marché') syncedSources.marche = true
+   798→    if (source === 'Prévisions financières' || source === 'CreaSim') syncedSources.financier = true
+   799→    if (source === 'Analyse juridique') syncedSources.juridique = true
+   800→    if (source === 'CreaSim') syncedSources.creasim = true
+   801→  }
+   802→  const summary = `${synced.length} sections synchronisées depuis ${[...new Set(synced.map(s => s.source))].join(', ')}`
+   803→
+   804→  return success(
+   805→    {
+   806→      sections: mergedSections,
+   807→      synced,
+   808→      skipped,
+   809→      bpScore,
+   810→      totalSections,
+   811→      syncedSources,
+   812→      summary,
+   813→    },
+   814→    `Synchronisation terminée : ${synced.length} sections ajoutées, ${skipped.length} ignorées`,
+   815→  )
+   816→}
+   817→

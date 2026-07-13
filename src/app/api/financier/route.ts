@@ -11,6 +11,7 @@ import { success, Errors, handleApiError } from '@/lib/api-response'
 import { withAuth } from '@/lib/api-auth'
 import { z } from 'zod'
 import { callZAI, getZAIErrorMessage, aiUnavailableResponse } from '@/lib/zai-helper'
+import { getEnrollmentIdFromRequest, buildCompositeKey } from '@/lib/enrollment-context'
 
 // ─── Validation Schema ───────────────────────
 
@@ -59,9 +60,10 @@ export async function GET(request: NextRequest) {
     const auth = await withAuth(request)
     if (!auth) return
     const { payload } = auth
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const forecast = await db.financialForecast.findUnique({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
     })
 
     if (!forecast) return success(null, 'Aucun plan financier')
@@ -79,6 +81,7 @@ export async function PUT(request: NextRequest) {
     const auth = await withAuth(request)
     if (!auth) return
     const { payload } = auth
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const body = await request.json()
     const parsed = financierSchema.safeParse(body)
@@ -91,9 +94,10 @@ export async function PUT(request: NextRequest) {
     const data = parsed.data
 
     const forecast = await db.financialForecast.upsert({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
       create: {
         userId: payload.userId,
+        enrollmentId,
         sector: data.sector ?? null,
         year1Revenue: data.year1Revenue ?? null,
         year2Revenue: data.year2Revenue ?? null,
@@ -132,12 +136,13 @@ export async function POST(request: NextRequest) {
     const auth = await withAuth(request)
     if (!auth) return
     const { payload } = auth
+    const enrollmentId = getEnrollmentIdFromRequest(request)
 
     // 1. Fetch all financial data in parallel
     const [financialForecast, creatorJourney, creaSimData] = await Promise.all([
-      db.financialForecast.findUnique({ where: { userId: payload.userId } }),
+      db.financialForecast.findUnique({ where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) } }),
       db.creatorJourney.findUnique({
-        where: { userId: payload.userId },
+        where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
         select: {
           projectTitle: true,
           projectSector: true,
@@ -148,7 +153,7 @@ export async function POST(request: NextRequest) {
           creationMotivation: true,
         },
       }),
-      db.creaSimSimulation.findUnique({ where: { userId: payload.userId } }),
+      db.creaSimSimulation.findUnique({ where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) } }),
     ])
 
     // Check we have at least some financial data to analyze
@@ -296,9 +301,10 @@ STRUCTURE DE TA RÉPONSE (en Markdown) :
 
     // 5. Save the result
     await db.financialForecast.upsert({
-      where: { userId: payload.userId },
+      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
       create: {
         userId: payload.userId,
+        enrollmentId,
         aiSynthesis,
       },
       update: {
