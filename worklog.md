@@ -1263,3 +1263,28 @@ Stage Summary:
 - Zero lint errors after all changes
 - Dev server runs correctly with DEPLOY_TARGET=docker
 - Key remaining items need architecture choices (Prisma Accelerate, external services, Redis)
+---
+Task ID: 1
+Agent: Main
+Task: Implémenter le système multi-dispositif/multi-parcours
+
+Work Log:
+- Analysé l'architecture actuelle : 13 modèles 1:1 avec User, aucun concept de dispositif, registre de modules statique, navigation section+module uniquement
+- Conçu l'approche "additive et rétro-compatible" : nouveaux modèles Dispositif + UserEnrollment, filtrage des modules par dispositif actif, sélecteur dans le topbar
+- Ajouté au Prisma schema : enums DispositifType + EnrollmentStatus, modèles Dispositif et UserEnrollment avec relations vers Tenant et User
+- Généré le client Prisma avec succès
+- Créé src/lib/dispositif-registry.ts : 3 dispositifs par défaut (CréaPulse BASE, CréaScope DIAGNOSTIC, Activ'Créa ACCOMPAGNEMENT) avec sets de modules dédiés + CORE_MODULES
+- Créé src/lib/stores/dispositif-store.ts : Zustand store persisté avec enrollments[], activeDispositifId, auto-sélection du BASE
+- Créé src/app/api/enrollments/route.ts : GET (fetch enrollments + jointure Dispositif), POST (enroll with idempotency)
+- Créé src/components/bureau/dispositif-selector.tsx : Dropdown dans le topbar avec badge couleur, progress bar, option "Tous les parcours"
+- Modifié src/components/bureau/topbar.tsx : intégré DispositifSelector entre search et right actions
+- Modifié src/components/bureau/sidebar.tsx : filtrage des modules par dispositif actif via getDispositifModules()
+- Lint: 0 nouvelles erreurs, dev server OK
+
+Stage Summary:
+- Base de données: 2 nouveaux modèles (Dispositif, UserEnrollment) + 2 enums
+- Backend: 1 API route /api/enrollments (GET + POST)
+- Frontend: 1 nouveau composant (DispositifSelector), 1 store (useDispositifStore), 1 registre (dispositif-registry)
+- Modifications: topbar.tsx (import + insertion), sidebar.tsx (filtrage par dispositif)
+- Rétro-compatible: activeDispositifId=null = vue complète (comportement actuel préservé)
+- Note: les données des modules (FinancialForecast, BMC etc.) sont encore en 1:1 avec User — le scope par enrollment sera la prochaine étape

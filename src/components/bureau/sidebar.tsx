@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useBureauStore, type BureauSection } from './bureau-store'
 import { useModuleConfigStore } from '@/lib/stores/module-config-store'
+import { useDispositifStore } from '@/lib/stores/dispositif-store'
+import { getDispositifModules } from '@/lib/dispositif-registry'
 import { MODULE_REGISTRY, SECTION_META } from '@/lib/module-registry'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -215,6 +217,11 @@ function SidebarContent({ collapsed, onNavigate, onCloseMobile }: {
   const { currentSection, currentModule, setSection, setModule, sidebarOpen } = useBureauStore()
   const { data: progressData } = useProgressData()
   const { isModuleActive, fetchActiveModules, loaded: modulesLoaded } = useModuleConfigStore()
+  const { activeDispositifId, enrollments } = useDispositifStore()
+
+  // Get the active enrollment's code for module filtering
+  const activeEnrollment = enrollments.find((e) => e.id === activeDispositifId)
+  const dispositifCode = activeEnrollment?.code || null
 
   // Fetch active modules on mount
   useEffect(() => {
@@ -223,11 +230,22 @@ function SidebarContent({ collapsed, onNavigate, onCloseMobile }: {
 
   // Build navigation groups with dynamic progress + module filtering
   const navigationGroups: NavGroup[] = useMemo(() => {
+    // If a specific dispositif is active, get its allowed module set
+    let allowedModules: Set<string> | null = null
+    if (dispositifCode) {
+      allowedModules = new Set(getDispositifModules(dispositifCode))
+    }
+
     return BASE_NAVIGATION
       .map((group) => {
         // Filter items to only active modules
         const activeItems = modulesLoaded
-          ? group.items.filter((item) => isModuleActive(item.id))
+          ? group.items.filter((item) => {
+              if (!isModuleActive(item.id)) return false
+              // If dispositif is active, also check if module is in its set
+              if (allowedModules && !allowedModules.has(item.id)) return false
+              return true
+            })
           : group.items // Show all until loaded
 
         // Skip empty groups (all modules disabled)
@@ -241,7 +259,7 @@ function SidebarContent({ collapsed, onNavigate, onCloseMobile }: {
         return { ...group, items: activeItems, progress }
       })
       .filter(Boolean) as NavGroup[]
-  }, [progressData, modulesLoaded, isModuleActive])
+  }, [progressData, modulesLoaded, isModuleActive, dispositifCode])
 
   const globalProgress = progressData?.global ?? FALLBACK_GLOBAL
 

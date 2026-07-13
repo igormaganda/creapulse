@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { useBureauStore, type BureauSection } from './bureau-store'
 import { cn } from '@/lib/utils'
 import { NotificationsPanel } from './notifications-panel'
+import { DispositifSelector } from './dispositif-selector'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -152,6 +153,9 @@ export function TopBar({ onMenuClick }: TopBarProps) {
           ⌘K
         </kbd>
       </div>
+
+      {/* Dispositif selector — shows when user has multiple enrollments */}
+      <DispositifSelector />
 
       {/* Right actions */}
       <div className="flex items-center gap-1">

@@ -238,6 +238,8 @@ model Tenant {
   conversations Conversation[]
   paaPrograms   PaaProgram[]
   mindMaps      MindMap[]
+  dispositifs   Dispositif[]
+  enrollments  UserEnrollment[]
 }
 
 model Organization {
@@ -326,6 +328,7 @@ model User {
   paaPrograms         PaaProgram[]
   satisfactionFeedbacks SatisfactionFeedback[]
   mindMaps            MindMap[]
+  enrollments         UserEnrollment[]
 
   @@unique([tenantId, email])
   @@index([tenantId, role])
@@ -1314,6 +1317,90 @@ enum CreascopeSessionStatus {
   PAUSEE
   TERMINEE
   ANNULEE
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MULTI-DISPOSITIF — A user can be enrolled in multiple
+// dispositifs (CréaPulse, CréaScope, Activ'Créa, etc.)
+// each with its own module set, progress, and data scope.
+// ═══════════════════════════════════════════════════════════════
+
+enum EnrollmentStatus {
+  ACTIF
+  TERMINE
+  ABANDONNE
+  SUSPENDU
+}
+
+enum DispositifType {
+  BASE          // Default CréaPulse parcours (all modules)
+  DIAGNOSTIC    // CréaScope — diagnostic pipeline
+  ACCOMPAGNEMENT // Activ'Créa — structured PAA-like program
+  CUSTOM        // Admin-defined custom dispositif
+}
+
+model Dispositif {
+  id          String        @id @default(cuid())
+  tenantId    String
+  code        String        // e.g. "creapulse", "creascope", "activ-crea"
+  name        String        // Display name: "Parcours Créateur", "CréaScope", "Activ'Créa"
+  description String?
+  type        DispositifType @default(BASE)
+  color       String        @default("#00838F") // Theme color (hex)
+  icon        String        @default("Briefcase") // Lucide icon name
+  durationDays Int?          // Programmed duration (null = unlimited)
+  isActive    Boolean       @default(true)
+  sortOrder   Int           @default(0)
+
+  // Which modules this dispositif includes
+  // Format: { "include": ["marche","juridique",...], "exclude": ["mentorat"] }
+  // If include is set, ONLY those modules are shown (plus core modules).
+  // If exclude is set, ALL modules minus those are shown.
+  moduleConfig Json @default("{\"include\":null,\"exclude\":[]}")
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  enrollments UserEnrollment[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([isActive])
+}
+
+model UserEnrollment {
+  id           String          @id @default(cuid())
+  userId       String
+  tenantId     String
+  dispositifId String
+  status       EnrollmentStatus @default(ACTIF)
+
+  // Timing
+  enrolledAt   DateTime        @default(now())
+  startedAt    DateTime?
+  completedAt  DateTime?
+  pausedAt     DateTime?
+
+  // Progress (0-100), updated by /api/progress
+  progress     Int             @default(0)
+
+  // User's project title within this dispositif (can differ per dispositif)
+  projectTitle String?
+
+  // User-specific settings for this enrollment
+  settings     Json            @default("{}")
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dispositif Dispositif @relation(fields: [dispositifId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dispositifId])
+  @@index([userId])
+  @@index([tenantId])
+  @@index([dispositifId])
+  @@index([status])
 }
 
 model CreascopeSession {
