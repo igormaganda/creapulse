@@ -33,7 +33,9 @@ export type ZAIResponse = ZAIResult | ZAIFailure
 
 // ─── Default model ──────────────────────────
 
-const DEFAULT_MODEL = process.env.ZAI_MODEL || 'glm-4.7'
+// glm-4.7-flash is the default for GLM Plan (api.z.ai).
+// Use ZAI_MODEL env var to override (e.g. glm-4.7 if on a higher tier).
+const DEFAULT_MODEL = process.env.ZAI_MODEL || 'glm-4.7-flash'
 
 // ─── Main helper ────────────────────────────
 
