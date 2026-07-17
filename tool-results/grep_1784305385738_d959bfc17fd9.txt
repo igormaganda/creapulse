@@ -1,0 +1,252 @@
+/home/z/my-project/agent-ctx/4-api-infrastructure.md:53:- Database connectivity check (raw SQL query)
+/home/z/my-project/agent-ctx/4-api-infrastructure.md:54:- Returns: status, version, environment, uptime, database latency
+/home/z/my-project/agent-ctx/2-bureau-strategie-modules-builder.md:74:- API persistence to PostgreSQL (MarketAnalysis, JuridiqueAnalysis, FinancialForecast, ZeroDraft)
+/home/z/my-project/agent-ctx/1-B-conseiller-api-converter.md:4:All 6 Conseiller API routes converted from mock data to real Prisma PostgreSQL queries.
+/home/z/my-project/agent-ctx/visio-backend-backend.md:13:- Fixed DATABASE_URL from SQLite to PostgreSQL (postgresql://postgres@127.0.0.1:5433/creapulse)
+/home/z/my-project/agent-ctx/visio-backend-backend.md:14:- Bootstrapped local PostgreSQL 17 instance (extracted from Debian packages, initdb, started on port 5433)
+/home/z/my-project/agent-ctx/visio-backend-backend.md:47:- /home/z/my-project/.env (added Jitsi env vars, fixed DATABASE_URL)
+/home/z/my-project/agent-ctx/1-creasim-module-builder.md:29:- Prisma schema pushed to PostgreSQL, client regenerated
+/home/z/my-project/package.json:10:    "db:push": "DATABASE_URL=$(grep '^DATABASE_URL=' .env | cut -d= -f2-) npx prisma db push",
+/home/z/my-project/package.json:11:    "db:generate": "DATABASE_URL=$(grep '^DATABASE_URL=' .env | cut -d= -f2-) npx prisma generate",
+/home/z/my-project/package.json:12:    "db:migrate": "DATABASE_URL=$(grep '^DATABASE_URL=' .env | cut -d= -f2-) prisma migrate dev",
+/home/z/my-project/package.json:13:    "db:reset": "DATABASE_URL=$(grep '^DATABASE_URL=' .env | cut -d= -f2-) prisma migrate reset",
+/home/z/my-project/tool-results/read_1783706004741_030568dccd58.txt:2:     2→// CreaPulse V2 — Prisma Schema (PostgreSQL)
+/home/z/my-project/tool-results/read_1783706004741_030568dccd58.txt:11:    11→  provider = "postgresql"
+/home/z/my-project/tool-results/read_1783706004741_030568dccd58.txt:12:    12→  url      = env("DATABASE_URL")
+/home/z/my-project/tool-results/read_1784298046832_329b11d98ad2.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1784298046832_329b11d98ad2.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1784298046832_329b11d98ad2.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1784298046832_329b11d98ad2.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1784298046832_329b11d98ad2.txt:850:   850→- BONUS: db.ts rendu résilient avec fallback SQLite/PostgreSQL
+/home/z/my-project/tool-results/read_1784298046832_329b11d98ad2.txt:1191:  1191→Task: Configurer PostgreSQL, activer les modules IA (GLM 4.7), et exécuter le jeu de tests complet
+/home/z/my-project/tool-results/read_1784298046832_329b11d98ad2.txt:1194:  1194→- Installé PostgreSQL 17 depuis le paquet Debian (postgresql-17_17.10-0+deb13u1_amd64.deb) extrait manuellement (apt-get sans sudo)
+/home/z/my-project/tool-results/read_1784298046832_329b11d98ad2.txt:1197:  1197→- Poussé le schéma Prisma (61 tables) via `DATABASE_URL="postgresql://z@localhost:5433/creapulse" npx prisma db push`
+/home/z/my-project/tool-results/read_1784298046832_329b11d98ad2.txt:1208:  1208→- **PostgreSQL**: Connecté, 61 tables, latence ~34ms
+/home/z/my-project/tool-results/read_1782931469852_13e2b7aa1f18.txt:16:    16→  Database,
+/home/z/my-project/tool-results/read_1782931469852_13e2b7aa1f18.txt:323:   323→          <Database className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+/home/z/my-project/tool-results/read_1782931469852_13e2b7aa1f18.txt:619:   619→                            <Database className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+/home/z/my-project/tool-results/read_1782925280414_cf6324276fe5.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1782925280414_cf6324276fe5.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1782925280414_cf6324276fe5.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1782925280414_cf6324276fe5.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1784301610647_5eae06fcfacd.txt:2:     2→// CreaPulse V2 — Prisma Schema (PostgreSQL)
+/home/z/my-project/tool-results/read_1784301610647_5eae06fcfacd.txt:11:    11→  provider = "postgresql"
+/home/z/my-project/tool-results/read_1784301610647_5eae06fcfacd.txt:12:    12→  url      = env("DATABASE_URL")
+/home/z/my-project/tool-results/read_1783018810045_867af2f4bcd4.txt:123:   123→   123→    throw new Error('Demo beneficiary not found. Please seed the database.')
+/home/z/my-project/tool-results/read_1782580604904_d17a0142bd1f.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1782580604904_d17a0142bd1f.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1782580604904_d17a0142bd1f.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1782580604904_d17a0142bd1f.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1784305358348_5eae06fcfacd.txt:2:     2→// CreaPulse V2 — Prisma Schema (PostgreSQL)
+/home/z/my-project/tool-results/read_1784305358348_5eae06fcfacd.txt:11:    11→  provider = "postgresql"
+/home/z/my-project/tool-results/read_1784305358348_5eae06fcfacd.txt:12:    12→  url      = env("DATABASE_URL")
+/home/z/my-project/tool-results/read_1782044769289_13e2b7aa1f18.txt:16:    16→  Database,
+/home/z/my-project/tool-results/read_1782044769289_13e2b7aa1f18.txt:323:   323→          <Database className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+/home/z/my-project/tool-results/read_1782044769289_13e2b7aa1f18.txt:619:   619→                            <Database className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+/home/z/my-project/tool-results/read_1783087014608_5bce590995f0.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1783087014608_5bce590995f0.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1783087014608_5bce590995f0.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1783087014608_5bce590995f0.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1783087014608_5bce590995f0.txt:850:   850→- BONUS: db.ts rendu résilient avec fallback SQLite/PostgreSQL
+/home/z/my-project/tool-results/read_1783697538353_837d2e3794a0.txt:16:    16→  Database,
+/home/z/my-project/tool-results/read_1783697538353_837d2e3794a0.txt:318:   318→          <Database className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+/home/z/my-project/tool-results/read_1783697538353_837d2e3794a0.txt:614:   614→                            <Database className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+/home/z/my-project/tool-results/read_1783957119539_3a13712ffe5b.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1783957119539_3a13712ffe5b.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1783957119539_3a13712ffe5b.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1783957119539_3a13712ffe5b.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1783957119539_3a13712ffe5b.txt:850:   850→- BONUS: db.ts rendu résilient avec fallback SQLite/PostgreSQL
+/home/z/my-project/tool-results/read_1783957119539_3a13712ffe5b.txt:1191:  1191→Task: Configurer PostgreSQL, activer les modules IA (GLM 4.7), et exécuter le jeu de tests complet
+/home/z/my-project/tool-results/read_1783957119539_3a13712ffe5b.txt:1194:  1194→- Installé PostgreSQL 17 depuis le paquet Debian (postgresql-17_17.10-0+deb13u1_amd64.deb) extrait manuellement (apt-get sans sudo)
+/home/z/my-project/tool-results/read_1783957119539_3a13712ffe5b.txt:1197:  1197→- Poussé le schéma Prisma (61 tables) via `DATABASE_URL="postgresql://z@localhost:5433/creapulse" npx prisma db push`
+/home/z/my-project/tool-results/read_1783957119539_3a13712ffe5b.txt:1208:  1208→- **PostgreSQL**: Connecté, 61 tables, latence ~34ms
+/home/z/my-project/src/components/bureau/modules/privacy-dashboard.tsx:16:  Database,
+/home/z/my-project/src/components/bureau/modules/privacy-dashboard.tsx:318:          <Database className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+/home/z/my-project/src/components/bureau/modules/privacy-dashboard.tsx:614:                            <Database className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+/home/z/my-project/tool-results/read_1784295474164_329b11d98ad2.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1784295474164_329b11d98ad2.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1784295474164_329b11d98ad2.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1784295474164_329b11d98ad2.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1784295474164_329b11d98ad2.txt:850:   850→- BONUS: db.ts rendu résilient avec fallback SQLite/PostgreSQL
+/home/z/my-project/tool-results/read_1784295474164_329b11d98ad2.txt:1191:  1191→Task: Configurer PostgreSQL, activer les modules IA (GLM 4.7), et exécuter le jeu de tests complet
+/home/z/my-project/tool-results/read_1784295474164_329b11d98ad2.txt:1194:  1194→- Installé PostgreSQL 17 depuis le paquet Debian (postgresql-17_17.10-0+deb13u1_amd64.deb) extrait manuellement (apt-get sans sudo)
+/home/z/my-project/tool-results/read_1784295474164_329b11d98ad2.txt:1197:  1197→- Poussé le schéma Prisma (61 tables) via `DATABASE_URL="postgresql://z@localhost:5433/creapulse" npx prisma db push`
+/home/z/my-project/tool-results/read_1784295474164_329b11d98ad2.txt:1208:  1208→- **PostgreSQL**: Connecté, 61 tables, latence ~34ms
+/home/z/my-project/tool-results/read_1782943331974_ca62da343ac0.txt:38:    38→    38→  Database,
+/home/z/my-project/tool-results/read_1782943331974_ca62da343ac0.txt:813:   813→   813→            <Database className="h-5 w-5 text-[#FF6B35]" />
+/home/z/my-project/tool-results/read_1782943331974_ca62da343ac0.txt:873:   873→   873→                { label: 'Total enregistrements', value: dbStats.totalRecords.toLocaleString('fr-FR'), icon: Database, color: 'text-[#FF6B35]' },
+/home/z/my-project/tool-results/read_1782943331974_ca62da343ac0.txt:901:   901→   901→    { id: 'donnees', label: 'Données', icon: Database },
+/home/z/my-project/tool-results/read_1783706004444_fcc0caf4a680.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1783706004444_fcc0caf4a680.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1783706004444_fcc0caf4a680.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1783706004444_fcc0caf4a680.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1783706004444_fcc0caf4a680.txt:850:   850→- BONUS: db.ts rendu résilient avec fallback SQLite/PostgreSQL
+/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:2:     2→     2→// CreaPulse V2 — Prisma Schema (PostgreSQL)
+/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:11:    11→    11→  provider = "postgresql"
+/home/z/my-project/tool-results/read_1782044747677_9887e7de63e8.txt:12:    12→    12→  url      = env("DATABASE_URL")
+/home/z/my-project/tool-results/read_1783000295393_7dd88fcce677.txt:73:    73→    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1783000295393_7dd88fcce677.txt:81:    81→    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1783000295393_7dd88fcce677.txt:114:   114→   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1783000295393_7dd88fcce677.txt:125:   125→   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1783711297644_a14fbfe187a9.txt:15:    15→// ─── Database Connection ─────────────────────
+/home/z/my-project/tool-results/read_1783711297644_a14fbfe187a9.txt:16:    16→const DB_URL = 'postgresql://bureau_virtuelle_user:bureau_virtuelle_pass2026@213.199.38.41:5432/bureau_virtuelle'
+/home/z/my-project/tool-results/read_1783000288087_0242b83d0fbf.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1783000288087_0242b83d0fbf.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1783000288087_0242b83d0fbf.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1783000288087_0242b83d0fbf.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1783181500744_f584ac91cf74.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1783181500744_f584ac91cf74.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1783181500744_f584ac91cf74.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1783181500744_f584ac91cf74.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1783181500744_f584ac91cf74.txt:850:   850→- BONUS: db.ts rendu résilient avec fallback SQLite/PostgreSQL
+/home/z/my-project/tool-results/read_1783968606144_8c0ba3e2e61d.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1783968606144_8c0ba3e2e61d.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1783968606144_8c0ba3e2e61d.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1783968606144_8c0ba3e2e61d.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1783968606144_8c0ba3e2e61d.txt:850:   850→- BONUS: db.ts rendu résilient avec fallback SQLite/PostgreSQL
+/home/z/my-project/tool-results/read_1783968606144_8c0ba3e2e61d.txt:1191:  1191→Task: Configurer PostgreSQL, activer les modules IA (GLM 4.7), et exécuter le jeu de tests complet
+/home/z/my-project/tool-results/read_1783968606144_8c0ba3e2e61d.txt:1194:  1194→- Installé PostgreSQL 17 depuis le paquet Debian (postgresql-17_17.10-0+deb13u1_amd64.deb) extrait manuellement (apt-get sans sudo)
+/home/z/my-project/tool-results/read_1783968606144_8c0ba3e2e61d.txt:1197:  1197→- Poussé le schéma Prisma (61 tables) via `DATABASE_URL="postgresql://z@localhost:5433/creapulse" npx prisma db push`
+/home/z/my-project/tool-results/read_1783968606144_8c0ba3e2e61d.txt:1208:  1208→- **PostgreSQL**: Connecté, 61 tables, latence ~34ms
+/home/z/my-project/tool-results/read_1783005783982_7dd88fcce677.txt:73:    73→    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1783005783982_7dd88fcce677.txt:81:    81→    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1783005783982_7dd88fcce677.txt:114:   114→   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1783005783982_7dd88fcce677.txt:125:   125→   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1784295496471_1c1c3d5ecec9.txt:2:     2→// CreaPulse V2 — Prisma Schema (PostgreSQL)
+/home/z/my-project/tool-results/read_1784295496471_1c1c3d5ecec9.txt:11:    11→  provider = "postgresql"
+/home/z/my-project/tool-results/read_1784295496471_1c1c3d5ecec9.txt:12:    12→  url      = env("DATABASE_URL")
+/home/z/my-project/tool-results/read_1782984112277_6373a1d726d0.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1782984112277_6373a1d726d0.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1782984112277_6373a1d726d0.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1782984112277_6373a1d726d0.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1782044721633_bc3642103a43.txt:2:     2→// CreaPulse V2 — Prisma Schema (PostgreSQL)
+/home/z/my-project/tool-results/read_1782044721633_bc3642103a43.txt:11:    11→  provider = "postgresql"
+/home/z/my-project/tool-results/read_1782044721633_bc3642103a43.txt:12:    12→  url      = env("DATABASE_URL")
+/home/z/my-project/tool-results/read_1782926151833_0d269217d36b.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1782926151833_0d269217d36b.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1782926151833_0d269217d36b.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1782926151833_0d269217d36b.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1783087015066_5bce590995f0.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1783087015066_5bce590995f0.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1783087015066_5bce590995f0.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1783087015066_5bce590995f0.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1783087015066_5bce590995f0.txt:850:   850→- BONUS: db.ts rendu résilient avec fallback SQLite/PostgreSQL
+/home/z/my-project/tool-results/read_1782933852690_2e414149be1f.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1782933852690_2e414149be1f.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1782933852690_2e414149be1f.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1782933852690_2e414149be1f.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1782933852690_2e414149be1f.txt:1160:  1160→- `prisma generate` réussi (schéma PostgreSQL, db:push impossible car DB = fichier SQLite en dev)
+/home/z/my-project/tool-results/read_1782933852690_2e414149be1f.txt:1166:  1166→- Note : login 500 est pré-existant (DB PostgreSQL non disponible en environnement sandbox)
+/home/z/my-project/tool-results/read_1783970769143_15d9dcf875da.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1783970769143_15d9dcf875da.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1783970769143_15d9dcf875da.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1783970769143_15d9dcf875da.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1783970769143_15d9dcf875da.txt:850:   850→- BONUS: db.ts rendu résilient avec fallback SQLite/PostgreSQL
+/home/z/my-project/tool-results/read_1783970769143_15d9dcf875da.txt:1191:  1191→Task: Configurer PostgreSQL, activer les modules IA (GLM 4.7), et exécuter le jeu de tests complet
+/home/z/my-project/tool-results/read_1783970769143_15d9dcf875da.txt:1194:  1194→- Installé PostgreSQL 17 depuis le paquet Debian (postgresql-17_17.10-0+deb13u1_amd64.deb) extrait manuellement (apt-get sans sudo)
+/home/z/my-project/tool-results/read_1783970769143_15d9dcf875da.txt:1197:  1197→- Poussé le schéma Prisma (61 tables) via `DATABASE_URL="postgresql://z@localhost:5433/creapulse" npx prisma db push`
+/home/z/my-project/tool-results/read_1783970769143_15d9dcf875da.txt:1208:  1208→- **PostgreSQL**: Connecté, 61 tables, latence ~34ms
+/home/z/my-project/tool-results/read_1782908054138_bb5a9a4648da.txt:1072:  1072→| **Base de données** | PostgreSQL + Prisma ORM |
+/home/z/my-project/tool-results/read_1782934605098_1e36cd841662.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1782934605098_1e36cd841662.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1782934605098_1e36cd841662.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1782934605098_1e36cd841662.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1782934605098_1e36cd841662.txt:1160:  1160→- `prisma generate` réussi (schéma PostgreSQL, db:push impossible car DB = fichier SQLite en dev)
+/home/z/my-project/tool-results/read_1782934605098_1e36cd841662.txt:1166:  1166→- Note : login 500 est pré-existant (DB PostgreSQL non disponible en environnement sandbox)
+/home/z/my-project/tool-results/read_1783085005820_bc3642103a43.txt:2:     2→// CreaPulse V2 — Prisma Schema (PostgreSQL)
+/home/z/my-project/tool-results/read_1783085005820_bc3642103a43.txt:11:    11→  provider = "postgresql"
+/home/z/my-project/tool-results/read_1783085005820_bc3642103a43.txt:12:    12→  url      = env("DATABASE_URL")
+/home/z/my-project/tool-results/read_1783957119224_a427df9f34fc.txt:2:     2→// CreaPulse V2 — Prisma Schema (PostgreSQL)
+/home/z/my-project/tool-results/read_1783957119224_a427df9f34fc.txt:11:    11→  provider = "postgresql"
+/home/z/my-project/tool-results/read_1783957119224_a427df9f34fc.txt:12:    12→  url      = env("DATABASE_URL")
+/home/z/my-project/tool-results/read_1782945756574_e66930eebf3b.txt:2:     2→// CreaPulse V2 — Prisma Schema (PostgreSQL)
+/home/z/my-project/tool-results/read_1782945756574_e66930eebf3b.txt:11:    11→  provider = "postgresql"
+/home/z/my-project/tool-results/read_1782945756574_e66930eebf3b.txt:12:    12→  url      = env("DATABASE_URL")
+/home/z/my-project/tool-results/read_1782945276045_1dd9efa7000e.txt:2:     2→// CreaPulse V2 — Prisma Schema (PostgreSQL)
+/home/z/my-project/tool-results/read_1782945276045_1dd9efa7000e.txt:11:    11→  provider = "postgresql"
+/home/z/my-project/tool-results/read_1782945276045_1dd9efa7000e.txt:12:    12→  url      = env("DATABASE_URL")
+/home/z/my-project/tool-results/read_1783181033249_4b259dcec818.txt:2:     2→// CreaPulse V2 — Prisma Schema (PostgreSQL)
+/home/z/my-project/tool-results/read_1783181033249_4b259dcec818.txt:11:    11→  provider = "postgresql"
+/home/z/my-project/tool-results/read_1783181033249_4b259dcec818.txt:12:    12→  url      = env("DATABASE_URL")
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1782835882379_9103facb9fa6.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1782926153358_0d269217d36b.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1782926153358_0d269217d36b.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1782926153358_0d269217d36b.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1782926153358_0d269217d36b.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1784301607146_329b11d98ad2.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1784301607146_329b11d98ad2.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1784301607146_329b11d98ad2.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1784301607146_329b11d98ad2.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1784301607146_329b11d98ad2.txt:850:   850→- BONUS: db.ts rendu résilient avec fallback SQLite/PostgreSQL
+/home/z/my-project/tool-results/read_1784301607146_329b11d98ad2.txt:1191:  1191→Task: Configurer PostgreSQL, activer les modules IA (GLM 4.7), et exécuter le jeu de tests complet
+/home/z/my-project/tool-results/read_1784301607146_329b11d98ad2.txt:1194:  1194→- Installé PostgreSQL 17 depuis le paquet Debian (postgresql-17_17.10-0+deb13u1_amd64.deb) extrait manuellement (apt-get sans sudo)
+/home/z/my-project/tool-results/read_1784301607146_329b11d98ad2.txt:1197:  1197→- Poussé le schéma Prisma (61 tables) via `DATABASE_URL="postgresql://z@localhost:5433/creapulse" npx prisma db push`
+/home/z/my-project/tool-results/read_1784301607146_329b11d98ad2.txt:1208:  1208→- **PostgreSQL**: Connecté, 61 tables, latence ~34ms
+/home/z/my-project/tool-results/read_1782923093716_bb5a9a4648da.txt:1072:  1072→| **Base de données** | PostgreSQL + Prisma ORM |
+/home/z/my-project/src/components/admin-centre/parametres.tsx:38:  Database,
+/home/z/my-project/src/components/admin-centre/parametres.tsx:813:            <Database className="h-5 w-5 text-[#FF6B35]" />
+/home/z/my-project/src/components/admin-centre/parametres.tsx:873:                { label: 'Total enregistrements', value: dbStats.totalRecords.toLocaleString('fr-FR'), icon: Database, color: 'text-[#FF6B35]' },
+/home/z/my-project/src/components/admin-centre/parametres.tsx:901:    { id: 'donnees', label: 'Données', icon: Database },
+/home/z/my-project/tool-results/read_1783951972229_3a13712ffe5b.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1783951972229_3a13712ffe5b.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1783951972229_3a13712ffe5b.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1783951972229_3a13712ffe5b.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1783951972229_3a13712ffe5b.txt:850:   850→- BONUS: db.ts rendu résilient avec fallback SQLite/PostgreSQL
+/home/z/my-project/tool-results/read_1783951972229_3a13712ffe5b.txt:1191:  1191→Task: Configurer PostgreSQL, activer les modules IA (GLM 4.7), et exécuter le jeu de tests complet
+/home/z/my-project/tool-results/read_1783951972229_3a13712ffe5b.txt:1194:  1194→- Installé PostgreSQL 17 depuis le paquet Debian (postgresql-17_17.10-0+deb13u1_amd64.deb) extrait manuellement (apt-get sans sudo)
+/home/z/my-project/tool-results/read_1783951972229_3a13712ffe5b.txt:1197:  1197→- Poussé le schéma Prisma (61 tables) via `DATABASE_URL="postgresql://z@localhost:5433/creapulse" npx prisma db push`
+/home/z/my-project/tool-results/read_1783951972229_3a13712ffe5b.txt:1208:  1208→- **PostgreSQL**: Connecté, 61 tables, latence ~34ms
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1782857465019_fed82ecc666c.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1784298052165_3015f57b1250.txt:73:    73→    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1784298052165_3015f57b1250.txt:81:    81→    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1784298052165_3015f57b1250.txt:114:   114→   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1784298052165_3015f57b1250.txt:125:   125→   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1784298052165_3015f57b1250.txt:850:   850→   850→- BONUS: db.ts rendu résilient avec fallback SQLite/PostgreSQL
+/home/z/my-project/tool-results/read_1784298052165_3015f57b1250.txt:1191:  1191→  1191→Task: Configurer PostgreSQL, activer les modules IA (GLM 4.7), et exécuter le jeu de tests complet
+/home/z/my-project/tool-results/read_1784298052165_3015f57b1250.txt:1194:  1194→  1194→- Installé PostgreSQL 17 depuis le paquet Debian (postgresql-17_17.10-0+deb13u1_amd64.deb) extrait manuellement (apt-get sans sudo)
+/home/z/my-project/tool-results/read_1784298052165_3015f57b1250.txt:1197:  1197→  1197→- Poussé le schéma Prisma (61 tables) via `DATABASE_URL="postgresql://z@localhost:5433/creapulse" npx prisma db push`
+/home/z/my-project/tool-results/read_1784298052165_3015f57b1250.txt:1208:  1208→  1208→- **PostgreSQL**: Connecté, 61 tables, latence ~34ms
+/home/z/my-project/tool-results/read_1782943316598_c6e3f6573bd9.txt:38:    38→  Database,
+/home/z/my-project/tool-results/read_1782943316598_c6e3f6573bd9.txt:813:   813→            <Database className="h-5 w-5 text-[#FF6B35]" />
+/home/z/my-project/tool-results/read_1782943316598_c6e3f6573bd9.txt:873:   873→                { label: 'Total enregistrements', value: dbStats.totalRecords.toLocaleString('fr-FR'), icon: Database, color: 'text-[#FF6B35]' },
+/home/z/my-project/tool-results/read_1782943316598_c6e3f6573bd9.txt:901:   901→    { id: 'donnees', label: 'Données', icon: Database },
+/home/z/my-project/tool-results/read_1783029789487_bb5a9a4648da.txt:1072:  1072→| **Base de données** | PostgreSQL + Prisma ORM |
+/home/z/my-project/tool-results/read_1783018802857_b54703b40ffe.txt:123:   123→    throw new Error('Demo beneficiary not found. Please seed the database.')
+/home/z/my-project/tool-results/read_1783005752776_0242b83d0fbf.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1783005752776_0242b83d0fbf.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1783005752776_0242b83d0fbf.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1783005752776_0242b83d0fbf.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1783951972539_dbb25e6ae57f.txt:2:     2→// CreaPulse V2 — Prisma Schema (PostgreSQL)
+/home/z/my-project/tool-results/read_1783951972539_dbb25e6ae57f.txt:11:    11→  provider = "postgresql"
+/home/z/my-project/tool-results/read_1783951972539_dbb25e6ae57f.txt:12:    12→  url      = env("DATABASE_URL")
+/home/z/my-project/tool-results/read_1783706599061_fafc954f0579.txt:2:     2→     2→// CreaPulse V2 — Prisma Schema (PostgreSQL)
+/home/z/my-project/tool-results/read_1783706599061_fafc954f0579.txt:11:    11→    11→  provider = "postgresql"
+/home/z/my-project/tool-results/read_1783706599061_fafc954f0579.txt:12:    12→    12→  url      = env("DATABASE_URL")
+/home/z/my-project/src/lib/api-response.ts:48:  DATABASE_ERROR: 'DATABASE_ERROR',
+/home/z/my-project/src/lib/api-response.ts:135:  database: (message = 'Database operation failed') =>
+/home/z/my-project/src/lib/api-response.ts:136:    error(ErrorCode.DATABASE_ERROR, message, 500),
+/home/z/my-project/tool-results/read_1782932019591_bc3642103a43.txt:2:     2→// CreaPulse V2 — Prisma Schema (PostgreSQL)
+/home/z/my-project/tool-results/read_1782932019591_bc3642103a43.txt:11:    11→  provider = "postgresql"
+/home/z/my-project/tool-results/read_1782932019591_bc3642103a43.txt:12:    12→  url      = env("DATABASE_URL")
+/home/z/my-project/tool-results/read_1782576362219_9103facb9fa6.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1782576362219_9103facb9fa6.txt:81:    81→- Database credentials no longer hardcoded in source code
+/home/z/my-project/tool-results/read_1782576362219_9103facb9fa6.txt:114:   114→- prisma db push skipped: local DATABASE_URL is SQLite file but schema declares PostgreSQL provider
+/home/z/my-project/tool-results/read_1782576362219_9103facb9fa6.txt:125:   125→- Next step: run prisma db push against PostgreSQL when DATABASE_URL is configured
+/home/z/my-project/tool-results/read_1783942137813_030568dccd58.txt:2:     2→// CreaPulse V2 — Prisma Schema (PostgreSQL)
+/home/z/my-project/tool-results/read_1783942137813_030568dccd58.txt:11:    11→  provider = "postgresql"
+/home/z/my-project/tool-results/read_1783942137813_030568dccd58.txt:12:    12→  url      = env("DATABASE_URL")
+/home/z/my-project/tool-results/read_1782942868014_c6e3f6573bd9.txt:38:    38→  Database,
+/home/z/my-project/tool-results/read_1782942868014_c6e3f6573bd9.txt:813:   813→            <Database className="h-5 w-5 text-[#FF6B35]" />
+/home/z/my-project/tool-results/read_1782942868014_c6e3f6573bd9.txt:873:   873→                { label: 'Total enregistrements', value: dbStats.totalRecords.toLocaleString('fr-FR'), icon: Database, color: 'text-[#FF6B35]' },
+/home/z/my-project/tool-results/read_1782942868014_c6e3f6573bd9.txt:901:   901→    { id: 'donnees', label: 'Données', icon: Database },
+/home/z/my-project/tool-results/read_1783958264644_d19719f2ac50.txt:123:   123→    throw new Error('Demo beneficiary not found. Please seed the database.')
+/home/z/my-project/tool-results/read_1783029702643_b0938c96e82f.txt:73:    73→- Removed hardcoded database credentials from db.ts and seed-articles.ts
+/home/z/my-project/tool-results/read_1783029702643_b0938c96e82f.txt:81:    81→- Database credentials no longer hardcoded in source code
+
+[Showing results with pagination = limit: 250]
