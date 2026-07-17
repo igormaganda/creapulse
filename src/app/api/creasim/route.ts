@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
     const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const simulation = await db.creaSimSimulation.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
     })
 
     if (!simulation) {
@@ -126,7 +126,6 @@ export async function POST(request: NextRequest) {
     // Build the data object for upsert
     const simData = {
       userId: payload.userId,
-      enrollmentId,
       // Simulator inputs
       monthlyRevenue: data.monthlyRevenue ?? undefined,
       fixedCharges: data.fixedCharges != null
@@ -162,7 +161,7 @@ export async function POST(request: NextRequest) {
 
     // Upsert the CreaSimSimulation
     const simulation = await db.creaSimSimulation.upsert({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
       create: {
         ...simData,
         monthlyRevenue: simData.monthlyRevenue ?? null,

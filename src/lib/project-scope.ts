@@ -1,30 +1,22 @@
 // ============================================
 // CreaPulse V2 — Project Scope Helper
-// Handles enrollment-scoped project data queries.
-// After migration: business data tables use @@unique([userId, enrollmentId])
-// enrollmentId = null means "default/legacy" project
+// SHIM: enrollmentId not yet in schema — all functions return { userId } only.
 // ============================================
 
 /**
  * Build a Prisma `where` clause for enrollment-scoped project data.
- *
- * Usage:
- *   import { projectWhere } from '@/lib/project-scope'
- *   db.businessModelCanvas.findFirst({ where: projectWhere(userId, enrollmentId) })
- *
- * - If enrollmentId is provided → scope to that enrollment
- * - If enrollmentId is null/undefined → fallback to legacy null enrollment (default project)
+ * SHIM: ignores enrollmentId since schema doesn't have it yet.
  */
-export function projectWhere(userId: string, enrollmentId?: string | null) {
-  return { userId, enrollmentId: enrollmentId ?? null }
+export function projectWhere(userId: string, _enrollmentId?: string | null) {
+  return { userId }
 }
 
 /**
  * Build a Prisma `where` clause for upsert operations.
- * Since the unique constraint is [userId, enrollmentId], upsert needs the compound key.
+ * SHIM: returns { userId } since the unique constraint is just [userId].
  */
-export function projectUpsertKey(userId: string, enrollmentId?: string | null) {
-  return { userId_enrollmentId: { userId, enrollmentId: enrollmentId ?? null } }
+export function projectUpsertKey(userId: string, _enrollmentId?: string | null) {
+  return { userId }
 }
 
 /**

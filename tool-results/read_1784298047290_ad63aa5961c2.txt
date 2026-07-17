@@ -8,7 +8,7 @@
      8→}
      9→
     10→datasource db {
-    11→  provider = "postgresql"
+    11→  provider = "sqlite"
     12→  url      = env("DATABASE_URL")
     13→}
     14→
@@ -370,8 +370,8 @@
    370→  userId           String   @unique
    371→  organizationId   String
    372→  name             String
-   373→  specialities     String[]
-   374→  certifications   String[]
+   373→  specialities     Json     @default("[]")
+   374→  certifications   Json     @default("[]")
    375→  maxBeneficiaries Int      @default(30)
    376→  isAvailable      Boolean  @default(true)
    377→  createdAt        DateTime @default(now())
@@ -452,8 +452,8 @@
    452→  estimatedInvestment String?
    453→  visionAnswers       Json?
    454→  bpStatus            BpStatus         @default(NOT_STARTED)
-   455→  bpSections          Json?
-   456→  bpSectionMeta       Json?            @default("{}") // Per-section metadata: { [sectionId]: { source, syncedAt, manuallyEditedAt, wordCount, version, lastModified } }
+   455→  bpSections          Json?             @default("{}")
+   456→  bpSectionMeta       Json? // Per-section metadata
    457→  bpScore             Int?
    458→  bpGeneratedAt       DateTime?
    459→  bpValidatedAt       DateTime?
@@ -481,7 +481,7 @@
    481→  userId          String
    482→  tenantId        String
    483→  creatorJourneyId String
-   484→  bpSections      Json
+   484→  bpSections      Json?             @default("{}")
    485→  bpProjectContext Json?
    486→  version         Int           @default(1)
    487→  label           String?        // Auto-generated: "V1 — 15 juil. 2025 14:30" or manual
@@ -773,7 +773,7 @@
    773→  categoryId  String
    774→  title       String
    775→  content     String
-   776→  tags        String[] @default([])
+   776→  tags        Json     @default("[]")
    777→  isPinned    Boolean  @default(false)
    778→  isLocked    Boolean  @default(false)
    779→  viewCount   Int      @default(0)
@@ -814,8 +814,8 @@
    814→  id            String             @id @default(cuid())
    815→  userId        String             @unique
    816→  bio           String             @default("")
-   817→  expertise     String[]           @default([])
-   818→  sectors       String[]           @default([])
+   817→  expertise     Json               @default("[]")
+   818→  sectors       Json               @default("[]")
    819→  location      String             @default("")
    820→  availability  MentorAvailability @default(AVAILABLE)
    821→  maxMentees    Int                @default(3)
@@ -834,7 +834,7 @@
    834→  mentorId    String
    835→  menteeId    String
    836→  message     String              @default("")
-   837→  objectives  String[]            @default([])
+   837→  objectives  Json               @default("[]")
    838→  status      MentorRequestStatus @default(PENDING)
    839→  createdAt   DateTime            @default(now())
    840→  updatedAt   DateTime            @updatedAt
@@ -1014,7 +1014,7 @@
   1014→  completedAt    DateTime?
   1015→  status         String   @default("scheduled")
   1016→  synthesis      String?
-  1017→  recommendations String[] @default([])
+  1017→  recommendations Json   @default("[]")
   1018→  createdAt      DateTime @default(now())
   1019→  updatedAt      DateTime @updatedAt
   1020→
@@ -1097,7 +1097,7 @@
   1097→  projectDescription String?
   1098→  projectStage       String?
   1099→  motivations        String?
-  1100→  needs              String[] @default([])
+  1100→  needs              Json     @default("[]")
   1101→  supportType        String?
   1102→  createdAt          DateTime @default(now())
   1103→

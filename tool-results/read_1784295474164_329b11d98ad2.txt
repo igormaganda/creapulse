@@ -1331,3 +1331,146 @@
   1331→- Key reusable patterns: Organization Registry (from Dispositif Registry), UserContext (from UserEnrollment), contextId scoping (from enrollmentId)
   1332→- Recommended: create a shared "FT Platform Core" layer with unified SSO, beneficiary registry, and event bus
   1333→
+  1334→---
+  1335→Task ID: 9
+  1336→Agent: Sub Agent (general-purpose)
+  1337→Task: Build TradEmploi voice module integration
+  1338→
+  1339→Work Log:
+  1340→- Phase 1: Audit de la structure existante — bureau-layout.tsx, zai-helper.ts, BMC, Business Plan, CreaScope (découverte), ia-assistant.tsx (pattern de référence)
+  1341→- Phase 2: Création de `src/components/trad-emploi/voice-context.tsx` — Provider React Context avec `useTradEmploi()` hook exposant `voiceContext`, `setContext()`, `clearContext()`. Les changements de module réinitialisent automatiquement section/projectData.
+  1342→- Phase 3: Création de `src/components/trad-emploi/voice-widget.tsx` — Widget flottant (FAB teal/emerald, bas-droite) avec : panneau animé Framer Motion, bouton micro pulsant, zone de transcription en temps réel, zone de réponse IA avec effet progressif, bouton "Lire la réponse" (TTS), bascule saisie texte/microphone, indicateur de contexte (module + section), persistance état localStorage, fallback texte si Web Speech API non disponible, gestion permissions micro.
+  1343→- Phase 4: Création de `src/app/api/trad-emploi/voice/route.ts` — Endpoint POST recevant `{ message, context }`. Prompts système contextuels pour 7 modules (BMC, Business Plan, CreaScope, Tremplin, Financier, Marché, Juridique). Appel LLM via `callZAI` helper existant. Réponses concises (3-5 phrases) en français.
+  1344→- Phase 5: Création de `src/app/api/trad-emploi/tts/route.ts` — Endpoint POST de fallback TTS serveur via z-ai-web-dev-sdk (`zai.audio.tts.create`). Format WAV, troncation 1024 caractères (limite SDK), voix française par défaut.
+  1345→- Phase 6: Intégration dans `bureau-layout.tsx` — Import dynamique de VoiceWidget, TradEmploiProvider englobant le contenu du bureau (après onboarding check), widget rendu en position fixe dans le container bureau.
+  1346→- Phase 7: Ajout context setters dans BMC (`bmc.tsx`) — `onFocus` sur chaque Textarea du bloc appelle `setVoiceContext({ module: 'bmc', section: block.title, projectData: { blockId, content } })`.
+  1347→- Phase 8: Ajout context setters dans Business Plan (`business-plan.tsx`) — Les 4 `setActiveSection(s.id)` (sidebar, collapsed sidebar, mobile sidebar, no-section-overview) mis à jour pour appeler `setVoiceContext({ module: 'business-plan', section: s.title, projectData: { sectionId, content } })`. Le `useEffect` de tab change met aussi à jour le contexte.
+  1348→- Phase 9: Ajout context setters dans CreaScope Découverte (`phase-decouverte.tsx`) — `useEffect` au mount qui appelle `setVoiceContext({ module: 'creascope', section: 'Découverte (Pépites)' })`.
+  1349→- Lint: 0 erreurs (217 warnings pré-existents `no-console`), 1 warning en moins après suppression import inutilisé
+  1350→- TypeScript: 0 erreurs dans `src/` (erreurs pré-existantes uniquement dans deploy-files, mini-services, prisma)
+  1351→
+  1352→Stage Summary:
+  1353→- **Fichiers créés**: voice-context.tsx, voice-widget.tsx, /api/trad-emploi/voice/route.ts, /api/trad-emploi/tts/route.ts
+  1354→- **Fichiers modifiés**: bureau-layout.tsx (TradEmploiProvider + VoiceWidget), bmc.tsx (onFocus context), business-plan.tsx (setActiveSection context), phase-decouverte.tsx (useEffect context)
+  1355→- Architecture: Context Provider au niveau du bureau (pas global) → Widget lit le contexte → API route construit le prompt système adapté → LLM via callZAI → Réponse affichée + TTS optionnel
+  1356→- Next actions: tester manuellement le widget dans le navigateur, ajouter context setters aux autres modules (financier, marche, juridique, tremplin), ajouter un indicateur visuel de section dans le widget quand l'utilisateur navigue, explorer l'intégration avec le module conseiller-360 pour les ateliers
+  1357→---
+  1358→Task ID: 4
+  1359→Agent: Sub-agent (Task 4)
+  1360→Task: Create ProjectInitDialog and update selector
+  1361→
+  1362→Work Log:
+  1363→- Phase 1: Read existing files — dispositif-store.ts, dispositif-selector.tsx, bureau-layout.tsx, enrollments/route.ts, enrollment-context.ts, init-project/route.ts
+  1364→- Phase 2: Updated `src/lib/stores/dispositif-store.ts`:
+  1365→  - Added `projectInitStatus: Record<string, boolean>` state (enrollmentId → isInitialized)
+  1366→  - Added `initDialogOpen` and `initDialogEnrollmentId` state for dialog control
+  1367→  - Renamed `setActiveDispositif` → `setActiveEnrollment` (now also fetches project init status on switch)
+  1368→  - Added `fetchProjectInitStatus(enrollmentId)` async action (GET /api/enrollments/[id]/init-project)
+  1369→  - Added `fetchProjectInitStatusForAll()` that checks all active enrollments
+  1370→  - Added `initProject(enrollmentId, mode, sourceEnrollmentId?, projectTitle?)` async action (POST)
+  1371→  - Added `setInitDialogOpen(open, enrollmentId?)` action
+  1372→  - Added `getNeedsInitDialog()` computed helper
+  1373→  - Added `AvailableProject` type and `hasProjectData` optional field on DispositifInfo
+  1374→  - Persisted `projectInitStatus` via partialize
+  1375→- Phase 3: Created `src/components/bureau/project-init-dialog.tsx`:
+  1376→  - shadcn/ui Dialog with teal/green color scheme
+  1377→  - Two mode cards: "Nouveau projet" (Rocket icon) and "Importer un projet existant" (Copy icon)
+  1378→  - New project: optional title input, submits with mode 'new'
+  1379→  - Import project: fetches available projects from GET endpoint, shows list with selection, supports both 'import' (other enrollment) and 'legacy' (null enrollmentId) modes
+  1380→  - Framer Motion animations for mode switch
+  1381→  - Loading states (skeleton, spinner), disabled states
+  1382→  - Success/error toasts via sonner
+  1383→  - On success: closes dialog, updates store projectInitStatus
+  1384→  - French labels throughout, mobile responsive
+  1385→- Phase 4: Updated `src/components/bureau/dispositif-selector.tsx`:
+  1386→  - Changed `setActiveDispositif` → `setActiveEnrollment`
+  1387→  - Pre-populates projectInitStatus from `hasProjectData` when fetching enrollments list
+  1388→  - On selection: checks init status, opens ProjectInitDialog if enrollment is not initialized
+  1389→  - Uses useRef to track which enrollments have been checked (avoids duplicate dialog opens)
+  1390→  - Shows "Non initié" badge for uninitialized enrollments in the dropdown
+  1391→- Phase 5: Updated `src/components/bureau/bureau-layout.tsx`:
+  1392→  - Added imports for ProjectInitDialog, useDispositifStore, Button, Loader2, Rocket
+  1393→  - Created `UninitializedGuard` component that wraps BureauContent
+  1394→  - When active enrollment is not initialized: shows centered "Projet non initialisé" message with teal Rocket icon and "Initialiser le projet" button
+  1395→  - When status not yet fetched: shows Loader2 spinner
+  1396→  - When no active dispositif (null = all parcours): passes through to normal content
+  1397→  - Added `<ProjectInitDialog />` to the BureauLayout render tree
+  1398→- Phase 6: Updated `src/app/api/enrollments/route.ts`:
+  1399→  - Imported `hasProjectData` from `@/lib/enrollment-context`
+  1400→  - Changed `mapped` to `enriched` using `Promise.all` + `hasProjectData(db, userId, e.id)` for each enrollment
+  1401→  - Added `hasProjectData` boolean field to each enrollment in the GET response
+  1402→  - Updated `activeId` and `return` to use `enriched` instead of `mapped`
+  1403→- Phase 7: Lint — fixed unused eslint-disable directive in dispositif-selector.tsx. All changed files pass lint with zero errors/warnings.
+  1404→
+  1405→Stage Summary:
+  1406→- **Fichiers modifiés**: dispositif-store.ts, dispositif-selector.tsx, bureau-layout.tsx, enrollments/route.ts
+  1407→- **Fichiers créés**: project-init-dialog.tsx
+  1408→- **Fonctionnalité**: Complete project initialization flow — user selects a dispositif, if not initialized the dialog opens offering "new project" or "import from existing", the API creates/clone data, the store updates, and the bureau content is gated until initialized
+  1409→
+  1410→---
+  1411→Task ID: 3
+  1412→Agent: Sub-Agent (API Routes)
+  1413→Task: Fix all remaining API route files using old `where: { userId }` patterns → enrollment-scoped composite keys
+  1414→
+  1415→Work Log:
+  1416→- Audited all API route files for old `where: { userId }` patterns on business data models (8 models with @@unique([userId, enrollmentId]))
+  1417→- Confirmed marche, tremplin, juridique, passeport already use buildCompositeKey — skipped
+  1418→- Fixed 5 core API routes: dashboard, pipeline-v3, bilan, progress, vision
+  1419→- Fixed 9 export routes: pitch-deck, business-plan, suivi-kiviat, suivi-creasim, suivi-parcours, bmc, passeport, bilan-creascope, suivi-tremplin
+  1420→- Fixed demo export route (demo/[type]) — used DEMO_ENROLLMENT_ID = null for legacy data
+  1421→- Fixed 3 admin/conseiller routes: admin-plateforme/utilisateurs, conseiller/beneficiaires, conseiller/rapports — changed creatorJourney (singular) to creatorJourneys?.[0] (plural) and added enrollmentId: null to admin creates
+  1422→- Pattern: Added `getEnrollmentIdFromRequest(request)` + `buildCompositeKey(userId, enrollmentId)` import and usage
+  1423→- For upsert/create: added `enrollmentId` to create data
+  1424→- Lint: 0 errors, 217 warnings (all pre-existing no-console)
+  1425→
+  1426→Stage Summary:
+  1427→- **Fichiers modifiés (core)**: dashboard/route.ts, pipeline-v3/route.ts, bilan/route.ts, progress/route.ts, vision/route.ts
+  1428→- **Fichiers modifiés (export)**: pitch-deck, business-plan, suivi-kiviat, suivi-creasim, suivi-parcours, bmc, passeport, bilan-creascope, suivi-tremplin, demo/[type]
+  1429→- **Fichiers modifiés (admin/conseiller)**: admin-plateforme/utilisateurs, conseiller/beneficiaires, conseiller/rapports
+  1430→- **Total**: 20 fichiers modifiés
+  1431→- **Schéma de migration**: `where: { userId }` → `where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) }` + `enrollmentId` in create data
+  1432→- **Relation User**: `u.creatorJourney` → `u.creatorJourneys?.[0]`
+  1433→
+  1434→---
+  1435→Task ID: 9b
+  1436→Agent: Sub-agent (general-purpose)
+  1437→Task: Add voice context to remaining modules (financier, marche, juridique, tremplin, pitch-deck)
+  1438→
+  1439→Work Log:
+  1440→- Audited all 5 target modules to identify active state variables (tabs, steps, slides).
+  1441→- **financier.tsx**: Single-page simulator (no tabs). Added `useTradEmploi` import, `setVoiceContext` hook, and `useEffect` setting `{ module: 'financier', section: 'prévisionnel' }` on mount with cleanup.
+  1442→- **marche.tsx**: Single-page module (no tabs). Added voice context with `{ module: 'marche', section: 'analyse-marché' }` on mount with cleanup.
+  1443→- **juridique.tsx**: Single-page simulator (no tabs). Added voice context with `{ module: 'juridique', section: 'simulateur-juridique' }` on mount with cleanup.
+  1444→- **tremplin.tsx**: Multi-step wizard (7 steps via `currentStep`). Added voice context with `{ module: 'tremplin', section: STEPS[currentStep - 1].title }`, reactive to `currentStep` changes, with cleanup.
+  1445→- **pitch-deck.tsx**: Multi-slide editor (8 slides via `currentSlide`). Added voice context with `{ module: 'pitch-deck', section: 'pitch-deck: <slideTitle>' }`, reactive to `currentSlide` changes, with cleanup.
+  1446→- All integrations follow the established pattern: `import { useTradEmploi }`, `const { setContext: setVoiceContext } = useTradEmploi()`, `useEffect` with dependency array and cleanup `return () => setVoiceContext({ module: '' })`.
+  1447→- Lint: 0 errors (217 pre-existing warnings unchanged).
+  1448→
+  1449→Stage Summary:
+  1450→- **Fichiers modifiés**: financier.tsx, marche.tsx, juridique.tsx, tremplin.tsx, pitch-deck.tsx
+  1451→- **Total**: 5 fichiers modifiés
+  1452→- **Pattern**: Import + hook + useEffect (mount or reactive) + cleanup on unmount
+  1453→- **Lint**: OK (0 new errors)
+  1454→
+  1455→---
+  1456→Task ID: 3
+  1457→Agent: Main Orchestrator
+  1458→Task: Complete multi-parcours schema migration + TradEmploi voice integration
+  1459→
+  1460→Work Log:
+  1461→- Fixed Prisma schema User model: changed 8 singular business data relations to plural arrays (creatorJourney→creatorJourneys, financialForecast→financialForecasts, creasimSimulation→creasimSimulations, juridiqueAnalysis→juridiqueAnalyses, marketAnalysis→marketAnalyses, tremplin→tremplins, businessModelCanvas→businessModelCanvases, zeroDraft→zeroDrafts)
+  1462→- Updated .env with new ZAI API key
+  1463→- Removed broken prisma.config.ts (Prisma 6 parse error), regenerated Prisma client successfully
+  1464→- Delegated Task 3 (subagent): Updated 20 API route files from old `where: { userId }` to enrollment-scoped `where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) }` pattern. Updated 3 admin/conseiller routes from `user.creatorJourney` (singular) to `user.creatorJourneys?.[0]` (plural array)
+  1465→- Delegated Task 4 (subagent): Created ProjectInitDialog component, updated dispositif-store with project init status tracking, updated DispositifSelector with init detection, updated bureau-layout with UninitializedGuard, enriched GET /api/enrollments with hasProjectData
+  1466→- Delegated Task 9 (subagent): Created TradEmploi voice module — VoiceWidget (floating FAB, Web Speech API STT/TTS, text fallback), TradEmploiProvider context, voice API endpoint (context-aware prompts for 7 module types), TTS fallback endpoint (z-ai-web-dev-sdk). Integrated into bureau-layout, BMC, business-plan, creascope phases
+  1467→- Delegated Task 9b (subagent): Extended voice context to remaining 5 modules: financier, marche, juridique, tremplin, pitch-deck
+  1468→
+  1469→Stage Summary:
+  1470→- **Schema**: All 8 business models use @@unique([userId, enrollmentId]), User model uses plural array relations
+  1471→- **API Routes**: 20+ files migrated to enrollment-scoped queries using buildCompositeKey helper
+  1472→- **Project Init Flow**: ProjectInitDialog (new/clone), DispositifSelector integration, UninitializedGuard, hasProjectData enrichment
+  1473→- **TradEmploi Voice**: Floating voice assistant widget with STT (Web Speech API), TTS (browser + server fallback), context-aware AI responses for 9 modules (bmc, business-plan, creascope, financier, marche, juridique, tremplin, pitch-deck, mind-map)
+  1474→- **Compilation**: 0 new TypeScript errors, 0 lint errors (217 pre-existing no-console warnings)
+  1475→- **Runtime**: GET / returns 200, no runtime errors in dev log
+  1476→

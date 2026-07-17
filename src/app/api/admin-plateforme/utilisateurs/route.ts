@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
               organization: { select: { id: true, name: true } },
             },
           },
-          creatorJourneys: {
+          creatorJourney: {
             select: {
               id: true,
               currentPhase: true,
@@ -135,11 +135,11 @@ export async function GET(request: NextRequest) {
       profilBeneficiaire: u.beneficiaryProfile
         ? { scoreProgression: u.beneficiaryProfile.progressScore }
         : null,
-      parcours: u.creatorJourneys?.[0]
+      parcours: u.creatorJourney
         ? {
-            phase: u.creatorJourneys[0].currentPhase,
-            progression: u.creatorJourneys[0].progressPercent,
-            statutBP: u.creatorJourneys[0].bpStatus,
+            phase: u.creatorJourney.currentPhase,
+            progression: u.creatorJourney.progressPercent,
+            statutBP: u.creatorJourney.bpStatus,
           }
         : null,
     }))
@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
         })
         // Créer le parcours créateur
         await tx.creatorJourney.create({
-          data: { userId: newUser.id, enrollmentId: null },
+          data: { userId: newUser.id },
         })
       }
 
@@ -338,7 +338,7 @@ export async function PUT(request: NextRequest) {
             },
           })
           await tx.creatorJourney.create({
-            data: { userId: existingUser.id, enrollmentId: null },
+            data: { userId: existingUser.id },
           })
         }
       }

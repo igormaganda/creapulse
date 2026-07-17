@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
     const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const forecast = await db.financialForecast.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
     })
 
     if (!forecast) return success(null, 'Aucun plan financier')
@@ -94,10 +94,9 @@ export async function PUT(request: NextRequest) {
     const data = parsed.data
 
     const forecast = await db.financialForecast.upsert({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
       create: {
         userId: payload.userId,
-        enrollmentId,
         sector: data.sector ?? null,
         year1Revenue: data.year1Revenue ?? null,
         year2Revenue: data.year2Revenue ?? null,
@@ -140,9 +139,9 @@ export async function POST(request: NextRequest) {
 
     // 1. Fetch all financial data in parallel
     const [financialForecast, creatorJourney, creaSimData] = await Promise.all([
-      db.financialForecast.findUnique({ where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) } }),
+      db.financialForecast.findUnique({ where: { userId: payload.userId } }),
       db.creatorJourney.findUnique({
-        where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+        where: { userId: payload.userId },
         select: {
           projectTitle: true,
           projectSector: true,
@@ -153,7 +152,7 @@ export async function POST(request: NextRequest) {
           creationMotivation: true,
         },
       }),
-      db.creaSimSimulation.findUnique({ where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) } }),
+      db.creaSimSimulation.findUnique({ where: { userId: payload.userId } }),
     ])
 
     // Check we have at least some financial data to analyze
@@ -301,10 +300,9 @@ STRUCTURE DE TA RÉPONSE (en Markdown) :
 
     // 5. Save the result
     await db.financialForecast.upsert({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
       create: {
         userId: payload.userId,
-        enrollmentId,
         aiSynthesis,
       },
       update: {

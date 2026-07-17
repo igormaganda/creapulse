@@ -40,18 +40,18 @@ export function getEnrollmentIdFromRequest(request: NextRequest): string | null 
 
 /**
  * Build the `where` clause for findUnique on business data models.
- * Usage: db.businessModelCanvas.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } })
+ * SHIM: enrollmentId not yet in schema — returns { userId } only.
  */
-export function buildCompositeKey(userId: string, enrollmentId: string | null) {
-  return { userId, enrollmentId }
+export function buildCompositeKey(userId: string, _enrollmentId: string | null) {
+  return { userId }
 }
 
 /**
  * Build the `where` clause for findFirst on business data models.
- * Usage: db.businessModelCanvas.findFirst({ where: buildWhereClause(userId, enrollmentId) })
+ * SHIM: enrollmentId not yet in schema — returns { userId } only.
  */
-export function buildWhereClause(userId: string, enrollmentId: string | null) {
-  return { userId, enrollmentId }
+export function buildWhereClause(userId: string, _enrollmentId: string | null) {
+  return { userId }
 }
 
 // ─── Business data model names for type-safe upsert/delete ──
@@ -78,7 +78,7 @@ export async function hasProjectData(
   userId: string,
   enrollmentId: string | null,
 ): Promise<boolean> {
-  const where = { userId, enrollmentId }
+  const where = { userId }
 
   // Check the most commonly populated table first (CreatorJourney)
   const journey = await db.creatorJourney.findFirst({ where, select: { id: true } })
@@ -111,15 +111,15 @@ export async function cloneProjectData(
   const errors: string[] = []
   let cloned = 0
 
-  const sourceWhere = { userId, enrollmentId: sourceEnrollmentId }
+  const sourceWhere = { userId }
 
   try {
     // Clone CreatorJourney
     const journey = await db.creatorJourney.findFirst({ where: sourceWhere })
     if (journey) {
-      const { id, userId: _u, enrollmentId: _e, createdAt, updatedAt, ...data } = journey
+      const { id, userId: _u, createdAt, updatedAt, ...data } = journey
       await db.creatorJourney.create({
-        data: { ...data, userId, enrollmentId: targetEnrollmentId },
+        data: { ...data, userId },
       })
       cloned++
     }
@@ -131,9 +131,9 @@ export async function cloneProjectData(
     // Clone FinancialForecast
     const forecast = await db.financialForecast.findFirst({ where: sourceWhere })
     if (forecast) {
-      const { id, userId: _u, enrollmentId: _e, createdAt, updatedAt, ...data } = forecast
+      const { id, userId: _u, createdAt, updatedAt, ...data } = forecast
       await db.financialForecast.create({
-        data: { ...data, userId, enrollmentId: targetEnrollmentId },
+        data: { ...data, userId },
       })
       cloned++
     }
@@ -145,9 +145,9 @@ export async function cloneProjectData(
     // Clone CreaSimSimulation
     const sim = await db.creaSimSimulation.findFirst({ where: sourceWhere })
     if (sim) {
-      const { id, userId: _u, enrollmentId: _e, createdAt, updatedAt, ...data } = sim
+      const { id, userId: _u, createdAt, updatedAt, ...data } = sim
       await db.creaSimSimulation.create({
-        data: { ...data, userId, enrollmentId: targetEnrollmentId },
+        data: { ...data, userId },
       })
       cloned++
     }
@@ -159,9 +159,9 @@ export async function cloneProjectData(
     // Clone JuridiqueAnalysis
     const juridique = await db.juridiqueAnalysis.findFirst({ where: sourceWhere })
     if (juridique) {
-      const { id, userId: _u, enrollmentId: _e, createdAt, updatedAt, ...data } = juridique
+      const { id, userId: _u, createdAt, updatedAt, ...data } = juridique
       await db.juridiqueAnalysis.create({
-        data: { ...data, userId, enrollmentId: targetEnrollmentId },
+        data: { ...data, userId },
       })
       cloned++
     }
@@ -173,9 +173,9 @@ export async function cloneProjectData(
     // Clone MarketAnalysis
     const market = await db.marketAnalysis.findFirst({ where: sourceWhere })
     if (market) {
-      const { id, userId: _u, enrollmentId: _e, createdAt, updatedAt, ...data } = market
+      const { id, userId: _u, createdAt, updatedAt, ...data } = market
       await db.marketAnalysis.create({
-        data: { ...data, userId, enrollmentId: targetEnrollmentId },
+        data: { ...data, userId },
       })
       cloned++
     }
@@ -187,9 +187,9 @@ export async function cloneProjectData(
     // Clone Tremplin
     const tremplin = await db.tremplin.findFirst({ where: sourceWhere })
     if (tremplin) {
-      const { id, userId: _u, enrollmentId: _e, createdAt, updatedAt, ...data } = tremplin
+      const { id, userId: _u, createdAt, updatedAt, ...data } = tremplin
       await db.tremplin.create({
-        data: { ...data, userId, enrollmentId: targetEnrollmentId },
+        data: { ...data, userId },
       })
       cloned++
     }
@@ -201,9 +201,9 @@ export async function cloneProjectData(
     // Clone BusinessModelCanvas
     const bmc = await db.businessModelCanvas.findFirst({ where: sourceWhere })
     if (bmc) {
-      const { id, userId: _u, enrollmentId: _e, createdAt, updatedAt, ...data } = bmc
+      const { id, userId: _u, createdAt, updatedAt, ...data } = bmc
       await db.businessModelCanvas.create({
-        data: { ...data, userId, enrollmentId: targetEnrollmentId },
+        data: { ...data, userId },
       })
       cloned++
     }
@@ -215,9 +215,9 @@ export async function cloneProjectData(
     // Clone ZeroDraft
     const zeroDraft = await db.zeroDraft.findFirst({ where: sourceWhere })
     if (zeroDraft) {
-      const { id, userId: _u, enrollmentId: _e, createdAt, updatedAt, ...data } = zeroDraft
+      const { id, userId: _u, createdAt, updatedAt, ...data } = zeroDraft
       await db.zeroDraft.create({
-        data: { ...data, userId, enrollmentId: targetEnrollmentId },
+        data: { ...data, userId },
       })
       cloned++
     }

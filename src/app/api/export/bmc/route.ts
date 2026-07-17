@@ -76,12 +76,12 @@ export async function GET(request: NextRequest) {
 
     // Fetch BMC data
     const bmc = await db.businessModelCanvas.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
     })
 
     // Fetch project info for header
     const journey = await db.creatorJourney.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
       select: {
         projectTitle: true,
         user: {

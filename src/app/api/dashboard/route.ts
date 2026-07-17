@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
           where: { id: userId },
           select: { id: true, email: true, firstName: true, lastName: true, role: true, avatarUrl: true },
         }),
-        db.creatorJourney.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } }).catch(() => null),
+        db.creatorJourney.findUnique({ where: { userId: userId } }).catch(() => null),
         db.moduleResult.count({ where: { userId, completedAt: { not: null } } }).catch(() => 0),
         db.notification.count({ where: { userId, isRead: false } }).catch(() => 0),
         db.appointment.findMany({

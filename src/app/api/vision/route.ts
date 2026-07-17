@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const journey = await db.creatorJourney.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
       select: { id: true, visionAnswers: true, projectTitle: true },
     })
 
@@ -87,7 +87,7 @@ export async function PUT(request: NextRequest) {
 
     // Merge with existing visionAnswers (preserve profile data)
     const existing = await db.creatorJourney.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
       select: { visionAnswers: true },
     })
     const existingAnswers = (existing?.visionAnswers || {}) as Record<string, unknown>
@@ -115,10 +115,9 @@ export async function PUT(request: NextRequest) {
     const completionPercent = Math.round((filledCount / 6) * 100)
 
     await db.creatorJourney.upsert({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
       create: {
         userId: payload.userId,
-        enrollmentId,
         visionAnswers: updatedAnswers as Record<string, unknown>,
         progressPercent: completionPercent,
         currentPhase: 'DISCOVERY',

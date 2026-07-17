@@ -8,7 +8,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -288,7 +288,7 @@ model User {
   tenant              Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   counselorProfile    Counselor?
   beneficiaryProfile  Beneficiary?
-  creatorJourneys     CreatorJourney[]
+  creatorJourney      CreatorJourney?
   bpSnapshots         BpSnapshot[]
   accounts            Account[]
   sessions            Session[]
@@ -298,13 +298,13 @@ model User {
   riasecResults       RiasecResult[]
   motivations         MotivationAssessment?
   cvUploads           CvUpload[]
-  creasimSimulations  CreaSimSimulation[]
-  financialForecasts FinancialForecast[]
-  juridiqueAnalyses  JuridiqueAnalysis[]
-  businessModelCanvases BusinessModelCanvas[]
-  marketAnalyses     MarketAnalysis[]
-  tremplins          Tremplin[]
-  zeroDrafts         ZeroDraft[]
+  creasimSimulation   CreaSimSimulation?
+  financialForecast   FinancialForecast?
+  juridiqueAnalysis   JuridiqueAnalysis?
+  businessModelCanvas BusinessModelCanvas?
+  marketAnalysis      MarketAnalysis?
+  tremplin            Tremplin?
+  zeroDraft           ZeroDraft?
   networks            Network[]
   discussions         Discussion[]
   replies             Reply[]
@@ -370,8 +370,8 @@ model Counselor {
   userId           String   @unique
   organizationId   String
   name             String
-  specialities     String[]
-  certifications   String[]
+  specialities     Json     @default("[]")
+  certifications   Json     @default("[]")
   maxBeneficiaries Int      @default(30)
   isAvailable      Boolean  @default(true)
   createdAt        DateTime @default(now())
@@ -452,8 +452,8 @@ model CreatorJourney {
   estimatedInvestment String?
   visionAnswers       Json?
   bpStatus            BpStatus         @default(NOT_STARTED)
-  bpSections          Json?
-  bpSectionMeta       Json?            @default("{}") // Per-section metadata: { [sectionId]: { source, syncedAt, manuallyEditedAt, wordCount, version, lastModified } }
+  bpSections          Json?             @default("{}")
+  bpSectionMeta       Json? // Per-section metadata
   bpScore             Int?
   bpGeneratedAt       DateTime?
   bpValidatedAt       DateTime?
@@ -481,7 +481,7 @@ model BpSnapshot {
   userId          String
   tenantId        String
   creatorJourneyId String
-  bpSections      Json
+  bpSections      Json?             @default("{}")
   bpProjectContext Json?
   version         Int           @default(1)
   label           String?        // Auto-generated: "V1 — 15 juil. 2025 14:30" or manual
@@ -773,7 +773,7 @@ model Discussion {
   categoryId  String
   title       String
   content     String
-  tags        String[] @default([])
+  tags        Json     @default("[]")
   isPinned    Boolean  @default(false)
   isLocked    Boolean  @default(false)
   viewCount   Int      @default(0)
@@ -814,8 +814,8 @@ model Mentor {
   id            String             @id @default(cuid())
   userId        String             @unique
   bio           String             @default("")
-  expertise     String[]           @default([])
-  sectors       String[]           @default([])
+  expertise     Json               @default("[]")
+  sectors       Json               @default("[]")
   location      String             @default("")
   availability  MentorAvailability @default(AVAILABLE)
   maxMentees    Int                @default(3)
@@ -834,7 +834,7 @@ model MentorshipRequest {
   mentorId    String
   menteeId    String
   message     String              @default("")
-  objectives  String[]            @default([])
+  objectives  Json               @default("[]")
   status      MentorRequestStatus @default(PENDING)
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
@@ -1014,7 +1014,7 @@ model InterviewSession {
   completedAt    DateTime?
   status         String   @default("scheduled")
   synthesis      String?
-  recommendations String[] @default([])
+  recommendations Json   @default("[]")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -1097,7 +1097,7 @@ model Registration {
   projectDescription String?
   projectStage       String?
   motivations        String?
-  needs              String[] @default([])
+  needs              Json     @default("[]")
   supportType        String?
   createdAt          DateTime @default(now())
 

@@ -362,7 +362,7 @@ function computeHealth(
 
 async function syncSingleModule(userId: string, enrollmentId: string | null, module: 'marche' | 'juridique' | 'financier' | 'creasim') {
   const journey = await db.creatorJourney.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+    where: { userId: userId },
     select: { bpSections: true, bpSectionMeta: true },
   })
   const existingSections = (journey?.bpSections as Record<string, unknown>) ?? {}
@@ -392,7 +392,7 @@ async function syncSingleModule(userId: string, enrollmentId: string | null, mod
 
   switch (module) {
     case 'marche': {
-      const market = await db.marketAnalysis.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } })
+      const market = await db.marketAnalysis.findUnique({ where: { userId: userId } })
       if (market) {
         const parts: string[] = []
         if (market.sector) parts.push(`**Secteur** : ${market.sector}`)
@@ -417,7 +417,7 @@ async function syncSingleModule(userId: string, enrollmentId: string | null, mod
       break
     }
     case 'juridique': {
-      const jur = await db.juridiqueAnalysis.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } })
+      const jur = await db.juridiqueAnalysis.findUnique({ where: { userId: userId } })
       if (jur) {
         const parts: string[] = []
         if (jur.recommendedStatus) parts.push(`**Statut recommandé** : ${jur.recommendedStatus}`)
@@ -436,7 +436,7 @@ async function syncSingleModule(userId: string, enrollmentId: string | null, mod
       break
     }
     case 'financier': {
-      const fin = await db.financialForecast.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } })
+      const fin = await db.financialForecast.findUnique({ where: { userId: userId } })
       if (fin) {
         const fmtEur = (n: number) => n.toLocaleString('fr-FR')
         const parts: string[] = []
@@ -467,7 +467,7 @@ async function syncSingleModule(userId: string, enrollmentId: string | null, mod
       break
     }
     case 'creasim': {
-      const cs = await db.creaSimSimulation.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } })
+      const cs = await db.creaSimSimulation.findUnique({ where: { userId: userId } })
       if (cs) {
         const fmtEur = (n: number) => n.toLocaleString('fr-FR')
         const fmtPct = (n: number) => `${n.toFixed(1)}%`
@@ -496,8 +496,8 @@ async function syncSingleModule(userId: string, enrollmentId: string | null, mod
     const bpScore = Math.min(100, Math.round((filledCount / 24) * 100))
 
     await db.creatorJourney.upsert({
-      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
-      create: { userId, enrollmentId, bpSections: merged as Prisma.InputJsonValue, bpSectionMeta: sectionMeta as Prisma.InputJsonValue, bpScore, bpGeneratedAt: new Date() },
+      where: { userId: userId },
+      create: { userId, bpSections: merged as Prisma.InputJsonValue, bpSectionMeta: sectionMeta as Prisma.InputJsonValue, bpScore, bpGeneratedAt: new Date() },
       update: { bpSections: merged as Prisma.InputJsonValue, bpSectionMeta: sectionMeta as Prisma.InputJsonValue, bpScore, bpGeneratedAt: new Date() },
     })
   }
@@ -631,15 +631,15 @@ async function buildPipelineResponse(userId: string, enrollmentId: string | null
     parcoursData,
   ] = await Promise.all([
     db.creatorJourney.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+      where: { userId: userId },
       select: { bpSections: true, bpSectionMeta: true, bpStatus: true, bpScore: true, projectTitle: true, projectSector: true, updatedAt: true },
     }),
-    db.marketAnalysis.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) }, select: { sector: true, targetAudience: true, updatedAt: true } }),
-    db.juridiqueAnalysis.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) }, select: { recommendedStatus: true, updatedAt: true } }),
-    db.financialForecast.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) }, select: { year1Revenue: true, year1Expenses: true, updatedAt: true } }),
-    db.creaSimSimulation.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) }, select: { monthlyRevenue: true, updatedAt: true } }),
+    db.marketAnalysis.findUnique({ where: { userId: userId }, select: { sector: true, targetAudience: true, updatedAt: true } }),
+    db.juridiqueAnalysis.findUnique({ where: { userId: userId }, select: { recommendedStatus: true, updatedAt: true } }),
+    db.financialForecast.findUnique({ where: { userId: userId }, select: { year1Revenue: true, year1Expenses: true, updatedAt: true } }),
+    db.creaSimSimulation.findUnique({ where: { userId: userId }, select: { monthlyRevenue: true, updatedAt: true } }),
     db.businessModelCanvas.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+      where: { userId: userId },
       select: {
         status: true, updatedAt: true,
         partenairesCles: true, activitesCles: true, ressourcesCles: true,
@@ -653,7 +653,7 @@ async function buildPipelineResponse(userId: string, enrollmentId: string | null
       orderBy: { updatedAt: 'desc' },
     }),
     db.creatorJourney.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+      where: { userId: userId },
       select: { projectTitle: true, visionAnswers: true },
     }),
   ])
@@ -740,7 +740,7 @@ export async function POST(request: NextRequest) {
       case 'get-timestamps': {
         const enrollmentId = getEnrollmentIdFromRequest(request)
         const journey = await db.creatorJourney.findUnique({
-          where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+          where: { userId: payload.userId },
           select: { bpSectionMeta: true },
         })
         const meta = (journey?.bpSectionMeta as BpSectionMeta) ?? {}
@@ -754,13 +754,13 @@ export async function POST(request: NextRequest) {
           financialForecast, creasimSimulation,
         ] = await Promise.all([
           db.creatorJourney.findUnique({
-            where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+            where: { userId: payload.userId },
             select: { bpSections: true, bpSectionMeta: true },
           }),
-          db.marketAnalysis.findUnique({ where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) }, select: { updatedAt: true } }),
-          db.juridiqueAnalysis.findUnique({ where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) }, select: { recommendedStatus: true, updatedAt: true } }),
-          db.financialForecast.findUnique({ where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) }, select: { year1Revenue: true, year1Expenses: true, updatedAt: true } }),
-          db.creaSimSimulation.findUnique({ where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) }, select: { monthlyRevenue: true, updatedAt: true } }),
+          db.marketAnalysis.findUnique({ where: { userId: payload.userId }, select: { updatedAt: true } }),
+          db.juridiqueAnalysis.findUnique({ where: { userId: payload.userId }, select: { recommendedStatus: true, updatedAt: true } }),
+          db.financialForecast.findUnique({ where: { userId: payload.userId }, select: { year1Revenue: true, year1Expenses: true, updatedAt: true } }),
+          db.creaSimSimulation.findUnique({ where: { userId: payload.userId }, select: { monthlyRevenue: true, updatedAt: true } }),
         ])
 
         const bpSections = (journey?.bpSections as Record<string, unknown>) ?? {}

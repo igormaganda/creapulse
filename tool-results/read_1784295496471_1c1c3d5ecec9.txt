@@ -288,7 +288,7 @@
    288→  tenant              Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
    289→  counselorProfile    Counselor?
    290→  beneficiaryProfile  Beneficiary?
-   291→  creatorJourney      CreatorJourney?
+   291→  creatorJourneys     CreatorJourney[]
    292→  bpSnapshots         BpSnapshot[]
    293→  accounts            Account[]
    294→  sessions            Session[]
@@ -298,13 +298,13 @@
    298→  riasecResults       RiasecResult[]
    299→  motivations         MotivationAssessment?
    300→  cvUploads           CvUpload[]
-   301→  creasimSimulation   CreaSimSimulation?
-   302→  financialForecast   FinancialForecast?
-   303→  juridiqueAnalysis   JuridiqueAnalysis?
-   304→  businessModelCanvas BusinessModelCanvas?
-   305→  marketAnalysis      MarketAnalysis?
-   306→  tremplin            Tremplin?
-   307→  zeroDraft           ZeroDraft?
+   301→  creasimSimulations  CreaSimSimulation[]
+   302→  financialForecasts FinancialForecast[]
+   303→  juridiqueAnalyses  JuridiqueAnalysis[]
+   304→  businessModelCanvases BusinessModelCanvas[]
+   305→  marketAnalyses     MarketAnalysis[]
+   306→  tremplins          Tremplin[]
+   307→  zeroDrafts         ZeroDraft[]
    308→  networks            Network[]
    309→  discussions         Discussion[]
    310→  replies             Reply[]

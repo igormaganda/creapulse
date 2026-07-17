@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
     const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const tremplin = await db.tremplin.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
     })
 
     if (!tremplin) {
@@ -107,10 +107,9 @@ export async function POST(request: NextRequest) {
 
     // Upsert tremplin data
     const tremplin = await db.tremplin.upsert({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
       create: {
         userId: payload.userId,
-        enrollmentId,
         currentStep: data.currentStep,
         responses: (data.responses ?? {}) as Prisma.InputJsonValue,
         isCompleted: data.isCompleted ?? false,
@@ -134,10 +133,9 @@ export async function POST(request: NextRequest) {
     // If completed with assessment, also update CreatorJourney tremplinStatus
     if (data.isCompleted && assessmentFields.score !== undefined && assessmentFields.decision) {
       await db.creatorJourney.upsert({
-        where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+        where: { userId: payload.userId },
         create: {
           userId: payload.userId,
-          enrollmentId,
           tremplinStatus: assessmentFields.decision === 'GO' ? 'GO' : assessmentFields.decision === 'NO_GO' ? 'NO_GO' : 'COMPLETED',
           tremplinScore: assessmentFields.score,
         },

@@ -107,8 +107,7 @@ export async function POST(
       await db.creatorJourney.create({
         data: {
           userId,
-          enrollmentId,
-          phase: 'DISCOVERY',
+          currentPhase: 'DISCOVERY',
         },
       })
 

@@ -52,7 +52,7 @@ async function getAuth(request: NextRequest) {
 
 async function getProjectContext(userId: string, enrollmentId: string | null): Promise<string> {
   const journey = await db.creatorJourney.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+    where: { userId: userId },
     select: {
       projectTitle: true,
       projectSector: true,
@@ -237,7 +237,7 @@ export async function GET(request: NextRequest) {
     const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const analysis = await db.juridiqueAnalysis.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
     })
 
     if (!analysis) return success(null, 'Aucune analyse juridique')
@@ -371,10 +371,9 @@ Renvoie UNIQUEMENT le JSON, sans backticks ni texte autour.`
     })
 
     const analysis = await db.juridiqueAnalysis.upsert({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
       create: {
         userId: payload.userId,
-        enrollmentId,
         recommendedStatus: recommendation.recommended,
         fiscalRegime: recommendation.fiscalRegime,
         legalStructure,

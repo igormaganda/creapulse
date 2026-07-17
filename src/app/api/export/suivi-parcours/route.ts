@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch journey
     const journey = await db.creatorJourney.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+      where: { userId: userId },
     })
 
     // Fetch Kiviat results
@@ -117,12 +117,12 @@ export async function GET(request: NextRequest) {
 
     // Fetch Tremplin
     const tremplin = await db.tremplin.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+      where: { userId: userId },
     })
 
     // Fetch CreaSim (brief info)
     const creasim = await db.creaSimSimulation.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+      where: { userId: userId },
       select: {
         monthlyRevenue: true,
         grossMarginRate: true,
@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch BMC (existence check)
     const bmc = await db.businessModelCanvas.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+      where: { userId: userId },
       select: { status: true, generatedAt: true },
     })
 

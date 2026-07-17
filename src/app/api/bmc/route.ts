@@ -69,7 +69,7 @@ async function fetchBpContext(userId: string, enrollmentId: string | null): Prom
 
   // 1. CreatorJourney (project info + BP sections)
   const journey = await db.creatorJourney.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+    where: { userId: userId },
     select: {
       projectTitle: true,
       projectDescription: true,
@@ -109,7 +109,7 @@ async function fetchBpContext(userId: string, enrollmentId: string | null): Prom
 
   // 2. Market Analysis
   const market = await db.marketAnalysis.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+    where: { userId: userId },
     select: {
       sector: true,
       marketSize: true,
@@ -132,7 +132,7 @@ async function fetchBpContext(userId: string, enrollmentId: string | null): Prom
 
   // 3. Financial Forecast (Financier module)
   const forecast = await db.financialForecast.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+    where: { userId: userId },
     select: {
       year1Revenue: true,
       year1Expenses: true,
@@ -161,7 +161,7 @@ async function fetchBpContext(userId: string, enrollmentId: string | null): Prom
 
   // 4. CreaSim Simulation
   const creasim = await db.creaSimSimulation.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+    where: { userId: userId },
     select: {
       monthlyRevenue: true,
       fixedCharges: true,
@@ -201,7 +201,7 @@ async function fetchBpContext(userId: string, enrollmentId: string | null): Prom
 
   // 5. Juridique Analysis
   const juridique = await db.juridiqueAnalysis.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+    where: { userId: userId },
     select: {
       recommendedStatus: true,
       fiscalRegime: true,
@@ -264,7 +264,7 @@ export async function GET(request: NextRequest) {
     const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const bmc = await db.businessModelCanvas.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
     })
 
     if (!bmc) {
@@ -344,10 +344,9 @@ export async function PUT(request: NextRequest) {
     }
 
     const bmc = await db.businessModelCanvas.upsert({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
       create: {
         userId: payload.userId,
-        enrollmentId,
         partenairesCles: updateData.partenairesCles ?? '',
         activitesCles: updateData.activitesCles ?? '',
         ressourcesCles: updateData.ressourcesCles ?? '',
@@ -388,6 +387,7 @@ export async function POST(request: NextRequest) {
       return Errors.unauthorized()
     }
 
+    const enrollmentId = getEnrollmentIdFromRequest(request)
     const body = await request.json()
     const { action } = body as { action: string }
 
@@ -458,10 +458,9 @@ Réponds en JSON avec exactement ces 9 clés :
 
       // Save to database
       const bmc = await db.businessModelCanvas.upsert({
-        where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+        where: { userId: payload.userId },
         create: {
           userId: payload.userId,
-          enrollmentId,
           partenairesCles: generatedBlocks.partenairesCles || '',
           activitesCles: generatedBlocks.activitesCles || '',
           ressourcesCles: generatedBlocks.ressourcesCles || '',
@@ -532,7 +531,7 @@ Réponds en JSON avec exactement ces 9 clés :
 
       // Fetch existing BMC to provide current state
       const existingBmc = await db.businessModelCanvas.findUnique({
-        where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+        where: { userId: payload.userId },
         select: Object.fromEntries(bmcBlocks.map(k => [k, true])),
       })
 

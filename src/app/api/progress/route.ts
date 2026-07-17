@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     ] = await Promise.all([
       // Parcours: CreatorJourney for project data + BP status
       db.creatorJourney.findUnique({
-        where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+        where: { userId: userId },
         select: {
           projectTitle: true,
           projectDescription: true,
@@ -72,31 +72,31 @@ export async function GET(request: NextRequest) {
 
       // Marché: completed if sector + targetAudience filled
       db.marketAnalysis.findUnique({
-        where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+        where: { userId: userId },
         select: { sector: true, targetAudience: true },
       }),
 
       // Juridique: completed if recommendedStatus filled
       db.juridiqueAnalysis.findUnique({
-        where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+        where: { userId: userId },
         select: { recommendedStatus: true },
       }),
 
       // Financier: completed if year1Revenue + year1Expenses filled
       db.financialForecast.findUnique({
-        where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+        where: { userId: userId },
         select: { year1Revenue: true, year1Expenses: true },
       }),
 
       // CreaSim: completed if monthlyRevenue filled
       db.creaSimSimulation.findUnique({
-        where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+        where: { userId: userId },
         select: { monthlyRevenue: true },
       }),
 
       // BMC: completed if at least 5 of 9 blocks filled
       db.businessModelCanvas.findUnique({
-        where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+        where: { userId: userId },
         select: {
           partenairesCles: true,
           activitesCles: true,
@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
 
       // Pitch Deck (ZeroDraft): completed if content has 8 slides
       db.zeroDraft.findUnique({
-        where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+        where: { userId: userId },
         select: { content: true },
       }),
     ])

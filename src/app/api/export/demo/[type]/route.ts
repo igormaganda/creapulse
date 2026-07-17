@@ -138,7 +138,7 @@ async function buildKiviatPdf(
 ) {
   // Fetch journey
   const journey = await db.creatorJourney.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(DEMO_USER_ID, DEMO_ENROLLMENT_ID) },
+    where: { userId: DEMO_USER_ID },
     select: { projectTitle: true, currentPhase: true },
   })
 
@@ -281,13 +281,13 @@ async function buildTremplinPdf(
 ) {
   // Fetch journey
   const journey = await db.creatorJourney.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(DEMO_USER_ID, DEMO_ENROLLMENT_ID) },
+    where: { userId: DEMO_USER_ID },
     select: { projectTitle: true },
   })
 
   // Fetch Tremplin
   const tremplin = await db.tremplin.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(DEMO_USER_ID, DEMO_ENROLLMENT_ID) },
+    where: { userId: DEMO_USER_ID },
   })
 
   if (!tremplin) {
@@ -411,13 +411,13 @@ async function buildCreaSimPdf(
 ) {
   // Fetch journey
   const journey = await db.creatorJourney.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(DEMO_USER_ID, DEMO_ENROLLMENT_ID) },
+    where: { userId: DEMO_USER_ID },
     select: { projectTitle: true, projectSector: true },
   })
 
   // Fetch CreaSim simulation
   const creasim = await db.creaSimSimulation.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(DEMO_USER_ID, DEMO_ENROLLMENT_ID) },
+    where: { userId: DEMO_USER_ID },
   })
 
   if (!creasim) {
@@ -678,7 +678,7 @@ async function buildParcoursPdf(
 ) {
   // Fetch journey
   const journey = await db.creatorJourney.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(DEMO_USER_ID, DEMO_ENROLLMENT_ID) },
+    where: { userId: DEMO_USER_ID },
   })
 
   // Fetch Kiviat results
@@ -701,12 +701,12 @@ async function buildParcoursPdf(
 
   // Fetch Tremplin
   const tremplin = await db.tremplin.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(DEMO_USER_ID, DEMO_ENROLLMENT_ID) },
+    where: { userId: DEMO_USER_ID },
   })
 
   // Fetch CreaSim (brief info)
   const creasim = await db.creaSimSimulation.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(DEMO_USER_ID, DEMO_ENROLLMENT_ID) },
+    where: { userId: DEMO_USER_ID },
     select: {
       monthlyRevenue: true,
       grossMarginRate: true,
@@ -718,7 +718,7 @@ async function buildParcoursPdf(
 
   // Fetch BMC (existence check)
   const bmc = await db.businessModelCanvas.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(DEMO_USER_ID, DEMO_ENROLLMENT_ID) },
+    where: { userId: DEMO_USER_ID },
     select: { status: true, generatedAt: true },
   })
 
@@ -1053,13 +1053,13 @@ async function buildBmcPdf(
 ) {
   // Fetch journey for project title
   const journey = await db.creatorJourney.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(DEMO_USER_ID, DEMO_ENROLLMENT_ID) },
+    where: { userId: DEMO_USER_ID },
     select: { projectTitle: true },
   })
 
   // Fetch BMC
   const bmc = await db.businessModelCanvas.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(DEMO_USER_ID, DEMO_ENROLLMENT_ID) },
+    where: { userId: DEMO_USER_ID },
   })
 
   if (!bmc) {

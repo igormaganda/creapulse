@@ -208,7 +208,7 @@ export async function GET(request: NextRequest) {
     const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const journey = await db.creatorJourney.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
       select: {
         bpSections: true,
         bpStatus: true,
@@ -280,7 +280,7 @@ export async function PUT(request: NextRequest) {
       }
 
       const existingJourney = await db.creatorJourney.findUnique({
-        where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+        where: { userId: payload.userId },
         select: {
           id: true, bpSections: true, bpSectionMeta: true,
           bpStatus: true, bpScore: true, userId: true,
@@ -307,10 +307,9 @@ export async function PUT(request: NextRequest) {
       else status = 'IN_PROGRESS'
 
       const journey = await db.creatorJourney.upsert({
-        where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+        where: { userId: payload.userId },
         create: {
           userId: payload.userId,
-          enrollmentId,
           bpSections: existingSections as Prisma.InputJsonValue,
           bpSectionMeta: existingMeta as unknown as Prisma.InputJsonValue,
           bpStatus: status as 'NOT_STARTED' | 'IN_PROGRESS' | 'GENERATING' | 'DRAFT' | 'REVIEW' | 'VALIDATED' | 'EXPORTED',
@@ -359,7 +358,7 @@ export async function PUT(request: NextRequest) {
 
     // Read existing bpSectionMeta for metadata merge
     const previousJourney = await db.creatorJourney.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
       select: {
         bpSectionMeta: true, bpStatus: true, bpSections: true, userId: true,
         user: { select: { tenantId: true, firstName: true, lastName: true } },
@@ -396,10 +395,9 @@ export async function PUT(request: NextRequest) {
 
     // Upsert CreatorJourney bp fields (now includes bpSectionMeta)
     const journey = await db.creatorJourney.upsert({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
       create: {
         userId: payload.userId,
-        enrollmentId,
         bpSections: (sections ?? {}) as Prisma.InputJsonValue,
         bpSectionMeta: updatedMeta as unknown as Prisma.InputJsonValue,
         bpStatus: status as 'NOT_STARTED' | 'IN_PROGRESS' | 'GENERATING' | 'DRAFT' | 'REVIEW' | 'VALIDATED' | 'EXPORTED',
@@ -549,7 +547,7 @@ async function handleAiSuggest(
   let context = projectContext || ''
   if (!context) {
     const journey = await db.creatorJourney.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+      where: { userId: userId },
       select: {
         projectTitle: true,
         projectSector: true,
@@ -638,7 +636,7 @@ async function handleGenerateFromParcours(userId: string, enrollmentId: string |
       select: { skills: true, educationLevel: true, employmentStatus: true },
     }),
     db.creatorJourney.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+      where: { userId: userId },
       select: {
         projectTitle: true,
         projectDescription: true,
@@ -817,10 +815,9 @@ Tu dois répondre UNIQUEMENT avec un objet JSON valide (pas de markdown, pas de 
 
   // 8. Update CreatorJourney (including bpSectionMeta)
   const savedJourney = await db.creatorJourney.upsert({
-    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+    where: { userId: userId },
     create: {
       userId,
-      enrollmentId,
       bpSections: mergedSections as Prisma.InputJsonValue,
       bpSectionMeta: updatedMeta as unknown as Prisma.InputJsonValue,
       bpStatus: 'DRAFT',
@@ -870,7 +867,7 @@ Tu dois répondre UNIQUEMENT avec un objet JSON valide (pas de markdown, pas de 
 async function handleSyncSimulators(userId: string, enrollmentId: string | null) {
   // 1. Fetch existing BP sections and metadata
   const journey = await db.creatorJourney.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+    where: { userId: userId },
     select: { bpSections: true, bpSectionMeta: true },
   })
 
@@ -908,11 +905,11 @@ async function handleSyncSimulators(userId: string, enrollmentId: string | null)
     juridiqueAnalysis,
     businessModelCanvas,
   ] = await Promise.all([
-    db.marketAnalysis.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } }),
-    db.financialForecast.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } }),
-    db.creaSimSimulation.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } }),
-    db.juridiqueAnalysis.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } }),
-    db.businessModelCanvas.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } }),
+    db.marketAnalysis.findUnique({ where: { userId: userId } }),
+    db.financialForecast.findUnique({ where: { userId: userId } }),
+    db.creaSimSimulation.findUnique({ where: { userId: userId } }),
+    db.juridiqueAnalysis.findUnique({ where: { userId: userId } }),
+    db.businessModelCanvas.findUnique({ where: { userId: userId } }),
   ])
 
   // 3. Map marketAnalysis → etudeMarche, concurrence, swot
@@ -1127,10 +1124,9 @@ async function handleSyncSimulators(userId: string, enrollmentId: string | null)
   const bpScore = Math.min(100, Math.round((filledCount / totalSections) * 100))
 
   await db.creatorJourney.upsert({
-    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+    where: { userId: userId },
     create: {
       userId,
-      enrollmentId,
       bpSections: mergedSections as Prisma.InputJsonValue,
       bpSectionMeta: sectionMeta as unknown as Prisma.InputJsonValue,
       bpScore,

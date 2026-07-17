@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch CreatorJourney with BP sections
     const journey = await db.creatorJourney.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+      where: { userId: userId },
     })
 
     // Fetch ModuleResults
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch Financial Forecast
     const financialForecast = await db.financialForecast.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+      where: { userId: userId },
     })
 
     // Parse BP sections from journey

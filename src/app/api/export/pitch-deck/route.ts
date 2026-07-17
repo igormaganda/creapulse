@@ -74,12 +74,12 @@ export async function GET(request: NextRequest) {
 
     // Fetch pitch deck data from ZeroDraft
     const draft = await db.zeroDraft.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
     })
 
     // Fetch project info
     const journey = await db.creatorJourney.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
       select: {
         projectTitle: true,
         projectDescription: true,

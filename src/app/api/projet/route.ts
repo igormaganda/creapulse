@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     const enrollmentId = getEnrollmentIdFromRequest(request)
 
     const journey = await db.creatorJourney.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
     })
 
     if (!journey) {
@@ -126,10 +126,9 @@ export async function PUT(request: NextRequest) {
 
     // Upsert the CreatorJourney
     const journey = await db.creatorJourney.upsert({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
       create: {
         userId: payload.userId,
-        enrollmentId,
         currentPhase: currentPhase as 'DISCOVERY' | 'PROFILING' | 'MODELING' | 'STRATEGY' | 'LAUNCH',
         progressPercent: progress,
         projectTitle: data.projectTitle || null,

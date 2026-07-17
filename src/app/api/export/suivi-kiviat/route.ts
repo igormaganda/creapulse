@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch journey
     const journey = await db.creatorJourney.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+      where: { userId: userId },
       select: { projectTitle: true, currentPhase: true },
     })
 

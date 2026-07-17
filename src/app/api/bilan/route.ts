@@ -115,7 +115,7 @@ async function collectParcoursData(userId: string, tenantId: string, enrollmentI
   await Promise.allSettled([
     db.user.findUnique({ where: { id: userId, tenantId: payload.tenantId } }).then(r => { user = r }).catch(() => {}),
     db.beneficiary.findUnique({ where: { userId } }).then(r => { beneficiary = r }).catch(() => {}),
-    db.creatorJourney.findUnique({ where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) } }).then(r => { journey = r }).catch(() => {}),
+    db.creatorJourney.findUnique({ where: { userId: userId } }).then(r => { journey = r }).catch(() => {}),
     db.riasecResult.findMany({ where: { userId }, orderBy: { profileType: 'asc' } }).then(r => { riasecResults = r }).catch(() => {}),
     db.kiviatResult.findMany({ where: { userId }, orderBy: { category: 'asc' } }).then(r => { kiviatResults = r }).catch(() => {}),
     db.moduleResult.findUnique({ where: { userId_moduleCode: { userId, moduleCode: 'bilan-ia' } } }).then(r => { bilanModuleResult = r }).catch(() => {}),

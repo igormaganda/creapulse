@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch CreatorJourney
     const journey = await db.creatorJourney.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
     })
 
     // Fetch all module results

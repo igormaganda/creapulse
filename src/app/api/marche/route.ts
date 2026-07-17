@@ -75,7 +75,7 @@ async function getAuth(request: NextRequest) {
 
 async function getProjectContext(userId: string, enrollmentId: string | null): Promise<string> {
   const journey = await db.creatorJourney.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+    where: { userId: userId },
     select: {
       projectTitle: true,
       projectSector: true,
@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
     const payload = await getAuth(request)
     const enrollmentId = getEnrollmentIdFromRequest(request)
     const analysis = await db.marketAnalysis.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
     })
 
     if (!analysis) return success(null, 'Aucune analyse de marché sauvegardée')
@@ -169,10 +169,9 @@ export async function PUT(request: NextRequest) {
     const data = parsed.data
 
     const analysis = await db.marketAnalysis.upsert({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
       create: {
         userId: payload.userId,
-        enrollmentId,
         sector: data.sector ?? null,
         marketSize: data.marketSize != null ? String(data.marketSize) : null,
         targetAudience: data.targetAudience ?? null,
@@ -370,10 +369,9 @@ ${Array.isArray(competitors) && competitors.length > 0
 
     // Save synthesis
     await db.marketAnalysis.upsert({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
       create: {
         userId: payload.userId,
-        enrollmentId,
         aiSynthesis: synthesis,
       },
       update: {

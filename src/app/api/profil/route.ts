@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
         where: { userId: payload.userId },
       }),
       db.creatorJourney.findUnique({
-        where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+        where: { userId: payload.userId },
         select: { id: true, visionAnswers: true, creationMotivation: true },
       }),
     ])
@@ -117,7 +117,7 @@ export async function PUT(request: NextRequest) {
 
     // Get existing visionAnswers to merge
     const existing = await db.creatorJourney.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
       select: { visionAnswers: true },
     })
     const existingAnswers = (existing?.visionAnswers || {}) as Record<string, unknown>
@@ -160,10 +160,9 @@ export async function PUT(request: NextRequest) {
 
       // Update CreatorJourney
       db.creatorJourney.upsert({
-        where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+        where: { userId: payload.userId },
         create: {
           userId: payload.userId,
-          enrollmentId,
           creationMotivation: data.creationMotivation || undefined,
           visionAnswers: mergedAnswers,
         },

@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
         orderBy: { score: 'desc' },
       }),
       db.creatorJourney.findUnique({
-        where: { userId_enrollmentId: buildCompositeKey(beneficiaryUserId, enrollmentId) },
+        where: { userId: beneficiaryUserId },
       }),
       db.moduleResult.findMany({
         where: { userId: beneficiaryUserId, completedAt: { not: null } },

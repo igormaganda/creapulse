@@ -74,7 +74,7 @@ async function fetchPitchContext(userId: string, enrollmentId: string | null): P
 
   // 1. CreatorJourney (project info + BP sections)
   const journey = await db.creatorJourney.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+    where: { userId: userId },
     select: {
       projectTitle: true,
       projectDescription: true,
@@ -112,7 +112,7 @@ async function fetchPitchContext(userId: string, enrollmentId: string | null): P
 
   // 2. BMC
   const bmc = await db.businessModelCanvas.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+    where: { userId: userId },
     select: {
       partenairesCles: true,
       activitesCles: true,
@@ -141,7 +141,7 @@ async function fetchPitchContext(userId: string, enrollmentId: string | null): P
 
   // 3. Financial data (Financier + CreaSim)
   const forecast = await db.financialForecast.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+    where: { userId: userId },
     select: {
       year1Revenue: true,
       year1Expenses: true,
@@ -166,7 +166,7 @@ async function fetchPitchContext(userId: string, enrollmentId: string | null): P
   }
 
   const creasim = await db.creaSimSimulation.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+    where: { userId: userId },
     select: {
       monthlyRevenue: true,
       grossMarginRate: true,
@@ -190,7 +190,7 @@ async function fetchPitchContext(userId: string, enrollmentId: string | null): P
 
   // 4. Market Analysis
   const market = await db.marketAnalysis.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+    where: { userId: userId },
     select: {
       sector: true,
       marketSize: true,
@@ -210,7 +210,7 @@ async function fetchPitchContext(userId: string, enrollmentId: string | null): P
 
   // 5. Juridique Analysis
   const juridique = await db.juridiqueAnalysis.findUnique({
-    where: { userId_enrollmentId: buildCompositeKey(userId, enrollmentId) },
+    where: { userId: userId },
     select: {
       recommendedStatus: true,
       legalStructure: true,
@@ -238,7 +238,7 @@ export async function GET(request: NextRequest) {
 
     // Try to get from ZeroDraft (reused for pitch deck persistence)
     const draft = await db.zeroDraft.findUnique({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
     })
 
     if (!draft) return success(null, 'Aucun pitch deck')
@@ -272,10 +272,9 @@ export async function PUT(request: NextRequest) {
     const wordCount = content.split(/\s+/).filter(Boolean).length
 
     const draft = await db.zeroDraft.upsert({
-      where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+      where: { userId: payload.userId },
       create: {
         userId: payload.userId,
-        enrollmentId,
         projectTitle: projectTitle || 'Mon Pitch Deck',
         content,
         wordCount,
@@ -380,10 +379,9 @@ Réponds en JSON avec exactement ces 8 clés :
       const wordCount = content.split(/\s+/).filter(Boolean).length
 
       const draft = await db.zeroDraft.upsert({
-        where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+        where: { userId: payload.userId },
         create: {
           userId: payload.userId,
-          enrollmentId,
           projectTitle: 'Mon Pitch Deck',
           content,
           wordCount,
@@ -424,7 +422,7 @@ Réponds en JSON avec exactement ces 8 clés :
 
       // Fetch existing pitch deck for context on other slides
       const existingDraft = await db.zeroDraft.findUnique({
-        where: { userId_enrollmentId: buildCompositeKey(payload.userId, enrollmentId) },
+        where: { userId: payload.userId },
       })
 
       let existingSlidesText = ''
