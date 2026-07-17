@@ -1,944 +1,1191 @@
-// ============================================
-// CreaPulse — CreaScope Demo Seed
-// Scénario : "Transports et livraison du dernier kilomètre — Micro-entreprise"
-// Bénéficiaire : Karim Benali
-// Conseiller : Sophie Martin
-// Run:
-//   DATABASE_URL="postgresql://z@127.0.0.1:5432/creapulse" npx tsx prisma/seed-creascope-demo.ts
-// ============================================
+/**
+ * CreaScope Demo Seed Script
+ * ===========================
+ * Populates a complete test dataset for "Transports et livraison :
+ * Porté par le régime de la micro-entreprise (livraisons du dernier kilomètre)"
+ *
+ * Idempotent: if tenant "gidef-idf" exists, deletes all related data first.
+ *
+ * Run:
+ *   DATABASE_URL='postgresql://echo_entrep_user:echo_entrep_pass2026@213.199.38.41:5432/echo_entrep' \
+ *     npx tsx prisma/seed-creascope-demo.ts
+ */
 
-import { PrismaClient } from "@prisma/client";
-import { readFileSync } from "fs";
-import { resolve } from "path";
+import { PrismaClient } from '@prisma/client';
+import { hash } from 'bcryptjs';
 
-// ─── Force-read DATABASE_URL from .env (ignore shell cache) ─────────
-const envPath = resolve(__dirname, "../.env");
-const envContent = readFileSync(envPath, "utf-8");
-const envLine = envContent
-  .split("\n")
-  .find((l) => l.startsWith("DATABASE_URL="));
-const DATABASE_URL =
-  envLine?.replace(/^DATABASE_URL=/, "").trim() ??
-  "postgresql://z@127.0.0.1:5432/creapulse";
+const prisma = new PrismaClient();
 
-const prisma = new PrismaClient({
-  datasources: { db: { url: DATABASE_URL } },
-});
+// ─── Date helpers ──────────────────────────────────────────────
+const now = new Date();
+const daysAgo = (n: number) => {
+  const d = new Date(now);
+  d.setDate(d.getDate() - n);
+  return d;
+};
+const weeksAgo = (n: number) => daysAgo(n * 7);
+const hoursAgo = (n: number) => {
+  const d = new Date(now);
+  d.setHours(d.getHours() - n);
+  return d;
+};
 
-// ─── Helpers ─────────────────────────────────────────────────────────
-function d(dateStr: string): Date {
-  return new Date(dateStr);
-}
+// ─── Main ──────────────────────────────────────────────────────
+async function main() {
+  console.log('🌱 CreaScope Demo Seed — Start');
+  console.log('━'.repeat(60));
 
-// ─── MAIN ────────────────────────────────────────────────────────────
-(async () => {
-  console.log("🌱 CreaScope Demo Seed — Starting...\n");
-  console.log("📦 DATABASE_URL:", DATABASE_URL.replace(/\/\/.*@/, "//***@"));
+  // ─── 0. Idempotent cleanup ───────────────────────────────────
+  console.log('\n📦 Step 0: Checking for existing demo data...');
+  const existingTenant = await prisma.tenant.findUnique({
+    where: { slug: 'gidef-idf' },
+  });
 
-  // ══════════════════════════════════════════════════════════════════
-  // 1. TENANT
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[1/24] Creating Tenant...");
+  if (existingTenant) {
+    console.log('   ⚠️  Tenant "gidef-idf" already exists — deleting all related data...');
+    await prisma.$transaction(async (tx) => {
+      // Find users belonging to this tenant
+      const users = await tx.user.findMany({
+        where: { tenantId: existingTenant.id },
+        select: { id: true },
+      });
+      const userIds = users.map((u) => u.id);
+
+      // Delete in order of dependencies
+      await tx.dataDeletionRequest.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.dataExportRequest.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.consentLog.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.satisfactionFeedback.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.smartObjective.deleteMany({
+        where: { program: { userId: { in: userIds } } },
+      });
+      await tx.paaAtelierSession.deleteMany({
+        where: { program: { userId: { in: userIds } } },
+      });
+      await tx.paaMilestone.deleteMany({
+        where: { program: { userId: { in: userIds } } },
+      });
+      await tx.paaProgram.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.mindMap.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.livrable.deleteMany({
+        where: {
+          OR: [{ userId: { in: userIds } }, { counselorId: { in: userIds } }],
+        },
+      });
+      await tx.interviewNote.deleteMany({
+        where: { interview: { beneficiaryId: { in: userIds } } },
+      });
+      await tx.interviewNote.deleteMany({
+        where: { interview: { counselorId: { in: userIds } } },
+      });
+      await tx.interviewSession.deleteMany({
+        where: {
+          OR: [{ beneficiaryId: { in: userIds } }, { counselorId: { in: userIds } }],
+        },
+      });
+      await tx.appointment.deleteMany({
+        where: {
+          OR: [{ beneficiaryId: { in: userIds } }, { counselorId: { in: userIds } }],
+        },
+      });
+      await tx.personalizedPath.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.registration.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.network.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.accessibilitySetting.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.cvUpload.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.userFile.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.auditLog.deleteMany({
+        where: { OR: [{ userId: { in: userIds } }, { tenantId: existingTenant.id }] },
+      });
+      await tx.swipeAnswer.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.swipeGameResult.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.savedNews.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.reply.deleteMany({ where: { authorId: { in: userIds } } });
+      await tx.discussion.deleteMany({ where: { authorId: { in: userIds } } });
+      await tx.mentorship.deleteMany({
+        where: { OR: [{ mentorId: { in: userIds } }, { menteeId: { in: userIds } }] },
+      });
+      await tx.mentorshipRequest.deleteMany({ where: { menteeId: { in: userIds } } });
+      await tx.mentor.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.message.deleteMany({
+        where: {
+          conversation: {
+            tenantId: existingTenant.id,
+          },
+        },
+      });
+      await tx.conversation.deleteMany({ where: { tenantId: existingTenant.id } });
+      await tx.favorite.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.moduleResult.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.kiviatResult.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.riasecResult.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.motivationAssessment.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.financialForecast.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.creaSimSimulation.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.juridiqueAnalysis.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.marketAnalysis.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.tremplin.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.businessModelCanvas.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.zeroDraft.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.creascopeSession.deleteMany({
+        where: {
+          OR: [{ beneficiaryId: { in: userIds } }, { counselorId: { in: userIds } }],
+        },
+      });
+      await tx.userEnrollment.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.counselorAssignment.deleteMany({
+        where: {
+          OR: [{ counselorId: { in: userIds } }, { beneficiaryId: { in: userIds } }],
+        },
+      });
+      await tx.beneficiary.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.counselor.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.bpSnapshot.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.creatorJourney.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.notification.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.account.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.session.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.user.deleteMany({ where: { tenantId: existingTenant.id } });
+
+      // Delete dispositifs for this tenant
+      await tx.dispositif.deleteMany({ where: { tenantId: existingTenant.id } });
+      await tx.appModule.deleteMany({ where: { tenantId: existingTenant.id } });
+      await tx.actor.deleteMany({ where: { tenantId: existingTenant.id } });
+
+      // Delete organizations
+      await tx.organization.deleteMany({ where: { tenantId: existingTenant.id } });
+
+      // Finally delete tenant
+      await tx.tenant.delete({ where: { id: existingTenant.id } });
+    });
+    console.log('   ✅ Old data cleaned up');
+  }
+
+  // ─── 1. Tenant ───────────────────────────────────────────────
+  console.log('\n📦 Step 1: Creating Tenant...');
   const tenant = await prisma.tenant.create({
     data: {
-      name: "GIDEF Île-de-France",
-      slug: "gidef-idf",
-      plan: "ENTERPRISE",
-      primaryColor: "#00838F",
-      isActive: true,
-      settings: { theme: "gidef", features: ["creascope", "paa"] },
+      name: 'GIDEF Île-de-France',
+      slug: 'gidef-idf',
+      plan: 'PROFESSIONAL',
+      primaryColor: '#00838F',
+      settings: {
+        region: 'Île-de-France',
+        contactEmail: 'contact@gidef-idf.fr',
+        features: { creascope: true, paa: true },
+      },
     },
   });
-  console.log("   ✅ Tenant:", tenant.id, tenant.name);
+  console.log(`   ✅ Tenant: ${tenant.name} (${tenant.id})`);
 
-  // ══════════════════════════════════════════════════════════════════
-  // 2. ORGANIZATION
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[2/24] Creating Organization...");
+  // ─── 2. Organization ─────────────────────────────────────────
+  console.log('\n📦 Step 2: Creating Organization...');
   const org = await prisma.organization.create({
     data: {
       tenantId: tenant.id,
-      name: "GIDEF Île-de-France — Agence de Pantin",
-      type: "GIDEF_AGENCY",
-      city: "Pantin",
-      postalCode: "93500",
-      region: "Île-de-France",
-      siret: "12345678900012",
-      phone: "01 48 46 50 00",
-      email: "contact@gidef-idf.fr",
-      website: "https://www.gidef-idf.fr",
-      isActive: true,
+      name: 'GIDEF 93 — Montreuil',
+      type: 'GIDEF_AGENCY',
+      address: '12 Rue de la République',
+      city: 'Montreuil',
+      postalCode: '93100',
+      region: 'Île-de-France',
+      phone: '01 48 58 00 00',
+      email: 'gidef93@demo-creapulse.fr',
+      website: 'https://gidef93.demo-creapulse.fr',
     },
   });
-  console.log("   ✅ Organization:", org.id, org.name);
+  console.log(`   ✅ Organization: ${org.name} (${org.id})`);
 
-  // ══════════════════════════════════════════════════════════════════
-  // 3. DISPOSITIF
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[3/24] Creating Dispositif (CreaScope)...");
-  const dispositif = await prisma.dispositif.create({
+  // ─── 3. Password hash ────────────────────────────────────────
+  console.log('\n📦 Step 3: Hashing passwords...');
+  const passwordHash = await hash('Demo2026!', 12);
+  console.log('   ✅ Password hashed (bcryptjs, 12 rounds)');
+
+  // ─── 4. Dispositifs ──────────────────────────────────────────
+  console.log('\n📦 Step 4: Creating Dispositifs...');
+  const dispositifCreascope = await prisma.dispositif.create({
     data: {
       tenantId: tenant.id,
-      code: "creascope",
-      name: "CréaScope",
+      code: 'creascope',
+      name: 'Parcours CréaScope',
+      type: 'DIAGNOSTIC',
       description:
-        "Parcours diagnostic créateur — Pipeline 3-4h avec conseiller",
-      type: "DIAGNOSTIC",
-      color: "#E65100",
-      icon: "Search",
-      durationDays: 90,
-      moduleConfig: JSON.stringify({
+        'Pipeline diagnostic CréaScope — 3-4h avec conseiller',
+      color: '#00838F',
+      icon: 'Search',
+      durationDays: 30,
+      moduleConfig: {
         include: [
-          "vision",
-          "bmc",
-          "marche",
-          "juridique",
-          "financier",
-          "tremplin",
-          "zero-draft",
-          "creascope",
+          'phase-decouverte',
+          'diagnostic-competences',
+          'analyse-marche',
+          'bmc',
+          'simulation-financiere',
+          'juridique',
+          'tremplin',
+          'zero-draft',
+          'pitch-deck',
+          'mind-map',
         ],
         exclude: [],
-      }),
-      isActive: true,
-      sortOrder: 1,
+      },
     },
   });
-  console.log("   ✅ Dispositif:", dispositif.id, dispositif.code);
 
-  // ══════════════════════════════════════════════════════════════════
-  // 4. USER — STUDENT (Karim Benali)
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[4/24] Creating Student User (Karim Benali)...");
-  const student = await prisma.user.create({
+  const dispositifCreapulse = await prisma.dispositif.create({
     data: {
       tenantId: tenant.id,
-      email: "karim.benali@demo-creapulse.fr",
-      passwordHash: "$2b$10$placeholder_hash_for_demo",
-      firstName: "Karim",
-      lastName: "Benali",
-      role: "BENEFICIARY",
-      isActive: true,
-      emailVerified: true,
-      lastLoginAt: d("2025-07-12T09:30:00Z"),
+      code: 'creapulse',
+      name: 'Parcours Créateur',
+      type: 'BASE',
+      description: 'Parcours complet de création d\'entreprise CréaPulse',
+      color: '#E65100',
+      icon: 'Briefcase',
+      moduleConfig: { include: null, exclude: [] },
     },
   });
-  console.log("   ✅ Student:", student.id, student.firstName, student.lastName);
+  console.log(`   ✅ Dispositif CréaScope: ${dispositifCreascope.id}`);
+  console.log(`   ✅ Dispositif CréaPulse: ${dispositifCreapulse.id}`);
 
-  // ══════════════════════════════════════════════════════════════════
-  // 5. BENEFICIARY PROFILE
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[5/24] Creating Beneficiary Profile...");
-  const beneficiary = await prisma.beneficiary.create({
-    data: {
-      userId: student.id,
-      organizationId: org.id,
-      employmentStatus: "UNEMPLOYED",
-      educationLevel: "Bac+2",
-      lastDiploma: "BTS Transport et Logistique",
-      skills: JSON.stringify([
-        "Permis B",
-        "Conduite de véhicules légers",
-        "Gestion des tournées de livraison",
-        "Logistique urbaine",
-        "Relation client",
-        "Utilisation GPS et applications de navigation",
-        "Anglais professionnel (base)",
-        "Bases de la comptabilité",
-      ]),
-      progressScore: 65,
-    },
-  });
-  console.log("   ✅ Beneficiary:", beneficiary.id);
-
-  // ══════════════════════════════════════════════════════════════════
-  // 6. USER — COUNSELOR (Sophie Martin)
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[6/24] Creating Counselor User (Sophie Martin)...");
-  const counselor = await prisma.user.create({
+  // ─── 5. Counselor User (Sophie) ──────────────────────────────
+  console.log('\n📦 Step 5: Creating Counselor (Sophie Martin-Dupont)...');
+  const counselorUser = await prisma.user.create({
     data: {
       tenantId: tenant.id,
-      email: "sophie.martin@gidef-idf.fr",
-      passwordHash: "$2b$10$placeholder_hash_for_demo",
-      firstName: "Sophie",
-      lastName: "Martin",
-      role: "COUNSELOR",
+      email: 'sophie.martin@demo-creapulse.fr',
+      passwordHash,
+      firstName: 'Sophie',
+      lastName: 'Martin-Dupont',
+      role: 'COUNSELOR',
       isActive: true,
       emailVerified: true,
-      lastLoginAt: d("2025-07-12T08:15:00Z"),
+      lastLoginAt: daysAgo(1),
     },
   });
-  console.log("   ✅ Counselor:", counselor.id, counselor.firstName, counselor.lastName);
 
-  // ══════════════════════════════════════════════════════════════════
-  // 7. COUNSELOR PROFILE
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[7/24] Creating Counselor Profile...");
-  const counselorProfile = await prisma.counselor.create({
+  const counselor = await prisma.counselor.create({
     data: {
-      userId: counselor.id,
+      userId: counselorUser.id,
       organizationId: org.id,
-      name: "Sophie Martin",
-      specialities: JSON.stringify([
-        "création d'entreprise",
-        "logistique",
-        "micro-entreprise",
-      ]),
-      certifications: JSON.stringify([
-        "Certification BGE Conseiller en création d'entreprise",
-        "Formation CCI – Diagnostic de création",
-      ]),
+      name: 'Sophie Martin-Dupont',
+      specialities: [
+        'Création d\'entreprise',
+        'Micro-entreprise',
+        'Transport-logistique',
+      ],
+      certifications: ['Certifié BGE', 'Consultant France Active'],
       maxBeneficiaries: 30,
       isAvailable: true,
     },
   });
-  console.log("   ✅ CounselorProfile:", counselorProfile.id);
+  console.log(`   ✅ Counselor: ${counselor.name} (${counselorUser.id})`);
 
-  // ══════════════════════════════════════════════════════════════════
-  // 8. COUNSELOR ASSIGNMENT
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[8/24] Creating CounselorAssignment...");
+  // ─── 6. Beneficiary User (Karim) ─────────────────────────────
+  console.log('\n📦 Step 6: Creating Beneficiary (Karim Benali)...');
+  const beneficiaryUser = await prisma.user.create({
+    data: {
+      tenantId: tenant.id,
+      email: 'karim.benali@demo-creapulse.fr',
+      passwordHash,
+      firstName: 'Karim',
+      lastName: 'Benali',
+      role: 'BENEFICIARY',
+      isActive: true,
+      emailVerified: true,
+      lastLoginAt: hoursAgo(2),
+    },
+  });
+
+  const beneficiary = await prisma.beneficiary.create({
+    data: {
+      userId: beneficiaryUser.id,
+      organizationId: org.id,
+      employmentStatus: 'UNEMPLOYED',
+      educationLevel: 'BAC+2 BTS Transport',
+      lastDiploma: 'BTS Transport et Prestations Logistiques',
+      skills: [
+        'Permis B',
+        'Permis C',
+        'Logistique urbaine',
+        'Gestion des tournées',
+        'Livraison B2B/B2C',
+        'Application mobile',
+        'Conduite ecologique',
+        'Service client',
+      ],
+      hasDisability: false,
+      progressScore: 45,
+    },
+  });
+  console.log(`   ✅ Beneficiary: Karim Benali (${beneficiaryUser.id})`);
+
+  // ─── 7. CounselorAssignment ──────────────────────────────────
+  console.log('\n📦 Step 7: Creating CounselorAssignment...');
   const assignment = await prisma.counselorAssignment.create({
     data: {
-      counselorId: counselorProfile.id,
+      counselorId: counselor.id,
       beneficiaryId: beneficiary.id,
-      role: "PRIMARY",
-      status: "ACTIVE",
-      assignedAt: d("2025-06-01T10:00:00Z"),
-      notes:
-        "Premier entretien réalisé. Projet de livraison du dernier kilomètre en micro-entreprise. Motivation forte, profil cohérent avec le secteur.",
+      role: 'PRIMARY',
+      status: 'ACTIVE',
+      assignedAt: weeksAgo(3),
+      notes: 'Suivi création micro-entreprise livraison dernier kilomètre',
     },
   });
-  console.log("   ✅ CounselorAssignment:", assignment.id);
+  console.log(`   ✅ Assignment: ${assignment.role} (${assignment.id})`);
 
-  // ══════════════════════════════════════════════════════════════════
-  // 9. USER ENROLLMENT
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[9/24] Creating UserEnrollment...");
+  // ─── 8. UserEnrollment ───────────────────────────────────────
+  console.log('\n📦 Step 8: Creating UserEnrollment (CréaScope)...');
   const enrollment = await prisma.userEnrollment.create({
     data: {
-      userId: student.id,
+      userId: beneficiaryUser.id,
       tenantId: tenant.id,
-      dispositifId: dispositif.id,
-      status: "ACTIF",
-      startedAt: d("2025-06-01T10:00:00Z"),
-      progress: 65,
-      projectTitle: "Transports et livraison — Dernier kilomètre",
+      dispositifId: dispositifCreascope.id,
+      status: 'ACTIF',
+      progress: 45,
+      startedAt: weeksAgo(2),
+      projectTitle:
+        'Transports et livraison — Livraisons du dernier kilomètre',
+      settings: { language: 'fr', notifications: true },
     },
   });
-  console.log("   ✅ UserEnrollment:", enrollment.id, "progress:", enrollment.progress, "%");
+  console.log(`   ✅ Enrollment: ${enrollment.projectTitle} (${enrollment.id})`);
 
-  // ══════════════════════════════════════════════════════════════════
-  // 10. CREATOR JOURNEY
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[10/24] Creating CreatorJourney...");
+  // ─── 9. CreatorJourney ───────────────────────────────────────
+  console.log('\n📦 Step 9: Creating CreatorJourney...');
   const journey = await prisma.creatorJourney.create({
     data: {
-      userId: student.id,
-      currentPhase: "STRATEGY",
-      progressPercent: 65,
+      userId: beneficiaryUser.id,
+      currentPhase: 'MODELING',
+      progressPercent: 45,
       projectTitle:
-        "Livraisons du Dernier Kilomètre — Service de coursier en micro-entreprise",
+        'Transports et livraison — Livraisons du dernier kilomètre',
       projectDescription:
-        "Création d'un service de livraison du dernier kilomètre en Seine-Saint-Denis (93) et Paris intra-muros, sous le régime de la micro-entreprise. L'activité consiste à assurer des livraisons rapides et fiables pour les e-commerçants locaux, les restaurateurs, les pharmacies et les PME/TPE du territoire. Le service se démarque par son approche humaine, sa flexibilité et son engagement éco-responsable (vélo-cargo et véhicules électriques). Le créateur souhaite capitaliser sur sa connaissance fine du terrain et du réseau local acquis lors de ses précédentes expériences en logistique urbaine.",
-      projectSector: "Transports et logistique",
-      projectStage: "Modélisation",
+        'Service de livraison du dernier kilomètre en milieu urbain (Île-de-France), sous le régime de la micro-entreprise. Utilisation d\'un vélo cargo électrique pour des livraisons de colis, repas et courses pour les particuliers et petits commerces locaux. Zone de chalandise : Montreuil, Bagnolet, Vincennes.',
+      projectSector: 'Transports et logistique',
+      projectStage: 'Idéation avancée',
       creationMotivation:
-        "Karim souhaite devenir indépendant après plusieurs années en tant que chauffeur-livreur salarié. Il a identifié une faille dans l'offre locale de livraison du dernier kilomètre dans le 93 : les grandes plateformes imposent des conditions difficiles aux commerçants (commissions élevées, pas de suivi personnalisé). Il veut créer un service de proximité, réactif et transparent, qui valorise la relation humaine. Sa passion pour la logistique, combinée à sa connaissance du terrain et du tissu économique local, le motive à se lancer.",
+        'Après 5 ans comme chauffeur-livreur salarié, je souhaite devenir mon propre patron en capitalisant sur mon expérience de la logistique urbaine et ma connaissance du terrain en Seine-Saint-Denis.',
       targetAudience:
-        "E-commerçants locaux, restaurateurs, pharmacies, bureaux d'études — PME et TPE du 93 et Paris intra-muros",
+        'Particuliers (courses, colis e-commerce), petits commerces locaux (épicerie, boulangerie, pharmacie), restaurants (livraison de repas), startups e-commerce locales',
       valueProposition:
-        "Livraison rapide, flexible et humaine du dernier kilomètre. Service personnalisé avec suivi en temps réel, tarifs transparents, et engagement éco-responsable (vélo-cargo et véhicules électriques).",
-      estimatedRevenue:
-        "2 500 €/mois à terme (année 1), 4 000 €/mois (année 2)",
+        'Livraison rapide et éco-responsable du dernier kilomètre en vélo cargo électrique. Fiabilité, ponctualité et service personnalisé avec un vrai contact humain, contrairement aux grands groupes de livraison.',
+      estimatedRevenue: '25 000 € à 35 000 € la première année',
       estimatedInvestment:
-        "3 500 € (vélo-cargo d'occasion, assurance RC Pro, matériel mobile, communication)",
-      visionAnswers: JSON.stringify({
-        pourquoi_ce_projet:
-          "Je veux offrir une alternative locale et humaine aux grandes plateformes de livraison. Le 93 est un territoire dynamique où les commerçants ont besoin d'un service fiable et de proximité.",
-        quelle_valeur_ajoutee:
-          "Un interlocuteur unique, des tarifs transparents, une connaissance du terrain, et un engagement fort pour la mobilité durable.",
-        quels_clients:
-          "Les restaurateurs et traiteurs (60%), les e-commerçants locaux (20%), les pharmacies (10%), et les autres PME (10%).",
-        quels_concurrents:
-          "Stuart, Deliveroo, Uber Eats pour la restauration ; Les coursiers traditionnels pour les PME. Mon avantage : la proximité et la flexibilité.",
-        quels_risques:
-          "La concurrence des plateformes, la dépendance à la météo pour le vélo-cargo, le risque de surcharge de travail en période de forte demande.",
-        quelle_equipe:
-          "Je commence seul en micro-entreprise. Si l'activité décolle, j'envisage d'embaucher un ou deux coursiers partenaires en sous-traitance à partir de la deuxième année.",
-      }),
-      bpStatus: "IN_PROGRESS",
-      bpSections: JSON.stringify({
-        presentation: {
-          title: "Présentation du projet",
-          content:
-            "Dernier Kilomètre Express est un service de livraison urbaine créé par Karim Benali, destiné aux commerçants et PME de Seine-Saint-Denis et Paris. L'activité s'exerce sous le régime de la micro-entreprise et se distingue par son approche éco-responsable (vélo-cargo électrique) et sa relation client de proximité. Le créateur capitalise sur 4 ans d'expérience en logistique urbaine et une connaissance approfondie du tissu économique local.",
-          status: "completed",
-        },
-        marche: {
-          title: "Étude de marché",
-          content:
-            "Le marché français de la livraison du dernier kilomètre est estimé à 12 Md€ en 2025, en croissance de +15% par an. La Seine-Saint-Denis représente un bassin de demande particulièrement dynamique avec plus de 15 000 commerces et 40 000 PME. La demande croissante de livraison rapide, couplée à la montée des préoccupations environnementales (ZFE), crée un contexte favorable pour les solutions de mobilité douce.",
-          status: "completed",
-        },
-        offre: {
-          title: "Offre commerciale",
-          content:
-            "Tarification à la course de 8 à 15€ selon la distance. Forfaits mensuels pour les clients réguliers (250 à 600€/mois). Option livraison express avec supplément de 5€. Suivi en temps réel via application mobile. Engagement de livraison sous 2h pour le périmètre de 5 km.",
-          status: "completed",
-        },
-        economie: { title: "Prévisions financières", content: "", status: "draft" },
-        juridique: { title: "Forme juridique", content: "", status: "draft" },
-        action: { title: "Plan d'action", content: "", status: "draft" },
-      }),
-      tremplinStatus: "COMPLETED",
-      tremplinScore: 78,
-      status: "ACTIVE",
-      startedAt: d("2025-06-01T10:00:00Z"),
+        '3 500 € à 5 000 € (vélo cargo électrique d\'occasion, matériel, assurance RC Pro)',
+      visionAnswers: {
+        'pourquoi-creer': 'Devenir indépendant et capitaliser sur 5 ans d\'expérience en livraison urbaine. Je connais parfaitement le terrain en Seine-Saint-Denis et je veux proposer un service plus humain et éco-responsable.',
+        'quelle-valeur': 'Une alternative locale et éco-responsable aux grands groupes de livraison. Un vrai contact humain, de la ponctualité et de la flexibilité.',
+        'quel-impact': 'Réduire l\'empreinte carbone des livraisons urbaines, créer de l\'emploi local, redynamiser le commerce de proximité en Seine-Saint-Denis.',
+        'quelles-competences':
+          'Logistique urbaine, gestion des tournées, relation client, connaissance du terrain IDF, conduite écologique, utilisation d\'applications mobiles.',
+        'quels-moyens':
+          'Vélo cargo électrique (occasion), smartphone, sacoche isotherme, assurance RC Pro, réseau de commerçants locaux.',
+        'quels-risques':
+          'Concurrence des plateformes, risques d\'accident, dépendance météorologique, pression sur les prix, saisonnalité.',
+        'quelle-vision-3ans':
+          'En 3 ans, je vise un CA de 50 000 € avec 2-3 livreurs en sous-traitance, une clientèle fidèle de 20+ commerçants et une présence reconnue à Montreuil.',
+        'quel-régime': 'Micro-entreprise — Micro-BIC, avec ACRE la première année.',
+      },
+      bpStatus: 'IN_PROGRESS',
+      tremplinStatus: 'IN_PROGRESS',
+      status: 'ACTIVE',
+      startedAt: weeksAgo(2),
     },
   });
-  console.log("   ✅ CreatorJourney:", journey.id, "phase:", journey.currentPhase);
+  console.log(`   ✅ CreatorJourney: ${journey.projectTitle} (${journey.id})`);
 
-  // ══════════════════════════════════════════════════════════════════
-  // 11. BUSINESS MODEL CANVAS
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[11/24] Creating BusinessModelCanvas...");
+  // ─── 10. BusinessModelCanvas ─────────────────────────────────
+  console.log('\n📦 Step 10: Creating BusinessModelCanvas...');
   const bmc = await prisma.businessModelCanvas.create({
     data: {
-      userId: student.id,
+      userId: beneficiaryUser.id,
       partenairesCles:
-        "Plateformes de commande (Uber Eats, Deliveroo), commerçants locaux, CCI, auto-entrepreneurs partenaires, fournisseurs de vélos-cargos, assureurs RC Pro",
+        'Fournisseurs vélos cargo, assureurs RC Pro, plateformes de mise en relation (Stuart, Deliveroo), commerçants locaux, SCDL (Société Coopérative de Livraison), chargeurs vélo publics',
       activitesCles:
-        "Livraison du dernier kilomètre, gestion des tournées, relation client, prospection commerciale, maintenance du matériel, suivi des colis",
+        'Tournées de livraison, gestion des commandes via application, entretien vélo cargo, prospection commerciale, relation client, comptabilité micro-entreprise',
       ressourcesCles:
-        "Vélo-cargo électrique, smartphone avec applis de navigation, permis de livrer, réseau de commerçants, assurance, force physique et connaissance du terrain",
+        'Vélo cargo électrique, smartphone, sacoche isotherme, équipement de sécurité, permis B, connaissance du terrain IDF, réseau commerçants',
       propositionValeur:
-        "Service de livraison du dernier kilomètre fiable, rapide et éco-responsable. Un interlocuteur unique, humain et réactif. Tarifs dégressifs et transparence totale sur les délais.",
+        'Livraison éco-responsable et humaine du dernier kilomètre. Rapidité, fiabilité, flexibilité. Alternative locale aux géants de la livraison.',
       relationsClients:
-        "Relation de proximité et confiance. Suivi personnalisé via application. Fidélisation par carte de fidélité virtuelle. Réactivité et disponibilité (7j/7).",
+        'Relation directe et personnalisée, fidélisation par la qualité, application mobile avec suivi en temps réel, programme de fidélité commerçants',
       canaux:
-        "Prospection directe (porte-à-porte commerçants), réseaux sociaux (Instagram, Facebook), bouche-à-oreille, partenariats avec les mairies, site web et application mobile",
+        'Application mobile, bouche-à-oreille, réseaux sociaux (Instagram, Facebook), partenariats commerçants, site web vitrine, flyers quartiers',
       segmentsClients:
-        "1) Restaurateurs et traiteurs (60%) 2) E-commerçants locaux (20%) 3) Pharmacies et parapharmacies (10%) 4) Autres PME/Bureaux (10%)",
+        'Particuliers (courses/colis), PME locales (livraison B2B), restaurants (meal delivery), e-commerçants locaux',
       structureCouts:
-        "Charges fixes : assurance RC Pro (45€/mois), amortissement vélo-cargo (80€/mois), forfait téléphonique (15€/mois), comptable (80€/mois), abonnement applis (30€/mois) = ~250€/mois. Charges variables : entretien vélo, accessoires, carburant (électricité). Charges sociales : ~21,2% du CA.",
+        'Amortissement vélo cargo, assurance RC Pro, abonnement téléphonique, entretien, charges sociales micro-entreprise (~21,2%), carburant (électricité)',
       sourcesRevenus:
-        "Tarification à la course (8-15€ selon distance), forfaits mensuels pour clients réguliers (250-600€/mois), livraison express avec supplément (+5€), commissions sur volumes élevés",
-      status: "REFINED",
-      generatedAt: d("2025-07-10T14:30:00Z"),
-      generatedFromBp: false,
+        'Tarification à la course/tournée, forfaits mensuels commerçants, commissions partenariats, suppléments urgences/heures pointes',
+      status: 'REFINED',
+      generatedFromBp: true,
+      generatedAt: weeksAgo(2),
     },
   });
-  console.log("   ✅ BMC:", bmc.id, "status:", bmc.status);
+  console.log(`   ✅ BMC: 9 blocks filled, REFINED (${bmc.id})`);
 
-  // ══════════════════════════════════════════════════════════════════
-  // 12. FINANCIAL FORECAST
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[12/24] Creating FinancialForecast...");
+  // ─── 11. FinancialForecast ───────────────────────────────────
+  console.log('\n📦 Step 11: Creating FinancialForecast...');
   const forecast = await prisma.financialForecast.create({
     data: {
-      userId: student.id,
-      sector: "Transports et livraison",
-      year1Revenue: 30000.0,
-      year2Revenue: 48000.0,
-      year3Revenue: 60000.0,
-      year1Expenses: 24360.0,
-      year2Expenses: 33600.0,
-      year3Expenses: 39000.0,
-      breakevenMonth: 8,
-      initialInvestment: 3500.0,
+      userId: beneficiaryUser.id,
+      sector: 'Transports et logistique',
+      year1Revenue: 28000,
+      year2Revenue: 38000,
+      year3Revenue: 50000,
+      year1Expenses: 8500,
+      year2Expenses: 11000,
+      year3Expenses: 14000,
+      breakevenMonth: 5,
+      initialInvestment: 4200,
       aiSynthesis:
-        "Le projet présente une viabilité financière satisfaisante en régime micro-entreprise. Le seuil de rentabilité est atteint dès le 8e mois grâce à des charges fixes contenues (~250€/mois). La marge nette progresse de 18,8% en année 1 à 35% en année 3 grâce à l'effet de levier sur les charges fixes. Le ratio charges sociales/CA (21,2% en prestations) reste compatible avec la rentabilité. L'investissement initial de 3 500€ est modeste et autofinançable. Points de vigilance : la dépendance aux conditions météorologiques pour le vélo-cargo, et la nécessité de lisser la saisonnalité de l'activité.",
+        'Le projet de livraison du dernier kilomètre présente une viabilité financière correcte pour une micro-entreprise. Le seuil de rentabilité est atteint dès le 5ème mois, ce qui est encourageant. Le CA prévisionnel de 28 000 € en année 1 est réaliste compte tenu de la zone de chalandise (Montreuil, Bagnolet, Vincennes) et de l\'investissement initial modéré de 4 200 €. La marge nette estimée à 85% (après charges sociales de 21,2%) permet une rentabilité individuelle satisfaisante. Les charges fixes restent maîtrisées (assurance, téléphone, entretien). La croissance vers 50 000 € en année 3 suppose une diversification de la clientèle et potentiellement l\'embauche de sous-traitants. Points de vigilance : constituer une trésorerie de sécurité de 3 mois avant le démarrage, et sécuriser des contrats réguliers avec 3-5 commerçants pour lisser laactivité.',
     },
   });
-  console.log("   ✅ FinancialForecast:", forecast.id);
+  console.log(`   ✅ FinancialForecast: 28K/38K/50K€ (${forecast.id})`);
 
-  // ══════════════════════════════════════════════════════════════════
-  // 13. CREASIM SIMULATION
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[13/24] Creating CreaSimSimulation...");
+  // ─── 12. CreaSimSimulation ──────────────────────────────────
+  console.log('\n📦 Step 12: Creating CreaSimSimulation...');
+  // Calculate outputs
+  const monthlyRevenue = 2500;
+  const fixedCharges = [
+    { name: 'Assurance RC Pro', amount: 45 },
+    { name: 'Abonnement téléphonique', amount: 25 },
+    { name: 'Entretien vélo cargo', amount: 60 },
+    { name: 'Comptabilité/URSSAF', amount: 0 },
+  ];
+  const fixedChargesTotal = fixedCharges.reduce((s, c) => s + c.amount, 0); // 130
+  const variableChargesRate = 12;
+  const variableChargesAmount = (monthlyRevenue * variableChargesRate) / 100; // 300
+  const totalCharges = fixedChargesTotal + variableChargesAmount; // 430
+  const grossMarginAmount = monthlyRevenue - variableChargesAmount; // 2200
+  const grossMarginRate = (grossMarginAmount / monthlyRevenue) * 100; // 88
+  const netMarginAmount = monthlyRevenue - totalCharges; // 2070
+  const netMarginRate = (netMarginAmount / monthlyRevenue) * 100; // 82.8
+  const monthlyBreakeven = fixedChargesTotal / (1 - variableChargesRate / 100); // ~147.73
+  const breakevenMonths = 4200 / netMarginAmount; // ~2.03
+  const averageSellingPrice = 15;
+  const unitCost = 3.5;
+  const targetMarginRate = 30;
+
   const creasim = await prisma.creaSimSimulation.create({
     data: {
-      userId: student.id,
-      monthlyRevenue: 2500.0,
-      fixedCharges: JSON.stringify([
-        { name: "Assurance RC Pro", amount: 45 },
-        { name: "Amortissement vélo-cargo", amount: 80 },
-        { name: "Forfait téléphonique", amount: 15 },
-        { name: "Comptable", amount: 80 },
-        { name: "Abonnement applis", amount: 30 },
-      ]),
-      variableChargesRate: 8.0,
-      averageSellingPrice: 12.0,
-      unitCost: 3.5,
-      targetMarginRate: 40.0,
-      initialInvestment: 3500.0,
-      fixedChargesTotal: 250.0,
-      variableChargesAmount: 200.0,
-      totalCharges: 450.0,
-      grossMarginAmount: 2050.0,
-      grossMarginRate: 82.0,
-      netMarginAmount: 1600.0,
-      netMarginRate: 64.0,
-      monthlyBreakeven: 625.0,
-      breakevenMonths: 1.4,
-      profitability1Y: 8.2,
-      profitability2Y: 14.4,
-      profitability3Y: 18.0,
-      year1Revenue: 30000.0,
-      year1Expenses: 24360.0,
-      year2Revenue: 48000.0,
-      year2Expenses: 33600.0,
-      year3Revenue: 60000.0,
-      year3Expenses: 39000.0,
+      userId: beneficiaryUser.id,
+      monthlyRevenue,
+      fixedCharges,
+      variableChargesRate,
+      averageSellingPrice,
+      unitCost,
+      targetMarginRate,
+      initialInvestment: 4200,
+      fixedChargesTotal,
+      variableChargesAmount,
+      totalCharges,
+      grossMarginAmount,
+      grossMarginRate,
+      netMarginAmount,
+      netMarginRate,
+      monthlyBreakeven,
+      breakevenMonths,
+      profitability1Y: 28000 - 8500,
+      profitability2Y: 38000 - 11000,
+      profitability3Y: 50000 - 14000,
+      year1Revenue: 28000,
+      year1Expenses: 8500,
+      year2Revenue: 38000,
+      year2Expenses: 11000,
+      year3Revenue: 50000,
+      year3Expenses: 14000,
       aiAnalysis:
-        "Simulation très encourageante pour une activité de livraison en micro-entreprise. La marge brute de 82% est excellente, reflétant la nature de service pur avec peu de coûts variables. Le seuil de rentabilité mensuel est très bas (625€), ce qui réduit considérablement le risque financier. En année 1, avec un CA mensuel moyen de 2 500€, la rentabilité nette atteint 64%, un ratio exceptionnel pour ce secteur. Le retour sur investissement est quasi-immédiat (< 2 mois). La principale recommandation est de constituer une épargne de précaution de 2 mois de charges fixes (500€) avant le démarrage.",
+        'La simulation financière montre un modèle économique sain avec une marge nette de 82,8% sur le CA mensuel. L\'investissement initial de 4 200 € est récupérable en environ 2 mois d\'activité à rythme croisière. Le seuil de rentabilité mensuel est très bas (~148 €), ce qui réduit considérablement le risque financier. La tarification à 15 €/course avec un coût unitaire de 3,50 € offre une bonne marge de manœuvre. Attention : cette simulation ne tient pas compte des charges sociales (21,2% du CA) qui seront prélevées mensuellement, réduisant la marge nette réelle à environ 61,6%.',
     },
   });
-  console.log("   ✅ CreaSimSimulation:", creasim.id);
+  console.log(`   ✅ CreaSimSimulation: margin ${netMarginRate.toFixed(1)}% (${creasim.id})`);
 
-  // ══════════════════════════════════════════════════════════════════
-  // 14. JURIDIQUE ANALYSIS
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[14/24] Creating JuridiqueAnalysis...");
+  // ─── 13. JuridiqueAnalysis ──────────────────────────────────
+  console.log('\n📦 Step 13: Creating JuridiqueAnalysis...');
   const juridique = await prisma.juridiqueAnalysis.create({
     data: {
-      userId: student.id,
-      recommendedStatus: "Micro-entrepreneur",
-      fiscalRegime: "Régime micro-BIC",
-      legalStructure: "Entreprise individuelle — Micro-entreprise",
-      socialCharges: JSON.stringify({
-        regime: "Micro-entreprise (auto-entrepreneur)",
-        fiscalite: "Régime micro-BIC — Prélèvement libératoire forfaitaire possible (si revenu fiscal de référence < 27 478€ par part en N-2)",
-        cotisations_prestations: "21,1% du chiffre d'affaires (prestations de services BIC/BNC)",
-        cotisations_ventes: "12,3% du chiffre d'affaires (ventes de marchandises BIC)",
-        taux_applique: "21,1% (activité de prestation de services de livraison)",
-        acre: "Réduction ACRE de 50% sur les cotisations sociales pendant la 1ère année (taux effectif : ~10,55% en année 1)",
-        cfe: "Cotisation foncière des entreprises : exonération possible en année 1 selon la commune",
-        tva: "Franchise de TVA en dessous de 85 800€ de CA (ventes) ou 34 400€ (prestations). Seuil majoré : 97 800€ / 39 100€.",
-        plafonds_ca: "188 700€ pour les prestations de services BIC (plafond 2025)",
-        comptabilite: "Comptabilité simplifiée — Déclaration URSSAF mensuelle ou trimestrielle",
-        assurance_obligatoire: "Assurance RC Pro obligatoire pour activité de transport",
-      }),
+      userId: beneficiaryUser.id,
+      recommendedStatus: 'Micro-entrepreneur',
+      fiscalRegime: 'Micro-BIC',
+      legalStructure:
+        'Entreprise Individuelle — Micro-entreprise',
+      socialCharges: {
+        cotisations_sociales: '21,2% du CA',
+        CFE: '220€/an (Montreuil)',
+        TVA: 'Franchise de TVA (CA < 85 800€)',
+        ACRE:
+          'Exonération partielle 1 an (50% de réduction)',
+        formation:
+          'Pas de diplôme requis pour l\'activité de livraison',
+      },
     },
   });
-  console.log("   ✅ JuridiqueAnalysis:", juridique.id);
+  console.log(`   ✅ JuridiqueAnalysis: Micro-BIC (${juridique.id})`);
 
-  // ══════════════════════════════════════════════════════════════════
-  // 15. MARKET ANALYSIS
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[15/24] Creating MarketAnalysis...");
+  // ─── 14. MarketAnalysis ─────────────────────────────────────
+  console.log('\n📦 Step 14: Creating MarketAnalysis...');
   const market = await prisma.marketAnalysis.create({
     data: {
-      userId: student.id,
-      sector: "Transports et livraison du dernier kilomètre",
+      userId: beneficiaryUser.id,
+      sector:
+        'Transports et logistique — Livraison du dernier kilomètre',
       marketSize:
-        "Le marché français de la livraison du dernier kilomètre est estimé à 12 Md€ en 2025, en croissance de +15% par an porté par le e-commerce et la livraison de repas. La Seine-Saint-Denis, avec ses 1,6 million d'habitants et sa forte densité de commerces, représente un micro-marché estimé à 200 M€ localement.",
+        'Le marché de la livraison du dernier kilomètre en France est estimé à 12 milliards d\'euros (2024), avec une croissance annuelle de 8-10%. L\'Île-de-France représente 35% de ce marché.',
       targetAudience:
-        "Segment principal (60%) : Restaurateurs, traiteurs et_food trucks du 93 et arrondissements parisiens limitrophes. Segment secondaire (20%) : E-commerçants locaux (boutiques en ligne, artisans vendant en ligne). Segment complémentaire (10%) : Pharmacies et parapharmacies nécessitant des livraisons rapides. Segment divers (10%) : Bureaux d'études, cabinets, PME avec besoins ponctuels de livraison de documents ou petits colis.",
-      trends: JSON.stringify([
+        'Particuliers, commerces de proximité, restaurateurs, e-commerçants locaux en Seine-Saint-Denis et Est parisien',
+      trends: [
+        { trend: 'Croissance du e-commerce local', impact: 'fort' },
         {
-          label: "Croissance du e-commerce local",
-          detail:
-            "Le e-commerce de proximité progresse de +25% par an depuis 2020, amplifié par les habitudes post-COVID.",
+          trend: 'Transition écologique et ZFE',
+          impact: 'fort',
         },
         {
-          label: "ZFE et contraintes environnementales",
-          detail:
-            "L'instauration des Zones à Faibles Émissions (ZFE) dans Paris et les métropoles favorise les modes de transport doux (vélo-cargo, véhicules électriques).",
+          trend: 'Demande de livraison rapide (<1h)',
+          impact: 'moyen',
         },
         {
-          label: "Recherche de sens et de proximité",
-          detail:
-            "Les consommateurs et commerçants valorisent de plus en plus les circuits courts et les acteurs locaux de confiance.",
+          trend: 'Développement des dark kitchens',
+          impact: 'moyen',
         },
         {
-          label: "Désintermédiation des plateformes",
-          detail:
-            "De nombreux restaurateurs cherchent à réduire leur dépendance aux plateformes de livraison (commissions de 25-30%) et se tournent vers des solutions directes.",
+          trend: 'Sensibilisation au circuit court',
+          impact: 'faible',
+        },
+      ],
+      competitors: [
+        {
+          name: 'Stuart',
+          force: 'Grande envergure, application',
+          faiblesse: 'Peu de personnalisation, coûts élevés',
         },
         {
-          label: "Boom de la livraison express",
-          detail:
-            "La livraison en moins de 2h devient un standard attendu par les consommateurs urbains, créant une demande pour des services ultra-réactifs.",
-        },
-      ]),
-      competitors: JSON.stringify([
-        {
-          name: "Stuart (DPD Group)",
-          type: "Plateforme de livraison B2B",
-          strengths: "Réseau établi, application performante, marque connue",
-          weaknesses:
-            "Tarifs élevés pour les petits volumes, pas de relation client personnalisée",
+          name: 'Deliveroo',
+          force: 'Notoriété, réseau restaurant',
+          faiblesse: 'Commission élevée, concurrence interne',
         },
         {
-          name: "Deliveroo / Uber Eats",
-          type: "Plateforme de livraison de repas",
-          strengths: "Notoriété massive, base clients importante",
-          weaknesses:
-            "Commissions de 25-30%, pas adapté aux livraisons non-alimentaires, pas de personnalisation",
+          name: 'Livraisonurs indépendants locaux',
+          force: 'Prix compétitif, flexibilité',
+          faiblesse: 'Fiabilité variable, pas de structure',
         },
-        {
-          name: "Coursiers indépendants locaux",
-          type: "Indépendants",
-          strengths: "Tarifs compétitifs, flexibilité",
-          weaknesses:
-            "Fiabilité variable, pas de structure, difficulté à gérer les pics de demande",
-        },
-        {
-          name: "Colissimo / Chronopost",
-          type: "Opérateurs postaux classiques",
-          strengths: "Couverture nationale, fiabilité",
-          weaknesses:
-            "Pas de livraison express urbaine (< 2h), coûts élevés pour les petits colis, pas de suivi personnalisé",
-        },
-        {
-          name: "Frichti (groupe Carrefour)",
-          type: "Service de livraison de repas premium",
-          strengths: "Qualité de service, logistique optimisée",
-          weaknesses:
-            "Segment premium uniquement, géographie limitée, modèle captif",
-        },
-      ]),
+      ],
       opportunities:
-        "1) La demande croissante de livraison éco-responsable en ZFE ouvre un créneau pour les vélos-cargos. 2) Le mécontentement des commerçants face aux commissions élevées des plateformes crée une opportunité de différenciation. 3) Le développement du e-commerce de proximité en Seine-Saint-Denis est un levier de croissance majeur. 4) Les aides à la création d'entreprise (ACRE, ARE, ARCE) réduisent le risque financier initial. 5) Les partenariats avec les mairies locales pour les livraisons de premiers besoins (pharmacies, alimentation) sont encouragés.",
+        'ZFE Grand Paris favorise les véhicules électriques, croissance du commerce de proximité post-Covid, demande croissante de livraison verte, subventions vélo cargo (IDF Mobilités), marchés publics de livraison urbaine',
       threats:
-        "1) Les grandes plateformes (Uber, Deliveroo, Stuart) disposent de moyens financiers bien supérieurs et peuvent baissent leurs tarifs pour éliminer la concurrence. 2) La dépendance aux conditions météorologiques pour le vélo-cargo peut impacter la régularité du service. 3) La réglementation sur le statut des travailleurs des plateformes (loi européenne) pourrait modifier le paysage concurrentiel. 4) Le risque d'usure physique lié à l'activité de coursier à vélo. 5) La hausse potentielle des charges sociales pour les auto-entrepreneurs.",
+        'Concurrence des plateformes (Stuart, Deliveroo), réglementation ZFE contraignante, risques d\'accident et vol, dépendance météorologique, pression sur les prix',
       aiSynthesis:
-        "L'analyse de marché confirme la pertinence du positionnement de Karim. Le marché du dernier kilomètre est en forte croissance (+15%/an) et la Seine-Saint-Denis offre un terrain propice avec une forte densité de commerces et de PME. La différenciation par l'approche éco-responsable et la relation de proximité constitue un avantage concurrentiel solide face aux plateformes généralistes. Les menaces principales sont la pression concurrentielle des grands acteurs et les aléas météorologiques. Recommandation : développer rapidement un portefeuille de clients réguliers (forfaits mensuels) pour sécuriser les revenus et lisser l'activité.",
+        'Le marché de la livraison du dernier kilomètre en Île-de-France est porteur avec une croissance de 8-10% par an. La ZFE Grand Paris constitue un avantage compétitif majeur pour le vélo cargo électrique, éliminant de facto la concurrence des véhicules thermiques en centre-ville. Le positionnement « local, humain et éco-responsable » différencie clairement le projet des plateformes nationales. La cible prioritaire doit être les commerçants de proximité (B2B) pour assurer un flux régulier de commandes, complété par les particuliers (B2C) pour optimiser les tournées. La menace principale est la pression tarifaire des plateformes, mais la niche du service personnalisé et de proximité reste sous-exploitée.',
     },
   });
-  console.log("   ✅ MarketAnalysis:", market.id);
+  console.log(`   ✅ MarketAnalysis: 12 Md€ market (${market.id})`);
 
-  // ══════════════════════════════════════════════════════════════════
-  // 16. TREMPLIN
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[16/24] Creating Tremplin...");
+  // ─── 15. Tremplin ───────────────────────────────────────────
+  console.log('\n📦 Step 15: Creating Tremplin...');
   const tremplin = await prisma.tremplin.create({
     data: {
-      userId: student.id,
-      currentStep: 8,
-      responses: JSON.stringify({
-        step1_projet_clair: {
-          question: "Avez-vous une idée claire de votre projet ?",
-          answer: "Oui, je veux créer un service de livraison du dernier kilomètre en vélo-cargo, ciblant les commerçants et PME du 93.",
-          score: 9,
-        },
-        step2_motivation: {
-          question: "Quelle est votre motivation principale ?",
-          answer: "L'indépendance et le fait d'offrir un service que je connais bien, avec une dimension éco-responsable.",
+      userId: beneficiaryUser.id,
+      currentStep: 5,
+      responses: {
+        step1: {
+          title: 'Motivation et projet',
+          question:
+            'Pourquoi souhaitez-vous créer cette activité ?',
+          answer:
+            'Après 5 ans comme chauffeur-livreur salarié pour un grand groupe, j\'ai acquis une solide expérience de la logistique urbaine et une connaissance fine du terrain en Seine-Saint-Denis. Je souhaite devenir mon propre patron pour avoir plus de liberté, choisir mes clients et proposer un service plus humain et respectueux de l\'environnement.',
           score: 8,
         },
-        step3_competences: {
-          question: "Quelles compétences possédez-vous pour ce projet ?",
-          answer: "4 ans d'expérience en logistique urbaine, BTS Transport, connaissance du terrain et du tissu économique local.",
-          score: 8,
-        },
-        step4_marche: {
-          question: "Connaissez-vous votre marché cible ?",
-          answer: "Oui, j'ai identifié les segments principaux (restaurateurs 60%, e-commerçants 20%, pharmacies 10%, PME 10%) et mes principaux concurrents.",
+        step2: {
+          title: 'Compétences et expérience',
+          question:
+            'Quelles compétences possédez-vous pour ce projet ?',
+          answer:
+            'Permis B et C, 5 ans d\'expérience en livraison urbaine, maîtrise des outils de navigation et gestion de tournées, bonne connaissance de Montreuil et ses environs, compétences en service client, capacité à gérer les imprévus et le stress de la route.',
           score: 7,
         },
-        step5_financier: {
-          question: "Avez-vous estimé vos besoins financiers ?",
-          answer: "Oui, investissement initial de 3 500€, charges fixes de 250€/mois, seuil de rentabilité au 8e mois.",
-          score: 8,
-        },
-        step6_risques: {
-          question: "Quels sont les principaux risques identifiés ?",
-          answer: "Concurrence des plateformes, météo, usure physique. Je prévois de diversifier mes clients pour réduire la dépendance.",
+        step3: {
+          title: 'Analyse de marché',
+          question:
+            'Comment analysez-vous votre marché cible ?',
+          answer:
+            'Le marché est en forte croissance porté par le e-commerce et la ZFE. Ma zone de chalandise (Montreuil, Bagnolet, Vincennes) compte de nombreux commerces de proximité et une population dense. Les concurrents principaux sont Stuart et Deliveroo, mais ils ciblent surtout la restauration. Il y a une vraie place pour un service de proximité plus personnalisé.',
           score: 7,
         },
-        step7_reseau: {
-          question: "Avez-vous un réseau de soutien ?",
-          answer: "Je suis en contact avec la CCI, des commerçants du quartier, et mon conseiller GIDEF m'accompagne.",
+        step4: {
+          title: 'Prévisionnel financier',
+          question: 'Quels sont vos prévisions financières ?',
+          answer:
+            'Investissement initial de 4 200 € (vélo cargo d\'occasion, équipement, assurance). CA prévisionnel de 28 000 € en année 1 avec un seuil de rentabilité au 5ème mois. Charges fixes mensuelles de 130 € + 12% de charges variables. L\'ACRE me permettra de réduire les cotisations sociales de 50% la première année.',
           score: 7,
         },
-        step8_engagement: {
-          question: "Êtes-vous prêt à vous engager à 100% dans ce projet ?",
-          answer: "Oui, j'ai démissionné de mon emploi pour me consacrer à cette création. Je bénéficie de l'ARE pour sécuriser mes premiers mois.",
-          score: 9,
+        step5: {
+          title: 'Risques et mitigation',
+          question:
+            'Quels sont les principaux risques identifiés ?',
+          answer:
+            'Les risques principaux sont : (1) concurrence des plateformes, mitigée par le positionnement local et personnalisé ; (2) aléas météorologiques, atténués par l\'équipement adapté et la diversification des services ; (3) trésorerie de démarrage, couverte par une épargne de 3 mois ; (4) risque d\'accident, couvert par l\'assurance RC Pro et l\'équipement de sécurité.',
+          score: 6,
         },
-      }),
-      isCompleted: true,
-      completedAt: d("2025-07-08T16:00:00Z"),
-      score: 78,
-      decision: "GO_CONDITIONAL",
+      },
+      isCompleted: false,
+      score: 72,
+      decision: 'PENDING',
       summary:
-        "Le projet de Karim Benali est jugé viable et cohérent. Ses compétences en logistique urbaine, sa connaissance du terrain et la clarté de son positionnement (éco-responsabilité + proximité) constituent des atouts solides. Le marché cible est bien identifié et en croissance. Les prévisions financières sont réalistes. Le GO_CONDITIONAL est motivé par la nécessité de sécuriser un portefeuille minimum de 8 clients réguliers avant le démarrage effectif, et de valider la disponibilité d'un vélo-cargo d'occasion dans les conditions annoncées.",
-      recommendations: JSON.stringify([
-        {
-          priority: 1,
-          title: "Sécuriser 8 clients réguliers avant le lancement",
-          detail:
-            "Pré-signer des contrats ou lettres d'intention avec des commerçants locaux pour garantir un CA minimum de 1 800€/mois dès le démarrage.",
-        },
-        {
-          priority: 2,
-          title: "Constituer une épargne de précaution",
-          detail:
-            "Mettre de côté l'équivalent de 2 mois de charges fixes (500€) pour absorber un éventuel démarrage lent.",
-        },
-        {
-          priority: 3,
-          title: "Tester le service en condition réelle",
-          detail:
-            "Réaliser 2 à 3 livraisons tests gratuites pour des commerçants ciblés afin d'affiner le parcours client et d'obtenir des premiers témoignages.",
-        },
-        {
-          priority: 4,
-          title: "Prévoir un plan B météorologique",
-          detail:
-            "Identifier un véhicule électrique en location courte durée pour les jours de pluie intense, ou prévoir un partenariat avec un autre coursier pour la couverture.",
-        },
-      ]),
+        'Karim présente un profil solide avec une expérience terrain significative en livraison urbaine. Le projet est réaliste et bien ciblé sur un marché en croissance. Points de vigilance : diversification clientèle et gestion de la trésorerie de démarrage.',
+      recommendations: [
+        'Diversifier la clientèle dès le démarrage',
+        'Négocier des contrats avec 3-5 commerçants avant le lancement',
+        'Prévoir une trésorerie de 3 mois minimum',
+        "S'inscrire sur les plateformes de mise en relation comme complément",
+        "Profiter de l'ACRE pour la 1ère année",
+      ],
     },
   });
-  console.log("   ✅ Tremplin:", tremplin.id, "score:", tremplin.score, "decision:", tremplin.decision);
+  console.log(`   ✅ Tremplin: score 72, step 5/8 (${tremplin.id})`);
 
-  // ══════════════════════════════════════════════════════════════════
-  // 17. ZERO DRAFT
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[17/24] Creating ZeroDraft...");
-  const zeroDraftContent = `# Projet de création : Livraisons du Dernier Kilomètre
+  // ─── 16. ZeroDraft ───────────────────────────────────────────
+  console.log('\n📦 Step 16: Creating ZeroDraft...');
+  const zeroDraftContent = `PROJET DE CRÉATION D'ENTREPRISE — TRANSPORTS ET LIVRAISON DU DERNIER KILOMÈTRE
 
-## 1. Présentation du projet
+Présentation du projet
+Je souhaite créer une micro-entreprise de livraison du dernier kilomètre en milieu urbain, basée à Montreuil (Seine-Saint-Denis). L'activité consistera à effectuer des livraisons de colis, repas et courses pour le compte de particuliers et de petits commerces locaux, en utilisant un vélo cargo électrique.
 
-Dernier Kilomètre Express est un service de livraison urbaine créé par Karim Benali, destiné aux commerçants et PME de Seine-Saint-Denis et de Paris intra-muros. L'activité consiste en la livraison du dernier kilomètre de colis, repas et documents, réalisée principalement en vélo-cargo électrique. Le projet s'inscrit dans le régime de la micro-entreprise et se démarque par son approche éco-responsable, sa flexibilité et la qualité de la relation client.
+Contexte et motivation
+Après cinq années d'expérience comme chauffeur-livreur salarié dans le secteur de la logistique urbaine en Île-de-France, j'ai acquis une connaissance approfondie du terrain, des optimisations de tournées et des attentes des clients en matière de livraison. Cette expérience me donne une solide base pour me lancer à mon compte avec un avantage compétitif réel.
 
-## 2. Le créateur
+Le marché de la livraison du dernier kilomètre est en pleine expansion, porté par la croissance du e-commerce et les contraintes environnementales (ZFE Grand Paris). Le vélo cargo électrique répond parfaitement à ces enjeux : il est non polluant, silencieux, et permet de circuler dans les zones à faibles émissions.
 
-Karim Benali, 28 ans, titulaire d'un BTS Transport et Logistique, dispose de 4 ans d'expérience en tant que chauffeur-livreur pour une entreprise de messagerie urbaine en Île-de-France. Il maîtrise la gestion des tournées, la logistique du dernier kilomètre, et possède une excellente connaissance du tissu économique et des infrastructures de la Seine-Saint-Denis. Il est actuellement inscrit à France Travail et bénéficie de l'ARE.
+Zone de chalandise et clientèle cible
+Mon zone d'intervention couvrira Montreuil, Bagnolet et Vincennes — des communes denses en population et en commerces de proximité. Ma clientèle cible comprend les particuliers pour des courses et livraisons de colis, les petits commerces (épiceries, boulangeries, pharmacies) pour des livraisons à domicile, et les restaurants pour la livraison de repas.
 
-## 3. Analyse du marché
-
-Le marché français de la livraison du dernier kilomètre est estimé à 12 milliards d'euros en 2025, avec une croissance annuelle de 15%. Cette dynamique est portée par l'essor du e-commerce, le développement de la livraison de repas, et les nouvelles exigences des consommateurs en matière de rapidité et de traçabilité. La Seine-Saint-Denis, densément peuplée et riche en commerces, constitue un terrain particulièrement propice. Les tendances clés incluent la montée des ZFE favorisant les véhicules électriques, la recherche de sens et de proximité par les consommateurs, et la volonté des commerçants de se désintermédier des grandes plateformes.
-
-## 4. Proposition de valeur
-
-Dernier Kilomètre Express propose un service de livraison rapide, fiable et humain. Contrairement aux grandes plateformes, le créateur offre un interlocuteur unique, des tarifs transparents et dégressifs, un suivi en temps réel, et un engagement fort pour la mobilité durable. L'objectif est de devenir le partenaire de livraison de référence pour les commerçants et PME du territoire qui recherchent un service personnalisé et éco-responsable.
-
-## 5. Modèle économique
-
-Le modèle repose sur trois sources de revenus : la tarification à la course (8 à 15€ selon la distance), les forfaits mensuels pour clients réguliers (250 à 600€/mois), et la livraison express avec supplément. Les charges fixes sont contenues à environ 250€/mois (assurance, amortissement, téléphone, comptable, abonnements). Les charges sociales en micro-entreprise s'élèvent à 21,1% du CA, avec un taux réduit à 10,55% la première année grâce à l'ACRE. Le seuil de rentabilité est atteint au 8e mois avec un investissement initial modeste de 3 500€.
-
-## 6. Prévisions financières
-
-Année 1 : CA prévisionnel de 30 000€ (2 500€/mois), charges de 24 360€, résultat net de 5 640€.
-Année 2 : CA prévisionnel de 48 000€ (4 000€/mois), charges de 33 600€, résultat net de 14 400€.
-Année 3 : CA prévisionnel de 60 000€ (5 000€/mois), charges de 39 000€, résultat net de 21 000€.
-La rentabilité progresse grâce à l'effet de levier sur les charges fixes, avec une marge nette atteignant 35% en année 3.
-
-## 7. Plan d'action
-
-Phase 1 (Mois 1-2) : Finaliser le business plan, commander le vélo-cargo, souscrire l'assurance RC Pro, effectuer les formalités de création de micro-entreprise.
-Phase 2 (Mois 2-3) : Prospection commerciale intensive, réaliser des livraisons tests, signer les premiers contrats.
-Phase 3 (Mois 3-6) : Lancement effectif de l'activité, constitution du portefeuille clients, ajustement de l'offre.
-Phase 4 (Mois 6-12) : Consolidation, développement des forfaits mensuels, début de communication numérique (réseaux sociaux, site web).`;
+Modèle économique
+Le statut juridique retenu est la micro-entreprise sous régime Micro-BIC, avec bénéfice de l'ACRE pour la première année. L'investissement initial est estimé à 4 200 €, couvrant l'acquisition d'un vélo cargo électrique d'occasion, le matériel de livraison et l'assurance RC Pro. Le chiffre d'affaires prévisionnel de la première année est estimé entre 25 000 € et 35 000 €, avec un seuil de rentabilité atteint dès le 5ème mois d'activité.`;
 
   const zeroDraft = await prisma.zeroDraft.create({
     data: {
-      userId: student.id,
-      projectTitle: "Projet de création : Livraisons du Dernier Kilomètre",
+      userId: beneficiaryUser.id,
+      projectTitle:
+        'Transports et livraison — Livraisons du dernier kilomètre',
       content: zeroDraftContent,
       wordCount: zeroDraftContent.split(/\s+/).length,
-      status: "REFINED",
+      status: 'DRAFT',
     },
   });
-  console.log("   ✅ ZeroDraft:", zeroDraft.id, "words:", zeroDraft.wordCount);
+  console.log(
+    `   ✅ ZeroDraft: ${zeroDraft.wordCount} words, DRAFT (${zeroDraft.id})`,
+  );
 
-  // ══════════════════════════════════════════════════════════════════
-  // 18. KIVIAT RESULTS (6 dimensions)
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[18/24] Creating KiviatResults (6 dimensions)...");
+  // ─── 17. KiviatResults ──────────────────────────────────────
+  console.log('\n📦 Step 17: Creating KiviatResults...');
   const kiviatData = [
-    { category: "leadership", score: 7.5, label: "Leadership" },
-    { category: "gestion_stress", score: 8.0, label: "Gestion du stress" },
-    { category: "communication", score: 8.5, label: "Communication" },
-    { category: "resolution_problemes", score: 8.0, label: "Résolution de problèmes" },
-    { category: "creativite", score: 6.5, label: "Créativité" },
-    { category: "adaptabilite", score: 9.0, label: "Adaptabilité" },
+    { category: 'leadership', score: 7.5 },
+    { category: 'stress', score: 8.0 },
+    { category: 'communication', score: 7.0 },
+    { category: 'resolution', score: 8.5 },
+    { category: 'creativity', score: 6.5 },
+    { category: 'adaptability', score: 8.0 },
   ];
-  const kiviatResults = [];
+
   for (const k of kiviatData) {
-    const r = await prisma.kiviatResult.create({
+    await prisma.kiviatResult.create({
       data: {
-        userId: student.id,
+        userId: beneficiaryUser.id,
         category: k.category,
         score: k.score,
         maxScore: 10,
       },
     });
-    kiviatResults.push(r);
   }
-  console.log("   ✅ KiviatResults:", kiviatResults.length, "dimensions");
+  console.log(`   ✅ KiviatResults: ${kiviatData.length} dimensions`);
 
-  // ══════════════════════════════════════════════════════════════════
-  // 19. RIASEC RESULTS
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[19/24] Creating RiasecResults...");
+  // ─── 18. RiasecResults ──────────────────────────────────────
+  console.log('\n📦 Step 18: Creating RiasecResults...');
   const riasecData = [
-    { profileType: "R", score: 8.5, isDominant: true, label: "Réaliste" },
-    { profileType: "E", score: 6.0, isDominant: false, label: "Entrepreneur" },
-    { profileType: "S", score: 5.5, isDominant: false, label: "Social" },
+    { profileType: 'R', score: 7.5, isDominant: false },
+    { profileType: 'I', score: 3.0, isDominant: false },
+    { profileType: 'A', score: 4.0, isDominant: false },
+    { profileType: 'S', score: 7.0, isDominant: false },
+    { profileType: 'E', score: 8.5, isDominant: true },
+    { profileType: 'C', score: 5.5, isDominant: false },
   ];
-  const riasecResults = [];
+
   for (const r of riasecData) {
-    const res = await prisma.riasecResult.create({
+    await prisma.riasecResult.create({
       data: {
-        userId: student.id,
+        userId: beneficiaryUser.id,
         profileType: r.profileType,
         score: r.score,
         isDominant: r.isDominant,
       },
     });
-    riasecResults.push(res);
-  }
-  console.log("   ✅ RiasecResults:", riasecResults.length, "profiles (dominant: R)");
-
-  // ══════════════════════════════════════════════════════════════════
-  // 20. MOTIVATION ASSESSMENT
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[20/24] Creating MotivationAssessment...");
-  const motivation = await prisma.motivationAssessment.create({
-    data: {
-      userId: student.id,
-      scores: JSON.stringify({
-        autonomie: { score: 92, label: "Autonomie et indépendance" },
-        realisation: { score: 78, label: "Réalisation personnelle" },
-        securite: { score: 65, label: "Sécurité financière" },
-        reconnaissance: { score: 55, label: "Reconnaissance sociale" },
-        impact: { score: 70, label: "Impact positif sur la société" },
-      }),
-      summary:
-        "Le profil motivationnel de Karim est marqué par une forte aspiration à l'autonomie (92/100), ce qui est cohérent avec son choix du statut de micro-entrepreneur. La réalisation personnelle est également très présente (78/100), traduisant un désir de construire quelque chose de propre. L'impact positif (70/100) — notamment l'engagement éco-responsable — apporte une dimension de sens au projet. La sécurité financière (65/100) est prise en compte de manière réaliste grâce au maintien de l'ARE. La reconnaissance sociale est le moteur le plus faible (55/100), ce qui indique un profil pragmatique davantage tourné vers l'action que vers la valorisation extérieure.",
-    },
-  });
-  console.log("   ✅ MotivationAssessment:", motivation.id);
-
-  // ══════════════════════════════════════════════════════════════════
-  // 21. MODULE RESULTS (7 modules)
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[21/24] Creating ModuleResults (7 modules)...");
-  const moduleData = [
-    { code: "vision", score: 82, feedback: "Vision du projet claire et structurée. Les réponses témoignent d'une bonne compréhension des enjeux du secteur." },
-    { code: "bmc", score: 78, feedback: "Business Model Canvas complet et cohérent. Les 9 blocs sont bien articulés. Points d'amélioration sur la définition précise des coûts variables." },
-    { code: "marche", score: 75, feedback: "Analyse de marché solide avec des données chiffrées pertinentes. L'analyse concurrentielle pourrait être approfondie avec des entretiens terrain." },
-    { code: "juridique", score: 85, feedback: "Excellente compréhension du régime de la micro-entreprise. Les taux de cotisations et plafonds sont correctement identifiés." },
-    { code: "financier", score: 72, feedback: "Prévisions réalistes mais un peu optimistes pour l'année 2. Recommandation : prévoir un scénario pessimiste." },
-    { code: "tremplin", score: 78, feedback: "Score global bon (78/100). Le projet est viable avec conditions. Engagement fort du créateur." },
-    { code: "creascope", score: 80, feedback: "Parcours CreaScope complété avec succès. Profil cohérent, compétences adaptées au projet de livraison." },
-  ];
-  const moduleResults = [];
-  for (const m of moduleData) {
-    const r = await prisma.moduleResult.create({
-      data: {
-        userId: student.id,
-        moduleCode: m.code,
-        score: m.score,
-        maxScore: 100,
-        feedback: m.feedback,
-        completedAt: d("2025-07-10T14:30:00Z"),
-      },
-    });
-    moduleResults.push(r);
-  }
-  console.log("   ✅ ModuleResults:", moduleResults.length, "modules");
-
-  // ══════════════════════════════════════════════════════════════════
-  // 22. CONSENT LOGS (3 consents)
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[22/24] Creating ConsentLogs (3)...");
-  const consentData = [
-    { type: "CGU" as const, version: "1.0" },
-    { type: "DONNEES_PERSONNELLES" as const, version: "1.0" },
-    { type: "CREASCOPE" as const, version: "1.0" },
-  ];
-  const consents = [];
-  for (const c of consentData) {
-    const r = await prisma.consentLog.create({
-      data: {
-        userId: student.id,
-        consentType: c.type,
-        status: "GRANTED",
-        source: "web",
-        version: c.version,
-        grantedAt: d("2025-06-01T10:05:00Z"),
-      },
-    });
-    consents.push(r);
-  }
-  console.log("   ✅ ConsentLogs:", consents.length);
-
-  // ══════════════════════════════════════════════════════════════════
-  // 23. SWIPE CARDS + SWIPE GAME RESULTS
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[23/24] Creating SwipeCards and SwipeGameResults...");
-
-  // Create swipe cards first (needed as FK for results)
-  const swipeCardsData = [
-    { code: "ldr-01", title: "Persévérance", icon: "Flame", category: "leadership", description: "Capacité à maintenir son effort malgré les difficultés et les obstacles rencontrés.", difficulty: 1, weight: 1.5, sortOrder: 1 },
-    { code: "ldr-02", title: "Prise de décision", icon: "Crosshair", category: "leadership", description: "Aptitude à faire des choix rapides et éclairés, même dans des situations incertaines.", difficulty: 2, weight: 1.0, sortOrder: 2 },
-    { code: "str-01", title: "Gestion du stress", icon: "Brain", category: "gestion_stress", description: "Capacité à rester calme et efficace sous pression, en particulier lors des pics d'activité.", difficulty: 1, weight: 1.5, sortOrder: 3 },
-    { code: "str-02", title: "Résilience", icon: "Shield", category: "gestion_stress", description: "Aptitude à rebondir après un échec ou un imprévu et à en tirer des leçons.", difficulty: 2, weight: 1.0, sortOrder: 4 },
-    { code: "com-01", title: "Communication claire", icon: "MessageCircle", category: "communication", description: "Capacité à transmettre des informations de manière compréhensible et professionnelle.", difficulty: 1, weight: 1.5, sortOrder: 5 },
-    { code: "com-02", title: "Écoute active", icon: "Ear", category: "communication", description: "Savoir écouter et comprendre les besoins de ses clients et partenaires.", difficulty: 1, weight: 1.0, sortOrder: 6 },
-    { code: "rso-01", title: "Sens de l'organisation", icon: "ListChecks", category: "resolution_problemes", description: "Capacité à planifier, prioriser et gérer plusieurs tâches simultanément.", difficulty: 1, weight: 1.5, sortOrder: 7 },
-    { code: "rso-02", title: "Résolution de problèmes", icon: "Puzzle", category: "resolution_problemes", description: "Aptitude à identifier et résoudre rapidement les problèmes rencontrés sur le terrain.", difficulty: 2, weight: 1.0, sortOrder: 8 },
-    { code: "cre-01", title: "Créativité", icon: "Lightbulb", category: "creativite", description: "Capacité à trouver des solutions innovantes face à des situations inédites.", difficulty: 2, weight: 1.0, sortOrder: 9 },
-    { code: "cre-02", title: "Adaptabilité", icon: "RefreshCw", category: "adaptabilite", description: "Capacité à s'adapter rapidement aux changements de contexte et aux imprévus.", difficulty: 1, weight: 1.5, sortOrder: 10 },
-    { code: "com-03", title: "Relation client", icon: "Users", category: "communication", description: "Aptitude à instaurer une relation de confiance et de fidélisation avec les clients.", difficulty: 1, weight: 1.5, sortOrder: 11 },
-    { code: "ldr-03", title: "Gestion du temps", icon: "Clock", category: "leadership", description: "Capacité à optimiser ses tournées et à respecter les délais de livraison.", difficulty: 1, weight: 1.5, sortOrder: 12 },
-    { code: "rso-03", title: "Sens de la responsabilité", icon: "Award", category: "resolution_problemes", description: "Engagement à assumer pleinement ses actions et leurs conséquences.", difficulty: 1, weight: 1.0, sortOrder: 13 },
-    { code: "str-03", title: "Patience", icon: "Hourglass", category: "gestion_stress", description: "Capacité à maintenir son calme lors de situations lentes ou frustrantes.", difficulty: 1, weight: 1.0, sortOrder: 14 },
-    { code: "cre-03", title: "Curiosité", icon: "Search", category: "creativite", description: "Ouverture d'esprit et envie d'apprendre de nouvelles choses.", difficulty: 1, weight: 0.5, sortOrder: 15 },
-  ];
-
-  const createdCards = [];
-  for (const c of swipeCardsData) {
-    const card = await prisma.swipeCard.create({
-      data: {
-        code: c.code,
-        title: c.title,
-        icon: c.icon,
-        category: c.category,
-        description: c.description,
-        difficulty: c.difficulty,
-        weight: c.weight,
-        sortOrder: c.sortOrder,
-        isActive: true,
-      },
-    });
-    createdCards.push(card);
-  }
-
-  // Now create swipe results (kept cards)
-  const keptCards = [
-    "ldr-01", // Persévérance
-    "rso-01", // Sens de l'organisation
-    "com-01", // Communication claire
-    "cre-02", // Adaptabilité
-    "com-03", // Relation client
-    "ldr-03", // Gestion du temps
-    "str-01", // Gestion du stress
-    "rso-02", // Résolution de problèmes
-    "rso-03", // Sens de la responsabilité
-    "str-02", // Résilience
-    "str-03", // Patience
-    "com-02", // Écoute active
-  ];
-
-  const superPepites = ["ldr-01", "rso-01", "com-03"]; // super-pépite cards
-
-  const swipeResults = [];
-  for (const card of createdCards) {
-    const kept = keptCards.includes(card.code);
-    const r = await prisma.swipeGameResult.create({
-      data: {
-        userId: student.id,
-        cardId: card.id,
-        cardCode: card.code,
-        cardTitle: card.title,
-        kept,
-        superPepite: superPepites.includes(card.code),
-        confidence: kept ? 4 : null,
-        swipedAt: d("2025-06-15T11:30:00Z"),
-      },
-    });
-    swipeResults.push(r);
   }
   console.log(
-    "   ✅ SwipeCards:", createdCards.length, "| SwipeGameResults:", swipeResults.length,
-    "(", keptCards.length, "kept)"
+    `   ✅ RiasecResults: E (Entreprenant) dominant at 8.5`,
   );
 
-  // ══════════════════════════════════════════════════════════════════
-  // 24. NETWORK (3-4 contacts)
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n[24/24] Creating Network contacts...");
-  const networkData = [
+  // ─── 19. MotivationAssessment ───────────────────────────────
+  console.log('\n📦 Step 19: Creating MotivationAssessment...');
+  const motivation = await prisma.motivationAssessment.create({
+    data: {
+      userId: beneficiaryUser.id,
+      scores: {
+        autonomie: 9,
+        revenus: 7,
+        impact_social: 6,
+        reconnaissance: 5,
+        defi_personnel: 8,
+        creation_valeur: 7,
+        flexibilite: 9,
+        heritage: 4,
+      },
+      summary:
+        'Karim montre une forte motivation orientée vers l\'autonomie (9/10) et la flexibilité (9/10), ce qui correspond bien au statut de micro-entrepreneur. Le défi personnel (8/10) et la volonté de créer de la valeur (7/10) sont également des moteurs importants. La motivation financière est présente (7/10) mais n\'est pas le facteur principal. Le score plus faible en héritage (4/10) indique un projet résolument tourné vers l\'innovation et le présent plutôt que la tradition. Ce profil est cohérent avec un projet de création d\'entreprise dans un secteur en évolution.',
+    },
+  });
+  console.log(`   ✅ MotivationAssessment: autonomy 9/10 (${motivation.id})`);
+
+  // ─── 20. ModuleResults ──────────────────────────────────────
+  console.log('\n📦 Step 20: Creating ModuleResults...');
+  const moduleResultsData = [
     {
-      name: "CCI Paris Île-de-France — Antenne de Montreuil",
-      type: "Institutionnel",
-      contact: "Service Création d'Entreprise",
-      email: "creation.93@cci-paris-idf.fr",
-      phone: "01 49 88 65 00",
-      notes:
-        "Point d'information sur les formalités de création et les aides disponibles en Seine-Saint-Denis. Rendez-vous pris le 15/06.",
+      moduleCode: 'phase-decouverte',
+      score: 82,
+      maxScore: 100,
+      feedback:
+        'Excellent travail d\'exploration. La vision du projet est claire et cohérente avec le profil de Karim.',
+      completedAt: weeksAgo(2),
     },
     {
-      name: "Mehdi Kaci",
-      type: "Entrepreneur",
-      contact: "Fondateur — SpeedLiv 93",
-      email: "mehdi@speedliv93.fr",
-      phone: "06 12 34 56 78",
-      notes:
-        "Ancien livreur indépendant devenu micro-entrepreneur. A accepté de partager son retour d'expérience sur le démarrage d'activité en livraison.",
+      moduleCode: 'diagnostic-competences',
+      score: 76,
+      maxScore: 100,
+      feedback:
+        'Profil compétent avec des points forts en logistique urbaine et gestion de tournées. Points à développer : gestion comptable et prospection commerciale.',
+      completedAt: weeksAgo(1),
     },
     {
-      name: "Boulangerie Les Saveurs d'Alice",
-      type: "Client potentiel",
-      contact: "Alice Durand, gérante",
-      email: "alice@saveursalice.fr",
-      phone: "01 48 45 67 89",
-      notes:
-        "Intéressée par un forfait de livraison de 3 courses/semaine pour ses clients du quartier. Première rencontre prévue.",
-    },
-    {
-      name: "Mairie de Pantin — Service Commerce",
-      type: "Institutionnel",
-      contact: "Pôle Développement Économique",
-      email: "commerce@mairie-pantin.fr",
-      notes:
-        "La mairie propose un dispositif d'aide aux créateurs locaux (aide au démarrage, mise en relation avec les commerçants).",
+      moduleCode: 'analyse-marche',
+      score: 78,
+      maxScore: 100,
+      feedback:
+        'Analyse de marché solide avec une bonne compréhension des tendances du secteur et des avantages compétitifs liés à la ZFE.',
+      completedAt: daysAgo(5),
     },
   ];
-  const networks = [];
-  for (const n of networkData) {
-    const r = await prisma.network.create({
-      data: { userId: student.id, ...n },
+
+  for (const mr of moduleResultsData) {
+    await prisma.moduleResult.create({
+      data: {
+        userId: beneficiaryUser.id,
+        moduleCode: mr.moduleCode,
+        score: mr.score,
+        maxScore: mr.maxScore,
+        answers: { completed: true },
+        feedback: mr.feedback,
+        completedAt: mr.completedAt,
+      },
     });
-    networks.push(r);
   }
-  console.log("   ✅ Network contacts:", networks.length);
+  console.log(`   ✅ ModuleResults: ${moduleResultsData.length} modules`);
 
-  // ══════════════════════════════════════════════════════════════════
-  // SUMMARY
-  // ══════════════════════════════════════════════════════════════════
-  console.log("\n" + "═".repeat(60));
-  console.log("  ✅ CreaScope Demo Seed — COMPLETE");
-  console.log("═".repeat(60));
-  console.log(`
-  Tenant:         ${tenant.name} (${tenant.id})
-  Organization:   ${org.name}
-  Dispositif:     ${dispositif.name} (${dispositif.code})
-  ────────────────────────────────────────
-  Bénéficiaire:   ${student.firstName} ${student.lastName} <${student.email}>
-  Conseiller:     ${counselor.firstName} ${counselor.lastName} <${counselor.email}>
-  Enrollment:     ${enrollment.status} — ${enrollment.progress}% progress
-  ────────────────────────────────────────
-  CreatorJourney: phase ${journey.currentPhase} — ${journey.progressPercent}%
-  BMC:            ${bmc.status} (${bmc.generatedAt?.toISOString().slice(0, 10)})
-  Financial:      breakeven M${forecast.breakevenMonth}, invest ${forecast.initialInvestment}€
-  CreaSim:        net margin ${creasim.netMarginRate}%
-  Juridique:      ${juridique.recommendedStatus} — ${juridique.fiscalRegime}
-  MarketAnalysis: sector "${market.sector}"
-  Tremplin:       score ${tremplin.score} — ${tremplin.decision}
-  ZeroDraft:      ${zeroDraft.wordCount} words — ${zeroDraft.status}
-  ────────────────────────────────────────
-  KiviatResults:  ${kiviatResults.length} dimensions
-  RiasecResults:  ${riasecResults.length} profiles (R dominant)
-  Motivation:     assessed
-  ModuleResults:  ${moduleResults.length} modules
-  ConsentLogs:    ${consents.length}
-  SwipeCards:     ${createdCards.length} cards, ${swipeResults.length} results
-  Networks:       ${networks.length} contacts
-`);
+  // ─── 21. CreascopeSession ───────────────────────────────────
+  console.log('\n📦 Step 21: Creating CreascopeSession...');
+  const threeDaysAgo = daysAgo(3);
+  const creascopeSession = await prisma.creascopeSession.create({
+    data: {
+      beneficiaryId: beneficiary.id,
+      counselorId: counselor.id,
+      status: 'TERMINEE',
+      currentStep: 'BILAN_IA',
+      scheduledAt: threeDaysAgo,
+      startedAt: threeDaysAgo,
+      completedAt: threeDaysAgo,
+      estimatedMinutes: 210,
+      stepProgress: {
+        ACCUEIL: {
+          startedAt: threeDaysAgo.toISOString(),
+          completedAt: threeDaysAgo.toISOString(),
+          durationMinutes: 15,
+          notes: 'Présentation du parcours, vérification du projet',
+        },
+        FLASH_SWIPE: {
+          startedAt: threeDaysAgo.toISOString(),
+          completedAt: threeDaysAgo.toISOString(),
+          durationMinutes: 35,
+          notes: '60 cartes swipées, bonne réactivité',
+        },
+        ANALYSE_INTERMEDIAIRE: {
+          startedAt: threeDaysAgo.toISOString(),
+          completedAt: threeDaysAgo.toISOString(),
+          durationMinutes: 20,
+          notes: 'Premier retour sur les compétences fortes',
+        },
+        QUESTIONNAIRE: {
+          startedAt: threeDaysAgo.toISOString(),
+          completedAt: threeDaysAgo.toISOString(),
+          durationMinutes: 45,
+          notes: 'Questionnaire RIASEC + motivation complété',
+        },
+        CHALLENGE_SCENARIO: {
+          startedAt: threeDaysAgo.toISOString(),
+          completedAt: threeDaysAgo.toISOString(),
+          durationMinutes: 40,
+          notes: 'Scénario de gestion de crise traité avec brio',
+        },
+        BILAN_IA: {
+          startedAt: threeDaysAgo.toISOString(),
+          completedAt: threeDaysAgo.toISOString(),
+          durationMinutes: 25,
+          notes: 'Bilan IA généré et commenté avec le conseiller',
+        },
+        PLAN_ACTION: {
+          startedAt: threeDaysAgo.toISOString(),
+          completedAt: threeDaysAgo.toISOString(),
+          durationMinutes: 30,
+          notes: 'Plan d\'action défini sur 6 semaines',
+        },
+      },
+      counselorNotes:
+        'Karim est très motivé et son profil est cohérent avec le projet. Son expérience terrain en livraison est un atout majeur. Le bilan CréaScope confirme un potentiel entrepreneurial réel avec des compétences fortes en résolution de problèmes et adaptabilité. Prochaine étape : finaliser l\'analyse de marché et commencer le BMC.',
+      aiInsights: {
+        profile_summary:
+          'Profil entrepreneurial affirmé avec un score global de 74/100. Karim combine une solide expérience opérationnelle en logistique urbaine avec de réelles capacités d\'adaptation et de résolution de problèmes.',
+        strong_points: [
+          'Expérience terrain significative (5 ans livraison urbaine)',
+          'Connaissance approfondie de la zone de chalandise',
+          'Bonnes capacités de gestion du stress et de l\'imprévu',
+          'Motivation intrinsèque forte (autonomie, flexibilité)',
+          'Sensibilisation à l\'impact environnemental',
+        ],
+        points_vigilance: [
+          'Formation en gestion comptable à renforcer',
+          'Stratégie de prospection commerciale à structurer',
+          'Diversification clientèle à anticiper',
+          'Gestion de la trésorerie de démarrage',
+        ],
+        recommended_modules: [
+          'analyse-marche',
+          'bmc',
+          'simulation-financiere',
+          'juridique',
+        ],
+        score_detail: {
+          global: 74,
+          competences: 76,
+          motivation: 82,
+          faisabilite: 72,
+          coherence: 75,
+        },
+      },
+      actionPlan: {
+        semaine1: {
+          title: 'Structuration du projet',
+          tasks: [
+            'Valider le business model canvas avec le conseiller',
+            'Contacter 5 commerçants locaux pour des retours terrain',
+            'Demander des devis assurance RC Pro (2-3 assureurs)',
+          ],
+        },
+        semaine2: {
+          title: 'Étude de marché approfondie',
+          tasks: [
+            'Réaliser une enquête de terrain (10-15 commerçants)',
+            'Analyser la tarification des concurrents locaux',
+            'Identifier les subventions disponibles (IDF Mobilités)',
+          ],
+        },
+        semaine3: {
+          title: 'Prévisionnel financier',
+          tasks: [
+            'Finaliser le prévisionnel avec la simulation CreaSim',
+            'Estimer les charges sociales avec le simulateur URSSAF',
+            'Préparer le plan de trésorerie sur 12 mois',
+          ],
+        },
+        semaine4: {
+          title: 'Démarches juridiques',
+          tasks: [
+            'Valider le choix du statut micro-entreprise',
+            'Préparer le dossier d\'immatriculation',
+            'Prendre rendez-vous avec un comptable pour un avis',
+          ],
+        },
+        semaine5_6: {
+          title: 'Lancement',
+          tasks: [
+            'Immatriculer la micro-entreprise',
+            'Acquérir le vélo cargo électrique',
+            'Lancer la prospection commerciale active',
+            'Créer les profils sur les réseaux sociaux',
+          ],
+        },
+      },
+      globalScore: 74,
+    },
+  });
+  console.log(
+    `   ✅ CreascopeSession: score 74, TERMINEE (${creascopeSession.id})`,
+  );
 
-  await prisma.$disconnect();
-  console.log("🌱 Seed completed successfully.\n");
-})().catch(async (e) => {
-  console.error("❌ Seed failed:", e);
-  await prisma.$disconnect();
-  process.exit(1);
-});
+  // ─── 22. ConsentLogs ────────────────────────────────────────
+  console.log('\n📦 Step 22: Creating ConsentLogs...');
+  const consentsData: Array<{
+    consentType: 'COOKIES' | 'CGU' | 'DONNEES_PERSONNELLES' | 'CREASCOPE';
+  }> = [
+    { consentType: 'COOKIES' },
+    { consentType: 'CGU' },
+    { consentType: 'DONNEES_PERSONNELLES' },
+    { consentType: 'CREASCOPE' },
+  ];
+
+  for (const c of consentsData) {
+    await prisma.consentLog.create({
+      data: {
+        userId: beneficiaryUser.id,
+        consentType: c.consentType,
+        status: 'GRANTED',
+        source: 'web',
+        version: '1.0',
+        grantedAt: weeksAgo(2),
+      },
+    });
+  }
+  console.log(`   ✅ ConsentLogs: ${consentsData.length} granted`);
+
+  // ─── 23. Notifications ──────────────────────────────────────
+  console.log('\n📦 Step 23: Creating Notifications...');
+  const notificationsData = [
+    {
+      title: 'Parcours CréaScope terminé !',
+      content:
+        'Félicitations ! Votre bilan CréaScope est terminé avec un score de 74/100. Consultez vos résultats détaillés et votre plan d\'action personnalisé.',
+      type: 'MILESTONE' as const,
+      isRead: true,
+      createdAt: daysAgo(3),
+    },
+    {
+      title: 'Module Analyse de marché complété',
+      content:
+        'Vous avez complété le module d\'analyse de marché avec un score de 78/100. Passez maintenant au Business Model Canvas.',
+      type: 'SUCCESS' as const,
+      isRead: true,
+      createdAt: daysAgo(5),
+    },
+    {
+      title: 'Rappel : Finaliser votre BMC',
+      content:
+        'Votre Business Model Canvas est en cours de finalisation. N\'oubliez pas de valider les 9 blocs avec votre conseiller Sophie Martin-Dupont.',
+      type: 'ACTION_REQUIRED' as const,
+      isRead: false,
+      createdAt: daysAgo(1),
+    },
+    {
+      title: 'Nouveau : Simulation financière disponible',
+      content:
+        'La simulation CreaSim est maintenant disponible pour votre projet. Testez différents scénarios de revenus et charges.',
+      type: 'INFO' as const,
+      isRead: false,
+      createdAt: hoursAgo(6),
+    },
+  ];
+
+  for (const n of notificationsData) {
+    await prisma.notification.create({
+      data: {
+        userId: beneficiaryUser.id,
+        title: n.title,
+        content: n.content,
+        type: n.type,
+        isRead: n.isRead,
+        createdAt: n.createdAt,
+      },
+    });
+  }
+  console.log(
+    `   ✅ Notifications: ${notificationsData.length} created`,
+  );
+
+  // ─── 24. NewsArticles ───────────────────────────────────────
+  console.log('\n📦 Step 24: Creating NewsArticles...');
+  const newsData = [
+    {
+      slug: 'micro-entreprise-2025-nouveautes',
+      title: 'Micro-entreprise 2025 : ce qui change pour les auto-entrepreneurs',
+      excerpt:
+        'Tour d\'horizon des évolutions réglementaires et fiscales qui impactent les micro-entrepreneurs en 2025.',
+      content:
+        'En 2025, plusieurs évolutions impactent les micro-entrepreneurs. Le plafond de chiffre d\'affaires pour la franchise de TVA est revalorisé. Les cotisations sociales restent à 21,2% du CA pour les activités de prestations de services. L\'ACRE continue d\'offrir une exonération partielle de 50% des cotisations sociales pendant la première année. De nouvelles aides régionales, notamment en Île-de-France, soutiennent les créateurs dans les secteurs de la livraison écologique.',
+      category: 'Réglementation',
+      imageGradient: 'from-teal-500 to-emerald-600',
+      isPublished: true,
+      isFeatured: true,
+      readTime: 4,
+      publishedAt: daysAgo(7),
+    },
+    {
+      slug: 'livraison-dernier-kilometre-velo-cargo',
+      title:
+        'Livraison du dernier kilomètre : pourquoi le vélo cargo s\'impose en ville',
+      excerpt:
+        'Face à la ZFE et à la demande de livraison verte, le vélo cargo devient l\'outil incontournable des livreurs urbains indépendants.',
+      content:
+        'Dans les grandes villes françaises, la livraison du dernier kilomètre est en pleine mutation. Les Zones à Faibles Émissions (ZFE) restreignent progressivement l\'accès des véhicules thermiques en centre-ville. Le vélo cargo électrique s\'impose comme la solution idéale : il est silencieux, non polluant, et peut circuler dans toutes les zones. Pour les auto-entrepreneurs, l\'investissement initial est modéré (2 000 à 5 000 € pour un modèle d\'occasion) et les aides régionales comme IDF Mobilités proposent des subventions pouvant atteindre 1 000 €.',
+      category: 'Inspiration',
+      imageGradient: 'from-amber-500 to-orange-600',
+      isPublished: true,
+      isFeatured: true,
+      readTime: 6,
+      publishedAt: daysAgo(14),
+    },
+    {
+      slug: 'zfe-grand-paris-impact-livreurs',
+      title:
+        'ZFE Grand Paris : quel impact pour les livreurs indépendants ?',
+      excerpt:
+        'La ZFE Grand Paris change la donne pour les livreurs. Décryptage des contraintes et opportunités.',
+      content:
+        'La ZFE Grand Paris, pleinement opérationnelle depuis 2024, interdit progressivement les véhicules les plus polluants dans Paris et les communes limitrophes. Pour les livreurs indépendants, cela représente à la fois une contrainte et une opportunité. La contrainte : obligation d\'utiliser un véhicule propre (électrique, hybride rechargeable, vélo cargo). L\'opportunité : les livreurs en vélo cargo bénéficient d\'un avantage compétitif face aux livreurs en fourgon qui doivent investir dans des véhicules électriques beaucoup plus coûteux.',
+      category: 'Tendances',
+      imageGradient: 'from-sky-500 to-cyan-600',
+      isPublished: true,
+      isFeatured: false,
+      readTime: 5,
+      publishedAt: daysAgo(21),
+    },
+    {
+      slug: 'subventions-velo-cargo-idf-2025',
+      title:
+        'Subventions vélo cargo en Île-de-France : guide complet 2025',
+      excerpt:
+        'Découvrez toutes les aides disponibles pour financer votre vélo cargo en Île-de-France.',
+      content:
+        'Plusieurs dispositifs d\'aide existent en Île-de-France pour l\'acquisition d\'un vélo cargo. IDF Mobilités propose une aide de 500 à 1 000 € selon le type de vélo. La mairie de Paris offre une prime vélo cargo de 900 € pour les professionnels. Montreuil propose également une aide de 300 à 500 € pour ses habitants. Il est possible de cumuler plusieurs aides sous certaines conditions. Les conditions d\'éligibilité varient selon les dispositifs.',
+      category: 'Financement',
+      imageGradient: 'from-lime-500 to-green-600',
+      isPublished: true,
+      isFeatured: false,
+      readTime: 7,
+      publishedAt: daysAgo(10),
+    },
+  ];
+
+  for (const n of newsData) {
+    await prisma.newsArticle.create({ data: n });
+  }
+  console.log(`   ✅ NewsArticles: ${newsData.length} articles`);
+
+  // ─── 25. Networks ───────────────────────────────────────────
+  console.log('\n📦 Step 25: Creating Network contacts...');
+  const networksData = [
+    {
+      name: 'CCI Paris Île-de-France — Antenne 93',
+      type: 'Institutionnel',
+      contact: 'Mme Durand',
+      email: 'contact@cci-paris-idf.fr',
+      phone: '01 49 52 42 00',
+      notes:
+        'Information sur les formalités de création et le marché local. Ateliers gratuits pour créateurs.',
+    },
+    {
+      name: 'BGE Montreuil',
+      type: 'Accompagnement',
+      contact: 'M. Lemaire',
+      email: 'bge.montreuil@bge.asso.fr',
+      phone: '01 48 58 12 34',
+      notes:
+        'Accompagnement à la création, ateliers pré-création, suivi post-création. Partenaire du GIDEF.',
+    },
+    {
+      name: 'France Active Île-de-France',
+      type: 'Financement',
+      contact: 'Service création',
+      email: 'idf@franceactive.org',
+      phone: '01 53 36 35 00',
+      notes:
+        'Microcrédit, prêts d\'honneur. Peut compléter l\'apport personnel pour l\'achat du vélo cargo.',
+    },
+    {
+      name: 'IDF Mobilités — Aide vélo cargo',
+      type: 'Subvention',
+      contact: 'En ligne',
+      email: 'aide-velo@iledefrance-mobilites.fr',
+      phone: '',
+      notes:
+        'Aide financière de 500 à 1 000 € pour l\'acquisition d\'un vélo cargo électrique. Dossier en ligne.',
+    },
+  ];
+
+  for (const n of networksData) {
+    await prisma.network.create({
+      data: {
+        userId: beneficiaryUser.id,
+        ...n,
+      },
+    });
+  }
+  console.log(`   ✅ Networks: ${networksData.length} contacts`);
+
+  // ─── 26. Registration ───────────────────────────────────────
+  console.log('\n📦 Step 26: Creating Registration...');
+  const registration = await prisma.registration.create({
+    data: {
+      userId: beneficiaryUser.id,
+      projectType: 'Micro-entreprise — Transport et livraison',
+      projectDescription:
+        'Service de livraison du dernier kilomètre en milieu urbain (Île-de-France), sous le régime de la micro-entreprise. Utilisation d\'un vélo cargo électrique pour des livraisons de colis, repas et courses pour les particuliers et petits commerces locaux. Zone de chalandise : Montreuil, Bagnolet, Vincennes.',
+      projectStage: 'Idéation avancée',
+      motivations:
+        'Devenir indépendant après 5 ans de salariat, capitaliser sur mon expérience en logistique urbaine, proposer une alternative éco-responsable aux grands groupes de livraison.',
+      needs: [
+        'Accompagnement création',
+        'Aide au business plan',
+        'Financement',
+      ],
+      supportType: 'Accompagnement création',
+    },
+  });
+  console.log(`   ✅ Registration: ${registration.projectType}`);
+
+  // ─── Summary ────────────────────────────────────────────────
+  console.log('\n' + '━'.repeat(60));
+  console.log('✅ CreaScope Demo Seed — Complete!');
+  console.log('━'.repeat(60));
+  console.log('\n📊 Summary:');
+  console.log(`   Tenant:          ${tenant.name} (${tenant.slug})`);
+  console.log(`   Organization:    ${org.name}`);
+  console.log(`   Dispositifs:     ${dispositifCreascope.name}, ${dispositifCreapulse.name}`);
+  console.log(`   Beneficiary:     ${beneficiaryUser.firstName} ${beneficiaryUser.lastName}`);
+  console.log(`                    → ${beneficiaryUser.email}`);
+  console.log(`   Counselor:       ${counselor.name}`);
+  console.log(`                    → ${counselorUser.email}`);
+  console.log(`   Enrollment:      ${enrollment.projectTitle} (${enrollment.progress}%)`);
+  console.log(`   Journey:         Phase ${journey.currentPhase} — ${journey.progressPercent}%`);
+  console.log(`   BMC:             ${bmc.status} (9 blocks)`);
+  console.log(`   Financial:       Y1=28K€, Y2=38K€, Y3=50K€`);
+  console.log(`   CreaSim:         Margin ${netMarginRate.toFixed(1)}%, BE ${breakevenMonths.toFixed(1)} months`);
+  console.log(`   Juridique:       ${juridique.legalStructure}`);
+  console.log(`   Market:          ${market.sector}`);
+  console.log(`   Tremplin:        Score ${tremplin.score}/100, Step ${tremplin.currentStep}/8`);
+  console.log(`   ZeroDraft:       ${zeroDraft.wordCount} words, ${zeroDraft.status}`);
+  console.log(`   Kiviat:          ${kiviatData.length} dimensions`);
+  console.log(`   RIASEC:          E dominant (${riasecData.find((r) => r.isDominant)?.score}/10)`);
+  console.log(`   Modules:         ${moduleResultsData.length} completed`);
+  console.log(`   Session CréaScope: Score ${creascopeSession.globalScore}/100, ${creascopeSession.status}`);
+  console.log(`   Consents:        ${consentsData.length} granted`);
+  console.log(`   Notifications:   ${notificationsData.length}`);
+  console.log(`   NewsArticles:    ${newsData.length}`);
+  console.log(`   Networks:        ${networksData.length} contacts`);
+  console.log(`   Registration:    ${registration.projectType}`);
+  console.log('\n🔑 Login credentials: Demo2026!');
+  console.log('━'.repeat(60));
+}
+
+main()
+  .catch((e) => {
+    console.error('❌ Seed failed:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
