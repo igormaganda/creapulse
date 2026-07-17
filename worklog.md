@@ -130,3 +130,36 @@ Stage Summary:
 - Full demo dataset verified and accessible
 - Dev server running on port 3000
 - Login credentials: karim.benali@demo-creapulse.fr / Demo2026!
+
+---
+Task ID: 2
+Agent: main
+Task: Create production Business Plan PDF generator
+
+Work Log:
+- Created `/src/lib/pdf/business-plan-pdf.ts` — pure function `buildBusinessPlanPdf(data)` that builds a professional 24-section Business Plan PDF
+  - Cover page with project info (sector, stage, legal structure) and completion indicator
+  - Full Table of Contents listing all 24 sections with checkmarks for filled ones
+  - 24 section renderers: text sections, SWOT (2x2 colored grid), financing table, compte de résultat, trésorerie (red for negative), investissements, bilan (2-column), statut juridique (label mapping), production catalog, associés, co-gérance, calendrier (timeline with bullet dots)
+  - Empty sections show italic gray "Section non renseignée"
+  - 3 appendices: Annexe A (market analysis), Annexe B (financial 3-year summary), Annexe C (legal structure)
+  - Uses ONLY pdf-utils.ts helpers + minimal raw PDFKit for SWOT 2x2 grid
+  - All text in French
+- Created `/src/app/api/export/business-plan/pdf/route.ts` — POST endpoint
+  - Authenticated (cookie/header token via verifyToken)
+  - Fetches User, CreatorJourney, FinancialForecast, JuridiqueAnalysis, MarketAnalysis from DB
+  - Returns PDF binary with Content-Disposition attachment header
+  - Filename slugified from project title
+- Modified `/src/components/bureau/export/business-plan-pdf.tsx`
+  - Added green "Télécharger le PDF professionnel" button with Download icon
+  - Shows Loader2 spinner during generation
+  - Fetches blob from POST /api/export/business-plan/pdf, triggers download
+  - Toast success/error feedback
+  - Existing print/preview functionality preserved
+- Lint: 0 errors, 2 warnings (console.log in route — informational)
+
+Stage Summary:
+- Production PDF generator fully functional at POST /api/export/business-plan/pdf
+- 24 BP sections rendered with proper formatting (text, tables, SWOT grid, timeline)
+- Premium download button added to the BP preview component
+- All 3 appendices (market analysis, financial summary, legal structure) appended conditionally

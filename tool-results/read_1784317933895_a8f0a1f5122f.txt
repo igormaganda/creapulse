@@ -1,0 +1,977 @@
+     1→// ============================================
+     2→// CreaPulse V2 — Production Business Plan PDF Builder
+     3→// Builds a professional 24-section Business Plan PDF
+     4→// Uses ONLY helpers from pdf-utils.ts (no raw PDFKit)
+     5→// All text in French
+     6→// ============================================
+     7→
+     8→import PDFDocument from 'pdfkit'
+     9→import {
+    10→  generatePdfBuffer,
+    11→  drawCoverPage,
+    12→  addSectionHeader,
+    13→  addSubSectionHeader,
+    14→  addTable,
+    15→  addKeyValueBlock,
+    16→  addBullet,
+    17→  addParagraph,
+    18→  addSpacing,
+    19→  checkNewPage,
+    20→  finalizeWithFooters,
+    21→  formatCurrency,
+    22→  type TableColumn,
+    23→  type TableRow,
+    24→  COLORS,
+    25→} from '@/lib/pdf-utils'
+    26→
+    27→// ─── Types ──────────────────────────────────
+    28→
+    29→export interface BusinessPlanPdfData {
+    30→  entrepreneur: {
+    31→    fullName: string
+    32→    firstName: string | null
+    33→    lastName: string | null
+    34→    email: string
+    35→  }
+    36→  project: {
+    37→    title: string
+    38→    description: string
+    39→    sector: string
+    40→    stage: string
+    41→    targetAudience: string
+    42→    motivation: string
+    43→    valueProposition: string
+    44→  }
+    45→  sections: Record<string, unknown>
+    46→  bpScore: number
+    47→  bpStatus: string
+    48→  financialForecast: {
+    49→    year1Revenue: number | null
+    50→    year1Expenses: number | null
+    51→    year2Revenue: number | null
+    52→    year2Expenses: number | null
+    53→    year3Revenue: number | null
+    54→    year3Expenses: number | null
+    55→    breakevenMonth: number | null
+    56→    initialInvestment: number | null
+    57→  } | null
+    58→  juridiqueAnalysis: {
+    59→    recommendedStatus: string | null
+    60→    fiscalRegime: string | null
+    61→    legalStructure: string | null
+    62→    socialCharges: unknown
+    63→  } | null
+    64→  marketAnalysis: {
+    65→    sector: string | null
+    66→    marketSize: string | null
+    67→    targetAudience: string | null
+    68→    trends: unknown
+    69→    competitors: unknown
+    70→    opportunities: string | null
+    71→    threats: string | null
+    72→    aiSynthesis: string | null
+    73→  } | null
+    74→}
+    75→
+    76→// ─── Section Configuration ──────────────────
+    77→
+    78→interface SectionDef {
+    79→  id: string
+    80→  title: string
+    81→  group: string
+    82→  type: 'text' | 'swot' | 'financing' | 'compte-resultat' | 'tresorerie' | 'investissements' | 'bilan' | 'statut' | 'production' | 'associes' | 'cogerants' | 'calendrier'
+    83→}
+    84→
+    85→const ALL_SECTIONS: SectionDef[] = [
+    86→  // Groupe Présentation
+    87→  { id: 'resume', title: 'Résumé opérationnel', group: 'Présentation', type: 'text' },
+    88→  { id: 'equipe', title: 'Présentation de l\'équipe', group: 'Présentation', type: 'text' },
+    89→  { id: 'historique', title: 'Historique et contexte', group: 'Présentation', type: 'text' },
+    90→  { id: 'vision', title: 'Vision et mission', group: 'Présentation', type: 'text' },
+    91→  { id: 'valeurs', title: 'Valeurs et engagements', group: 'Présentation', type: 'text' },
+    92→  // Groupe Marché
+    93→  { id: 'etude-marche', title: 'Étude de marché', group: 'Marché', type: 'text' },
+    94→  { id: 'segmentation', title: 'Segmentation client', group: 'Marché', type: 'text' },
+    95→  { id: 'concurrence', title: 'Analyse concurrentielle', group: 'Marché', type: 'text' },
+    96→  { id: 'strategie-marketing', title: 'Stratégie marketing', group: 'Marché', type: 'text' },
+    97→  { id: 'plan-commercial', title: 'Plan commercial', group: 'Marché', type: 'text' },
+    98→  { id: 'swot', title: 'Analyse SWOT', group: 'Marché', type: 'swot' },
+    99→  // Groupe Finances
+   100→  { id: 'financement', title: 'Plan de financement', group: 'Finances', type: 'financing' },
+   101→  { id: 'compte-resultat', title: 'Compte de résultat prévisionnel', group: 'Finances', type: 'compte-resultat' },
+   102→  { id: 'tresorerie', title: 'Plan de trésorerie', group: 'Finances', type: 'tresorerie' },
+   103→  { id: 'seuil-rentabilite', title: 'Seuil de rentabilité', group: 'Finances', type: 'text' },
+   104→  { id: 'investissements', title: 'Investissements', group: 'Finances', type: 'investissements' },
+   105→  { id: 'bilan', title: 'Bilan prévisionnel', group: 'Finances', type: 'bilan' },
+   106→  // Groupe Opérations
+   107→  { id: 'statut-juridique', title: 'Statut juridique', group: 'Opérations', type: 'statut' },
+   108→  { id: 'localisation', title: 'Localisation et implantation', group: 'Opérations', type: 'text' },
+   109→  { id: 'organisation', title: 'Organisation et moyens humains', group: 'Opérations', type: 'text' },
+   110→  { id: 'production', title: 'Catalogue produits/services', group: 'Opérations', type: 'production' },
+   111→  { id: 'associes', title: 'Associés et répartition du capital', group: 'Opérations', type: 'associes' },
+   112→  { id: 'cogerants', title: 'Co-gérance', group: 'Opérations', type: 'cogerants' },
+   113→  { id: 'calendrier', title: 'Calendrier de réalisation', group: 'Opérations', type: 'calendrier' },
+   114→]
+   115→
+   116→const STATUT_LABELS: Record<string, string> = {
+   117→  'auto-entrepreneur': 'Auto-entrepreneur (Micro-entreprise)',
+   118→  'eurl': 'EURL',
+   119→  'sas': 'SAS',
+   120→  'sasu': 'SASU',
+   121→  'sarl': 'SARL',
+   122→  'sa': 'SA',
+   123→  'sei': 'SEI',
+   124→  'association': 'Association loi 1901',
+   125→}
+   126→
+   127→// ─── Content Helpers ────────────────────────
+   128→
+   129→function getText(val: unknown): string {
+   130→  if (typeof val === 'string') return val
+   131→  if (val == null) return ''
+   132→  return String(val)
+   133→}
+   134→
+   135→function hasContent(val: unknown): boolean {
+   136→  if (!val) return false
+   137→  if (typeof val === 'string') return val.trim().length > 0
+   138→  if (Array.isArray(val)) return val.length > 0
+   139→  if (typeof val === 'object') return Object.values(val as Record<string, unknown>).some(
+   140→    (v) => v !== null && v !== undefined && v !== '' && v !== 0,
+   141→  )
+   142→  return false
+   143→}
+   144→
+   145→function getBpStatusLabel(status: string): string {
+   146→  switch (status) {
+   147→    case 'DRAFT': return 'Brouillon'
+   148→    case 'IN_PROGRESS': return 'En cours'
+   149→    case 'COMPLETED': return 'Terminé'
+   150→    case 'SUBMITTED': return 'Soumis'
+   151→    default: return 'Non commencé'
+   152→  }
+   153→}
+   154→
+   155→// ─── SWOT Grid Drawing ─────────────────────
+   156→// Uses raw PDFKit for the 2x2 colored grid (no helper exists for this)
+   157→// This is a specific visual layout that cannot be achieved with addTable alone
+   158→
+   159→function drawSwotGrid(doc: PDFDocument, swotData: {
+   160→  strengths: string
+   161→  weaknesses: string
+   162→  opportunities: string
+   163→  threats: string
+   164→}): void {
+   165→  const PAGE_WIDTH = 595.28
+   166→  const MARGIN_LEFT = 50
+   167→  const MARGIN_RIGHT = 50
+   168→  const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT
+   169→  const MARGIN_BOTTOM = 50
+   170→
+   171→  const boxW = (CONTENT_WIDTH - 6) / 2  // 6px gap between boxes
+   172→  const boxH = 120
+   173→
+   174→  const quadrants = [
+   175→    { label: 'Forces', text: swotData.strengths || 'Non renseigné', bgColor: '#E8F5E9', borderColor: '#2E7D32', textColor: '#1B5E20' },
+   176→    { label: 'Faiblesses', text: swotData.weaknesses || 'Non renseigné', bgColor: '#FFEBEE', borderColor: '#C62828', textColor: '#B71C1C' },
+   177→    { label: 'Opportunités', text: swotData.opportunities || 'Non renseigné', bgColor: '#E3F2FD', borderColor: '#1565C0', textColor: '#0D47A1' },
+   178→    { label: 'Menaces', text: swotData.threats || 'Non renseigné', bgColor: '#FFF8E1', borderColor: '#F57F17', textColor: '#E65100' },
+   179→  ]
+   180→
+   181→  const startY = doc.y
+   182→
+   183→  for (let i = 0; i < 4; i++) {
+   184→    const q = quadrants[i]
+   185→    const col = i % 2
+   186→    const row = i < 2 ? 0 : 1
+   187→    const x = MARGIN_LEFT + col * (boxW + 6)
+   188→    const y = startY + row * (boxH + 6)
+   189→
+   190→    // If we need a new page for the bottom row
+   191→    if (row === 1 && y + boxH > 841.89 - MARGIN_BOTTOM) {
+   192→      doc.addPage()
+   193→      // Re-draw top row on new page (skip — just draw bottom row)
+   194→      const newX = MARGIN_LEFT + (i % 2) * (boxW + 6)
+   195→      const newY = doc.y
+   196→      drawSwotBox(doc, newX, newY, boxW, boxH, q)
+   197→      doc.y = newY + boxH + 10
+   198→      continue
+   199→    }
+   200→
+   201→    drawSwotBox(doc, x, y, boxW, boxH, q)
+   202→
+   203→    // Set doc.y after the grid
+   204→    if (i === 3) {
+   205→      doc.y = y + boxH + 10
+   206→    }
+   207→  }
+   208→}
+   209→
+   210→function drawSwotBox(
+   211→  doc: PDFDocument,
+   212→  x: number,
+   213→  y: number,
+   214→  w: number,
+   215→  h: number,
+   216→  q: { label: string; text: string; bgColor: string; borderColor: string; textColor: string },
+   217→): void {
+   218→  // Background
+   219→  doc.save()
+   220→  doc.roundedRect(x, y, w, h, 4).fill(q.bgColor)
+   221→
+   222→  // Border
+   223→  doc.roundedRect(x, y, w, h, 4).strokeColor(q.borderColor).lineWidth(1).stroke()
+   224→
+   225→  // Label
+   226→  doc.font('Helvetica-Bold').fontSize(9).fillColor(q.textColor)
+   227→  doc.text(q.label, x + 8, y + 8, { width: w - 16, lineBreak: false })
+   228→
+   229→  // Content — truncate if too long
+   230→  doc.font('Helvetica').fontSize(7.5).fillColor('#333333')
+   231→  const maxTextHeight = h - 28
+   232→  doc.text(q.text, x + 8, y + 22, { width: w - 16, height: maxTextHeight, lineGap: 1.5, ellipsis: true })
+   233→
+   234→  doc.restore()
+   235→}
+   236→
+   237→// ─── Main Builder ───────────────────────────
+   238→
+   239→export async function buildBusinessPlanPdf(data: BusinessPlanPdfData): Promise<Buffer> {
+   240→  return generatePdfBuffer((doc) => {
+   241→    const sections = data.sections
+   242→
+   243→    // ═══════════════════════════════════════════
+   244→    // COVER PAGE
+   245→    // ═══════════════════════════════════════════
+   246→    drawCoverPage(
+   247→      doc,
+   248→      'Business Plan',
+   249→      'Document de présentation du projet entrepreneurial',
+   250→      data.entrepreneur.fullName,
+   251→    )
+   252→
+   253→    // Project info block after cover info
+   254→    if (data.project.title) {
+   255→      doc
+   256→        .font('Helvetica-Bold')
+   257→        .fontSize(11)
+   258→        .fillColor(COLORS.primary)
+   259→        .text(data.project.title, 0, doc.y + 2, {
+   260→          width: 595.28,
+   261→          align: 'center',
+   262→        })
+   263→    }
+   264→
+   265→    // Project metadata below the title
+   266→    const metaItems: Array<{ key: string; value: string }> = []
+   267→    if (data.project.sector) metaItems.push({ key: 'Secteur', value: data.project.sector })
+   268→    if (data.project.stage) metaItems.push({ key: 'Stade', value: data.project.stage })
+   269→    if (data.juridiqueAnalysis?.recommendedStatus) {
+   270→      const label = STATUT_LABELS[data.juridiqueAnalysis.recommendedStatus] || data.juridiqueAnalysis.recommendedStatus
+   271→      metaItems.push({ key: 'Statut juridique', value: label })
+   272→    }
+   273→
+   274→    if (metaItems.length > 0) {
+   275→      addSpacing(doc, 4)
+   276→      const metaY = doc.y
+   277→      const metaWidth = 280
+   278→      const startX = (595.28 - metaWidth) / 2
+   279→
+   280→      for (const item of metaItems) {
+   281→        doc
+   282→          .font('Helvetica')
+   283→          .fontSize(8)
+   284→          .fillColor(COLORS.gray)
+   285→          .text(`${item.key} : `, startX, doc.y, {
+   286→            width: metaWidth,
+   287→            continued: true,
+   288→            align: 'center',
+   289→          })
+   290→        doc
+   291→          .font('Helvetica-Bold')
+   292→          .fontSize(8)
+   293→          .fillColor(COLORS.dark)
+   294→          .text(item.value, { width: metaWidth, align: 'center' })
+   295→      }
+   296→    }
+   297→
+   298→    // Completion indicator
+   299→    addSpacing(doc, 8)
+   300→    const statusLabel = getBpStatusLabel(data.bpStatus)
+   301→    doc
+   302→      .font('Helvetica')
+   303→      .fontSize(9)
+   304→      .fillColor(COLORS.gray)
+   305→      .text(
+   306→        `Complétion : ${data.bpScore}% — ${statusLabel}`,
+   307→        0,
+   308→        doc.y,
+   309→        { width: 595.28, align: 'center' },
+   310→      )
+   311→
+   312→    // ═══════════════════════════════════════════
+   313→    // TABLE OF CONTENTS
+   314→    // ═══════════════════════════════════════════
+   315→    let currentGroup = ''
+   316→    for (const sec of ALL_SECTIONS) {
+   317→      if (sec.group !== currentGroup) {
+   318→        if (currentGroup !== '') addSpacing(doc, 6)
+   319→        currentGroup = sec.group
+   320→        checkNewPage(doc, 80)
+   321→        addSubSectionHeader(doc, sec.group)
+   322→      }
+   323→
+   324→      const isFilled = hasContent(sections[sec.id])
+   325→      const label = isFilled ? `✓  ${sec.title}` : `    ${sec.title}`
+   326→      const color = isFilled ? COLORS.dark : '#BBBBBB'
+   327→
+   328→      addParagraph(doc, label, undefined, { fontSize: 9, color })
+   329→    }
+   330→
+   331→    addSpacing(doc, 20)
+   332→
+   333→    // ═══════════════════════════════════════════
+   334→    // RENDER ALL 24 SECTIONS
+   335→    // ═══════════════════════════════════════════
+   336→    for (const sec of ALL_SECTIONS) {
+   337→      checkNewPage(doc, 60)
+   338→
+   339→      if (!hasContent(sections[sec.id])) {
+   340→        // Empty section — show placeholder
+   341→        addSectionHeader(doc, sec.title)
+   342→        addParagraph(doc, 'Section non renseignée', undefined, {
+   343→          fontSize: 9,
+   344→          color: '#BBBBBB',
+   345→        })
+   346→        addSpacing(doc, 10)
+   347→        continue
+   348→      }
+   349→
+   350→      switch (sec.type) {
+   351→        case 'text':
+   352→          renderTextSection(doc, sec.title, getText(sections[sec.id]))
+   353→          break
+   354→        case 'swot':
+   355→          renderSwotSection(doc, sec.title, sections[sec.id] as Record<string, string>)
+   356→          break
+   357→        case 'financing':
+   358→          renderFinancingSection(doc, sec.title, sections[sec.id] as Array<{ id: string; source: string; montant: number }>)
+   359→          break
+   360→        case 'compte-resultat':
+   361→          renderCompteResultatSection(doc, sec.title, sections[sec.id] as Record<string, { ca: number; charges: number; resultat: number }>)
+   362→          break
+   363→        case 'tresorerie':
+   364→          renderTresorerieSection(doc, sec.title, sections[sec.id] as Array<{ month: string; encaissements: number; decaissements: number; solde: number }>)
+   365→          break
+   366→        case 'investissements':
+   367→          renderInvestissementsSection(doc, sec.title, sections[sec.id] as Array<{ id: string; name: string; amount: number }>)
+   368→          break
+   369→        case 'bilan':
+   370→          renderBilanSection(doc, sec.title, sections[sec.id] as {
+   371→            actif: { immobilisations: number; stocks: number; creances: number; tresorerie: number }
+   372→            passif: { capital: number; emprunts: number; fournisseurs: number; autresDettes: number }
+   373→          })
+   374→          break
+   375→        case 'statut':
+   376→          renderStatutSection(doc, sec.title, getText(sections[sec.id]))
+   377→          break
+   378→        case 'production':
+   379→          renderProductionSection(doc, sec.title, sections[sec.id] as Array<{
+   380→            id: string; nom: string; description: string; prixVente: number;
+   381→            coutUnitaire: number; quantiteMensuelle: number; marge: number
+   382→          }>)
+   383→          break
+   384→        case 'associes':
+   385→          renderAssociesSection(doc, sec.title, sections[sec.id] as Array<{
+   386→            id: string; nom: string; prenom: string; role: string;
+   387→            nombreParts: number; pourcentage: number; apportCapital: number
+   388→          }>)
+   389→          break
+   390→        case 'cogerants':
+   391→          renderCogerantsSection(doc, sec.title, sections[sec.id] as Array<{
+   392→            id: string; nom: string; prenom: string; fonction: string;
+   393→            email: string; telephone: string
+   394→          }>)
+   395→          break
+   396→        case 'calendrier':
+   397→          renderCalendrierSection(doc, sec.title, sections[sec.id] as Array<{
+   398→            id: string; title: string; date: string; completed: boolean
+   399→          }>)
+   400→          break
+   401→      }
+   402→    }
+   403→
+   404→    // ═══════════════════════════════════════════
+   405→    // APPENDICES
+   406→    // ═══════════════════════════════════════════
+   407→
+   408→    // Annexe A : Analyse de marché
+   409→    if (data.marketAnalysis) {
+   410→      checkNewPage(doc, 300)
+   411→      let y = addSectionHeader(doc, 'Annexe A : Analyse de marché')
+   412→      addSpacing(doc, 6)
+   413→
+   414→      const ma = data.marketAnalysis
+   415→      const maData: Array<{ key: string; value: string }> = []
+   416→      if (ma.sector) maData.push({ key: 'Secteur', value: ma.sector })
+   417→      if (ma.marketSize) maData.push({ key: 'Taille du marché', value: ma.marketSize })
+   418→      if (ma.targetAudience) maData.push({ key: 'Cible', value: ma.targetAudience })
+   419→      if (ma.opportunities) maData.push({ key: 'Opportunités', value: ma.opportunities })
+   420→      if (ma.threats) maData.push({ key: 'Menaces', value: ma.threats })
+   421→
+   422→      if (maData.length > 0) {
+   423→        y = addKeyValueBlock(doc, maData, y)
+   424→      }
+   425→
+   426→      if (ma.aiSynthesis) {
+   427→        addSpacing(doc, 8)
+   428→        y = addSubSectionHeader(doc, 'Synthèse IA', y)
+   429→        addParagraph(doc, ma.aiSynthesis, y)
+   430→      }
+   431→
+   432→      if (ma.trends && Array.isArray(ma.trends) && ma.trends.length > 0) {
+   433→        addSpacing(doc, 6)
+   434→        y = addSubSectionHeader(doc, 'Tendances du marché', y)
+   435→        for (const trend of ma.trends) {
+   436→          checkNewPage(doc, 20)
+   437→          const trendText = typeof trend === 'string' ? trend : (trend as Record<string, unknown>).label as string || JSON.stringify(trend)
+   438→          y = addBullet(doc, trendText, y)
+   439→        }
+   440→      }
+   441→
+   442→      if (ma.competitors && Array.isArray(ma.competitors) && ma.competitors.length > 0) {
+   443→        addSpacing(doc, 6)
+   444→        y = addSubSectionHeader(doc, 'Concurrents identifiés', y)
+   445→        for (const comp of ma.competitors) {
+   446→          checkNewPage(doc, 20)
+   447→          const compObj = comp as Record<string, unknown>
+   448→          const compText = compObj.name
+   449→            ? `${compObj.name as string}${compObj.description ? ` — ${compObj.description as string}` : ''}`
+   450→            : JSON.stringify(comp)
+   451→          y = addBullet(doc, compText, y)
+   452→        }
+   453→      }
+   454→
+   455→      addSpacing(doc, 10)
+   456→    }
+   457→
+   458→    // Annexe B : Analyse financière
+   459→    if (data.financialForecast) {
+   460→      checkNewPage(doc, 300)
+   461→      let y = addSectionHeader(doc, 'Annexe B : Analyse financière')
+   462→      addSpacing(doc, 6)
+   463→
+   464→      const ff = data.financialForecast
+   465→      const finData: Array<{ key: string; value: string }> = []
+   466→
+   467→      if (ff.initialInvestment != null) finData.push({ key: 'Investissement initial', value: formatCurrency(ff.initialInvestment) })
+   468→      if (ff.breakevenMonth != null) finData.push({ key: 'Seuil de rentabilité', value: `Mois ${ff.breakevenMonth}` })
+   469→
+   470→      if (finData.length > 0) {
+   471→        y = addKeyValueBlock(doc, finData, y)
+   472→        addSpacing(doc, 8)
+   473→      }
+   474→
+   475→      // 3-year revenue/expense summary table
+   476→      const ffCols: TableColumn[] = [
+   477→        { header: 'Rubrique', width: 160, align: 'left' },
+   478→        { header: 'Année 1', width: 100, align: 'right' },
+   479→        { header: 'Année 2', width: 100, align: 'right' },
+   480→        { header: 'Année 3', width: 100, align: 'right' },
+   481→      ]
+   482→
+   483→      const ffRows: TableRow[] = [
+   484→        {
+   485→          cells: [
+   486→            'Chiffre d\'affaires',
+   487→            formatCurrency(ff.year1Revenue),
+   488→            formatCurrency(ff.year2Revenue),
+   489→            formatCurrency(ff.year3Revenue),
+   490→          ],
+   491→        },
+   492→        {
+   493→          cells: [
+   494→            'Charges totales',
+   495→            formatCurrency(ff.year1Expenses),
+   496→            formatCurrency(ff.year2Expenses),
+   497→            formatCurrency(ff.year3Expenses),
+   498→          ],
+   499→          textColor: COLORS.gray,
+   500→        },
+   501→      ]
+   502→
+   503→      // Calculate results
+   504→      const r1 = (ff.year1Revenue ?? 0) - (ff.year1Expenses ?? 0)
+   505→      const r2 = (ff.year2Revenue ?? 0) - (ff.year2Expenses ?? 0)
+   506→      const r3 = (ff.year3Revenue ?? 0) - (ff.year3Expenses ?? 0)
+   507→
+   508→      ffRows.push({
+   509→        cells: [
+   510→          'Résultat net',
+   511→          formatCurrency(r1),
+   512→          formatCurrency(r2),
+   513→          formatCurrency(r3),
+   514→        ],
+   515→        fillColor: r3 >= 0 ? '#E8F5E9' : '#FFEBEE',
+   516→        textColor: r3 >= 0 ? COLORS.success : COLORS.danger,
+   517→      })
+   518→
+   519→      y = addTable(doc, ffCols, ffRows, y)
+   520→      addSpacing(doc, 10)
+   521→    }
+   522→
+   523→    // Annexe C : Structure juridique
+   524→    if (data.juridiqueAnalysis) {
+   525→      checkNewPage(doc, 200)
+   526→      let y = addSectionHeader(doc, 'Annexe C : Structure juridique')
+   527→      addSpacing(doc, 6)
+   528→
+   529→      const ja = data.juridiqueAnalysis
+   530→      const jaData: Array<{ key: string; value: string }> = []
+   531→
+   532→      if (ja.recommendedStatus) {
+   533→        const label = STATUT_LABELS[ja.recommendedStatus] || ja.recommendedStatus
+   534→        jaData.push({ key: 'Statut recommandé', value: label })
+   535→      }
+   536→      if (ja.legalStructure) jaData.push({ key: 'Structure juridique', value: ja.legalStructure })
+   537→      if (ja.fiscalRegime) jaData.push({ key: 'Régime fiscal', value: ja.fiscalRegime })
+   538→
+   539→      if (jaData.length > 0) {
+   540→        y = addKeyValueBlock(doc, jaData, y)
+   541→      }
+   542→
+   543→      if (ja.socialCharges && typeof ja.socialCharges === 'object') {
+   544→        addSpacing(doc, 8)
+   545→        y = addSubSectionHeader(doc, 'Charges sociales', y)
+   546→        const charges = ja.socialCharges as Record<string, unknown>
+   547→        const chargeItems: Array<{ key: string; value: string }> = []
+   548→        for (const [k, v] of Object.entries(charges)) {
+   549→          if (v != null && v !== '') {
+   550→            chargeItems.push({
+   551→              key: `${k.charAt(0).toUpperCase() + k.slice(1)} :`,
+   552→              value: String(v),
+   553→            })
+   554→          }
+   555→        }
+   556→        if (chargeItems.length > 0) {
+   557→          addKeyValueBlock(doc, chargeItems, y)
+   558→        }
+   559→      }
+   560→
+   561→      addSpacing(doc, 10)
+   562→    }
+   563→
+   564→    // ═══════════════════════════════════════════
+   565→    // CLOSING
+   566→    // ═══════════════════════════════════════════
+   567→    checkNewPage(doc, 80)
+   568→    addSectionHeader(doc, 'À propos de ce document')
+   569→
+   570→    addParagraph(doc,
+   571→      `Ce business plan a été généré par la plateforme CreaPulse V2 — GIDEF Île-de-France. Les données proviennent du parcours de création entrepreneurial du bénéficiaire. Pour toute question, veuillez contacter votre conseiller.`,
+   572→      undefined,
+   573→      { fontSize: 8, color: COLORS.gray },
+   574→    )
+   575→
+   576→    addSpacing(doc, 8)
+   577→
+   578→    addParagraph(doc,
+   579→      `© ${new Date().getFullYear()} CreaPulse V2 — GIDEF Île-de-France — Document confidentiel`,
+   580→      undefined,
+   581→      { fontSize: 8, color: COLORS.gray },
+   582→    )
+   583→
+   584→    // ═══════════════════════════════════════════
+   585→    // FINALIZE — Add footers to all content pages
+   586→    // ═══════════════════════════════════════════
+   587→    finalizeWithFooters(doc)
+   588→  })
+   589→}
+   590→
+   591→// ─── Section Renderers ─────────────────────
+   592→
+   593→function renderTextSection(doc: PDFDocument, title: string, text: string): void {
+   594→  addSectionHeader(doc, title)
+   595→  // Split by newlines and render as paragraphs
+   596→  const lines = text.split('\n').filter((l) => l.trim().length > 0)
+   597→  for (const line of lines) {
+   598→    checkNewPage(doc, 30)
+   599→    addParagraph(doc, line.trim())
+   600→  }
+   601→  addSpacing(doc, 10)
+   602→}
+   603→
+   604→function renderSwotSection(doc: PDFDocument, title: string, swotData: Record<string, string>): void {
+   605→  addSectionHeader(doc, title)
+   606→
+   607→  const data = {
+   608→    strengths: getText(swotData?.strengths),
+   609→    weaknesses: getText(swotData?.weaknesses),
+   610→    opportunities: getText(swotData?.opportunities),
+   611→    threats: getText(swotData?.threats),
+   612→  }
+   613→
+   614→  addParagraph(doc, 'L\'analyse SWOT ci-dessous synthétise les forces, faiblesses, opportunités et menaces du projet.')
+   615→  addSpacing(doc, 6)
+   616→
+   617→  drawSwotGrid(doc, data)
+   618→  addSpacing(doc, 10)
+   619→}
+   620→
+   621→function renderFinancingSection(doc: PDFDocument, title: string, rows: Array<{ id: string; source: string; montant: number }>): void {
+   622→  addSectionHeader(doc, title)
+   623→
+   624→  if (!rows || rows.length === 0) {
+   625→    addParagraph(doc, 'Section non renseignée', undefined, { fontSize: 9, color: '#BBBBBB' })
+   626→    addSpacing(doc, 10)
+   627→    return
+   628→  }
+   629→
+   630→  const total = rows.reduce((s, r) => s + (r.montant || 0), 0)
+   631→
+   632→  const cols: TableColumn[] = [
+   633→    { header: 'Source de financement', width: 360, align: 'left' },
+   634→    { header: 'Montant', width: 100, align: 'right' },
+   635→  ]
+   636→
+   637→  const tableRows: TableRow[] = rows.map((r) => ({
+   638→    cells: [r.source || 'Non renseigné', formatCurrency(r.montant)],
+   639→  }))
+   640→
+   641→  tableRows.push({
+   642→    cells: ['TOTAL', formatCurrency(total)],
+   643→    fillColor: COLORS.primary,
+   644→    textColor: COLORS.white,
+   645→  })
+   646→
+   647→  addTable(doc, cols, tableRows)
+   648→  addSpacing(doc, 10)
+   649→}
+   650→
+   651→function renderCompteResultatSection(doc: PDFDocument, title: string, data: Record<string, { ca: number; charges: number; resultat: number }>): void {
+   652→  addSectionHeader(doc, title)
+   653→
+   654→  if (!data || Object.keys(data).length === 0) {
+   655→    addParagraph(doc, 'Section non renseignée', undefined, { fontSize: 9, color: '#BBBBBB' })
+   656→    addSpacing(doc, 10)
+   657→    return
+   658→  }
+   659→
+   660→  const cols: TableColumn[] = [
+   661→    { header: 'Poste', width: 120, align: 'left' },
+   662→    { header: 'Année 1', width: 110, align: 'right' },
+   663→    { header: 'Année 2', width: 110, align: 'right' },
+   664→    { header: 'Année 3', width: 110, align: 'right' },
+   665→  ]
+   666→
+   667→  const year1 = data.year1
+   668→  const year2 = data.year2
+   669→  const year3 = data.year3
+   670→
+   671→  const tableRows: TableRow[] = [
+   672→    {
+   673→      cells: ['Chiffre d\'affaires', formatCurrency(year1?.ca), formatCurrency(year2?.ca), formatCurrency(year3?.ca)],
+   674→    },
+   675→    {
+   676→      cells: ['Charges', formatCurrency(year1?.charges), formatCurrency(year2?.charges), formatCurrency(year3?.charges)],
+   677→      textColor: COLORS.gray,
+   678→    },
+   679→  ]
+   680→
+   681→  const r1 = (year1?.ca ?? 0) - (year1?.charges ?? 0)
+   682→  const r2 = (year2?.ca ?? 0) - (year2?.charges ?? 0)
+   683→  const r3 = (year3?.ca ?? 0) - (year3?.charges ?? 0)
+   684→
+   685→  tableRows.push({
+   686→    cells: ['Résultat net', formatCurrency(r1), formatCurrency(r2), formatCurrency(r3)],
+   687→    fillColor: r3 >= 0 ? '#E8F5E9' : '#FFEBEE',
+   688→    textColor: r3 >= 0 ? COLORS.success : COLORS.danger,
+   689→  })
+   690→
+   691→  addTable(doc, cols, tableRows)
+   692→  addSpacing(doc, 10)
+   693→}
+   694→
+   695→function renderTresorerieSection(doc: PDFDocument, title: string, rows: Array<{ month: string; encaissements: number; decaissements: number; solde: number }>): void {
+   696→  addSectionHeader(doc, title)
+   697→
+   698→  if (!rows || rows.length === 0) {
+   699→    addParagraph(doc, 'Section non renseignée', undefined, { fontSize: 9, color: '#BBBBBB' })
+   700→    addSpacing(doc, 10)
+   701→    return
+   702→  }
+   703→
+   704→  const cols: TableColumn[] = [
+   705→    { header: 'Mois', width: 90, align: 'left' },
+   706→    { header: 'Encaissements', width: 115, align: 'right' },
+   707→    { header: 'Décaissements', width: 115, align: 'right' },
+   708→    { header: 'Solde cumulé', width: 130, align: 'right' },
+   709→  ]
+   710→
+   711→  const tableRows: TableRow[] = rows.map((r) => ({
+   712→    cells: [
+   713→      r.month || '—',
+   714→      formatCurrency(r.encaissements),
+   715→      formatCurrency(r.decaissements),
+   716→      formatCurrency(r.solde),
+   717→    ],
+   718→    textColor: (r.solde ?? 0) < 0 ? COLORS.danger : COLORS.dark,
+   719→  }))
+   720→
+   721→  addTable(doc, cols, tableRows)
+   722→  addSpacing(doc, 10)
+   723→}
+   724→
+   725→function renderInvestissementsSection(doc: PDFDocument, title: string, rows: Array<{ id: string; name: string; amount: number }>): void {
+   726→  addSectionHeader(doc, title)
+   727→
+   728→  if (!rows || rows.length === 0) {
+   729→    addParagraph(doc, 'Section non renseignée', undefined, { fontSize: 9, color: '#BBBBBB' })
+   730→    addSpacing(doc, 10)
+   731→    return
+   732→  }
+   733→
+   734→  const total = rows.reduce((s, r) => s + (r.amount || 0), 0)
+   735→
+   736→  const cols: TableColumn[] = [
+   737→    { header: 'Investissement', width: 360, align: 'left' },
+   738→    { header: 'Montant', width: 100, align: 'right' },
+   739→  ]
+   740→
+   741→  const tableRows: TableRow[] = rows.map((r) => ({
+   742→    cells: [r.name || 'Non renseigné', formatCurrency(r.amount)],
+   743→  }))
+   744→
+   745→  tableRows.push({
+   746→    cells: ['TOTAL', formatCurrency(total)],
+   747→    fillColor: COLORS.primary,
+   748→    textColor: COLORS.white,
+   749→  })
+   750→
+   751→  addTable(doc, cols, tableRows)
+   752→  addSpacing(doc, 10)
+   753→}
+   754→
+   755→function renderBilanSection(doc: PDFDocument, title: string, data: {
+   756→  actif: { immobilisations: number; stocks: number; creances: number; tresorerie: number }
+   757→  passif: { capital: number; emprunts: number; fournisseurs: number; autresDettes: number }
+   758→}): void {
+   759→  addSectionHeader(doc, title)
+   760→
+   761→  if (!data) {
+   762→    addParagraph(doc, 'Section non renseignée', undefined, { fontSize: 9, color: '#BBBBBB' })
+   763→    addSpacing(doc, 10)
+   764→    return
+   765→  }
+   766→
+   767→  const cols: TableColumn[] = [
+   768→    { header: 'Rubrique', width: 200, align: 'left' },
+   769→    { header: 'Actif', width: 120, align: 'right' },
+   770→    { header: 'Passif', width: 120, align: 'right' },
+   771→  ]
+   772→
+   773→  const actif = data.actif || {}
+   774→  const passif = data.passif || {}
+   775→
+   776→  const totalActif = (actif.immobilisations || 0) + (actif.stocks || 0) + (actif.creances || 0) + (actif.tresorerie || 0)
+   777→  const totalPassif = (passif.capital || 0) + (passif.emprunts || 0) + (passif.fournisseurs || 0) + (passif.autresDettes || 0)
+   778→
+   779→  const tableRows: TableRow[] = [
+   780→    {
+   781→      cells: ['Immobilisations / Capital', formatCurrency(actif.immobilisations), formatCurrency(passif.capital)],
+   782→    },
+   783→    {
+   784→      cells: ['Stocks / Emprunts', formatCurrency(actif.stocks), formatCurrency(passif.emprunts)],
+   785→    },
+   786→    {
+   787→      cells: ['Créances / Fournisseurs', formatCurrency(actif.creances), formatCurrency(passif.fournisseurs)],
+   788→    },
+   789→    {
+   790→      cells: ['Trésorerie / Autres dettes', formatCurrency(actif.tresorerie), formatCurrency(passif.autresDettes)],
+   791→    },
+   792→    {
+   793→      cells: ['TOTAL', formatCurrency(totalActif), formatCurrency(totalPassif)],
+   794→      fillColor: COLORS.primary,
+   795→      textColor: COLORS.white,
+   796→    },
+   797→  ]
+   798→
+   799→  addTable(doc, cols, tableRows)
+   800→  addSpacing(doc, 10)
+   801→}
+   802→
+   803→function renderStatutSection(doc: PDFDocument, title: string, value: string): void {
+   804→  addSectionHeader(doc, title)
+   805→
+   806→  const label = STATUT_LABELS[value] || value || 'Non défini'
+   807→
+   808→  addKeyValueBlock(doc, [
+   809→    { key: 'Statut juridique choisi :', value: label },
+   810→  ])
+   811→
+   812→  addSpacing(doc, 10)
+   813→}
+   814→
+   815→function renderProductionSection(doc: PDFDocument, title: string, rows: Array<{
+   816→  id: string; nom: string; description: string; prixVente: number;
+   817→  coutUnitaire: number; quantiteMensuelle: number; marge: number
+   818→}>): void {
+   819→  addSectionHeader(doc, title)
+   820→
+   821→  if (!rows || rows.length === 0) {
+   822→    addParagraph(doc, 'Section non renseignée', undefined, { fontSize: 9, color: '#BBBBBB' })
+   823→    addSpacing(doc, 10)
+   824→    return
+   825→  }
+   826→
+   827→  const cols: TableColumn[] = [
+   828→    { header: 'Produit / Service', width: 140, align: 'left' },
+   829→    { header: 'Prix de vente', width: 80, align: 'right' },
+   830→    { header: 'Coût unitaire', width: 80, align: 'right' },
+   831→    { header: 'Qté / mois', width: 60, align: 'center' },
+   832→    { header: 'Marge', width: 80, align: 'right' },
+   833→  ]
+   834→
+   835→  const tableRows: TableRow[] = rows.map((r) => ({
+   836→    cells: [
+   837→      r.nom || 'Non renseigné',
+   838→      formatCurrency(r.prixVente),
+   839→      formatCurrency(r.coutUnitaire),
+   840→      r.quantiteMensuelle != null ? String(r.quantiteMensuelle) : '—',
+   841→      r.marge != null ? `${r.marge.toFixed(1)}%` : '—',
+   842→    ],
+   843→  }))
+   844→
+   845→  addTable(doc, cols, tableRows)
+   846→
+   847→  // Show descriptions as bullets if available
+   848→  const withDesc = rows.filter((r) => r.description && r.description.trim().length > 0)
+   849→  if (withDesc.length > 0) {
+   850→    addSpacing(doc, 6)
+   851→    for (const r of withDesc) {
+   852→      checkNewPage(doc, 30)
+   853→      addBullet(doc, `${r.nom || 'Produit'} : ${r.description}`)
+   854→    }
+   855→  }
+   856→
+   857→  addSpacing(doc, 10)
+   858→}
+   859→
+   860→function renderAssociesSection(doc: PDFDocument, title: string, rows: Array<{
+   861→  id: string; nom: string; prenom: string; role: string;
+   862→  nombreParts: number; pourcentage: number; apportCapital: number
+   863→}>): void {
+   864→  addSectionHeader(doc, title)
+   865→
+   866→  if (!rows || rows.length === 0) {
+   867→    addParagraph(doc, 'Section non renseignée', undefined, { fontSize: 9, color: '#BBBBBB' })
+   868→    addSpacing(doc, 10)
+   869→    return
+   870→  }
+   871→
+   872→  const cols: TableColumn[] = [
+   873→    { header: 'Nom', width: 120, align: 'left' },
+   874→    { header: 'Rôle', width: 130, align: 'left' },
+   875→    { header: 'Parts', width: 60, align: 'center' },
+   876→    { header: '%', width: 50, align: 'center' },
+   877→    { header: 'Apport', width: 100, align: 'right' },
+   878→  ]
+   879→
+   880→  const tableRows: TableRow[] = rows.map((r) => {
+   881→    const fullName = [r.prenom, r.nom].filter(Boolean).join(' ') || 'Non renseigné'
+   882→    return {
+   883→      cells: [
+   884→        fullName,
+   885→        r.role || '—',
+   886→        r.nombreParts != null ? String(r.nombreParts) : '—',
+   887→        r.pourcentage != null ? `${r.pourcentage.toFixed(1)}%` : '—',
+   888→        formatCurrency(r.apportCapital),
+   889→      ],
+   890→    }
+   891→  })
+   892→
+   893→  // Total row
+   894→  const totalApport = rows.reduce((s, r) => s + (r.apportCapital || 0), 0)
+   895→  const totalPourcentage = rows.reduce((s, r) => s + (r.pourcentage || 0), 0)
+   896→  tableRows.push({
+   897→    cells: ['TOTAL', '', '', `${totalPourcentage.toFixed(1)}%`, formatCurrency(totalApport)],
+   898→    fillColor: COLORS.primary,
+   899→    textColor: COLORS.white,
+   900→  })
+   901→
+   902→  addTable(doc, cols, tableRows)
+   903→  addSpacing(doc, 10)
+   904→}
+   905→
+   906→function renderCogerantsSection(doc: PDFDocument, title: string, rows: Array<{
+   907→  id: string; nom: string; prenom: string; fonction: string;
+   908→  email: string; telephone: string
+   909→}>): void {
+   910→  addSectionHeader(doc, title)
+   911→
+   912→  if (!rows || rows.length === 0) {
+   913→    addParagraph(doc, 'Section non renseignée', undefined, { fontSize: 9, color: '#BBBBBB' })
+   914→    addSpacing(doc, 10)
+   915→    return
+   916→  }
+   917→
+   918→  const cols: TableColumn[] = [
+   919→    { header: 'Nom', width: 120, align: 'left' },
+   920→    { header: 'Fonction', width: 140, align: 'left' },
+   921→    { header: 'Email', width: 140, align: 'left' },
+   922→    { header: 'Téléphone', width: 80, align: 'left' },
+   923→  ]
+   924→
+   925→  const tableRows: TableRow[] = rows.map((r) => {
+   926→    const fullName = [r.prenom, r.nom].filter(Boolean).join(' ') || 'Non renseigné'
+   927→    return {
+   928→      cells: [
+   929→        fullName,
+   930→        r.fonction || '—',
+   931→        r.email || '—',
+   932→        r.telephone || '—',
+   933→      ],
+   934→    }
+   935→  })
+   936→
+   937→  addTable(doc, cols, tableRows)
+   938→  addSpacing(doc, 10)
+   939→}
+   940→
+   941→function renderCalendrierSection(doc: PDFDocument, title: string, rows: Array<{
+   942→  id: string; title: string; date: string; completed: boolean
+   943→}>): void {
+   944→  addSectionHeader(doc, title)
+   945→
+   946→  if (!rows || rows.length === 0) {
+   947→    addParagraph(doc, 'Section non renseignée', undefined, { fontSize: 9, color: '#BBBBBB' })
+   948→    addSpacing(doc, 10)
+   949→    return
+   950→  }
+   951→
+   952→  // Render as timeline list with bullet dots
+   953→  for (let i = 0; i < rows.length; i++) {
+   954→    checkNewPage(doc, 30)
+   955→    const r = rows[i]
+   956→    const statusIcon = r.completed ? '●' : '○'
+   957→    const statusColor = r.completed ? COLORS.success : COLORS.gray
+   958→    const dateStr = r.date || ''
+   959→
+   960→    const label = dateStr ? `${r.title} — ${dateStr}` : r.title
+   961→
+   962→    // Use addBullet-like rendering with colored dot
+   963→    doc
+   964→      .font('Helvetica')
+   965→      .fontSize(10)
+   966→      .fillColor(statusColor)
+   967→      .text(statusIcon, 50, doc.y, {
+   968→        continued: false,
+   969→        width: 14,
+   970→        lineBreak: false,
+   971→      })
+   972→
+   973→    addParagraph(doc, label)
+   974→  }
+   975→
+   976→  addSpacing(doc, 10)
+   977→}

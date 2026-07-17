@@ -1,0 +1,402 @@
+   400→   400→   400→    y = addBullet(doc, 'Transformation en produits d\'upcycling design (vaisselle, vases, luminaires, dalles décoratives)', y)
+   401→   401→   401→    y = addBullet(doc, 'Vente en B2B aux professionnels de l\'hôtellerie, de la restauration et de la décoration', y)
+   402→   402→   402→    y = addBullet(doc, 'Vente en B2C via le site web e-commerce et les marchés locaux', y)
+   403→   403→   403→    y = addBullet(doc, 'Prestations de sensibilisation et ateliers de découverte du recyclage créatif', y)
+   404→   404→   404→    addSpacing(doc, 8)
+   405→   405→   405→
+   406→   406→   406→    y = addSubSectionHeader(doc, 'Valeur ajoutée', y)
+   407→   407→   407→    y = addParagraph(doc,
+   408→   408→   408→      'La valeur ajoutée d\'EcoVerre réside dans sa capacité à transformer un déchet à faible coût en produit fini à forte marge. Contrairement au recyclage classique (broyage pour remblais), l\'upcycling conserve la qualité esthétique du verre et la sublime. Chaque pièce est unique, fabriquée artisanalement en France, et contribue activement à la réduction de l\'empreinte carbone.',
+   409→   409→   409→      y,
+   410→   410→   410→    )
+   411→   411→   411→    addSpacing(doc, 8)
+   412→   412→   412→
+   413→   413→   413→    y = addSubSectionHeader(doc, 'Localisation', y)
+   414→   414→   414→    y = addKeyValueBlock(doc, [
+   415→   415→   415→      { key: 'Adresse :', value: BUSINESS.address },
+   416→   416→   416→      { key: 'Surface atelier :', value: '250 m²' },
+   417→   417→   417→      { key: 'Zone de chalandise :', value: 'Île-de-France (rayon de 50 km)' },
+   418→   418→   418→      { key: 'Accessibilité :', value: 'RER A — station Mairie de Montreuil (5 min à pied)' },
+   419→   419→   419→    ], y)
+   420→   420→   420→
+   421→   421→   421→    addSpacing(doc, 16)
+   422→   422→   422→
+   423→   423→   423→    // ═══════════════════════════════════════════
+   424→   424→   424→    // 6. ÉTUDE DE MARCHÉ
+   425→   425→   425→    // ═══════════════════════════════════════════
+   426→   426→   426→    checkNewPage(doc, 260)
+   427→   427→   427→    y = addSectionHeader(doc, '6. Étude de marché')
+   428→   428→   428→
+   429→   429→   429→    y = addParagraph(doc,
+   430→   430→   430→      'Le marché du recyclage du verre en France est en pleine transformation. Avec 3,5 millions de tonnes de verre collectées chaque année, la France dispose d\'un gisement considérable. Cependant, la majorité du verre recyclé est broyé et utilisé en remblais routiers ou en conteneurs, avec très peu de valorisation sous forme d\'upcycling créatif.',
+   431→   431→   431→      y,
+   432→   432→   432→    )
+   433→   433→   433→
+   434→   434→   434→    y = addSubSectionHeader(doc, 'Données clés du marché', y)
+   435→   435→   435→    y = addBullet(doc, 'Taille du marché français du recyclage du verre : 3,5 Mdt/an (2023)', y)
+   436→   436→   436→    y = addBullet(doc, 'Taux de collecte du verre en France : 85% (un des plus élevés d\'Europe)', y)
+   437→   437→   437→    y = addBullet(doc, 'Marché de l\'économie circulaire en France : +12% de croissance annuelle', y)
+   438→   438→   438→    y = addBullet(doc, 'Segment upcycling / design : marché émergent estimé à 45 M€ en France', y)
+   439→   439→   439→    y = addBullet(doc, 'Cible Île-de-France : 12 millions d\'habitants, 850 000 entreprises', y)
+   440→   440→   440→    addSpacing(doc, 8)
+   441→   441→   441→
+   442→   442→   442→    y = addSubSectionHeader(doc, 'Tendances et évolutions', y)
+   443→   443→   443→    y = addParagraph(doc,
+   444→   444→   444→      'Plusieurs tendances favorisent le développement d\'EcoVerre : la directive européenne PPWD (Packaging and Packaging Waste Directive) impose des objectifs de recyclage ambitieux (75% d\'ici 2030), les consommateurs sont de plus en plus sensibles à l\'origine et à la durabilité des produits, et les collectivités locales cherchent activement des filières de revalorisation locales pour réduire leur bilan carbone.',
+   445→   445→   445→      y,
+   446→   446→   446→    )
+   447→   447→   447→
+   448→   448→   448→    y = addParagraph(doc,
+   449→   449→   449→      'Le marché de la décoration éco-responsable est en forte croissance, porté par une clientèle jeune (25-45 ans) et aisée, prête à payer un prix premium pour des produits locaux, durables et uniques. Les professionnels de l\'hôtellerie-restauration (HR) intègrent également des démarches de développement durable dans leur offre, créant une demande B2B croissante.',
+   450→   450→   450→      y,
+   451→   451→   451→    )
+   452→   452→   452→
+   453→   453→   453→    addSpacing(doc, 16)
+   454→   454→   454→
+   455→   455→   455→    // ═══════════════════════════════════════════
+   456→   456→   456→    // 7. ANALYSE DE LA DEMANDE
+   457→   457→   457→    // ═══════════════════════════════════════════
+   458→   458→   458→    checkNewPage(doc, 260)
+   459→   459→   459→    y = addSectionHeader(doc, '7. Analyse de la demande')
+   460→   460→   460→
+   461→   461→   461→    y = addParagraph(doc,
+   462→   462→   462→      'La demande pour les produits issus de l\'upcycling du verre est stimulée par plusieurs facteurs convergents : la prise de conscience environnementale des consommateurs, les obligations réglementaires des entreprises en matière de RSE, et l\'engouement pour les produits artisanaux et locaux.',
+   463→   463→   463→      y,
+   464→   464→   464→    )
+   465→   465→   465→
+   466→   466→   466→    y = addSubSectionHeader(doc, 'Motivations d\'achat des clients', y)
+   467→   467→   467→    y = addBullet(doc, 'Engagement écologique : les clients recherchent des produits ayant un impact environnemental positif', y)
+   468→   468→   468→    y = addBullet(doc, 'Unicité et esthétique : chaque pièce upcyclée est unique par sa couleur, sa texture et sa forme', y)
+   469→   469→   469→    y = addBullet(doc, 'Made in France : l\'attrait pour la fabrication locale et artisanale est en hausse constante', y)
+   470→   470→   470→    y = addBullet(doc, 'Conformité RSE : les entreprises doivent intégrer des pratiques durables dans leur chaîne d\'approvisionnement', y)
+   471→   471→   471→    y = addBullet(doc, 'Storytelling : le récit de transformation du déchet en objet de valeur crée un attachement émotionnel', y)
+   472→   472→   472→    addSpacing(doc, 8)
+   473→   473→   473→
+   474→   474→   474→    y = addSubSectionHeader(doc, 'Volume de demande estimé', y)
+   475→   475→   475→    y = addKeyValueBlock(doc, [
+   476→   476→   476→      { key: 'Déchets de verre disponibles en IDF :', value: '~500 000 tonnes/an' },
+   477→   477→   477→      { key: 'Potentiel d\'upcycling (estimation) :', value: '2 000 tonnes/an' },
+   478→   478→   478→      { key: 'Besoins de production Année 1 :', value: '120 tonnes/an' },
+   479→   479→   479→      { key: 'Taux de pénétration visé Année 3 :', value: '0,24% du gisement' },
+   480→   480→   480→    ], y)
+   481→   481→   481→
+   482→   482→   482→    addSpacing(doc, 16)
+   483→   483→   483→
+   484→   484→   484→    // ═══════════════════════════════════════════
+   485→   485→   485→    // 8. SEGMENTATION CLIENTÈLE
+   486→   486→   486→    // ═══════════════════════════════════════════
+   487→   487→   487→    checkNewPage(doc, 300)
+   488→   488→   488→    y = addSectionHeader(doc, '8. Segmentation clientèle')
+   489→   489→   489→
+   490→   490→   490→    y = addParagraph(doc,
+   491→   491→   491→      'La clientèle d\'EcoVerre Île-de-France se divise en deux grands segments : le B2B (professionnels) et le B2C (particuliers). Chaque segment dispose de caractéristiques, besoins et canaux de distribution distincts.',
+   492→   492→   492→      y,
+   493→   493→   493→    )
+   494→   494→   494→    addSpacing(doc, 8)
+   495→   495→   495→
+   496→   496→   496→    y = addSubSectionHeader(doc, 'Segment B2B — Professionnels (60% du CA)', y)
+   497→   497→   497→
+   498→   498→   498→    const segB2BCols: TableColumn[] = [
+   499→   499→   499→      { header: 'Sous-segment', width: 130, align: 'left' },
+   500→   500→   500→      { header: 'Besoin principal', width: 200, align: 'left' },
+   501→   501→   501→      { header: 'Part du CA', width: 80, align: 'right' },
+   502→   502→   502→      { header: 'Potentiel', width: 75, align: 'center' },
+   503→   503→   503→    ]
+   504→   504→   504→
+   505→   505→   505→    const segB2BRows: TableRow[] = [
+   506→   506→   506→      { cells: ['Hôtellerie-restauration', 'Vaisselle, verrerie, décorations', '25%', '★★★★'], fillColor: '#E8F5E9' },
+   507→   507→   507→      { cells: ['Bureaux & entreprises', 'Luminaires, aménagements, cadeaux', '15%', '★★★☆'], fillColor: '#E8F5E9' },
+   508→   508→   508→      { cells: ['Collectivités locales', 'Mobilier urbain, signalétique', '12%', '★★★★'], fillColor: '#E8F5E9' },
+   509→   509→   509→      { cells: ['Architectes & décorateurs', 'Dalles, cloisons, sur-mesure', '8%', '★★★☆'], fillColor: '#E8F5E9' },
+   510→   510→   510→    ]
+   511→   511→   511→
+   512→   512→   512→    y = addTable(doc, segB2BCols, segB2BRows, y)
+   513→   513→   513→    addSpacing(doc, 10)
+   514→   514→   514→
+   515→   515→   515→    y = addSubSectionHeader(doc, 'Segment B2C — Particuliers (40% du CA)', y)
+   516→   516→   516→
+   517→   517→   517→    const segB2CCols: TableColumn[] = [
+   518→   518→   518→      { header: 'Profil', width: 140, align: 'left' },
+   519→   519→   519→      { header: 'Produits recherchés', width: 170, align: 'left' },
+   520→   520→   520→      { header: 'Part du CA', width: 80, align: 'right' },
+   521→   521→   521→      { header: 'Canal', width: 95, align: 'left' },
+   522→   522→   522→    ]
+   523→   523→   523→
+   524→   524→   524→    const segB2CRows: TableRow[] = [
+   525→   525→   525→      { cells: ['Éco-consommateurs (25-45 ans)', 'Vases, luminaires, objets déco', '20%', 'E-commerce, marchés'] },
+   526→   526→   526→      { cells: ['Cadeaux & mariage', 'Coffrets, verres personnalisés', '10%', 'E-commerce, pop-up'] },
+   527→   527→   527→      { cells: ['Touristes & curieux', 'Souvenirs locaux, ateliers', '10%', 'Atelier, marchés'] },
+   528→   528→   528→    ]
+   529→   529→   529→
+   530→   530→   530→    y = addTable(doc, segB2CCols, segB2CRows, y)
+   531→   531→   531→
+   532→   532→   532→    addSpacing(doc, 16)
+   533→   533→   533→
+   534→   534→   534→    // ═══════════════════════════════════════════
+   535→   535→   535→    // 9. ANALYSE DE LA CONCURRENCE
+   536→   536→   536→    // ═══════════════════════════════════════════
+   537→   537→   537→    checkNewPage(doc, 300)
+   538→   538→   538→    y = addSectionHeader(doc, '9. Analyse de la concurrence')
+   539→   539→   539→
+   540→   540→   540→    y = addParagraph(doc,
+   541→   541→   541→      'Le paysage concurrentiel du recyclage du verre en Île-de-France est dominé par quelques acteurs historiques spécialisés dans le broyage et le recyclage classique. Cependant, aucun d\'entre eux ne propose d\'offre d\'upcycling créatif positionnée sur le segment design et décoration. Cette absence constitue un avantage concurrentiel majeur pour EcoVerre.',
+   542→   542→   542→      y,
+   543→   543→   543→    )
+   544→   544→   544→    addSpacing(doc, 8)
+   545→   545→   545→
+   546→   546→   546→    const compColumns: TableColumn[] = [
+   547→   547→   547→      { header: 'Concurrent', width: 120, align: 'left' },
+   548→   548→   548→      { header: 'Localisation', width: 90, align: 'left' },
+   549→   549→   549→      { header: 'Force', width: 145, align: 'left' },
+   550→   550→   550→      { header: 'Faiblesse', width: 145, align: 'left' },
+   551→   551→   551→    ]
+   552→   552→   552→
+   553→   553→   553→    const compRows: TableRow[] = COMPETITORS.map((c) => ({
+   554→   554→   554→      cells: [c.name, c.location, c.strength, c.weakness],
+   555→   555→   555→    }))
+   556→   556→   556→
+   557→   557→   557→    y = addTable(doc, compColumns, compRows, y)
+   558→   558→   558→    addSpacing(doc, 10)
+   559→   559→   559→
+   560→   560→   560→    y = addSubSectionHeader(doc, 'Avantages concurrentiels d\'EcoVerre', y)
+   561→   561→   561→    y = addBullet(doc, 'Positionnement unique : seul acteur upcycling design sur le marché Île-de-France', y)
+   562→   562→   562→    y = addBullet(doc, 'Marge élevée : transformation d\'un déchet (coût quasi nul) en produit premium (marge 65-75%)', y)
+   563→   563→   563→    y = addBullet(doc, 'Proximité clients : atelier en petite couronne parisienne, livraison rapide', y)
+   564→   564→   564→    y = addBullet(doc, 'Innovation R&D : développement continu de nouveaux produits et procédés', y)
+   565→   565→   565→    y = addBullet(doc, 'Storytelling puissant : chaque produit porte l\'histoire de sa transformation', y)
+   566→   566→   566→
+   567→   567→   567→    addSpacing(doc, 16)
+   568→   568→   568→
+   569→   569→   569→    // ═══════════════════════════════════════════
+   570→   570→   570→    // 10. STRATÉGIE MARKETING
+   571→   571→   571→    // ═══════════════════════════════════════════
+   572→   572→   572→    checkNewPage(doc, 260)
+   573→   573→   573→    y = addSectionHeader(doc, '10. Stratégie marketing')
+   574→   574→   574→
+   575→   575→   575→    y = addParagraph(doc,
+   576→   576→   576→      'La stratégie marketing d\'EcoVerre repose sur un positionnement haut de gamme axé sur la durabilité, le design et l\'artisanat français. L\'entreprise vise à devenir la référence de l\'upcycling verrier en Île-de-France en combinant une présence digitale forte et un ancrage local solide.',
+   577→   577→   577→      y,
+   578→   578→   578→    )
+   579→   579→   579→
+   580→   580→   580→    y = addSubSectionHeader(doc, 'Positionnement', y)
+   581→   581→   581→    y = addKeyValueBlock(doc, [
+   582→   582→   582→      { key: 'Promesse :', value: 'Transformer le verre en beauté, localement et durablement' },
+   583→   583→   583→      { key: 'Cible principale :', value: 'Professionnels éco-responsables et consommateurs engagés' },
+   584→   584→   584→      { key: 'Position prix :', value: 'Milieu-haut de gamme (produits artisanaux, fabrication française)' },
+   585→   585→   585→      { key: 'Différenciateur :', value: 'Upcycling créatif (vs. recyclage broyage des concurrents)' },
+   586→   586→   586→    ], y)
+   587→   587→   587→    addSpacing(doc, 10)
+   588→   588→   588→
+   589→   589→   589→    y = addSubSectionHeader(doc, 'Piliers de la stratégie', y)
+   590→   590→   590→    y = addBullet(doc, 'Storytelling : communiquer l\'histoire de chaque produit, du déchet à l\'objet d\'art', y)
+   591→   591→   591→    y = addBullet(doc, 'Transparence : publier le bilan environnemental (kg CO₂ évités, tonnes recyclées)', y)
+   592→   592→   592→    y = addBullet(doc, 'Partenariats : collaborer avec des architectes, décorateurs et influenceurs éco-responsables', y)
+   593→   593→   593→    y = addBullet(doc, 'Expérience client : proposer des visites d\'atelier et des ateliers créatifs', y)
+   594→   594→   594→    y = addBullet(doc, 'Certifications : obtenir la mention Entreprise à Mission et l\'ISO 14001 dès que possible', y)
+   595→   595→   595→
+   596→   596→   596→    addSpacing(doc, 16)
+   597→   597→   597→
+   598→   598→   598→    // ═══════════════════════════════════════════
+   599→   599→   599→    // 11. PLAN COMMERCIAL
+   600→   600→   600→    // ═══════════════════════════════════════════
+   601→   601→   601→    checkNewPage(doc, 260)
+   602→   602→   602→    y = addSectionHeader(doc, '11. Plan commercial')
+   603→   603→   603→
+   604→   604→   604→    y = addParagraph(doc,
+   605→   605→   605→      'Le plan commercial s\'articule autour de deux axes complémentaires : le développement des ventes B2B via une approche terrain et le développement des ventes B2C via le canal digital.',
+   606→   606→   606→      y,
+   607→   607→   607→    )
+   608→   608→   608→
+   609→   609→   609→    y = addSubSectionHeader(doc, 'Objectifs commerciaux', y)
+   610→   610→   610→    y = addKeyValueBlock(doc, [
+   611→   611→   611→      { key: 'Année 1 :', value: 'CA ' + formatCurrency(180_000) + ' — 25 clients B2B, 500 clients B2C' },
+   612→   612→   612→      { key: 'Année 2 :', value: 'CA ' + formatCurrency(310_000) + ' — 50 clients B2B, 1 200 clients B2C' },
+   613→   613→   613→      { key: 'Année 3 :', value: 'CA ' + formatCurrency(450_000) + ' — 80 clients B2B, 2 500 clients B2C' },
+   614→   614→   614→    ], y)
+   615→   615→   615→    addSpacing(doc, 10)
+   616→   616→   616→
+   617→   617→   617→    y = addSubSectionHeader(doc, 'Actions commerciales B2B', y)
+   618→   618→   618→    y = addBullet(doc, 'Prospection ciblée : 100 entreprises HR contactées par trimestre via LinkedIn et téléphone', y)
+   619→   619→   619→    y = addBullet(doc, 'Démonstrations produits : envoi d\'échantillons personnalisés aux décideurs', y)
+   620→   620→   620→    y = addBullet(doc, 'Présence salons : participer à Equip\u2019Hôtel, Paris Design Week, et salons RSE', y)
+   621→   621→   621→    y = addBullet(doc, 'Partenariats distributeurs : collaborer avec des concept-stores éco-responsables', y)
+   622→   622→   622→    addSpacing(doc, 8)
+   623→   623→   623→
+   624→   624→   624→    y = addSubSectionHeader(doc, 'Actions commerciales B2C', y)
+   625→   625→   625→    y = addBullet(doc, 'Site e-commerce : catalogue en ligne avec personnalisation (gravure, couleur)', y)
+   626→   626→   626→    y = addBullet(doc, 'Réseaux sociaux : Instagram et TikTok (tuto upcycling, before/after, coulisses)', y)
+   627→   627→   627→    y = addBullet(doc, 'Marchés locaux : présence hebdomadaire sur 3 marchés en petite couronne', y)
+   628→   628→   628→    y = addBullet(doc, 'Ateliers découverte : 2 ateliers par mois dans l\'atelier de Montreuil (15 pers./session)', y)
+   629→   629→   629→
+   630→   630→   630→    addSpacing(doc, 16)
+   631→   631→   631→
+   632→   632→   632→    // ═══════════════════════════════════════════
+   633→   633→   633→    // 12. POLITIQUE DE PRIX
+   634→   634→   634→    // ═══════════════════════════════════════════
+   635→   635→   635→    checkNewPage(doc, 260)
+   636→   636→   636→    y = addSectionHeader(doc, '12. Politique de prix')
+   637→   637→   637→
+   638→   638→   638→    y = addParagraph(doc,
+   639→   639→   639→      'La politique de prix d\'EcoVerre repose sur une stratégie de différenciation par la valeur. Les produits upcyclés sont positionnés en gamme moyenne-haute, reflétant leur caractère artisanal, unique et éco-responsable. Les coûts de matières premières étant très faibles (déchets gratuits), la marge brute est élevée, ce qui permet d\'absorber les charges de production et de développer la rentabilité.',
+   640→   640→   640→      y,
+   641→   641→   641→    )
+   642→   642→   642→    addSpacing(doc, 8)
+   643→   643→   643→
+   644→   644→   644→    const priceColumns: TableColumn[] = [
+   645→   645→   645→      { header: 'Produit', width: 180, align: 'left' },
+   646→   646→   646→      { header: 'Prix unitaire HT', width: 110, align: 'right' },
+   647→   647→   647→      { header: 'Coût de production', width: 110, align: 'right' },
+   648→   648→   648→      { header: 'Marge brute', width: 85, align: 'center' },
+   649→   649→   649→    ]
+   650→   650→   650→
+   651→   651→   651→    const priceRows: TableRow[] = [
+   652→   652→   652→      { cells: ['Set de 6 verres upcyclés', '45 €', '12 €', '73%'], fillColor: '#E8F5E9' },
+   653→   653→   653→      { cells: ['Vase artisanal moyen', '65 €', '15 €', '77%'], fillColor: '#E8F5E9' },
+   654→   654→   654→      { cells: ['Luminaire suspension', '120 €', '28 €', '77%'], fillColor: '#E8F5E9' },
+   655→   655→   655→      { cells: ['Dalle décorative (30×30)', '55 €', '10 €', '82%'], fillColor: '#E8F5E9' },
+   656→   656→   656→      { cells: ['Coffret cadeau personnalisé', '35 €', '8 €', '77%'], fillColor: '#E8F5E9' },
+   657→   657→   657→      { cells: ['Mobilier urbain (sur devis)', 'Sur devis', '~200 €', '65%'], fillColor: '#E8F5E9' },
+   658→   658→   658→      { cells: ['Atelier découverte (pers.)', '25 €', '5 €', '80%'], fillColor: '#E8F5E9' },
+   659→   659→   659→    ]
+   660→   660→   660→
+   661→   661→   661→    y = addTable(doc, priceColumns, priceRows, y)
+   662→   662→   662→    addSpacing(doc, 10)
+   663→   663→   663→
+   664→   664→   664→    y = addSubSectionHeader(doc, 'Stratégie de prix', y)
+   665→   665→   665→    y = addBullet(doc, 'Prix premium justifié par l\'artisanat, l\'unicité et l\'engagement éco-responsable', y)
+   666→   666→   666→    y = addBullet(doc, 'Remises quantité B2B : -10% dès 20 unités, -20% dès 50 unités', y)
+   667→   667→   667→    y = addBullet(doc, 'Tarifs dégressifs pour les contrats de collecte annuels avec les industriels', y)
+   668→   668→   668→    y = addBullet(doc, 'Prix d\'appel lors du lancement : -15% sur la première commande B2B', y)
+   669→   669→   669→
+   670→   670→   670→    addSpacing(doc, 16)
+   671→   671→   671→
+   672→   672→   672→    // ═══════════════════════════════════════════
+   673→   673→   673→    // 13. PLAN DE COMMUNICATION
+   674→   674→   674→    // ═══════════════════════════════════════════
+   675→   675→   675→    checkNewPage(doc, 260)
+   676→   676→   676→    y = addSectionHeader(doc, '13. Plan de communication')
+   677→   677→   677→
+   678→   678→   678→    y = addParagraph(doc,
+   679→   679→   679→      'Le plan de communication vise à construire la notoriété d\'EcoVerre en ligne et hors ligne, en valorisant l\'histoire de la marque, les coulisses de la production et l\'impact environnemental mesurable de chaque produit.',
+   680→   680→   680→      y,
+   681→   681→   681→    )
+   682→   682→   682→    addSpacing(doc, 8)
+   683→   683→   683→
+   684→   684→   684→    y = addSubSectionHeader(doc, 'Axes de communication', y)
+   685→   685→   685→    y = addBullet(doc, 'Identité visuelle : logo, charte graphique et packaging éco-conçus (carton recyclé, encre végétale)', y)
+   686→   686→   686→    y = addBullet(doc, 'Site web : vitrine e-commerce avec blog (tutoriels, interviews, bilan environnemental)', y)
+   687→   687→   687→    y = addBullet(doc, 'Réseaux sociaux : Instagram (3 publications/semaine), TikTok (2 vidéos/semaine), LinkedIn (B2B)', y)
+   688→   688→   688→    y = addBullet(doc, 'Relations presse : communiqués de lancement, partenariats avec médias éco-responsables', y)
+   689→   689→   689→    y = addBullet(doc, 'Événements : participation à 6 salons/marchés par an, organisation de portes ouvertes trimestrielles', y)
+   690→   690→   690→    y = addBullet(doc, 'Newsletters : mensuelle pour les clients B2C, trimestrielle pour les prospects B2B', y)
+   691→   691→   691→    addSpacing(doc, 8)
+   692→   692→   692→
+   693→   693→   693→    y = addSubSectionHeader(doc, 'Budget communication Année 1', y)
+   694→   694→   694→    y = addKeyValueBlock(doc, [
+   695→   695→   695→      { key: 'Site web + e-commerce :', value: formatCurrency(6_000) },
+   696→   696→   696→      { key: 'Réseaux sociaux (contenu) :', value: formatCurrency(3_000) },
+   697→   697→   697→      { key: 'Salons et événements :', value: formatCurrency(4_000) },
+   698→   698→   698→      { key: 'Print et goodies éco-conçus :', value: formatCurrency(2_000) },
+   699→   699→   699→      { key: 'Total :', value: formatCurrency(15_000) },
+   700→   700→   700→    ], y)
+   701→   701→   701→
+   702→   702→   702→    addSpacing(doc, 16)
+   703→   703→   703→
+   704→   704→   704→    // ═══════════════════════════════════════════
+   705→   705→   705→    // 14. ORGANISATION ET MANAGEMENT
+   706→   706→   706→    // ═══════════════════════════════════════════
+   707→   707→   707→    checkNewPage(doc, 260)
+   708→   708→   708→    y = addSectionHeader(doc, '14. Organisation et management')
+   709→   709→   709→
+   710→   710→   710→    y = addParagraph(doc,
+   711→   711→   711→      'L\'organisation d\'EcoVerre est structurée pour garantir l\'efficacité opérationnelle tout en conservant la flexibilité d\'une startup. L\'équipe fondatrice assure les fonctions clés en phase de lancement, avec un plan de recrutement progressif en fonction de la croissance du chiffre d\'affaires.',
+   712→   712→   712→      y,
+   713→   713→   713→    )
+   714→   714→   714→    addSpacing(doc, 8)
+   715→   715→   715→
+   716→   716→   716→    y = addSubSectionHeader(doc, 'Organigramme', y)
+   717→   717→   717→    y = addBullet(doc, 'Direction Générale : ' + FOUNDER.name + ' — stratégie, R&D, relations partenaires', y)
+   718→   718→   718→    y = addBullet(doc, 'Direction Commerciale : Thomas Laurent — prospection B2B/B2C, suivi clients, salons', y)
+   719→   719→   719→    y = addBullet(doc, 'R&D : Fatima Benali — développement produits, tests qualité, innovation procédés', y)
+   720→   720→   720→    y = addBullet(doc, 'Production : Lucas Moreau — gestion atelier, approvisionnement, maintenance équipements', y)
+   721→   721→   721→    addSpacing(doc, 8)
+   722→   722→   722→
+   723→   723→   723→    y = addSubSectionHeader(doc, 'Plan de recrutement', y)
+   724→   724→   724→    y = addKeyValueBlock(doc, [
+   725→   725→   725→      { key: 'Année 1 :', value: '4 personnes (équipe fondatrice)' },
+   726→   726→   726→      { key: 'Année 2 :', value: '6 personnes (+1 technicien production, +1 logistique)' },
+   727→   727→   727→      { key: 'Année 3 :', value: '8 personnes (+1 commercial, +1 community manager)' },
+   728→   728→   728→    ], y)
+   729→   729→   729→    addSpacing(doc, 8)
+   730→   730→   730→
+   731→   731→   731→    y = addSubSectionHeader(doc, 'Outils et méthodes', y)
+   732→   732→   732→    y = addBullet(doc, 'ERP : Odoo (gestion stock, commandes, comptabilité, CRM)', y)
+   733→   733→   733→    y = addBullet(doc, 'Communication interne : Slack + visio hebdomadaire d\'équipe', y)
+   734→   734→   734→    y = addBullet(doc, 'Gestion de projet : Notion (kanban, suivi des tâches, documentation)', y)
+   735→   735→   735→    y = addBullet(doc, 'Méthode de production : Lean Manufacturing (réduction des gaspillages, amélioration continue)', y)
+   736→   736→   736→
+   737→   737→   737→    addSpacing(doc, 16)
+   738→   738→   738→
+   739→   739→   739→    // ═══════════════════════════════════════════
+   740→   740→   740→    // 15. STATUT JURIDIQUE ET FISCAL
+   741→   741→   741→    // ═══════════════════════════════════════════
+   742→   742→   742→    checkNewPage(doc, 260)
+   743→   743→   743→    y = addSectionHeader(doc, '15. Statut juridique et fiscal')
+   744→   744→   744→
+   745→   745→   745→    y = addParagraph(doc,
+   746→   746→   746→      'Le choix de la SAS (Société par Actions Simplifiée) a été motivé par sa flexibilité statutaire, la protection du patrimoine personnel de la fondatrice, et la possibilité d\'intégrer facilement de nouveaux associés ou investisseurs. L\'entreprise bénéficiera du régime fiscal des PME et d\'allègements en tant que jeune entreprise innovante.',
+   747→   747→   747→      y,
+   748→   748→   748→    )
+   749→   749→   749→    addSpacing(doc, 8)
+   750→   750→   750→
+   751→   751→   751→    y = addSubSectionHeader(doc, 'Détails juridiques', y)
+   752→   752→   752→    y = addKeyValueBlock(doc, [
+   753→   753→   753→      { key: 'Forme :', value: 'SAS (Société par Actions Simplifiée)' },
+   754→   754→   754→      { key: 'Capital social :', value: formatCurrency(BUSINESS.capital) },
+   755→   755→   755→      { key: 'Associé unique :', value: FOUNDER.name + ' (100% des parts)' },
+   756→   756→   756→      { key: 'Gérance :', value: 'Présidente-directrice générale (PDG)' },
+   757→   757→   757→      { key: 'SIRET :', value: BUSINESS.siret },
+   758→   758→   758→      { key: 'Code NAF :', value: '3832Z — Récupération de déchets triés' },
+   759→   759→   759→    ], y)
+   760→   760→   760→    addSpacing(doc, 10)
+   761→   761→   761→
+   762→   762→   762→    y = addSubSectionHeader(doc, 'Régime fiscal et social', y)
+   763→   763→   763→    y = addBullet(doc, 'Impôt sur les sociétés (IS) : taux réduit à 15% jusqu\'à 42 500 € de bénéfice', y)
+   764→   764→   764→    y = addBullet(doc, 'TVA : taux normal 20% sur les ventes de produits finis', y)
+   765→   765→   765→    y = addBullet(doc, 'CVAE/CFE : exonération partielle en zone franche urbaine (Montreuil ZFU)', y)
+   766→   766→   766→    y = addBullet(doc, 'Régime social du dirigeant : assimilé-salarié (protection sociale complète)', y)
+   767→   767→   767→    y = addBullet(doc, 'Aides à l\'embauche : réductions Fillon, aide unique TPE/PME pour les 2 premiers salariés', y)
+   768→   768→   768→    addSpacing(doc, 8)
+   769→   769→   769→
+   770→   770→   770→    y = addSubSectionHeader(doc, 'Assurances', y)
+   771→   771→   771→    y = addBullet(doc, 'Responsabilité civile professionnelle : couverture des dommages causés aux tiers', y)
+   772→   772→   772→    y = addBullet(doc, 'Assurance multirisque atelier : incendie, dégât des eaux, vol d\'équipements', y)
+   773→   773→   773→    y = addBullet(doc, 'Assurance véhicule professionnel : pour les tournées de collecte', y)
+   774→   774→   774→
+   775→   775→   775→    addSpacing(doc, 16)
+   776→   776→   776→
+   777→   777→   777→    // ═══════════════════════════════════════════
+   778→   778→   778→    // 16. PLAN DE FINANCEMENT
+   779→   779→   779→    // ═══════════════════════════════════════════
+   780→   780→   780→    checkNewPage(doc, 280)
+   781→   781→   781→    y = addSectionHeader(doc, '16. Plan de financement')
+   782→   782→   782→
+   783→   783→   783→    y = addParagraph(doc,
+   784→   784→   784→      'Le plan de financement prévoit un investissement total de ' + formatCurrency(150_000) + ' pour lancer l\'activité. Les besoins de financement couvrent l\'aménagement de l\'atelier, l\'acquisition des équipements de production, le développement du site web, les frais de constitution et une trésorerie de sécurité de 3 mois.',
+   785→   785→   785→      y,
+   786→   786→   786→    )
+   787→   787→   787→    addSpacing(doc, 8)
+   788→   788→   788→
+   789→   789→   789→    y = addSubSectionHeader(doc, 'Tableau de financement — Ressources', y)
+   790→   790→   790→
+   791→   791→   791→    const finResCols: TableColumn[] = [
+   792→   792→   792→      { header: 'Source de financement', width: 280, align: 'left' },
+   793→   793→   793→      { header: 'Montant', width: 145, align: 'right' },
+   794→   794→   794→      { header: 'Part', width: 60, align: 'center' },
+   795→   795→   795→    ]
+   796→   796→   796→
+   797→   797→   797→    const totalResources = FINANCING_PLAN.reduce((s, f) => s + f.amount, 0)
+   798→   798→   798→    const finResRows: TableRow[] = FINANCING_PLAN.map((f) => ({
+   799→   799→   799→      cells: [f.label, formatCurrency(f.amount), formatPercent((f.amount / totalResources) * 100)],
+
+[showing lines 400-799 of 1186; use offset=800 with limit to continue reading]

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Loader2, Printer, X } from 'lucide-react'
+import { Loader2, Printer, Download, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 // ─── Types ──────────────────────────────────
@@ -126,6 +126,7 @@ const SECTIONS_CONFIG = [
 export function BusinessPlanPdf({ onClose }: { onClose: () => void }) {
   const [data, setData] = useState<BpExportData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [pdfLoading, setPdfLoading] = useState(false)
 
   useEffect(() => {
     async function fetch() {
@@ -147,6 +148,36 @@ export function BusinessPlanPdf({ onClose }: { onClose: () => void }) {
   const handlePrint = useCallback(() => {
     window.print()
   }, [])
+
+  const handleDownloadPdf = useCallback(async () => {
+    setPdfLoading(true)
+    try {
+      const res = await fetch('/api/export/business-plan/pdf', { method: 'POST' })
+      if (!res.ok) {
+        let errorMsg = 'Erreur lors de la génération du PDF'
+        try {
+          const json = await res.json()
+          if (json.error?.message) errorMsg = json.error.message
+        } catch { /* ignore parse error */ }
+        toast.error(errorMsg)
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `business-plan-${(data?.project.title || 'projet').toLowerCase().replace(/[^a-z0-9\s-]/gi, '').replace(/\s+/g, '-').slice(0, 60)}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success('PDF téléchargé avec succès')
+    } catch {
+      toast.error('Erreur réseau lors du téléchargement')
+    } finally {
+      setPdfLoading(false)
+    }
+  }, [data])
 
   if (loading) {
     return (
@@ -175,9 +206,18 @@ export function BusinessPlanPdf({ onClose }: { onClose: () => void }) {
       <div className="no-print sticky top-0 z-10 bg-white border-b px-4 py-3 flex items-center justify-between rounded-t-lg">
         <h3 className="text-sm font-semibold text-foreground">Aperçu du Business Plan</h3>
         <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+            onClick={handleDownloadPdf}
+            disabled={pdfLoading}
+          >
+            {pdfLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            {pdfLoading ? 'Génération...' : 'Télécharger le PDF professionnel'}
+          </Button>
           <Button size="sm" className="gap-1.5 bg-[#00838F] hover:bg-[#00838F]/90 text-white" onClick={handlePrint}>
             <Printer className="h-3.5 w-3.5" />
-            Imprimer / Sauvegarder en PDF
+            Imprimer
           </Button>
           <Button size="sm" variant="ghost" onClick={onClose}>
             <X className="h-4 w-4" />
