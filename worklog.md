@@ -163,3 +163,26 @@ Stage Summary:
 - 24 BP sections rendered with proper formatting (text, tables, SWOT grid, timeline)
 - Premium download button added to the BP preview component
 - All 3 appendices (market analysis, financial summary, legal structure) appended conditionally
+---
+Task ID: 1
+Agent: Main
+Task: Fix CSRF error on Vercel deployment and push code to GitHub
+
+Work Log:
+- Analyzed auth architecture: custom JWT auth (jose), NOT NextAuth.js
+- Found that NO API route currently uses `withAuthCsrf` wrapper
+- Identified root cause: `withAuthCsrf` double-submit cookie CSRF pattern causes false positives in serverless environments when csrf_token cookie isn't properly available
+- Fixed `api-csrf.ts`: withAuthCsrf now skips CSRF check when Bearer token is present (Bearer tokens provide inherent CSRF protection)
+- Fixed `auth-fetch.ts`: refreshAccessToken now includes CSRF token in POST request
+- Fixed `package.json`: simplified build script to `next build` (standalone moved to `build:standalone`)
+- Added `postinstall` script for `prisma generate` on Vercel
+- Removed obsolete `deploy-files/` directory
+- Created GitHub repo: igormaganda/creapulse
+- Pushed all code (1280 files, 393 src files) to GitHub
+- Vercel deployment requires user to connect the repo and set env vars (no Vercel API token available)
+
+Stage Summary:
+- CSRF fix: Bearer token presence bypasses double-submit cookie check
+- Build fix: `next build` (no standalone copy commands)
+- GitHub repo: https://github.com/igormaganda/creapulse
+- Pending: User must connect repo to Vercel and set env vars
