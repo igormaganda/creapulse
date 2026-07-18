@@ -15,30 +15,38 @@ let isRefreshing = false
 let refreshPromise: Promise<boolean> | null = null
 
 /**
- * Attempt to refresh the access token via /api/auth/refresh.
- * Returns true if successful, false otherwise.
- */
-async function refreshAccessToken(): Promise<boolean> {
-  try {
-    const res = await fetch('/api/auth/refresh', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-    })
-
-    return res.ok
-  } catch {
-    return false
-  }
-}
-
-/**
  * Get CSRF token from cookie for double-submit pattern.
  */
 function getCsrfToken(): string | null {
   if (typeof document === 'undefined') return null
   const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/)
   return match ? decodeURIComponent(match[1]) : null
+}
+
+/**
+ * Attempt to refresh the access token via /api/auth/refresh.
+ * Includes CSRF token on the POST request.
+ * Returns true if successful, false otherwise.
+ */
+async function refreshAccessToken(): Promise<boolean> {
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    const csrfToken = getCsrfToken()
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken
+    }
+    const res = await fetch('/api/auth/refresh', {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+    })
+
+    return res.ok
+  } catch {
+    return false
+  }
 }
 
 /**

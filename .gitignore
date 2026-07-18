@@ -51,4 +51,10 @@ prompt
 
 server.log
 # Skills directory
-/skills/
+/skills/tool-results/
+
+# Skills (local only)
+skills/
+
+# Tool results
+tool-results/

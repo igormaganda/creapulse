@@ -2,6 +2,12 @@
 // CreaPulse V2 — Enhanced API Auth with CSRF
 // Wraps withAuth to also validate CSRF on mutating requests.
 // GET/HEAD/OPTIONS are exempt from CSRF checks.
+//
+// IMPORTANT: CSRF validation is SKIPPED when a Bearer token is present
+// in the Authorization header, because browsers do not automatically
+// include custom headers in cross-origin requests. This provides
+// inherent CSRF protection without the double-submit cookie pattern,
+// which is prone to false positives in serverless/edge environments.
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -15,10 +21,21 @@ interface WithAuthCsrfOptions {
 }
 
 /**
+ * Check if the request carries a Bearer token in the Authorization header.
+ * Bearer tokens are NOT automatically sent by browsers, so their presence
+ * provides inherent CSRF protection.
+ */
+function hasBearerToken(request: NextRequest): boolean {
+  const auth = request.headers.get('authorization')
+  return !!auth && auth.toLowerCase().startsWith('bearer ')
+}
+
+/**
  * Enhanced auth wrapper with CSRF protection.
  *
  * For GET/HEAD/OPTIONS: Same as withAuth (no CSRF check needed).
- * For POST/PUT/PATCH/DELETE: Also validates the X-CSRF-Token header
+ * For POST/PUT/PATCH/DELETE with Bearer token: Skip CSRF (Bearer provides protection).
+ * For POST/PUT/PATCH/DELETE without Bearer token: Validate X-CSRF-Token header
  * against the csrf_token cookie (double-submit pattern).
  *
  * Usage:
@@ -32,9 +49,9 @@ export async function withAuthCsrf(
 ): Promise<AuthResult | NextResponse> {
   const method = request.method.toUpperCase()
 
-  // CSRF check for state-changing methods
+  // CSRF check only for state-changing methods WITHOUT Bearer token
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
-    if (!validateCsrf(request)) {
+    if (!hasBearerToken(request) && !validateCsrf(request)) {
       return NextResponse.json(
         {
           success: false,
