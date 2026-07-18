@@ -186,3 +186,24 @@ Stage Summary:
 - Build fix: `next build` (no standalone copy commands)
 - GitHub repo: https://github.com/igormaganda/creapulse
 - Pending: User must connect repo to Vercel and set env vars
+
+---
+Task ID: 2
+Agent: Main
+Task: Integrate audio (TTS + ASR) into Parcours modules
+
+Work Log:
+- Created POST /api/audio/tts route using z-ai-web-dev-sdk (MP3, 1024 char limit, cached)
+- Created useAudioHelper hook with TTS (browser SpeechSynthesis), ASR (SpeechRecognition), voice answer matching, auto-advance
+- Created AudioControls UI component (floating pill bar: read/mic/auto-advance buttons)
+- Added Web Speech API type declarations for TypeScript
+- Integrated into RIASEC: voice-driven quiz with auto-read + voice answer (1-5/Likert labels) → auto-advance
+- Integrated into Pépites Flash Swipe: card read-aloud + voice commands (pépite/pass/super)
+- Integrated into Questionnaire: question read-aloud + voice scale/choice/open answers
+- Fixed lint errors in optional-deps.d.ts (var → const)
+
+Stage Summary:
+- 7 new/modified files, 1208 lines added
+- Pushed to GitHub: igormaganda/creapulse
+- Audio system is extensible: any module can use AudioControls with readText + matchOptions
+- Remaining modules (profil, projet, vision, bilan-ia, kiviat) can be added incrementally
