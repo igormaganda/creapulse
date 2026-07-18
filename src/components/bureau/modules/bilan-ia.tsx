@@ -39,6 +39,7 @@ import {
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/zustand/store'
+import { AudioControls } from '@/components/audio/audio-controls'
 
 // ────────────────────────────────────────────
 // Types
@@ -339,6 +340,10 @@ export function BilanIA() {
                 ? 'Régénérer'
                 : 'Générer mon bilan IA'}
           </Button>
+          <AudioControls
+            readText={data?.bilan ? `Bilan IA. Score global: ${data.bilan.globalScore} sur 100, ${data.bilan.globalScoreLabel}. ${data.bilan.synthesis ? data.bilan.synthesis.substring(0, 300) : ''}` : 'Bilan IA. Synthèse intelligente de votre parcours entrepreneurial. Cliquez sur générer pour créer votre bilan.'}
+            compact
+          />
         </div>
       </div>
 

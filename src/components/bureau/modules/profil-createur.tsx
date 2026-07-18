@@ -42,6 +42,7 @@ import dynamic from 'next/dynamic'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/zustand/store'
+import { AudioControls } from '@/components/audio/audio-controls'
 
 /* ─── Dynamic imports ─── */
 const FileUpload = dynamic(() => import('../file-upload').then(m => ({ default: m.FileUpload })), { ssr: false })
@@ -351,6 +352,10 @@ export function ProfilCreateur() {
             )}
             {saveStatus === 'saving' ? 'Sauvegarde...' : saveStatus === 'saved' ? 'Sauvegardé !' : 'Sauvegarder'}
           </Button>
+          <AudioControls
+            readText={`Profil créateur. Complétion: ${completion} pour cent. ${activeTab === 'personal' ? 'Onglet informations personnelles.' : activeTab === 'professional' ? 'Onglet parcours professionnel.' : 'Onglet compétences et objectifs.'} ${data.firstName || data.lastName ? 'Bonjour ' + (data.firstName || '') + ' ' + (data.lastName || '') + '.' : 'Complétez votre profil pour un accompagnement personnalisé.'}`}
+            compact
+          />
         </div>
       </div>
 

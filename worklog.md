@@ -207,3 +207,64 @@ Stage Summary:
 - Pushed to GitHub: igormaganda/creapulse
 - Audio system is extensible: any module can use AudioControls with readText + matchOptions
 - Remaining modules (profil, projet, vision, bilan-ia, kiviat) can be added incrementally
+---
+Task ID: 1
+Agent: Main Agent
+Task: Implement audio integration (TTS/STT) in all Parcours sub-menus + RIASEC click-to-advance
+
+Work Log:
+- Explored all 9 Parcours sub-menu components (profil-createur, mon-projet, vision, pepites-game, riasec, kiviat, bilan-ia, creascope-pipeline, parcours-paa)
+- Analyzed existing AudioControls component and useAudioHelper hook
+- Identified that RIASEC and Pépites Questionnaire already had AudioControls but lacked click-to-advance
+- Identified that Scenario Challenge, Kiviat, Vision, Mon-Projet, Profil-Createur, Bilan-IA, and PAA had NO audio integration
+
+Changes Made:
+
+1. **RIASEC (riasec.tsx)** — Click-to-advance
+   - Added `useRef` import and `autoAdvanceTimerRef` to track pending timers
+   - Modified Likert button onClick to auto-advance after 400ms (same as voice auto-advance)
+   - Timer is cancelled if user clicks a different option before timeout fires
+
+2. **Pépites Questionnaire (questionnaire.tsx)** — Click-to-advance
+   - Added `useRef` import and `autoAdvanceRef` to QuestionCard
+   - Modified `handleChoiceSelect` to auto-advance after 800ms (enough to show feedback)
+   - Scale/slider questions keep manual "Suivant" (user needs to adjust value)
+   - Ranking and open text questions keep manual validation
+
+3. **Pépites Scenario Challenge (scenario-challenge.tsx)** — Audio + Click-to-advance
+   - Added AudioControls import and useAudioHelper MatchOptions type
+   - Added `autoAdvanceRef` and modified `handleAnswer` to auto-advance after 1000ms
+   - Added AudioControls with readText (scenario + options) and voice answer handler (letter/number matching)
+   - "Suivant" button still available for manual navigation
+
+4. **Kiviat (kiviat.tsx)** — Audio read-aloud
+   - Added AudioControls import
+   - Added compact AudioControls in header that reads all 8 dimension scores
+
+5. **Vision (vision.tsx)** — Audio read-aloud
+   - Added AudioControls import
+   - Added compact AudioControls that reads project title, completion %, and vision statement
+
+6. **Mon-Projet (mon-projet.tsx)** — Audio read-aloud
+   - Added AudioControls import
+   - Added compact AudioControls that reads current step name, description, and project title
+
+7. **Profil-Createur (profil-createur.tsx)** — Audio read-aloud
+   - Added AudioControls import
+   - Added compact AudioControls that reads completion %, active tab, and user name
+
+8. **Bilan-IA (bilan-ia.tsx)** — Audio read-aloud
+   - Added AudioControls import
+   - Added compact AudioControls that reads global score, label, and synthesis (or prompt to generate)
+
+9. **Parcours PAA (parcours-paa.tsx)** — Audio read-aloud
+   - Added AudioControls import
+   - Added compact AudioControls in intro section that reads program description
+
+Stage Summary:
+- 9 files modified across the Parcours section
+- 3 quiz components now have click-to-advance (RIASEC, Questionnaire, Scenario Challenge)
+- 7 form/info components now have TTS audio controls (all Parcours modules except CréaScope pipeline which is counselor-facing)
+- Lint passes with no new errors (1 pre-existing error in error-boundary.tsx, 335 warnings in seed files)
+- Flash Swipe already had AudioControls and uses swipe UX (no click-to-advance needed)
+- CréaScope pipeline is counselor/admin only — skipped

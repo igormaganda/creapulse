@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useRef, useMemo, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -43,6 +43,7 @@ function QuestionCard({
   const [openText, setOpenText] = useState('')
   const [ranking, setRanking] = useState<number[]>([])
   const [showFeedback, setShowFeedback] = useState(false)
+  const autoAdvanceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleSubmit = () => {
     if (question.type === 'open') {
@@ -65,6 +66,11 @@ function QuestionCard({
     const letter = OPTION_LABELS[optionIndex]
     onAnswer(letter)
     setShowFeedback(true)
+    // Click-to-advance: auto-advance after showing feedback
+    if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current)
+    autoAdvanceRef.current = setTimeout(() => {
+      onNext()
+    }, 800)
   }
 
   const bestOption = useMemo(() => {

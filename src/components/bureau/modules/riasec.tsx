@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   RadarChart,
@@ -484,6 +484,9 @@ function QuizScreen({
   const isLastQuestion = currentQuestion === QUESTIONS.length - 1
   const canContinue = selectedValue !== undefined
 
+  // ── Click-to-advance timer ──
+  const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // ── Audio: voice-driven quiz ──
   const [audioAutoAdvance, setAudioAutoAdvance] = useState(true)
 
@@ -564,7 +567,18 @@ function QuizScreen({
                       key={value}
                       whileHover={{ scale: 1.01 }}
                       whileTap={{ scale: 0.99 }}
-                      onClick={() => onAnswer(question.id, value)}
+                      onClick={() => {
+                        onAnswer(question.id, value)
+                        // Click-to-advance: cancel any pending timer, then auto-advance
+                        if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current)
+                        autoAdvanceTimerRef.current = setTimeout(() => {
+                          if (isLastQuestion) {
+                            onFinish()
+                          } else {
+                            onNext()
+                          }
+                        }, 400)
+                      }}
                       role="radio"
                       aria-checked={isSelected}
                       aria-label={`${label}, note ${value} sur 5`}

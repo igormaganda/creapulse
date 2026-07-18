@@ -39,6 +39,7 @@ import {
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/zustand/store'
+import { AudioControls } from '@/components/audio/audio-controls'
 
 // ────────────────────────────────────────────
 // Types
@@ -461,6 +462,10 @@ export function VisionModule() {
             )}
             {saveStatus === 'saving' ? 'Sauvegarde...' : saveStatus === 'saved' ? 'Sauvegardé !' : 'Sauvegarder'}
           </Button>
+          <AudioControls
+            readText={`Vision stratégique. ${data.projectTitle ? 'Projet: ' + data.projectTitle + '. ' : ''}Complétion: ${calculateCompletion(data)} pour cent. ${data.visionStatement ? 'Votre vision: ' + data.visionStatement : 'Définissez votre vision à long terme.'}`}
+            compact
+          />
         </div>
       </div>
 

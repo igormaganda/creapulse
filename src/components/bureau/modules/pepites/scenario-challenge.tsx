@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useRef, useMemo, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -11,6 +11,8 @@ import { SWIPE_QUESTIONS, type SwipeQuestionData } from '@/data/swipe-questions'
 import { cn } from '@/lib/utils'
 import { DIMENSION_CODES, type QuestionAnswer } from '@/lib/kiviat-scoring'
 import { shuffleArray, DIMENSION_COLORS, DIMENSION_LABELS, OPTION_LABELS } from './shared'
+import { AudioControls } from '@/components/audio/audio-controls'
+import type { MatchOptions } from '@/lib/hooks/useAudioHelper'
 
 // ─── ScenarioChallenge ───────────────────────────
 
@@ -49,11 +51,41 @@ export function ScenarioChallenge({
   const [answers, setAnswers] = useState<QuestionAnswer[]>([])
   const [currentAnswer, setCurrentAnswer] = useState<string | number | undefined>()
   const [showFeedback, setShowFeedback] = useState(false)
+  const autoAdvanceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleAnswer = useCallback((val: string | number) => {
     setCurrentAnswer(val)
     setShowFeedback(true)
-  }, [])
+    // Click-to-advance: auto-advance after showing feedback
+    if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current)
+    autoAdvanceRef.current = setTimeout(() => {
+      // handleNext logic
+      const newAnswers = [...answers]
+      if (currentQ < newAnswers.length) {
+        newAnswers[currentQ] = {
+          questionCode: scenarios[currentQ].code,
+          category: scenarios[currentQ].category,
+          type: scenarios[currentQ].type,
+          value: val,
+        }
+      } else {
+        newAnswers.push({
+          questionCode: scenarios[currentQ].code,
+          category: scenarios[currentQ].category,
+          type: scenarios[currentQ].type,
+          value: val,
+        })
+      }
+      setAnswers(newAnswers)
+      setShowFeedback(false)
+      setCurrentAnswer(undefined)
+      if (currentQ < scenarios.length - 1) {
+        setCurrentQ((p) => p + 1)
+      } else {
+        onComplete(newAnswers.length >= scenarios.length ? newAnswers : [...newAnswers])
+      }
+    }, 1000)
+  }, [currentQ, scenarios, answers, onComplete])
 
   const handleNext = useCallback(() => {
     if (currentAnswer !== undefined) {
@@ -222,6 +254,32 @@ export function ScenarioChallenge({
             <Button onClick={handleNext} disabled={!showFeedback}>
               {currentQ < scenarios.length - 1 ? 'Suivant →' : 'Terminer ✓'}
             </Button>
+          </div>
+
+          {/* Audio controls — read scenario + voice answer */}
+          <div className="flex justify-center mt-2">
+            <AudioControls
+              readText={`Scénario ${currentQ + 1}. ${q.question}${q.options ? '. ' + q.options.map((o, i) => `${OPTION_LABELS[i]}: ${o}`).join(', ') : ''}`}
+              compact
+              onVoiceResult={(transcript) => {
+                if (q.options) {
+                  const upper = transcript.trim().toUpperCase()
+                  const letterMatch = OPTION_LABELS.findIndex((l) => l === upper)
+                  if (letterMatch >= 0 && letterMatch < q.options.length) {
+                    handleAnswer(OPTION_LABELS[letterMatch])
+                    return
+                  }
+                  const numMap: Record<string, number> = { un: 0, une: 0, deux: 1, trois: 2, quatre: 3 }
+                  const word = transcript.trim().toLowerCase()
+                  for (const [w, idx] of Object.entries(numMap)) {
+                    if (word.includes(w) && idx < q.options.length) {
+                      handleAnswer(OPTION_LABELS[idx])
+                      return
+                    }
+                  }
+                }
+              }}
+            />
           </div>
         </motion.div>
       </AnimatePresence>

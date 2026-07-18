@@ -42,6 +42,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { useAuthStore } from '@/lib/zustand/store'
+import { AudioControls } from '@/components/audio/audio-controls'
 
 // ─── Types ────────────────────────────────────
 
@@ -1422,10 +1423,16 @@ export function MonProjet() {
           </p>
         </div>
         {user && (
-          <Badge variant="secondary" className="w-fit">
-            <Heart className="h-3 w-3 mr-1 text-coral-500" />
-            {user.firstName || user.email}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="w-fit">
+              <Heart className="h-3 w-3 mr-1 text-coral-500" />
+              {user.firstName || user.email}
+            </Badge>
+            <AudioControls
+              readText={`Mon projet, étape ${currentStep} sur 5: ${STEPS[currentStep - 1]?.label || ''}. ${currentStep === 1 ? 'Identité du projet. ' : currentStep === 2 ? 'Marché et clientèle. ' : currentStep === 3 ? 'Modèle économique. ' : currentStep === 4 ? 'Équipe et motivation. ' : 'Résumé du projet. '}${formData.projectTitle ? 'Projet: ' + formData.projectTitle + '.' : ''}`}
+              compact
+            />
+          </div>
         )}
       </div>
 

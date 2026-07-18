@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useBureauStore } from '@/components/bureau/bureau-store'
+import { AudioControls } from '@/components/audio/audio-controls'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -357,6 +358,10 @@ export function ParcoursPaaModule() {
                     Programme structuré de 60 jours pour lancer votre projet entrepreneurial
                   </p>
                 </div>
+                <AudioControls
+                  readText="Parcours PAA, Programme d'Accompagnement à l'Amorçage. Programme structuré de 60 jours pour lancer votre projet entrepreneurial."
+                  compact
+                />
               </div>
             </div>
           </div>

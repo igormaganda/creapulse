@@ -35,6 +35,7 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/zustand/store'
 import { useBureauStore } from '../bureau-store'
+import { AudioControls } from '@/components/audio/audio-controls'
 
 // ────────────────────────────────────────────
 // Types
@@ -390,6 +391,10 @@ export function KiviatModule() {
           )}
           {saveStatus === 'saving' ? 'Sauvegarde...' : saveStatus === 'saved' ? 'Sauvegardé !' : 'Sauvegarder'}
         </Button>
+        <AudioControls
+          readText={DIMENSIONS.map(d => `${d.label}: ${scores[d.key]} sur 10`).join('. ')}
+          compact
+        />
       </div>
 
       {/* Global Average */}
