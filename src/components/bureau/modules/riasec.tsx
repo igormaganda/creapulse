@@ -484,8 +484,28 @@ function QuizScreen({
   const isLastQuestion = currentQuestion === QUESTIONS.length - 1
   const canContinue = selectedValue !== undefined
 
-  // ── Click-to-advance timer ──
+  // ── Click-to-advance timer (shared by click and voice) ──
   const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current)
+    }
+  }, [])
+
+  /** Schedule auto-advance — cancels any pending timer first */
+  const scheduleAdvance = useCallback(() => {
+    if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current)
+    autoAdvanceTimerRef.current = setTimeout(() => {
+      autoAdvanceTimerRef.current = null
+      if (isLastQuestion) {
+        onFinish()
+      } else {
+        onNext()
+      }
+    }, 400)
+  }, [isLastQuestion, onNext, onFinish])
 
   // ── Audio: voice-driven quiz ──
   const [audioAutoAdvance, setAudioAutoAdvance] = useState(true)
@@ -507,16 +527,9 @@ function QuizScreen({
     const value = parseInt(result, 10)
     if (value >= 1 && value <= 5) {
       onAnswer(question.id, value)
-      // Auto-advance after voice answer
-      setTimeout(() => {
-        if (isLastQuestion) {
-          onFinish()
-        } else {
-          onNext()
-        }
-      }, 400)
+      scheduleAdvance()
     }
-  }, [question.id, isLastQuestion, onAnswer, onNext, onFinish])
+  }, [question.id, onAnswer, scheduleAdvance])
 
   return (
     <div className="flex flex-col min-h-[70vh] px-4 py-6 md:px-8 md:py-8 max-w-2xl mx-auto w-full">
@@ -569,15 +582,7 @@ function QuizScreen({
                       whileTap={{ scale: 0.99 }}
                       onClick={() => {
                         onAnswer(question.id, value)
-                        // Click-to-advance: cancel any pending timer, then auto-advance
-                        if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current)
-                        autoAdvanceTimerRef.current = setTimeout(() => {
-                          if (isLastQuestion) {
-                            onFinish()
-                          } else {
-                            onNext()
-                          }
-                        }, 400)
+                        scheduleAdvance()
                       }}
                       role="radio"
                       aria-checked={isSelected}

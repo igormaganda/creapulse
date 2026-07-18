@@ -341,7 +341,7 @@ export function BilanIA() {
                 : 'Générer mon bilan IA'}
           </Button>
           <AudioControls
-            readText={data?.bilan ? `Bilan IA. Score global: ${data.bilan.globalScore} sur 100, ${data.bilan.globalScoreLabel}. ${data.bilan.synthesis ? data.bilan.synthesis.substring(0, 300) : ''}` : 'Bilan IA. Synthèse intelligente de votre parcours entrepreneurial. Cliquez sur générer pour créer votre bilan.'}
+            readText={data?.bilan ? `Bilan IA. Score global: ${data.bilan.globalScore} sur 100, ${data.bilan.globalScoreLabel}. ${data.bilan.synthesis ? data.bilan.synthesis.replace(/<[^>]*>/g, '').substring(0, 300) : ''}` : 'Bilan IA. Synthèse intelligente de votre parcours entrepreneurial. Cliquez sur générer pour créer votre bilan.'}
             compact
           />
         </div>

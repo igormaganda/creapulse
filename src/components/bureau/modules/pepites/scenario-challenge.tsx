@@ -12,7 +12,6 @@ import { cn } from '@/lib/utils'
 import { DIMENSION_CODES, type QuestionAnswer } from '@/lib/kiviat-scoring'
 import { shuffleArray, DIMENSION_COLORS, DIMENSION_LABELS, OPTION_LABELS } from './shared'
 import { AudioControls } from '@/components/audio/audio-controls'
-import type { MatchOptions } from '@/lib/hooks/useAudioHelper'
 
 // ─── ScenarioChallenge ───────────────────────────
 
@@ -53,41 +52,14 @@ export function ScenarioChallenge({
   const [showFeedback, setShowFeedback] = useState(false)
   const autoAdvanceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const handleAnswer = useCallback((val: string | number) => {
-    setCurrentAnswer(val)
-    setShowFeedback(true)
-    // Click-to-advance: auto-advance after showing feedback
-    if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current)
-    autoAdvanceRef.current = setTimeout(() => {
-      // handleNext logic
-      const newAnswers = [...answers]
-      if (currentQ < newAnswers.length) {
-        newAnswers[currentQ] = {
-          questionCode: scenarios[currentQ].code,
-          category: scenarios[currentQ].category,
-          type: scenarios[currentQ].type,
-          value: val,
-        }
-      } else {
-        newAnswers.push({
-          questionCode: scenarios[currentQ].code,
-          category: scenarios[currentQ].category,
-          type: scenarios[currentQ].type,
-          value: val,
-        })
-      }
-      setAnswers(newAnswers)
-      setShowFeedback(false)
-      setCurrentAnswer(undefined)
-      if (currentQ < scenarios.length - 1) {
-        setCurrentQ((p) => p + 1)
-      } else {
-        onComplete(newAnswers.length >= scenarios.length ? newAnswers : [...newAnswers])
-      }
-    }, 1000)
-  }, [currentQ, scenarios, answers, onComplete])
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => { if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current) }
+  }, [])
 
   const handleNext = useCallback(() => {
+    // Cancel any pending auto-advance timer
+    if (autoAdvanceRef.current) { clearTimeout(autoAdvanceRef.current); autoAdvanceRef.current = null }
     if (currentAnswer !== undefined) {
       const newAnswers = [...answers]
       if (currentQ < answers.length) {
@@ -121,7 +93,24 @@ export function ScenarioChallenge({
     }
   }, [currentAnswer, currentQ, scenarios, answers, onComplete])
 
+  // Keep a ref to the latest handleNext so the timer always calls the current version
+  const handleNextRef = useRef(handleNext)
+  useEffect(() => { handleNextRef.current = handleNext }, [handleNext])
+
+  const handleAnswer = useCallback((val: string | number) => {
+    setCurrentAnswer(val)
+    setShowFeedback(true)
+    // Click-to-advance: schedule advance after showing feedback
+    if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current)
+    autoAdvanceRef.current = setTimeout(() => {
+      autoAdvanceRef.current = null
+      handleNextRef.current()
+    }, 1000)
+  }, []) // stable — reads from handleNextRef
+
   const handlePrev = useCallback(() => {
+    // Cancel any pending auto-advance timer
+    if (autoAdvanceRef.current) { clearTimeout(autoAdvanceRef.current); autoAdvanceRef.current = null }
     if (currentQ > 0) {
       setCurrentQ((p) => p - 1)
       const prevAns = answers[currentQ - 1]

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useMemo, useCallback } from 'react'
+import { useState, useRef, useMemo, useCallback, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -44,6 +44,11 @@ function QuestionCard({
   const [ranking, setRanking] = useState<number[]>([])
   const [showFeedback, setShowFeedback] = useState(false)
   const autoAdvanceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => { if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current) }
+  }, [])
 
   const handleSubmit = () => {
     if (question.type === 'open') {
@@ -304,6 +309,12 @@ export function Questionnaire({
   const [currentQ, setCurrentQ] = useState(0)
   const [answers, setAnswers] = useState<Map<string, { answer: string | number; q: SwipeQuestionData }>>(new Map())
   const currentAnswer = answers.get(questions[currentQ]?.code)?.answer
+  const voiceAdvanceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cleanup voice timer on unmount
+  useEffect(() => {
+    return () => { if (voiceAdvanceRef.current) clearTimeout(voiceAdvanceRef.current) }
+  }, [])
 
   const handleAnswer = useCallback((val: string | number) => {
     setAnswers((prev) => {
@@ -314,6 +325,8 @@ export function Questionnaire({
   }, [currentQ, questions])
 
   const handleNext = useCallback(() => {
+    // Cancel any pending voice auto-advance
+    if (voiceAdvanceRef.current) { clearTimeout(voiceAdvanceRef.current); voiceAdvanceRef.current = null }
     if (currentQ < questions.length - 1) {
       setCurrentQ((p) => p + 1)
     } else {
@@ -330,7 +343,17 @@ export function Questionnaire({
     }
   }, [currentQ, questions.length, onComplete])
 
+  /** Schedule auto-advance (used by voice handler for choice questions) */
+  const scheduleVoiceAdvance = useCallback(() => {
+    if (voiceAdvanceRef.current) clearTimeout(voiceAdvanceRef.current)
+    voiceAdvanceRef.current = setTimeout(() => {
+      voiceAdvanceRef.current = null
+      handleNext()
+    }, 800)
+  }, [handleNext])
+
   const handlePrev = useCallback(() => {
+    if (voiceAdvanceRef.current) { clearTimeout(voiceAdvanceRef.current); voiceAdvanceRef.current = null }
     if (currentQ > 0) setCurrentQ((p) => p - 1)
   }, [currentQ])
 
@@ -376,12 +399,18 @@ export function Questionnaire({
               const upper = transcript.trim().toUpperCase()
               const letterMatch = OPTION_LABELS.findIndex((l) => l === upper)
               if (letterMatch >= 0 && letterMatch < q.options.length) {
-                handleAnswer(OPTION_LABELS[letterMatch]); return
+                handleAnswer(OPTION_LABELS[letterMatch])
+                scheduleVoiceAdvance()
+                return
               }
               const numMap: Record<string, number> = { un: 0, une: 0, deux: 1, trois: 2, quatre: 3, cinq: 4, six: 5, sept: 6 }
               const word = transcript.trim().toLowerCase()
               for (const [w, idx] of Object.entries(numMap)) {
-                if (word.includes(w) && idx < q.options.length) { handleAnswer(OPTION_LABELS[idx]); return }
+                if (word.includes(w) && idx < q.options.length) {
+                  handleAnswer(OPTION_LABELS[idx])
+                  scheduleVoiceAdvance()
+                  return
+                }
               }
             }
             if (q.type === 'open' && transcript.length >= 20) { handleAnswer(transcript) }
