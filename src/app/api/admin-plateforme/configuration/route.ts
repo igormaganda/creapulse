@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { success, Errors, handleApiError } from '@/lib/api-response'
-import { withAdminAuth } from '@/lib/api-auth'
+import { withAuth, withAdminAuth } from '@/lib/api-auth'
+import type { AuthResult } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 import { z } from 'zod'
 import { AuditAction } from '@prisma/client'
@@ -66,23 +67,22 @@ const DEFAULT_PAA_CONFIG = {
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await withAdminAuth(request)
-    if (!auth) return auth
-    const { tenantId } = auth
-
     const { searchParams } = new URL(request.url)
-    const effectiveTenantId = searchParams.get('tenantId') || tenantId
-
-    // Si la section 'paa' est demandée, retourner la config PAA
     const section = searchParams.get('section')
+
+    // PAA section: any authenticated user can read (needed by module config store)
     if (section === 'paa') {
-      // Use first tenant or admin's tenant for PAA config
+      const auth: AuthResult | NextResponse = await withAuth(request)
+      if (!auth || 'status' in auth) return auth as NextResponse
+      const { tenantId } = auth as AuthResult
+
       const tenantForPaa = await db.tenant.findUnique({
         where: { id: tenantId },
         select: { id: true, settings: true },
       })
       if (!tenantForPaa) {
-        return Errors.notFound('Organisation')
+        // Tenant not found — return defaults instead of 404
+        return success({ paa: DEFAULT_PAA_CONFIG }, 'Configuration PAA (défaut)')
       }
 
       const currentSettings = (tenantForPaa?.settings as Record<string, unknown>) || {}
@@ -90,6 +90,13 @@ export async function GET(request: NextRequest) {
 
       return success({ paa: paaConfig }, 'Configuration PAA')
     }
+
+    // All other sections require ADMIN
+    const auth = await withAdminAuth(request)
+    if (!auth) return auth
+    const { tenantId } = auth
+
+    const effectiveTenantId = searchParams.get('tenantId') || tenantId
 
     // Si pas de tenantId spécifié, retourner tous les tenants avec leur config
     if (!searchParams.get('tenantId')) {

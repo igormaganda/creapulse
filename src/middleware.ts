@@ -37,7 +37,7 @@ function generateNonce(): string {
 function buildCsp(nonce: string): string {
   return [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline' 'nonce-${nonce}'`,  // TODO: remove 'unsafe-inline' after full nonce audit
+    `script-src 'self' 'unsafe-inline'`,                     // 'unsafe-inline' required for Next.js / Tailwind; nonce reserved for future hardening
     "style-src 'self' 'unsafe-inline'",                     // Tailwind CSS requires 'unsafe-inline'
     "img-src 'self' data: blob: https:",
     "font-src 'self' https://fonts.gstatic.com",
