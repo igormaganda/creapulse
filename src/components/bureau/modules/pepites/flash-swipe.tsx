@@ -12,6 +12,8 @@ import { authFetch } from '@/lib/auth-fetch'
 import { cn } from '@/lib/utils'
 import type { SwipeResult } from '@/lib/kiviat-scoring'
 import { shuffleArray, DIMENSION_COLORS, type SwipeAction } from './shared'
+import { AudioControls } from '@/components/audio/audio-controls'
+import type { MatchOptions } from '@/lib/hooks/useAudioHelper'
 
 // ─── FlashSwipe ──────────────────────────────────
 
@@ -31,6 +33,7 @@ export function FlashSwipe({
   const [currentConfidence, setCurrentConfidence] = useState(3)
   const [isAnimating, setIsAnimating] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
+  const [audioAutoAdvance, setAudioAutoAdvance] = useState(false)
 
   const x = useMotionValue(0)
   const rotate = useTransform(x, [-200, 200], [-15, 15])
@@ -130,6 +133,44 @@ export function FlashSwipe({
 
   const currentCard = deck[currentIndex]
   const progress = deck.length > 0 ? (currentIndex / deck.length) * 100 : 0
+
+  // Build read text from current card
+  const cardReadText = currentCard
+    ? `${currentCard.title}. ${currentCard.description}`
+    : undefined
+
+  // Voice commands for swipe actions
+  const swipeMatchOptions: MatchOptions | undefined = currentCard ? {
+    choices: [
+      { label: 'pépite', value: 'pepite' },
+      { label: 'pass', value: 'pass' },
+      { label: 'super', value: 'super' },
+      { label: 'super pépite', value: 'super' },
+    ],
+    keywords: {
+      'oui': 'pepite',
+      'je garde': 'pepite',
+      'garder': 'pepite',
+      'intéressant': 'pepite',
+      'non': 'pass',
+      'je passe': 'pass',
+      'passer': 'pass',
+      'suivant': 'pass',
+      'super': 'super',
+      'excellent': 'super',
+      'génial': 'super',
+    },
+  } : undefined
+
+  const handleVoiceSwipe = useCallback((result: string) => {
+    if (result === 'pepite') {
+      processSwipe('pepite')
+    } else if (result === 'pass') {
+      processSwipe('pass')
+    } else if (result === 'super') {
+      processSwipe('superPepite')
+    }
+  }, [processSwipe])
 
   if (isComplete) {
     return (
@@ -307,6 +348,17 @@ export function FlashSwipe({
           </div>
         </motion.div>
       )}
+
+      <div className="flex justify-center mt-3">
+        <AudioControls
+          readText={cardReadText}
+          matchOptions={swipeMatchOptions}
+          onVoiceResult={handleVoiceSwipe}
+          autoAdvance={audioAutoAdvance}
+          onAutoAdvanceChange={setAudioAutoAdvance}
+          compact
+        />
+      </div>
 
       <p className="text-center text-xs text-muted-foreground">
         Double tap = Super Pépite · Flèches clavier · Glissez la carte

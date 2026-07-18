@@ -40,6 +40,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { AudioControls } from '@/components/audio/audio-controls'
+import type { MatchOptions } from '@/lib/hooks/useAudioHelper'
 
 // ────────────────────────────────────────────
 // Types
@@ -482,6 +484,37 @@ function QuizScreen({
   const isLastQuestion = currentQuestion === QUESTIONS.length - 1
   const canContinue = selectedValue !== undefined
 
+  // ── Audio: voice-driven quiz ──
+  const [audioAutoAdvance, setAudioAutoAdvance] = useState(true)
+
+  const readText = `Question ${currentQuestion + 1} sur ${QUESTIONS.length}. ${question.text}`
+
+  const riasecMatchOptions: MatchOptions = useMemo(() => ({
+    choices: LIKERT_LABELS.map((label, idx) => ({ label, value: idx + 1 })),
+    keywords: {
+      'pas du tout': 1, 'pas du tout d\'accord': 1,
+      'pas d\'accord': 2,
+      'neutre': 3, 'bof': 3,
+      'd\'accord': 4,
+      'tout à fait': 5, 'tout à fait d\'accord': 5, 'très': 5,
+    },
+  }), [])
+
+  const handleVoiceResult = useCallback((result: string) => {
+    const value = parseInt(result, 10)
+    if (value >= 1 && value <= 5) {
+      onAnswer(question.id, value)
+      // Auto-advance after voice answer
+      setTimeout(() => {
+        if (isLastQuestion) {
+          onFinish()
+        } else {
+          onNext()
+        }
+      }, 400)
+    }
+  }, [question.id, isLastQuestion, onAnswer, onNext, onFinish])
+
   return (
     <div className="flex flex-col min-h-[70vh] px-4 py-6 md:px-8 md:py-8 max-w-2xl mx-auto w-full">
       {/* Progress header */}
@@ -574,8 +607,19 @@ function QuizScreen({
         </motion.div>
       </AnimatePresence>
 
+      {/* Audio controls — read question + voice answer */}
+      <div className="flex justify-center mt-4">
+        <AudioControls
+          readText={readText}
+          matchOptions={riasecMatchOptions}
+          onVoiceResult={handleVoiceResult}
+          autoAdvance={audioAutoAdvance}
+          onAutoAdvanceChange={setAudioAutoAdvance}
+        />
+      </div>
+
       {/* Navigation buttons */}
-      <div className="flex items-center justify-between mt-6">
+      <div className="flex items-center justify-between mt-4">
         <Button
           variant="ghost"
           size="sm"

@@ -14,6 +14,8 @@ import { SWIPE_QUESTIONS, type SwipeQuestionData } from '@/data/swipe-questions'
 import { cn } from '@/lib/utils'
 import type { QuestionAnswer } from '@/lib/kiviat-scoring'
 import { shuffleArray, DIMENSION_COLORS, DIMENSION_LABELS, OPTION_LABELS } from './shared'
+import { AudioControls } from '@/components/audio/audio-controls'
+import type { MatchOptions } from '@/lib/hooks/useAudioHelper'
 
 // ─── QuestionCard ────────────────────────────────
 
@@ -353,6 +355,33 @@ export function Questionnaire({
           canNext={currentAnswer !== undefined}
         />
       </AnimatePresence>
+
+      {/* Audio controls — read question + voice answer */}
+      <div className="flex justify-center mt-2">
+        <AudioControls
+          readText={`Question ${currentQ + 1}. ${q.question}`}
+          compact
+          onVoiceResult={(transcript) => {
+            if (q.type === 'scale') {
+              const num = parseInt(transcript, 10)
+              if (num >= 1 && num <= 5) { handleAnswer(num); return }
+            }
+            if ((q.type === 'choice' || q.type === 'behavioral' || q.type === 'scenario') && q.options) {
+              const upper = transcript.trim().toUpperCase()
+              const letterMatch = OPTION_LABELS.findIndex((l) => l === upper)
+              if (letterMatch >= 0 && letterMatch < q.options.length) {
+                handleAnswer(OPTION_LABELS[letterMatch]); return
+              }
+              const numMap: Record<string, number> = { un: 0, une: 0, deux: 1, trois: 2, quatre: 3, cinq: 4, six: 5, sept: 6 }
+              const word = transcript.trim().toLowerCase()
+              for (const [w, idx] of Object.entries(numMap)) {
+                if (word.includes(w) && idx < q.options.length) { handleAnswer(OPTION_LABELS[idx]); return }
+              }
+            }
+            if (q.type === 'open' && transcript.length >= 20) { handleAnswer(transcript) }
+          }}
+        />
+      </div>
     </div>
   )
 }
