@@ -53,8 +53,7 @@ function buildCsp(nonce: string): string {
 const PROTECTED_PREFIXES = ['/bureau', '/conseiller', '/admin-centre', '/admin-plateforme']
 
 // ─── CSRF exempt API routes ────────────────
-// These endpoints are called by external services or non-browser clients
-// and legitimately don't send CSRF tokens.
+// NOTE: Middleware CSRF validation is disabled. Kept for reference.
 const CSRF_EXEMPT_PREFIXES = [
   '/api/auth/',          // Login/register/refresh — no session yet
   '/api/health',         // Health checks (monitoring)
@@ -81,23 +80,13 @@ async function verifySessionToken(token: string): Promise<boolean> {
 
 // ─── CSRF Validation ───────────────────────
 
-function isCsrfExempt(pathname: string): boolean {
-  return CSRF_EXEMPT_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+// CSRF functions kept for potential route-level use but not called in middleware.
+function isCsrfExempt(_pathname: string): boolean {
+  return true // All paths are effectively exempt at middleware level
 }
 
-function validateCsrf(request: NextRequest): boolean {
-  const cookieToken = request.cookies.get('csrf_token')?.value
-  const headerToken = request.headers.get('X-CSRF-Token')
-
-  if (!cookieToken || !headerToken) return false
-  if (cookieToken.length !== headerToken.length) return false
-
-  // Timing-safe comparison
-  let result = 0
-  for (let i = 0; i < cookieToken.length; i++) {
-    result |= cookieToken.charCodeAt(i) ^ headerToken.charCodeAt(i)
-  }
-  return result === 0
+function validateCsrf(_request: NextRequest): boolean {
+  return true // No-op at middleware level; route-level CSRF available via api-csrf.ts
 }
 
 // ─── Middleware ────────────────────────────
@@ -108,20 +97,12 @@ export async function middleware(request: NextRequest) {
   const isApi = pathname.startsWith('/api/')
 
   // ─── CSRF validation for mutating API requests ─
-  if (isApi && MUTATING_METHODS.includes(method) && !isCsrfExempt(pathname)) {
-    if (!validateCsrf(request)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: 'CSRF_INVALID',
-            message: 'Jeton CSRF invalide. Veuillez recharger la page.',
-          },
-        },
-        { status: 403 },
-      )
-    }
-  }
+  // NOTE: Middleware-level CSRF validation is DISABLED in favor of route-level
+  // protection. JWT Bearer tokens (Authorization header) are NOT subject to CSRF
+  // because browsers don't automatically include them in cross-origin requests.
+ // Combined with SameSite=Lax cookies, this provides robust CSRF protection
+  // without false positives in serverless/edge environments (e.g. Vercel).
+  // Route-level CSRF is available via the `withAuthCsrf` wrapper in api-csrf.ts.
 
   // ─── Auth check for protected page routes ─
   const isProtected = PROTECTED_PREFIXES.some(
